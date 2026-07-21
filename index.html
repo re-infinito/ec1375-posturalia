@@ -7,6 +7,7 @@
     <meta property="og:title" content="EC1375 - De la sombra a profesional legítimo">
     <meta property="og:description" content="Regulariza tu práctica como terapeuta en 6 meses. Certificación oficial SEP-CONOCER.">
     <title>EC1375 - Certificación Oficial para Terapeutas | SEP-CONOCER</title>
+    <script src="https://sdk.mercadopago.com/js/v2"></script>
     <style>
         * {
             margin: 0;
@@ -1004,9 +1005,10 @@
                 </div>
 
                 <div class="payment-card">
-                    <h3>🔗 Pago Directo Online</h3>
-                    <p style="margin-bottom: 20px;">Integración con Stripe / Mercado Pago</p>
-                    <button class="btn-primary" onclick="handleCTA('pagar')" style="width: 100%;">Pagar $2,000 Ahora</button>
+                    <h3>💳 Mercado Pago</h3>
+                    <p style="margin-bottom: 20px;">Pago seguro y rápido</p>
+                    <div id="wallet_container" style="margin-bottom: 16px;"></div>
+                    <button class="btn-primary" onclick="handleMercadoPagoPay()" style="width: 100%;">Pagar $2,000 con Mercado Pago</button>
                     <p style="font-size: 0.85rem; margin-top: 16px; color: var(--text);">Confirmación automática + contacto por WhatsApp</p>
                 </div>
             </div>
@@ -1183,19 +1185,67 @@
             });
         }
 
+        // MERCADO PAGO INITIALIZATION
+        let mp;
+
+        function initMercadoPago() {
+            // Nota: En producción, usa tu Public Key de Mercado Pago
+            const publicKey = 'APP_USR-2465263038921252-072114-fce315dcc9b9550df49c635de92e696f-724130873';
+
+            if (publicKey && publicKey.includes('APP_USR')) {
+                mp = new MercadoPago(publicKey, {
+                    locale: 'es-MX'
+                });
+
+                // Inicializar Wallet Brick (botón de Mercado Pago)
+                initWalletBrick();
+            }
+        }
+
+        function initWalletBrick() {
+            try {
+                const walletBrick = mp.bricks.create('wallet', {
+                    initialization: {
+                        preferenceId: 'YOUR_PREFERENCE_ID', // Se generará en backend
+                    },
+                    customization: {
+                        texts: {
+                            valueProp: 'wallet_convenience',
+                        },
+                    },
+                    onError: (error) => {
+                        console.error('Error en Wallet Brick:', error);
+                    },
+                    onReady: () => {
+                        console.log('Wallet Brick listo');
+                    },
+                });
+
+                walletBrick.render('#wallet_container');
+            } catch (error) {
+                console.log('Wallet Brick no disponible, usando botón alternativo');
+            }
+        }
+
+        function handleMercadoPagoPay() {
+            // Redirige a WhatsApp para completar el pago por transferencia
+            // En producción, esto usaría Mercado Pago Preference API
+            window.open('https://wa.me/528136071342?text=Hola%2C%20quiero%20pagar%20los%20%242%2C000%20del%20apartado%20de%20EC1375%20por%20Mercado%20Pago.%20Me%20ayudas%20con%20el%20proceso%3F', '_blank');
+        }
+
         // HANDLE CTA
         function handleCTA(type) {
             if (type === 'apartar' || type === 'consultar') {
                 window.open('https://wa.me/528136071342?text=Hola%2C%20me%20interesa%20apartar%20mi%20lugar%20en%20EC1375', '_blank');
             } else if (type === 'pagar') {
-                // Aquí irá la integración de Stripe/Mercado Pago
-                alert('Sistema de pago en integración. Por favor usa WhatsApp o transferencia bancaria.');
+                handleMercadoPagoPay();
             }
         }
 
         // INIT
         document.addEventListener('DOMContentLoaded', () => {
             updateCountdown();
+            initMercadoPago();
         });
     </script>
 </body>
