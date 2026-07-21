@@ -62,14 +62,27 @@
         }
 
         .logo {
-            font-size: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
             font-weight: 700;
             color: var(--primary);
-            text-decoration: none;
+        }
+
+        .logo img {
+            height: 40px;
+            width: auto;
+            object-fit: contain;
+        }
+
+        .logo-text {
+            font-size: 18px;
         }
 
         .logo-accent {
             color: var(--accent);
+            font-size: 14px;
         }
 
         nav {
@@ -811,7 +824,10 @@
     <header>
         <div class="container">
             <div class="header-content">
-                <a href="#" class="logo">POSTURALIA <span class="logo-accent">D 8:17</span></a>
+                <a href="#" class="logo">
+                    <img src="Logo Posturalia.jpeg" alt="Posturalia Logo">
+                    <div class="logo-text">POSTURALIA <span class="logo-accent">D 8:17</span></div>
+                </a>
                 <nav>
                     <a href="#problema">¿Por Qué?</a>
                     <a href="#como-funciona">Proceso</a>
@@ -826,8 +842,8 @@
     <section class="hero">
         <div class="hero-content">
             <div class="pill">● ÚLTIMO DÍA • CUPO LIMITADO • SEPTIEMBRE</div>
-            <h1>De trabajar en la sombra<br><span class="accent">a profesional legítimo</span></h1>
-            <p>Regularización EC1375 • Certificación oficial SEP-CONOCER</p>
+            <h1>DE TRABAJAR EN LA SOMBRA<br><span class="accent">A PROFESIONAL LEGÍTIMO</span></h1>
+            <p>REGULARIZACIÓN EC1375 • CERTIFICACIÓN OFICIAL SEP-CONOCER</p>
 
             <div class="countdown-box" id="countdown">
                 Cargando tiempo restante...
@@ -845,11 +861,11 @@
     <!-- PROBLEMA & SOLUCIÓN -->
     <section id="problema">
         <div class="container">
-            <h2 class="section-title">El Problema <span class="accent">& La Solución</span></h2>
+            <h2 class="section-title">EL PROBLEMA <span class="accent">& LA SOLUCIÓN</span></h2>
 
             <div class="problem-solution">
                 <div>
-                    <h3 class="column-title problem-title">⚠️ 3 Riesgos</h3>
+                    <h3 class="column-title problem-title">⚠️ 3 RIESGOS</h3>
 
                     <div class="card card-problem">
                         <div class="card-icon">🚨</div>
@@ -871,7 +887,7 @@
                 </div>
 
                 <div>
-                    <h3 class="column-title solution-title">✅ 3 Beneficios</h3>
+                    <h3 class="column-title solution-title">✅ 3 BENEFICIOS</h3>
 
                     <div class="card card-solution">
                         <div class="card-icon">🛡️</div>
@@ -898,7 +914,7 @@
     <!-- CÓMO FUNCIONA -->
     <section id="como-funciona">
         <div class="container">
-            <h2 class="section-title">Tu Camino en <span class="accent">6 Meses</span></h2>
+            <h2 class="section-title">TU CAMINO EN <span class="accent">6 MESES</span></h2>
 
             <div class="timeline">
                 <div class="timeline-step">
@@ -952,7 +968,7 @@
     <!-- TESTIMONIOS -->
     <section>
         <div class="container">
-            <h2 class="section-title">156+ Terapeutas <span class="accent">Ya Regularizados</span></h2>
+            <h2 class="section-title">156+ TERAPEUTAS <span class="accent">YA REGULARIZADOS</span></h2>
 
             <div class="stats-box">
                 <div class="big-number">156+</div>
@@ -989,7 +1005,7 @@
     <!-- PAGOS -->
     <section>
         <div class="container">
-            <h2 class="section-title">Opciones de <span class="accent">Pago</span></h2>
+            <h2 class="section-title">OPCIONES DE <span class="accent">PAGO</span></h2>
 
             <div class="payment-section">
                 <div class="payment-card">
@@ -1018,7 +1034,7 @@
     <!-- FAQ -->
     <section>
         <div class="container">
-            <h2 class="section-title">Preguntas <span class="accent">Frecuentes</span></h2>
+            <h2 class="section-title">PREGUNTAS <span class="accent">FRECUENTES</span></h2>
 
             <div id="faq" class="faq">
                 <div class="faq-item">
@@ -1087,9 +1103,9 @@
     <!-- FINAL CTA -->
     <section class="final-cta" id="final-cta">
         <div class="container">
-            <h2>No Esperes Más</h2>
-            <p>Asegura tu lugar HOY. Cierra hoy a las 23:59 hrs.</p>
-            <p>La generación abre en <strong>SEPTIEMBRE 2026</strong></p>
+            <h2>NO ESPERES MÁS</h2>
+            <p>ASEGURA TU LUGAR HOY. CIERRA HOY A LAS 23:59 HRS.</p>
+            <p>LA GENERACIÓN ABRE EN <strong>SEPTIEMBRE 2026</strong></p>
 
             <div class="countdown-final" id="countdown-final">
                 Cargando tiempo restante...
