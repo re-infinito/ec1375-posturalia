@@ -759,51 +759,57 @@
         @media (max-width: 768px) {
             /* HEADER MOBILE */
             header {
-                padding: 16px 0;
+                padding: 12px 0;
             }
 
             .header-content {
-                flex-wrap: wrap;
-                gap: 12px;
+                display: grid;
+                grid-template-columns: auto 1fr auto;
+                gap: 8px;
+                align-items: center;
             }
 
             .logo {
                 gap: 6px;
-                flex: 1;
                 min-width: 0;
             }
 
             .logo img {
-                height: 40px;
+                height: 35px;
             }
 
             .logo-text {
-                font-size: 14px;
+                font-size: 13px;
                 white-space: nowrap;
                 overflow: hidden;
                 text-overflow: ellipsis;
             }
 
             .logo-accent {
-                font-size: 12px;
+                font-size: 11px;
+                display: block;
             }
 
             nav {
-                gap: 12px;
-                flex: 1;
-                justify-content: flex-end;
-                min-width: 0;
+                display: none;
+                gap: 8px;
+                justify-content: center;
+                grid-column: 1 / -1;
+                padding-top: 8px;
+                border-top: 1px solid rgba(0, 136, 255, 0.2);
+                margin-top: 8px;
             }
 
             nav a {
-                font-size: 11px;
+                font-size: 12px;
                 white-space: nowrap;
             }
 
             .cta-header {
                 padding: 8px 16px;
-                font-size: 12px;
+                font-size: 11px;
                 white-space: nowrap;
+                grid-column: 3;
             }
 
             /* HERO MOBILE */
