@@ -1244,9 +1244,8 @@
         }
 
         function handleMercadoPagoPay() {
-            // Redirige a WhatsApp para completar el pago por transferencia
-            // En producción, esto usaría Mercado Pago Preference API
-            window.open('https://wa.me/528136071342?text=Hola%2C%20quiero%20pagar%20los%20%242%2C000%20del%20apartado%20de%20EC1375%20por%20Mercado%20Pago.%20Me%20ayudas%20con%20el%20proceso%3F', '_blank');
+            // Redirige directamente al link de pago de Mercado Pago
+            window.location.href = 'https://mpago.la/1QeeSHo';
         }
 
         // HANDLE CTA
