@@ -757,14 +757,56 @@
 
         /* RESPONSIVE */
         @media (max-width: 768px) {
-            header nav {
-                gap: 16px;
+            /* HEADER MOBILE */
+            header {
+                padding: 16px 0;
             }
 
-            nav a {
+            .header-content {
+                flex-wrap: wrap;
+                gap: 12px;
+            }
+
+            .logo {
+                gap: 6px;
+                flex: 1;
+                min-width: 0;
+            }
+
+            .logo img {
+                height: 40px;
+            }
+
+            .logo-text {
+                font-size: 14px;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+
+            .logo-accent {
                 font-size: 12px;
             }
 
+            nav {
+                gap: 12px;
+                flex: 1;
+                justify-content: flex-end;
+                min-width: 0;
+            }
+
+            nav a {
+                font-size: 11px;
+                white-space: nowrap;
+            }
+
+            .cta-header {
+                padding: 8px 16px;
+                font-size: 12px;
+                white-space: nowrap;
+            }
+
+            /* HERO MOBILE */
             .hero {
                 padding: 80px 24px;
             }
@@ -781,6 +823,7 @@
                 width: 100%;
             }
 
+            /* SECTIONS MOBILE */
             .problem-solution {
                 grid-template-columns: 1fr;
             }
@@ -995,7 +1038,7 @@
     <!-- MIEDOS & SOLUCIONES -->
     <section id="problema">
         <div class="container">
-            <h2 class="section-title">ESTOS MIEDOS SON REALES <span class="accent">& TÍ LOS VIVES</span></h2>
+            <h2 class="section-title">ESTOS MIEDOS SON REALES <span class="accent">& TÚ LOS VIVES</span></h2>
 
             <div class="problem-solution">
                 <div>
