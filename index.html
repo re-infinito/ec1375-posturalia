@@ -812,11 +812,105 @@
             }
         }
 
+        /* BEFORE/AFTER SECTION */
+        .before-after-section {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            gap: 40px;
+            align-items: center;
+            margin-top: 50px;
+        }
+
+        .before-card, .after-card {
+            background: var(--dark-light);
+            border: 2px solid;
+            padding: 40px 30px;
+            border-radius: 8px;
+            min-height: 400px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .before-card {
+            border-color: var(--danger);
+        }
+
+        .after-card {
+            border-color: var(--primary);
+        }
+
+        .before-title {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: var(--danger);
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .after-title {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .before-items, .after-items {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .before-items .item, .after-items .item {
+            font-size: 0.95rem;
+            line-height: 1.5;
+            padding-left: 20px;
+            position: relative;
+        }
+
+        .before-items .item::before {
+            content: '✗';
+            position: absolute;
+            left: 0;
+            color: var(--danger);
+            font-weight: 700;
+        }
+
+        .after-items .item::before {
+            content: '✓';
+            position: absolute;
+            left: 0;
+            color: var(--success);
+            font-weight: 700;
+        }
+
+        .arrow-divider {
+            font-size: 3rem;
+            color: var(--accent);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+        }
+
         /* LAZY LOADING */
         img {
             loading: lazy;
             max-width: 100%;
             height: auto;
+        }
+
+        @media (max-width: 768px) {
+            .before-after-section {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+
+            .arrow-divider {
+                transform: rotate(90deg);
+                margin: 10px 0;
+            }
         }
     </style>
 </head>
@@ -843,69 +937,108 @@
     <section class="hero">
         <div class="hero-content">
             <div class="pill">● ÚLTIMO DÍA • CUPO LIMITADO • SEPTIEMBRE</div>
-            <h1>DE TRABAJAR EN LA SOMBRA<br><span class="accent">A PROFESIONAL LEGÍTIMO</span></h1>
-            <p>REGULARIZACIÓN EC1375 • CERTIFICACIÓN OFICIAL SEP-CONOCER</p>
+            <h1>Tu vocación es ayudar personas.<br><span class="accent">NO VIVIR CON MIEDO</span></h1>
+            <p>Deja de ejercer con MIEDO.<br>Empieza a ejercer con la TRANQUILIDAD de estar en regla.</p>
+
+            <div style="font-size: 1rem; color: var(--text); margin-bottom: 40px; line-height: 1.8;">
+                <p>Trabajas todos los días para ayudar a tus pacientes.</p>
+                <p>Pero ¿cuántas noches duermes mal por no tener respaldo legal?</p>
+                <p><strong>En 6 meses puedes tener el respaldo legal que mereces.</strong></p>
+            </div>
 
             <div class="countdown-box" id="countdown">
                 Cargando tiempo restante...
             </div>
 
             <div class="cta-group">
-                <button class="btn-primary" onclick="handleMercadoPagoPay()">Apartar por $2,000</button>
-                <button class="btn-secondary" onclick="document.getElementById('como-funciona').scrollIntoView({behavior: 'smooth'})">Ver Detalles</button>
+                <button class="btn-primary" onclick="handleMercadoPagoPay()">SÍ, QUIERO DORMIR TRANQUILO</button>
+                <button class="btn-secondary" onclick="document.getElementById('transformacion').scrollIntoView({behavior: 'smooth'})">Ver Mi Transformación</button>
             </div>
 
             <p class="social-proof-hero">👥 156+ Terapeutas ya inscritos al EC1375</p>
         </div>
     </section>
 
-    <!-- PROBLEMA & SOLUCIÓN -->
+    <!-- ANTES/DESPUÉS TRANSFORMACIÓN -->
+    <section id="transformacion">
+        <div class="container">
+            <h2 class="section-title">EL CAMBIO QUE VIVEN <span class="accent">OTROS TERAPEUTAS</span></h2>
+
+            <div class="before-after-section">
+                <div class="before-card">
+                    <h3 class="before-title">TRABAJAS CON MIEDO</h3>
+                    <div class="before-items">
+                        <div class="item">Noches sin dormir pensando en COFEPRIS</div>
+                        <div class="item">Pacientes que dudan: "¿Dónde estudiaste?"</div>
+                        <div class="item">No puedes facturar ni operar legalmente</div>
+                        <div class="item">Estás solo con esta preocupación</div>
+                        <div class="item">Cada día que pasa, se agrava más</div>
+                    </div>
+                </div>
+
+                <div class="arrow-divider">→</div>
+
+                <div class="after-card">
+                    <h3 class="after-title">TRABAJAS CON TRANQUILIDAD</h3>
+                    <div class="after-items">
+                        <div class="item">Duermes sin miedo con certificado oficial</div>
+                        <div class="item">Pacientes confían: "Eres profesional certificado"</div>
+                        <div class="item">Facturas legalmente y tienes consultorio propio</div>
+                        <div class="item">156+ terapeutas como tú ya lo hicieron</div>
+                        <div class="item">Tu vocación florece sin ansiedad</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- MIEDOS & SOLUCIONES -->
     <section id="problema">
         <div class="container">
-            <h2 class="section-title">EL PROBLEMA <span class="accent">& LA SOLUCIÓN</span></h2>
+            <h2 class="section-title">ESTOS MIEDOS SON REALES <span class="accent">& TÍ LOS VIVES</span></h2>
 
             <div class="problem-solution">
                 <div>
-                    <h3 class="column-title problem-title">⚠️ 3 RIESGOS</h3>
+                    <h3 class="column-title problem-title">😰 3 MIEDOS</h3>
 
                     <div class="card card-problem">
                         <div class="card-icon">🚨</div>
-                        <h3>Multas COFEPRIS</h3>
-                        <p>Hasta $80,000 por ejercer sin protocolo oficial</p>
+                        <h3>El Miedo Constante a COFEPRIS</h3>
+                        <p>No es paranoia. Es realidad. COFEPRIS sanciona prácticas sin protocolo. Multas hasta $80,000 o cierre de consultorio. ¿Cuánto falta para que llegue?</p>
                     </div>
 
                     <div class="card card-problem">
                         <div class="card-icon">😔</div>
-                        <h3>Pierdes Credibilidad</h3>
-                        <p>Pacientes eligen terapeutas certificados. Pierdes 30-40% de clientes potenciales.</p>
+                        <h3>El Miedo de Perder Credibilidad</h3>
+                        <p>Tus pacientes te aman. Pero ¿confían en tu formación? "¿Pero dónde estudiaste realmente?" Esa pregunta duele. Pierdes pacientes ante competencia certificada.</p>
                     </div>
 
                     <div class="card card-problem">
                         <div class="card-icon">⚖️</div>
-                        <h3>Responsabilidad Penal</h3>
-                        <p>Daño a paciente sin protocolos = demanda civil + pena criminal</p>
+                        <h3>El Miedo al Daño sin Saber</h3>
+                        <p>Haces lo mejor que puedes. Pero ¿y si falta protocolo? Daño a paciente = demanda civil + responsabilidad penal. ¿Qué pasa si algo malo sucede?</p>
                     </div>
                 </div>
 
                 <div>
-                    <h3 class="column-title solution-title">✅ 3 BENEFICIOS</h3>
+                    <h3 class="column-title solution-title">✨ LA TRANQUILIDAD</h3>
 
                     <div class="card card-solution">
                         <div class="card-icon">🛡️</div>
-                        <h3>Seguridad Legal</h3>
-                        <p>Certificado oficial SEP-CONOCER válido 5 años. Folio verificable en RENEC.</p>
+                        <h3>Protección Legal Oficial</h3>
+                        <p>Certificado SEP-CONOCER oficial. COFEPRIS lo respeta. Duermes sin miedo. Trabajas legalmente con respaldo que importa.</p>
                     </div>
 
                     <div class="card card-solution">
                         <div class="card-icon">👥</div>
-                        <h3>Gana Confianza</h3>
-                        <p>Certificado en pared + verificable online. +40% retención de pacientes según testimonios.</p>
+                        <h3>Credibilidad Real y Visible</h3>
+                        <p>Tus pacientes ven tu certificado. Confiarán en ti como nunca. +40% más pacientes. +40% más ganancias. Pero lo mejor: tu validación profesional es real.</p>
                     </div>
 
                     <div class="card card-solution">
                         <div class="card-icon">📋</div>
-                        <h3>Responsable Sanitario</h3>
-                        <p>Art. 79, párr. 2 Ley General de Salud. Operates legalmente SIN cédula profesional.</p>
+                        <h3>Libertad sin Culpa</h3>
+                        <p>Facturas legalmente. Trabajas donde quieras. Consultorio propio. Sin miedo. Eres responsable sanitario oficial sin necesidad de cédula. Eso es poder.</p>
                     </div>
                 </div>
             </div>
@@ -986,7 +1119,13 @@
                             <p>Masajista Holística • Monterrey</p>
                         </div>
                     </div>
-                    <p class="testimonial-text">"Trabajaba sin respaldo, tenía miedo a COFEPRIS. Ahora tengo certificado oficial, mis pacientes confían más y gano 40% más. Se pagó en 3 meses."</p>
+                    <div class="testimonial-text">
+                        <p><strong>ANTES:</strong> Trabajaba con miedo constante</p>
+                        <p>Atendía clientes, pero cada noche me preguntaba si COFEPRIS llegaría. No dormía tranquila. Mis pacientes me amaban, pero dudaban de mi formación.</p>
+
+                        <p style="margin-top: 12px;"><strong>AHORA:</strong> Duermo tranquila</p>
+                        <p>Tengo mi certificado oficial. Mis pacientes confían. Gano 40% más. Pero lo mejor: ya no vivo con miedo. Mi vocación florece sin ansiedad.</p>
+                    </div>
                 </div>
 
                 <div class="testimonial">
@@ -997,7 +1136,30 @@
                             <p>Terapeuta Manual • CDMX</p>
                         </div>
                     </div>
-                    <p class="testimonial-text">"Pensé que necesitaba cédula. Descubrí que puedo ser responsable sanitario oficial. Ahora puedo facturar y operar legalmente."</p>
+                    <div class="testimonial-text">
+                        <p><strong>ANTES:</strong> No podía facturar legalmente</p>
+                        <p>Ganaba dinero, pero trabajaba en sombras. No podía tener consultorio profesional. Mi identidad profesional era ficticia.</p>
+
+                        <p style="margin-top: 12px;"><strong>AHORA:</strong> Soy empresario legítimo</p>
+                        <p>Facturo. Tengo consultorio. Soy responsable sanitario oficial. Mi identidad profesional es REAL. Eso cambió todo.</p>
+                    </div>
+                </div>
+
+                <div class="testimonial">
+                    <div class="testimonial-header">
+                        <div class="avatar">LG</div>
+                        <div class="testimonial-info">
+                            <h4>Laura G.</h4>
+                            <p>Acupunturista • Guadalajara</p>
+                        </div>
+                    </div>
+                    <div class="testimonial-text">
+                        <p><strong>ANTES:</strong> Mis pacientes dudaban</p>
+                        <p>Me querían, pero preguntaban "¿Realmente tienes formación oficial?" Eso me hacía sentir ilegítima. Perdí pacientes que eligieron a alguien "certificado".</p>
+
+                        <p style="margin-top: 12px;"><strong>AHORA:</strong> Me ven como profesional</p>
+                        <p>Mi certificado habla por mí. Mis pacientes me recomiendan sin dudas. Mi vocación está legitimada. Soy quien siempre supe que era.</p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1104,16 +1266,22 @@
     <!-- FINAL CTA -->
     <section class="final-cta" id="final-cta">
         <div class="container">
-            <h2>NO ESPERES MÁS</h2>
-            <p>ASEGURA TU LUGAR HOY. CIERRA HOY A LAS 23:59 HRS.</p>
-            <p>LA GENERACIÓN ABRE EN <strong>SEPTIEMBRE 2026</strong></p>
+            <h2>¿HASTA CUÁNDO VAS A ESPERAR?</h2>
+            <p>MIENTRAS TÚ DUDAS, OTROS TERAPEUTAS COMO TÍ YA SE CERTIFICAN.</p>
+            <p>YA GANAN MÁS. YA DUERMEN TRANQUILOS.</p>
+
+            <div style="margin: 30px 0; font-size: 1.1rem; line-height: 1.8;">
+                <p>Tu vocación es ayudar personas.</p>
+                <p>No vivir con el estrés de no contar con respaldo legal.</p>
+                <p style="margin-top: 20px;"><strong>En 6 meses puedes estar donde ellos están.</strong></p>
+            </div>
 
             <div class="countdown-final" id="countdown-final">
                 Cargando tiempo restante...
             </div>
 
             <div class="cta-group">
-                <button class="btn-primary" onclick="handleMercadoPagoPay()">Apartar por $2,000</button>
+                <button class="btn-primary" onclick="handleMercadoPagoPay()">SÍ, QUIERO DORMIR TRANQUILO</button>
                 <button class="btn-secondary" onclick="handleCTA('consultar')">Hablar con el Equipo</button>
             </div>
 
