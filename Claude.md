@@ -162,18 +162,31 @@ ETAPA 3: PAGO
 └─────────────────────────────────────┘
           ↓ Pago completado
           
-ETAPA 4: CONFIRMACIÓN + COMUNIDAD
+ETAPA 4: CONFIRMACIÓN + COMUNIDAD + NEXT SALE
 ┌─────────────────────────────────────┐
 │ success.html - Celebración           │
 ├─────────────────────────────────────┤
 │ ✅ Confetti animation               │
-│ 📋 Confirmación de pago             │
+│ 📋 Confirmación de pago ($2,000)    │
+│                                      │
+│ 🎯 ALTO COMPROMISO CTA:              │
+│ "📅 AGENDAR SESIÓN ALINEACIÓN"      │
+│    - Box azul prominente con shimmer │
+│    - 4 beneficios listados           │
+│    - Mensaje personalizado c/ specialty │
+│                                      │
 │ 📱 BOTÓN: "UNIRME A WHATSAPP"       │
-│    - Mensaje personalizado c/ especialidad │
+│    - Mensaje: "Acabo de apartar..."  │
+│                                      │
 │ 📅 Timeline próximos pasos          │
 │ 🔒 Trust & Security info            │
 └─────────────────────────────────────┘
-          ↓ Click WhatsApp
+          ↓ Click "AGENDAR ALINEACIÓN"
+          ↓ WhatsApp: "Quiero agendar sesión $4,250"
+          ↓ Equipo responde en 24-48h
+          ↓ Primer pago siguiente: $4,250 (2-3 semanas)
+          ↓
+          ↓ Click "UNIRME A WHATSAPP"
           ↓ Se une a grupo + recibe bienvenida
           
 PÁGINAS ALTERNATIVAS:
@@ -480,6 +493,60 @@ git log --oneline -5
 - ✅ Dark mode tema
 - ✅ Responsive design
 - ✅ FAQ funcionando
+
+---
+
+## 📊 ESTRUCTURA DE LA SUCCESS PAGE (v1.0)
+
+### Secciones de success.html
+
+1. **Celebration Section**
+   - Checkmark emoji grande (✅)
+   - Título: "¡LO HICISTE!"
+   - Subtítulo: "Tu primer paso hacia la tranquilidad está confirmado"
+   - Animación: slideUp con fade-in
+
+2. **Payment Confirmation Box**
+   - Borde verde (#00FF88)
+   - Muestra: Monto ($2,000 MXN), Concepto, Estado (✓ Pagado), Próximo paso
+   - Líneas separadoras sutiles
+   - Animación: slideUp con delay
+
+3. **High-Commitment CTA: Alignment Session** ⭐ NEW
+   - Box azul con shimmer animation en borde superior
+   - Título: "🎯 Próximo Paso: Sesión de Alineación"
+   - Descripción: 2-3 semanas, $4,250, preparación evaluación
+   - Features list con 4 beneficios (50min gabinete, 1h práctica, simulación, feedback)
+   - Botón grande: "📅 AGENDAR SESIÓN DE ALINEACIÓN"
+   - Subtexto: "O espera contacto del equipo en 24-48h"
+   - **Objetivo:** Convertir inmediatamente siguiente venta ($4,250)
+
+4. **WhatsApp Community Invitation**
+   - Titulo: "📱 Únete a la Comunidad"
+   - Descripción: 156+ terapeutas transformando vidas
+   - Botón principal: "📱 UNIRME AL GRUPO DE WHATSAPP"
+   - Copy-paste alternativa si no abre WhatsApp
+   - Mensaje personalizado: incluye specialty del quiz
+
+5. **What's Next Timeline**
+   - 5 pasos con timeline markers (✓, 1, 2, 3, 4)
+   - HOY: Apartado confirmado ($2,000 ✓)
+   - 24-48h: Contacto WhatsApp + Bienvenida
+   - 2-3 semanas: Sesión Alineación ($4,250)
+   - 1-2 semanas después: Evaluación ($6,000)
+   - 60-90 días: Certificado Oficial ($2,500) ✓ REGULARIZADO
+   - Visual: Blue timeline con circles numerados
+
+6. **Trust & Security Section**
+   - 🔒 Información protegida 100%
+   - Comunicaciones SOLO sobre certificación
+   - Trust logos: Mercado Pago, SEP-CONOCER, RENEC
+   - Fondo: Subtle green tint
+
+7. **Footer Contact**
+   - "¿Urgencia? Contacta directamente:"
+   - 3 opciones: WhatsApp, Teléfono, Email
+   - Links funcionales y hover effects
 
 ---
 
