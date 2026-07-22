@@ -117,6 +117,131 @@ ACCIÓN (botón: "SÍ, QUIERO DORMIR TRANQUILO")
 
 ---
 
+## 🎯 FUNNEL DE CONVERSIÓN COMPLETO (v3.0 - Nuevo)
+
+**Última actualización:** 22 de julio, 2026  
+**Versión:** 3.0 (Quiz → Landing → Pago → Confirmación)
+
+### 🔄 Flujo Completo del Funnel
+
+```
+ETAPA 1: CALENTAMIENTO EMOCIONAL
+┌─────────────────────────────────────┐
+│ quiz.html - 5 Preguntas Emocionales │
+├─────────────────────────────────────┤
+│ 1. ¿Eres terapeuta sin validación?  │
+│ 2. ¿Sabes el costo multa COFEPRIS?  │
+│ 3. ¿Pacientes preguntaron credenciales? │
+│ 4. ¿Te gustaría regularizarte?      │
+│ 5. ¿Dispuesto si hay solución?      │
+│ + Bonus: Especialidad (masaje, etc) │
+└─────────────────────────────────────┘
+          ↓ localStorage guarda respuestas
+          ↓ Button: "VER MI SOLUCIÓN"
+          
+ETAPA 2: CONVERSIÓN
+┌─────────────────────────────────────┐
+│ index.html?source=quiz&specialty=X  │
+├─────────────────────────────────────┤
+│ Landing emocional v2.0              │
+│ (Lead ya está calentado)             │
+│ Detecta ?source=quiz (oculta nav)   │
+│ Scroll automático a #transformacion │
+└─────────────────────────────────────┘
+          ↓ Button: "SÍ, QUIERO DORMIR TRANQUILO"
+          
+ETAPA 3: PAGO
+┌─────────────────────────────────────┐
+│ https://mpago.la/1QeeSHo            │
+├─────────────────────────────────────┤
+│ Mercado Pago - $2,000 MXN           │
+│ Back-URLs configuradas:             │
+│ - Success: /success                 │
+│ - Failure: /failure                 │
+│ - Pending: /pending                 │
+└─────────────────────────────────────┘
+          ↓ Pago completado
+          
+ETAPA 4: CONFIRMACIÓN + COMUNIDAD
+┌─────────────────────────────────────┐
+│ success.html - Celebración           │
+├─────────────────────────────────────┤
+│ ✅ Confetti animation               │
+│ 📋 Confirmación de pago             │
+│ 📱 BOTÓN: "UNIRME A WHATSAPP"       │
+│    - Mensaje personalizado c/ especialidad │
+│ 📅 Timeline próximos pasos          │
+│ 🔒 Trust & Security info            │
+└─────────────────────────────────────┘
+          ↓ Click WhatsApp
+          ↓ Se une a grupo + recibe bienvenida
+          
+PÁGINAS ALTERNATIVAS:
+- failure.html - Pago rechazado (retry option)
+- pending.html - Pago en espera (verificar estado)
+```
+
+### 📄 Archivos del Funnel (Nuevos)
+
+| Archivo | Propósito | localStorage |
+|---------|-----------|--------------|
+| `quiz.html` | 5 preguntas emocionales | `quizResponses: {q1-q5, specialty}` |
+| `success.html` | Post-pago celebration | Lee `quizResponses` para personalizar |
+| `failure.html` | Pago fallido | Retry button → MP link |
+| `pending.html` | Pago procesando | Auto-reload cada 30s |
+
+### 🔗 Flujo técnico de redirecciones
+
+```javascript
+// Quiz → Landing
+quiz.html → VER MI SOLUCIÓN button
+  localStorage.setItem('quizResponses', {...})
+  window.location.href = 'index.html?source=quiz&specialty=masaje#transformacion'
+
+// Landing → Pago (ambos métodos)
+index.html → SÍ, QUIERO DORMIR TRANQUILO button
+  handleMercadoPagoPay() 
+  window.location.href = 'https://mpago.la/1QeeSHo'
+
+// Pago → Confirmación (configurado en Mercado Pago dashboard)
+Mercado Pago back_urls:
+  success: https://ec1375-posturalia.vercel.app/success
+  failure: https://ec1375-posturalia.vercel.app/failure
+  pending: https://ec1375-posturalia.vercel.app/pending
+
+// Confirmación → WhatsApp
+success.html → UNIRME A GRUPO button
+  const specialty = localStorage.getItem('quizResponses')
+  message = `Hola, acabo de apartar. Soy terapeuta de ${specialty}`
+  window.open(`https://wa.me/528136071342?text=${message}`)
+```
+
+### 📊 Conversión esperada (Baseline)
+
+```
+Quiz entrada:         100%
+Quiz → Landing:        80% (Si no abandonan quiz)
+Landing → Pago:      15-25% (Tasa conversión típica)
+Pago → WhatsApp:       60% (Click en botón CTA)
+WhatsApp → Venta:    40-50% (Primer contacto en grupo)
+
+FUNNEL TOTAL:        4.3% conversión (Baseline)
+OPTIMIZADO:          7-10% (Con mejoras de UX)
+```
+
+### 🎯 Próximas optimizaciones
+
+- [ ] Agregar URL parameter detection en index.html (source=quiz)
+- [ ] Implementar auto-scroll a #transformacion si source=quiz
+- [ ] Ocultar nav si source=quiz (landing más limpia)
+- [ ] Configurar back_urls en Mercado Pago dashboard
+- [ ] Crear funnel.js para lógica compartida (si es necesario)
+- [ ] Agregar video de Fernando Villarreal (30-60s) en success.html
+- [ ] Pixel de conversión (Facebook/Google) en success.html
+- [ ] Email automático post-pago (opcional)
+
+---
+
 ## 🔐 CREDENCIALES Y CONFIGURACIÓN
 
 ### Mercado Pago

@@ -1466,6 +1466,23 @@
             window.location.href = 'https://mpago.la/1QeeSHo';
         }
 
+        // DETECT QUIZ PARAMETER
+        function detectQuizSource() {
+            const params = new URLSearchParams(window.location.search);
+            const source = params.get('source');
+            const specialty = params.get('specialty');
+
+            if (source === 'quiz') {
+                // Si viene del quiz, hacer scroll automático a #transformacion
+                setTimeout(() => {
+                    const transformacionSection = document.getElementById('transformacion');
+                    if (transformacionSection) {
+                        transformacionSection.scrollIntoView({ behavior: 'smooth' });
+                    }
+                }, 500); // Pequeño delay para que la página cargue primero
+            }
+        }
+
         // HANDLE CTA
         function handleCTA(type) {
             if (type === 'apartar' || type === 'consultar') {
@@ -1479,6 +1496,7 @@
         document.addEventListener('DOMContentLoaded', () => {
             updateCountdown();
             initMercadoPago();
+            detectQuizSource();
         });
     </script>
 </body>
