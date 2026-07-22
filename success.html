@@ -337,6 +337,115 @@
             text-decoration: underline;
         }
 
+        /* SCHEDULE CTA SECTION */
+        .schedule-cta-section {
+            animation: slideUp 1.2s ease 0.6s both;
+        }
+
+        .schedule-cta-box {
+            background: linear-gradient(135deg, rgba(0, 136, 255, 0.15) 0%, rgba(0, 204, 255, 0.08) 100%);
+            border: 2px solid var(--primary);
+            border-radius: 16px;
+            padding: 40px;
+            margin-bottom: 40px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .schedule-cta-box::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--primary), var(--primary-light), var(--primary));
+            animation: shimmer 3s ease-in-out infinite;
+        }
+
+        @keyframes shimmer {
+            0%, 100% { opacity: 0.5; }
+            50% { opacity: 1; }
+        }
+
+        .schedule-cta-title {
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: var(--text-bright);
+            margin-bottom: 12px;
+        }
+
+        .schedule-cta-subtitle {
+            font-size: 1.05rem;
+            color: var(--text);
+            margin-bottom: 25px;
+            line-height: 1.6;
+        }
+
+        .schedule-features {
+            background: rgba(0, 136, 255, 0.08);
+            border-left: 4px solid var(--primary);
+            padding: 20px;
+            margin-bottom: 25px;
+            border-radius: 8px;
+        }
+
+        .feature-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+            font-size: 0.95rem;
+            color: var(--text);
+        }
+
+        .feature-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .feature-icon {
+            flex-shrink: 0;
+            width: 24px;
+            height: 24px;
+            background: var(--primary);
+            color: var(--dark);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.8rem;
+        }
+
+        .schedule-cta-btn {
+            width: 100%;
+            padding: 18px 30px;
+            background: var(--primary);
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 1.05rem;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 12px;
+            box-shadow: 0 4px 15px rgba(0, 136, 255, 0.3);
+        }
+
+        .schedule-cta-btn:hover {
+            background: var(--primary-light);
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0, 136, 255, 0.4);
+        }
+
+        .schedule-note {
+            text-align: center;
+            font-size: 0.9rem;
+            color: var(--text);
+            font-style: italic;
+        }
+
         @media (max-width: 768px) {
             .container {
                 padding: 20px 16px;
@@ -414,7 +523,39 @@
             </div>
         </div>
 
-        <!-- Section 4: What's Next -->
+        <!-- Section 4: High-Commitment CTA - Schedule Alignment Session -->
+        <div class="schedule-cta-section">
+            <div class="schedule-cta-box">
+                <h2 class="schedule-cta-title">🎯 Próximo Paso: Sesión de Alineación</h2>
+                <p class="schedule-cta-subtitle">En 2-3 semanas, tendrás tu sesión de alineación ($4,250)<br>donde te preparamos para la evaluación oficial.</p>
+
+                <div class="schedule-features">
+                    <div class="feature-item">
+                        <span class="feature-icon">✓</span>
+                        <span class="feature-text">50 minutos en gabinete (1:1 con facilitador)</span>
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-icon">✓</span>
+                        <span class="feature-text">1 hora de práctica en campo</span>
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-icon">✓</span>
+                        <span class="feature-text">Simulación de evaluación oficial</span>
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-icon">✓</span>
+                        <span class="feature-text">Feedback personalizado y ajustes</span>
+                    </div>
+                </div>
+
+                <button class="schedule-cta-btn" onclick="scheduleAlignment()">
+                    📅 AGENDAR SESIÓN DE ALINEACIÓN
+                </button>
+                <p class="schedule-note">O espera contacto del equipo en WhatsApp para agendar (24-48h)</p>
+            </div>
+        </div>
+
+        <!-- Section 5: What's Next -->
         <div class="whats-next">
             <h2 class="whats-next-title">📅 Qué Sigue</h2>
             <div class="timeline">
@@ -520,6 +661,18 @@
             navigator.clipboard.writeText(number).then(() => {
                 alert('¡Número copiado al portapapeles!');
             });
+        }
+
+        // Schedule Alignment Session
+        function scheduleAlignment() {
+            const responses = JSON.parse(localStorage.getItem('quizResponses') || '{}');
+            const specialty = responses.specialty || 'terapia';
+
+            const message = encodeURIComponent(
+                `Hola, acabo de apartar y quiero agendar mi Sesión de Alineación ($4,250). Soy terapeuta de ${specialty}. ¿Cuándo están disponibles?`
+            );
+
+            window.open(`https://wa.me/528136071342?text=${message}`, '_blank');
         }
 
         // Initialize
