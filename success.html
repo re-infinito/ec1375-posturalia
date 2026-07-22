@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>¡Pago Confirmado! - EC1375</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --dark: #050a1a;
+            --dark-light: #0f1428;
+            --primary: #0088FF;
+            --primary-light: #00CCFF;
+            --accent: #FFD700;
+            --text: #D0D0D0;
+            --text-bright: #FFFFFF;
+            --danger: #FF3333;
+            --success: #00FF88;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, var(--dark) 0%, #0a1530 100%);
+            color: var(--text);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        /* Confetti Animation */
+        @keyframes confetti {
+            0% {
+                transform: translateY(-100vh) rotate(0deg);
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(100vh) rotate(720deg);
+                opacity: 0;
+            }
+        }
+
+        .confetti {
+            position: fixed;
+            width: 10px;
+            height: 10px;
+            background: var(--primary);
+            animation: confetti 3s ease-in-out forwards;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        /* Section 1: Celebration */
+        .celebration {
+            text-align: center;
+            margin-bottom: 50px;
+            animation: slideUp 0.6s ease;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .checkmark {
+            font-size: 5rem;
+            margin-bottom: 20px;
+            animation: pulse 0.8s ease;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.1);
+            }
+        }
+
+        .success-title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--success);
+            margin-bottom: 15px;
+        }
+
+        .success-subtitle {
+            font-size: 1.2rem;
+            color: var(--text);
+            margin-bottom: 30px;
+        }
+
+        /* Section 2: Payment Confirmation */
+        .confirmation-box {
+            background: var(--dark-light);
+            border: 2px solid var(--success);
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 40px;
+            animation: slideUp 0.8s ease 0.2s both;
+        }
+
+        .confirmation-title {
+            font-size: 1.3rem;
+            font-weight: 700;
+            margin-bottom: 20px;
+            color: var(--text-bright);
+        }
+
+        .confirmation-detail {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(0, 255, 136, 0.2);
+        }
+
+        .confirmation-detail:last-child {
+            border-bottom: none;
+        }
+
+        .detail-label {
+            font-size: 0.95rem;
+            color: var(--text);
+        }
+
+        .detail-value {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--success);
+        }
+
+        /* Section 3: WhatsApp Invitation */
+        .whatsapp-section {
+            background: rgba(0, 136, 255, 0.08);
+            border: 2px solid var(--primary);
+            border-radius: 12px;
+            padding: 40px;
+            text-align: center;
+            margin-bottom: 40px;
+            animation: slideUp 1s ease 0.4s both;
+        }
+
+        .whatsapp-title {
+            font-size: 1.4rem;
+            font-weight: 700;
+            margin-bottom: 15px;
+            color: var(--text-bright);
+        }
+
+        .whatsapp-subtitle {
+            font-size: 1rem;
+            color: var(--text);
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+
+        .whatsapp-btn {
+            display: inline-block;
+            padding: 18px 40px;
+            background: #25D366;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 1.1rem;
+            transition: all 0.3s ease;
+            margin-bottom: 15px;
+            border: none;
+            cursor: pointer;
+        }
+
+        .whatsapp-btn:hover {
+            background: #20ba5a;
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(37, 211, 102, 0.3);
+        }
+
+        .whatsapp-alternative {
+            font-size: 0.9rem;
+            color: var(--text);
+            margin-top: 15px;
+        }
+
+        .whatsapp-number {
+            font-weight: 600;
+            color: var(--text-bright);
+            font-size: 1rem;
+            margin-top: 8px;
+            word-break: break-all;
+        }
+
+        /* Section 4: What's Next */
+        .whats-next {
+            background: var(--dark-light);
+            border-left: 4px solid var(--primary);
+            padding: 30px;
+            margin-bottom: 40px;
+            animation: slideUp 1.2s ease 0.6s both;
+        }
+
+        .whats-next-title {
+            font-size: 1.3rem;
+            font-weight: 700;
+            margin-bottom: 20px;
+            color: var(--text-bright);
+        }
+
+        .timeline {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .timeline-item {
+            display: flex;
+            gap: 15px;
+        }
+
+        .timeline-marker {
+            flex-shrink: 0;
+            width: 40px;
+            height: 40px;
+            background: var(--primary);
+            color: var(--dark);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+        }
+
+        .timeline-content {
+            flex: 1;
+        }
+
+        .timeline-time {
+            font-weight: 600;
+            color: var(--primary);
+            font-size: 0.95rem;
+        }
+
+        .timeline-text {
+            color: var(--text);
+            margin-top: 5px;
+        }
+
+        /* Section 5: Trust & Security */
+        .trust-section {
+            background: rgba(0, 255, 136, 0.05);
+            border: 1px solid rgba(0, 255, 136, 0.2);
+            border-radius: 12px;
+            padding: 25px;
+            text-align: center;
+            margin-bottom: 40px;
+            animation: slideUp 1.4s ease 0.8s both;
+        }
+
+        .trust-text {
+            font-size: 0.95rem;
+            color: var(--text);
+            margin-bottom: 15px;
+        }
+
+        .trust-logos {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .trust-logo {
+            display: inline-block;
+            padding: 8px 16px;
+            background: var(--dark-light);
+            border: 1px solid rgba(0, 255, 136, 0.3);
+            border-radius: 6px;
+            font-size: 0.85rem;
+            color: var(--success);
+        }
+
+        .footer-contact {
+            text-align: center;
+            padding: 30px;
+            border-top: 1px solid var(--dark-light);
+            margin-top: 40px;
+            color: var(--text);
+            animation: slideUp 1.6s ease 1s both;
+        }
+
+        .footer-title {
+            font-size: 0.95rem;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: var(--text-bright);
+        }
+
+        .footer-contacts {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            flex-wrap: wrap;
+            font-size: 0.9rem;
+        }
+
+        .footer-contact-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .footer-contact-item a {
+            color: var(--primary);
+            text-decoration: none;
+        }
+
+        .footer-contact-item a:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px 16px;
+            }
+
+            .success-title {
+                font-size: 2rem;
+            }
+
+            .checkmark {
+                font-size: 3.5rem;
+            }
+
+            .whatsapp-section {
+                padding: 25px;
+            }
+
+            .whatsapp-btn {
+                width: 100%;
+            }
+
+            .footer-contacts {
+                flex-direction: column;
+                gap: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Section 1: Celebration -->
+        <div class="celebration">
+            <div class="checkmark">✅</div>
+            <h1 class="success-title">¡LO HICISTE!</h1>
+            <p class="success-subtitle">Tu primer paso hacia la tranquilidad está confirmado</p>
+        </div>
+
+        <!-- Section 2: Payment Confirmation -->
+        <div class="confirmation-box">
+            <h2 class="confirmation-title">📋 Confirmación de Pago</h2>
+            <div class="confirmation-detail">
+                <span class="detail-label">Monto confirmado:</span>
+                <span class="detail-value">$2,000 MXN</span>
+            </div>
+            <div class="confirmation-detail">
+                <span class="detail-label">Concepto:</span>
+                <span class="detail-value">EC1375 - Apartado</span>
+            </div>
+            <div class="confirmation-detail">
+                <span class="detail-label">Estado:</span>
+                <span class="detail-value">✓ Pagado</span>
+            </div>
+            <div class="confirmation-detail">
+                <span class="detail-label">Próximo paso:</span>
+                <span class="detail-value">Contacto en 24-48h</span>
+            </div>
+        </div>
+
+        <!-- Section 3: WhatsApp Invitation -->
+        <div class="whatsapp-section">
+            <h2 class="whatsapp-title">📱 Únete a la Comunidad</h2>
+            <p class="whatsapp-subtitle">
+                Te espera una comunidad de 156+ terapeutas que ya están transformando sus vidas.<br>
+                El siguiente paso es que nos conozcamos en WhatsApp.
+            </p>
+            <button class="whatsapp-btn" onclick="openWhatsApp()">
+                📱 UNIRME AL GRUPO DE WHATSAPP
+            </button>
+            <div class="whatsapp-alternative">
+                <p>¿No se abre WhatsApp? Cópialo aquí:</p>
+                <p class="whatsapp-number" id="whatsappNumber">+52 81 3607 1342</p>
+                <button class="whatsapp-btn" onclick="copyWhatsappNumber()" style="background: var(--primary); margin-top: 10px;">
+                    Copiar número
+                </button>
+            </div>
+        </div>
+
+        <!-- Section 4: What's Next -->
+        <div class="whats-next">
+            <h2 class="whats-next-title">📅 Qué Sigue</h2>
+            <div class="timeline">
+                <div class="timeline-item">
+                    <div class="timeline-marker">✓</div>
+                    <div class="timeline-content">
+                        <div class="timeline-time">HOY</div>
+                        <div class="timeline-text">Apartado confirmado ($2,000 ✓)</div>
+                    </div>
+                </div>
+                <div class="timeline-item">
+                    <div class="timeline-marker">1</div>
+                    <div class="timeline-content">
+                        <div class="timeline-time">24-48 HORAS</div>
+                        <div class="timeline-text">Contacto por WhatsApp del equipo + Bienvenida a la comunidad</div>
+                    </div>
+                </div>
+                <div class="timeline-item">
+                    <div class="timeline-marker">2</div>
+                    <div class="timeline-content">
+                        <div class="timeline-time">2-3 SEMANAS</div>
+                        <div class="timeline-text">Sesión de Alineación ($4,250)</div>
+                    </div>
+                </div>
+                <div class="timeline-item">
+                    <div class="timeline-marker">3</div>
+                    <div class="timeline-content">
+                        <div class="timeline-time">1-2 SEMANAS DESPUÉS</div>
+                        <div class="timeline-text">Evaluación Teórica + Práctica ($6,000)</div>
+                    </div>
+                </div>
+                <div class="timeline-item">
+                    <div class="timeline-marker">4</div>
+                    <div class="timeline-content">
+                        <div class="timeline-time">60-90 DÍAS</div>
+                        <div class="timeline-text">Certificado Oficial EC1375 ($2,500) ✓ REGULARIZADO</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 5: Trust & Security -->
+        <div class="trust-section">
+            <p class="trust-text">🔒 Tu información está 100% protegida</p>
+            <p class="trust-text">Recibirás comunicaciones SOLO sobre tu proceso de certificación</p>
+            <div class="trust-logos">
+                <span class="trust-logo">Mercado Pago</span>
+                <span class="trust-logo">SEP-CONOCER</span>
+                <span class="trust-logo">RENEC</span>
+            </div>
+        </div>
+
+        <!-- Footer Contact -->
+        <div class="footer-contact">
+            <p class="footer-title">¿Urgencia? Contacta directamente:</p>
+            <div class="footer-contacts">
+                <div class="footer-contact-item">
+                    📱 <a href="https://wa.me/528136071342" target="_blank">WhatsApp</a>
+                </div>
+                <div class="footer-contact-item">
+                    📞 <a href="tel:+528136071342">+52 81 3607 1342</a>
+                </div>
+                <div class="footer-contact-item">
+                    📧 <a href="mailto:posturalia.d817@gmail.com">posturalia.d817@gmail.com</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Generate confetti
+        function createConfetti() {
+            for (let i = 0; i < 50; i++) {
+                const confetti = document.createElement('div');
+                confetti.className = 'confetti';
+                confetti.style.left = Math.random() * 100 + '%';
+                confetti.style.backgroundColor = ['var(--primary)', 'var(--accent)', 'var(--success)'][Math.floor(Math.random() * 3)];
+                confetti.style.animationDelay = Math.random() * 0.5 + 's';
+                confetti.style.width = (Math.random() * 8 + 5) + 'px';
+                confetti.style.height = confetti.style.width;
+                document.body.appendChild(confetti);
+
+                // Remove after animation
+                setTimeout(() => confetti.remove(), 3500);
+            }
+        }
+
+        // Open WhatsApp with personalized message
+        function openWhatsApp() {
+            const responses = JSON.parse(localStorage.getItem('quizResponses') || '{}');
+            const specialty = responses.specialty || 'terapia';
+
+            const message = encodeURIComponent(
+                `Hola, acabo de apartar mi lugar en EC1375. Soy terapeuta de ${specialty}. ¿Cuál es el siguiente paso?`
+            );
+
+            window.open(`https://wa.me/528136071342?text=${message}`, '_blank');
+        }
+
+        // Copy WhatsApp number
+        function copyWhatsappNumber() {
+            const number = document.getElementById('whatsappNumber').textContent;
+            navigator.clipboard.writeText(number).then(() => {
+                alert('¡Número copiado al portapapeles!');
+            });
+        }
+
+        // Initialize
+        window.addEventListener('load', () => {
+            createConfetti();
+        });
+    </script>
+</body>
+</html>

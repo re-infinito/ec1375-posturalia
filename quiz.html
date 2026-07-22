@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>¿Eres Terapeuta sin Validación? - EC1375</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --dark: #050a1a;
+            --dark-light: #0f1428;
+            --primary: #0088FF;
+            --primary-light: #00CCFF;
+            --accent: #FFD700;
+            --text: #D0D0D0;
+            --text-bright: #FFFFFF;
+            --danger: #FF3333;
+            --success: #00FF88;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: var(--dark);
+            color: var(--text);
+            line-height: 1.6;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .quiz-container {
+            max-width: 600px;
+            width: 100%;
+        }
+
+        .quiz-header {
+            text-align: center;
+            margin-bottom: 50px;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 30px;
+        }
+
+        .logo img {
+            height: 40px;
+            width: auto;
+        }
+
+        .logo-text {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .quiz-title {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 15px;
+            color: var(--text-bright);
+        }
+
+        .quiz-subtitle {
+            font-size: 1.1rem;
+            color: var(--text);
+            margin-bottom: 20px;
+        }
+
+        .progress-bar {
+            height: 6px;
+            background: var(--dark-light);
+            border-radius: 3px;
+            margin: 30px 0;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), var(--primary-light));
+            border-radius: 3px;
+            width: 20%;
+            transition: width 0.3s ease;
+        }
+
+        .progress-text {
+            text-align: center;
+            font-size: 0.9rem;
+            color: var(--text);
+            margin-top: 10px;
+        }
+
+        .quiz-content {
+            display: none;
+            animation: fadeIn 0.5s ease;
+        }
+
+        .quiz-content.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .question {
+            margin-bottom: 30px;
+        }
+
+        .question-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: var(--text-bright);
+            line-height: 1.4;
+        }
+
+        .options {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .option {
+            display: flex;
+            align-items: center;
+            padding: 16px;
+            background: var(--dark-light);
+            border: 2px solid rgba(0, 136, 255, 0.2);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .option:hover {
+            border-color: var(--primary);
+            background: rgba(0, 136, 255, 0.05);
+        }
+
+        .option input {
+            margin-right: 12px;
+            cursor: pointer;
+            width: 20px;
+            height: 20px;
+            accent-color: var(--primary);
+        }
+
+        .option label {
+            cursor: pointer;
+            flex: 1;
+            font-size: 1rem;
+        }
+
+        .option input:checked + label {
+            color: var(--text-bright);
+            font-weight: 600;
+        }
+
+        .specialty-options {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 12px;
+        }
+
+        .specialty-btn {
+            padding: 12px 16px;
+            background: var(--dark-light);
+            border: 2px solid rgba(0, 136, 255, 0.2);
+            border-radius: 8px;
+            color: var(--text);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.95rem;
+            font-weight: 500;
+        }
+
+        .specialty-btn:hover {
+            border-color: var(--primary);
+            background: rgba(0, 136, 255, 0.05);
+        }
+
+        .specialty-btn.selected {
+            background: var(--primary);
+            color: var(--dark);
+            border-color: var(--primary);
+        }
+
+        .quiz-buttons {
+            display: flex;
+            gap: 12px;
+            margin-top: 40px;
+            justify-content: space-between;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 16px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: var(--dark);
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-light);
+            transform: translateY(-2px);
+        }
+
+        .btn-primary:disabled {
+            background: var(--text);
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: var(--text);
+            border: 2px solid var(--primary);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(0, 136, 255, 0.1);
+        }
+
+        .btn-secondary:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .quiz-finish {
+            display: none;
+            text-align: center;
+            animation: fadeIn 0.5s ease;
+        }
+
+        .quiz-finish.active {
+            display: block;
+        }
+
+        .finish-icon {
+            font-size: 4rem;
+            margin-bottom: 20px;
+        }
+
+        .finish-title {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 15px;
+            color: var(--text-bright);
+        }
+
+        .finish-text {
+            font-size: 1.1rem;
+            color: var(--text);
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+
+        .finish-btn {
+            display: inline-block;
+            padding: 18px 40px;
+            background: var(--primary);
+            color: var(--dark);
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 1.1rem;
+            transition: all 0.3s ease;
+        }
+
+        .finish-btn:hover {
+            background: var(--primary-light);
+            transform: translateY(-4px);
+        }
+
+        @media (max-width: 768px) {
+            .quiz-title {
+                font-size: 1.5rem;
+            }
+
+            .question-title {
+                font-size: 1.1rem;
+            }
+
+            .specialty-options {
+                grid-template-columns: 1fr;
+            }
+
+            .quiz-buttons {
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .btn {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="quiz-container">
+        <!-- Header -->
+        <div class="quiz-header">
+            <div class="logo">
+                <img src="Logo Posturalia.jpeg" alt="Posturalia">
+                <span class="logo-text">POSTURALIA</span>
+            </div>
+            <h1 class="quiz-title">Descubre tu camino a la regularización</h1>
+            <p class="quiz-subtitle">5 preguntas que te cambiarán todo</p>
+
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <p class="progress-text" id="progressText">Pregunta 1 de 5</p>
+        </div>
+
+        <!-- Quiz Content -->
+        <div id="quizContent">
+            <!-- Pregunta 1 -->
+            <div class="quiz-content active" data-question="1">
+                <div class="question">
+                    <p class="question-title">¿Eres un terapeuta alternativo que operá sin validación legal oficial?</p>
+                    <div class="options">
+                        <div class="option">
+                            <input type="radio" name="q1" value="sin_respaldo" id="q1_1">
+                            <label for="q1_1">Sí, operó sin respaldo oficial</label>
+                        </div>
+                        <div class="option">
+                            <input type="radio" name="q1" value="con_certificado" id="q1_2">
+                            <label for="q1_2">No, ya tengo certificado</label>
+                        </div>
+                        <div class="option">
+                            <input type="radio" name="q1" value="en_proceso" id="q1_3">
+                            <label for="q1_3">Estoy en proceso de regularizarme</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pregunta 2 -->
+            <div class="quiz-content" data-question="2">
+                <div class="question">
+                    <p class="question-title">¿Sabes cuál es el costo potencial de una multa COFEPRIS?</p>
+                    <div class="options">
+                        <div class="option">
+                            <input type="radio" name="q2" value="conoce_80k" id="q2_1">
+                            <label for="q2_1">Sí, puede llegar hasta $80,000</label>
+                        </div>
+                        <div class="option">
+                            <input type="radio" name="q2" value="no_sabe" id="q2_2">
+                            <label for="q2_2">No, no lo sé exactamente</label>
+                        </div>
+                        <div class="option">
+                            <input type="radio" name="q2" value="no_cree" id="q2_3">
+                            <label for="q2_3">No creo que me pase</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pregunta 3 -->
+            <div class="quiz-content" data-question="3">
+                <div class="question">
+                    <p class="question-title">¿Tus pacientes alguna vez te preguntaron: "¿Dónde estudiaste?" o "¿Tienes certificado?"</p>
+                    <div class="options">
+                        <div class="option">
+                            <input type="radio" name="q3" value="constantemente" id="q3_1">
+                            <label for="q3_1">Constantemente</label>
+                        </div>
+                        <div class="option">
+                            <input type="radio" name="q3" value="a_veces" id="q3_2">
+                            <label for="q3_2">A veces</label>
+                        </div>
+                        <div class="option">
+                            <input type="radio" name="q3" value="rara_vez" id="q3_3">
+                            <label for="q3_3">Rara vez</label>
+                        </div>
+                        <div class="option">
+                            <input type="radio" name="q3" value="nunca" id="q3_4">
+                            <label for="q3_4">Nunca</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pregunta 4 -->
+            <div class="quiz-content" data-question="4">
+                <div class="question">
+                    <p class="question-title">¿Te gustaría regularizar tu práctica SIN depender de una cédula profesional?</p>
+                    <div class="options">
+                        <div class="option">
+                            <input type="radio" name="q4" value="absolutamente_si" id="q4_1">
+                            <label for="q4_1">Absolutamente sí</label>
+                        </div>
+                        <div class="option">
+                            <input type="radio" name="q4" value="podria_ser" id="q4_2">
+                            <label for="q4_2">Podría ser interesante</label>
+                        </div>
+                        <div class="option">
+                            <input type="radio" name="q4" value="no_seguro" id="q4_3">
+                            <label for="q4_3">No estoy seguro</label>
+                        </div>
+                        <div class="option">
+                            <input type="radio" name="q4" value="no" id="q4_4">
+                            <label for="q4_4">No</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pregunta 5 -->
+            <div class="quiz-content" data-question="5">
+                <div class="question">
+                    <p class="question-title">Si hubiera una forma COMPROBADA de regularizarte en 6 meses, ¿estarías dispuesto?</p>
+                    <div class="options">
+                        <div class="option">
+                            <input type="radio" name="q5" value="totalmente" id="q5_1">
+                            <label for="q5_1">Totalmente, sin dudas</label>
+                        </div>
+                        <div class="option">
+                            <input type="radio" name="q5" value="depende_precio" id="q5_2">
+                            <label for="q5_2">Depende del precio</label>
+                        </div>
+                        <div class="option">
+                            <input type="radio" name="q5" value="quizas" id="q5_3">
+                            <label for="q5_3">Quizás</label>
+                        </div>
+                        <div class="option">
+                            <input type="radio" name="q5" value="no" id="q5_4">
+                            <label for="q5_4">No</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bonus: Especialidad -->
+            <div class="quiz-content" data-question="6">
+                <div class="question">
+                    <p class="question-title">¿Cuál es tu especialidad? (Opcional - para segmentarte en grupos de WhatsApp)</p>
+                    <div class="specialty-options" id="specialtyOptions">
+                        <button type="button" class="specialty-btn" data-specialty="masaje">🙌 Masaje</button>
+                        <button type="button" class="specialty-btn" data-specialty="acupuntura">🌿 Acupuntura</button>
+                        <button type="button" class="specialty-btn" data-specialty="terapia_manual">💪 Terapia Manual</button>
+                        <button type="button" class="specialty-btn" data-specialty="holistica">✨ Holística</button>
+                        <button type="button" class="specialty-btn" data-specialty="otra">❓ Otra</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Finish Screen -->
+        <div id="quizFinish" class="quiz-finish">
+            <div class="finish-icon">✨</div>
+            <h2 class="finish-title">¡Lo hiciste! 🎉</h2>
+            <p class="finish-text">Ahora vamos a mostrarte exactamente cómo otros terapeutas como tú están transformando sus vidas en 6 meses.</p>
+            <button class="finish-btn" onclick="goToLanding()">VER MI SOLUCIÓN →</button>
+        </div>
+
+        <!-- Navigation Buttons -->
+        <div class="quiz-buttons" id="buttons">
+            <button class="btn btn-secondary" id="prevBtn" onclick="previousQuestion()" style="display: none;">← Atrás</button>
+            <button class="btn btn-primary" id="nextBtn" onclick="nextQuestion()" disabled>Siguiente →</button>
+        </div>
+    </div>
+
+    <script>
+        let currentQuestion = 1;
+        const totalQuestions = 6;
+        const responses = {};
+        let selectedSpecialty = null;
+
+        function updateProgress() {
+            const progress = (currentQuestion / totalQuestions) * 100;
+            document.getElementById('progressFill').style.width = progress + '%';
+            document.getElementById('progressText').textContent = `Pregunta ${currentQuestion} de ${totalQuestions}`;
+        }
+
+        function showQuestion(questionNum) {
+            // Hide all questions
+            document.querySelectorAll('.quiz-content').forEach(el => {
+                el.classList.remove('active');
+            });
+
+            // Show current question
+            document.querySelector(`[data-question="${questionNum}"]`).classList.add('active');
+
+            // Update buttons
+            document.getElementById('prevBtn').style.display = questionNum > 1 ? 'block' : 'none';
+            document.getElementById('nextBtn').textContent = questionNum === totalQuestions ? 'Finalizar' : 'Siguiente →';
+
+            updateProgress();
+
+            // Check if answer exists for this question
+            updateNextButtonState();
+
+            // If specialty question, update selected state
+            if (questionNum === 6 && selectedSpecialty) {
+                document.querySelectorAll('.specialty-btn').forEach(btn => {
+                    btn.classList.remove('selected');
+                    if (btn.dataset.specialty === selectedSpecialty) {
+                        btn.classList.add('selected');
+                    }
+                });
+            }
+        }
+
+        function updateNextButtonState() {
+            const currentQNum = currentQuestion;
+            if (currentQNum === 6) {
+                document.getElementById('nextBtn').disabled = false;
+            } else {
+                const selectedAnswer = document.querySelector(`input[name="q${currentQNum}"]:checked`);
+                document.getElementById('nextBtn').disabled = !selectedAnswer;
+            }
+        }
+
+        function nextQuestion() {
+            const currentQNum = currentQuestion;
+
+            // Save answer
+            if (currentQNum <= 5) {
+                const selectedAnswer = document.querySelector(`input[name="q${currentQNum}"]:checked`);
+                if (selectedAnswer) {
+                    responses[`q${currentQNum}`] = selectedAnswer.value;
+                }
+            }
+
+            if (currentQNum === totalQuestions) {
+                finishQuiz();
+            } else {
+                currentQuestion++;
+                showQuestion(currentQuestion);
+            }
+        }
+
+        function previousQuestion() {
+            if (currentQuestion > 1) {
+                currentQuestion--;
+                showQuestion(currentQuestion);
+            }
+        }
+
+        function finishQuiz() {
+            // Save specialty
+            if (selectedSpecialty) {
+                responses.specialty = selectedSpecialty;
+            }
+
+            // Save to localStorage
+            localStorage.setItem('quizResponses', JSON.stringify(responses));
+
+            // Hide quiz content and buttons
+            document.getElementById('quizContent').style.display = 'none';
+            document.getElementById('buttons').style.display = 'none';
+
+            // Show finish screen
+            document.getElementById('quizFinish').classList.add('active');
+        }
+
+        function goToLanding() {
+            // Build specialty query parameter
+            const specialty = selectedSpecialty ? `&specialty=${selectedSpecialty}` : '';
+            window.location.href = `index.html?source=quiz${specialty}#transformacion`;
+        }
+
+        // Event listeners for radio buttons
+        document.querySelectorAll('input[type="radio"]').forEach(input => {
+            input.addEventListener('change', updateNextButtonState);
+        });
+
+        // Event listeners for specialty buttons
+        document.querySelectorAll('.specialty-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.specialty-btn').forEach(b => b.classList.remove('selected'));
+                this.classList.add('selected');
+                selectedSpecialty = this.dataset.specialty;
+            });
+        });
+
+        // Initialize
+        showQuestion(1);
+    </script>
+</body>
+</html>
