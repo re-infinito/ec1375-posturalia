@@ -275,6 +275,14 @@ OPTIMIZADO:          7-10% (Con mejoras de UX)
 
 **Documento de referencia:** `PORTAFOLIO HUMBERTO LOT 1375.pdf` (143 páginas, expediente real ya entregado por un centro evaluador) — **no está en git** (es confidencial, contiene datos personales reales). Se usó únicamente para mapear la estructura exacta que debe tener cada expediente. Vive en la raíz del proyecto localmente, gitignored.
 
+**Logos oficiales:** `ICE MEXICO LOGO OFICIAL.jpeg` y `RED CONOCER LOGO OFICIAL.jpeg` (raíz del proyecto, SÍ están en git — son logos institucionales públicos, no datos confidenciales). Aparecen como header (red Conocer izq., ICEMéxico der.) en:
+- Los 3 PDFs generados por el candidato que sí forman parte del expediente final: Autodiagnóstico, Plan de Evaluación, Encuesta de Satisfacción (embebidos como base64 vía `addOfficialLogos(doc)` en cada archivo — jsPDF corre en el navegador, no tiene acceso al filesystem)
+- Portada, Índice, separadores de sección y Cédula de Evaluación en `assemble_expediente.py` (vía `draw_header_logos()`, referencia directa a los JPEG ya que corre server-side)
+- **Deliberadamente NO** en `evidencias.html` (comprobante interno — no es parte del expediente oficial, no debe parecer un documento oficial)
+- La plantilla `plantilla_IEC_blanco.pdf` ya trae sus propios logos originales (viene directo del PDF de Humberto, no hace falta tocarla)
+
+**⚠️ Hallazgo de auditoría pendiente de decidir:** el `plan-evaluacion.html` actual genera un PDF de **1 página resumida** (Elemento por Elemento). El Plan de Evaluación oficial de Humberto son **13 páginas** con el detalle reactivo-por-reactivo (los 142 ítems, cada uno mapeado a su instrumento — Guía de Observación / Lista de Cotejo / Cuestionario). Es la brecha de fidelidad más grande encontrada contra el documento de referencia. No se ha resuelto — pendiente de decidir con Diego si se expande a formato completo o se deja como resumen.
+
 ### Flujo completo (post-pago)
 
 ```
