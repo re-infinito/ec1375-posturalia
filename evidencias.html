@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Evidencias EC1375 - Posturalia</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --dark: #050a1a;
+            --dark-light: #0f1428;
+            --primary: #0088FF;
+            --primary-light: #00CCFF;
+            --accent: #FFD700;
+            --text: #D0D0D0;
+            --text-bright: #FFFFFF;
+            --danger: #FF3333;
+            --success: #00FF88;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, var(--dark) 0%, #0a1530 100%);
+            color: var(--text);
+            line-height: 1.6;
+            min-height: 100vh;
+            padding-bottom: 60px;
+        }
+
+        .container { max-width: 760px; margin: 0 auto; padding: 24px 20px; }
+
+        .top-bar {
+            position: sticky; top: 0; background: var(--dark);
+            border-bottom: 1px solid var(--dark-light); padding: 16px 20px; z-index: 100;
+        }
+        .top-bar-inner { max-width: 760px; margin: 0 auto; font-size: 0.95rem; color: var(--text-bright); font-weight: 700; }
+
+        .card { background: var(--dark-light); border-radius: 12px; padding: 24px; margin-bottom: 20px; }
+        .card h2 { font-size: 1.15rem; color: var(--text-bright); margin-bottom: 14px; }
+        .card p.desc { font-size: 0.88rem; color: var(--text); margin-bottom: 16px; }
+
+        .hero { text-align: center; padding: 20px 0 30px; }
+        .hero-icon { font-size: 3rem; margin-bottom: 14px; }
+        .hero-title { font-size: 1.7rem; font-weight: 700; color: var(--text-bright); margin-bottom: 10px; }
+        .hero-subtitle { font-size: 0.98rem; color: var(--text); }
+
+        .blocked-box {
+            background: rgba(255, 215, 0, 0.08); border: 1px solid var(--accent);
+            border-radius: 12px; padding: 28px; text-align: center;
+        }
+        .blocked-box p { color: var(--text); margin-bottom: 18px; }
+
+        .summary-row {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.08); font-size: 0.9rem;
+        }
+        .summary-row:last-child { border-bottom: none; }
+        .summary-label { color: var(--text); }
+        .summary-value { color: var(--text-bright); font-weight: 600; text-align: right; }
+
+        /* EVIDENCE CHECKLIST */
+        .evidence-item {
+            display: flex; gap: 14px; padding: 14px; background: var(--dark);
+            border-radius: 10px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.08);
+        }
+        .evidence-icon { font-size: 1.6rem; flex-shrink: 0; }
+        .evidence-title { font-size: 0.92rem; font-weight: 700; color: var(--text-bright); margin-bottom: 3px; }
+        .evidence-desc { font-size: 0.8rem; color: var(--text); }
+        .evidence-tag {
+            display: inline-block; font-size: 0.68rem; font-weight: 700; padding: 2px 8px;
+            border-radius: 10px; margin-top: 6px;
+        }
+        .evidence-tag.required { background: rgba(255,51,51,0.15); color: var(--danger); }
+
+        /* FORM EMBED */
+        .form-cta-box {
+            background: linear-gradient(135deg, rgba(0,136,255,0.15), rgba(0,204,255,0.05));
+            border: 2px solid var(--primary); border-radius: 12px; padding: 22px; text-align: center; margin-bottom: 10px;
+        }
+        #evidenceFrame { width: 100%; height: 900px; border: none; border-radius: 8px; background: white; }
+        .form-note { font-size: 0.8rem; color: rgba(255,255,255,0.5); margin-top: 10px; }
+
+        /* CONFIRMATION */
+        .checkbox-row {
+            display: flex; align-items: flex-start; gap: 10px; padding: 14px;
+            background: var(--dark); border-radius: 8px; margin-bottom: 16px;
+        }
+        .checkbox-row input[type="checkbox"] { width: 20px; height: 20px; flex-shrink: 0; margin-top: 2px; }
+        .checkbox-row label { font-size: 0.85rem; color: var(--text); }
+
+        .field-group { margin-bottom: 16px; }
+        .field-group label { display: block; font-size: 0.85rem; color: var(--text); margin-bottom: 6px; font-weight: 600; }
+        .field-group textarea {
+            width: 100%; padding: 12px 14px; background: var(--dark);
+            border: 1px solid rgba(255,255,255,0.15); border-radius: 8px;
+            color: var(--text-bright); font-size: 0.92rem; font-family: inherit;
+        }
+
+        .signature-tabs { display: flex; gap: 10px; margin-bottom: 16px; }
+        .sig-tab-btn {
+            flex: 1; padding: 10px; background: var(--dark); border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 8px; color: var(--text); font-size: 0.85rem; cursor: pointer;
+        }
+        .sig-tab-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+        #signatureCanvas {
+            width: 100%; max-width: 500px; height: 150px; background: #fff; border-radius: 8px;
+            border: 2px solid rgba(255,255,255,0.15); touch-action: none; display: block; margin: 0 auto 12px;
+        }
+        .clear-sig-btn {
+            display: block; margin: 0 auto 16px; padding: 8px 16px; background: transparent;
+            border: 1px solid var(--danger); color: var(--danger); border-radius: 6px; font-size: 0.8rem; cursor: pointer;
+        }
+
+        .btn {
+            padding: 15px 24px; border-radius: 8px; font-weight: 700; font-size: 0.95rem;
+            border: none; cursor: pointer; transition: all 0.3s ease; text-align: center;
+        }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: var(--primary-light); transform: translateY(-2px); }
+        .btn-primary:disabled { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.3); cursor: not-allowed; transform: none; }
+        .btn-secondary { background: transparent; border: 2px solid var(--primary); color: var(--primary); }
+        .btn-whatsapp { background: #25D366; color: white; }
+        .btn-whatsapp:hover { background: #20ba5a; transform: translateY(-2px); }
+        .btn-full { width: 100%; margin-bottom: 12px; }
+
+        .success-box {
+            background: rgba(0,255,136,0.08); border: 1px solid var(--success); border-radius: 12px;
+            padding: 24px; text-align: center;
+        }
+        .success-box h3 { color: var(--success); margin-bottom: 10px; }
+
+        @media (max-width: 600px) {
+            .summary-row { flex-direction: column; align-items: flex-start; gap: 4px; }
+            .summary-value { text-align: left; }
+            #evidenceFrame { height: 700px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="top-bar"><div class="top-bar-inner">📤 Evidencias EC1375</div></div>
+    <div class="container" id="app"></div>
+
+    <script>
+    /* =========================================================
+       CONFIG — pega aquí la URL de embed de tu Google Form
+    ========================================================= */
+    const GOOGLE_FORM_EMBED_URL = ''; // Ej: 'https://docs.google.com/forms/d/e/.../viewform?embedded=true'
+
+    const EVIDENCIAS_REQUERIDAS = [
+        { icon: '🎥', titulo: 'Video de tu sesión Zoom', desc: 'Grabación completa donde demuestras tus capacidades ante un usuario real o simulado. Tu evaluador la revisa para calificar el Instrumento de Evaluación.', required: true },
+        { icon: '📋', titulo: 'Ficha de Registro de Atención', desc: 'Foto o escaneo del documento que llenaste con los datos del usuario durante la sesión.', required: true },
+        { icon: '📝', titulo: 'Carta de Consentimiento Informado', desc: 'Foto o escaneo firmado por el usuario, aceptando el servicio.', required: true },
+        { icon: '📅', titulo: 'Plan de Seguimiento', desc: 'Foto o escaneo del plan de sesiones acordado con el usuario.', required: true },
+        { icon: '🪪', titulo: 'Identificación oficial (INE/Pasaporte)', desc: 'Copia legible de tu identificación vigente.', required: true },
+        { icon: '📄', titulo: 'Comprobante CURP', desc: 'Constancia o copia de tu CURP.', required: true },
+        { icon: '🎓', titulo: 'Certificados / diplomas de formación', desc: 'Respaldo de las especialidades que marcaste en tu Autodiagnóstico.', required: false }
+    ];
+
+    let planData = { evidenciasConfirmadas: false, notas: '' };
+    let signatureMode = 'draw';
+    let signatureDataUrl = null;
+    let signatureTypedName = '';
+    let hasSignature = false;
+    let isDrawing = false, lastX = 0, lastY = 0;
+    let generated = false;
+
+    function loadAutodiagnosticoResult() {
+        try {
+            const saved = JSON.parse(localStorage.getItem('autodiagnosticoData') || 'null');
+            if (!saved || !saved.personalData || !saved.personalData.nombre) return null;
+            const answers = saved.answers || {};
+            const total = 142;
+            const answered = Object.keys(answers).length;
+            const si = Object.values(answers).filter(v => v === 'SI').length;
+            const especialidades = Array.isArray(saved.selectedCertificaciones) ? [...saved.selectedCertificaciones] : [];
+            if (saved.otraCertificacionText && saved.otraCertificacionText.trim()) especialidades.push(saved.otraCertificacionText.trim());
+            return { personalData: saved.personalData, especialidades, si, total, answered, completo: answered === total };
+        } catch (e) { return null; }
+    }
+
+    function loadPlanEvaluacionInfo() {
+        try {
+            const saved = JSON.parse(localStorage.getItem('planEvaluacionData') || 'null');
+            return saved ? saved.planData || null : null;
+        } catch (e) { return null; }
+    }
+
+    function loadProgress() {
+        try {
+            const saved = JSON.parse(localStorage.getItem('evidenciasData') || 'null');
+            if (saved) {
+                planData = Object.assign(planData, saved.planData || {});
+                signatureDataUrl = saved.signatureDataUrl || null;
+                signatureTypedName = saved.signatureTypedName || '';
+                signatureMode = saved.signatureMode || 'draw';
+                hasSignature = !!signatureDataUrl;
+            }
+        } catch (e) {}
+    }
+
+    function saveProgress() {
+        localStorage.setItem('evidenciasData', JSON.stringify({ planData, signatureDataUrl, signatureTypedName, signatureMode }));
+    }
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
+    function render() {
+        const app = document.getElementById('app');
+        const result = loadAutodiagnosticoResult();
+
+        if (!result || !result.completo) {
+            app.innerHTML = `
+                <div class="hero">
+                    <div class="hero-icon">📤</div>
+                    <h1 class="hero-title">Carga de Evidencias</h1>
+                    <p class="hero-subtitle">El paso final antes de tu certificación</p>
+                </div>
+                <div class="blocked-box">
+                    <p><strong>Primero necesitas completar tu Autodiagnóstico</strong><br>Esto nos permite identificarte y personalizar tu checklist de evidencias.</p>
+                    <a href="autodiagnostico.html" class="btn btn-primary">📋 Ir al Autodiagnóstico</a>
+                </div>`;
+            return;
+        }
+
+        if (generated) { renderGeneratedState(app, result); return; }
+
+        const plan = loadPlanEvaluacionInfo();
+
+        app.innerHTML = `
+            <div class="hero">
+                <div class="hero-icon">📤</div>
+                <h1 class="hero-title">Carga de Evidencias</h1>
+                <p class="hero-subtitle">Sube tu video y documentos de tu evaluación práctica</p>
+            </div>
+
+            <div class="card">
+                <h2>👤 Tu Resumen</h2>
+                <div class="summary-row"><span class="summary-label">Candidato/a</span><span class="summary-value">${escapeHtml(result.personalData.nombre)}</span></div>
+                <div class="summary-row"><span class="summary-label">Especialidad</span><span class="summary-value">${escapeHtml(result.especialidades.join(', '))}</span></div>
+                ${plan && plan.fechaHoraAgendada ? `<div class="summary-row"><span class="summary-label">Cita de evaluación</span><span class="summary-value">${escapeHtml(plan.fechaHoraAgendada)}</span></div>` : ''}
+            </div>
+
+            <div class="card">
+                <h2>✅ Evidencias Requeridas</h2>
+                <p class="desc">Prepara estos archivos antes de subirlos en el formulario de abajo:</p>
+                ${EVIDENCIAS_REQUERIDAS.map(e => `
+                    <div class="evidence-item">
+                        <div class="evidence-icon">${e.icon}</div>
+                        <div>
+                            <div class="evidence-title">${e.titulo}</div>
+                            <div class="evidence-desc">${e.desc}</div>
+                            ${e.required ? '<span class="evidence-tag required">OBLIGATORIO</span>' : ''}
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+
+            <div class="card">
+                <h2>📤 Formulario de Carga</h2>
+                <p class="desc">Sube tus archivos directamente aquí. Necesitas iniciar sesión con una cuenta de Google para subir archivos (requisito de Google Forms).</p>
+                ${GOOGLE_FORM_EMBED_URL ? `
+                    <iframe id="evidenceFrame" src="${GOOGLE_FORM_EMBED_URL}">Cargando…</iframe>
+                ` : `
+                    <div class="form-cta-box">
+                        <p style="color:var(--text-bright);font-weight:600;margin-bottom:10px;">El formulario de carga se está configurando</p>
+                        <p class="desc" style="margin-bottom:16px;">Mientras tanto, envía tus archivos directamente por WhatsApp:</p>
+                        <button class="btn btn-whatsapp" onclick="requestUploadViaWhatsApp()">📱 ENVIAR EVIDENCIAS POR WHATSAPP</button>
+                    </div>
+                `}
+            </div>
+
+            <div class="card">
+                <h2>✍️ Confirmación</h2>
+                <div class="checkbox-row">
+                    <input type="checkbox" id="confirmCheck" ${planData.evidenciasConfirmadas ? 'checked' : ''} onchange="toggleConfirm(this)">
+                    <label for="confirmCheck">Confirmo que subí todas mis evidencias obligatorias en el formulario de arriba</label>
+                </div>
+                <div class="field-group">
+                    <label>Notas adicionales (opcional)</label>
+                    <textarea id="f_notas" rows="2" placeholder="Ej. Subí 2 videos por límite de tamaño">${escapeHtml(planData.notas)}</textarea>
+                </div>
+
+                <div class="signature-tabs">
+                    <button class="sig-tab-btn ${signatureMode === 'draw' ? 'active' : ''}" onclick="setSignatureMode('draw')">✍️ Dibujar firma</button>
+                    <button class="sig-tab-btn ${signatureMode === 'type' ? 'active' : ''}" onclick="setSignatureMode('type')">⌨️ Escribir mi nombre</button>
+                </div>
+                <div id="signaturePad" style="${signatureMode === 'draw' ? '' : 'display:none;'}">
+                    <canvas id="signatureCanvas" width="500" height="150"></canvas>
+                    <button class="clear-sig-btn" onclick="clearSignature()">Borrar firma</button>
+                </div>
+                <div id="signatureTyped" style="${signatureMode === 'type' ? '' : 'display:none;'}">
+                    <div class="field-group">
+                        <label>Escribe tu nombre completo como firma</label>
+                        <input type="text" id="f_signatureTyped" value="${escapeHtml(signatureTypedName)}" placeholder="Nombre completo" oninput="updateTypedSignature(this.value)" style="width:100%;padding:12px 14px;background:var(--dark);border:1px solid rgba(255,255,255,0.15);border-radius:8px;color:var(--text-bright);font-size:0.92rem;">
+                    </div>
+                </div>
+            </div>
+
+            <button class="btn btn-primary btn-full" id="btnGenerate" onclick="generateAcuse()" disabled>Generar Acuse de Evidencias →</button>
+        `;
+
+        const notasEl = document.getElementById('f_notas');
+        if (notasEl) notasEl.addEventListener('input', () => { planData.notas = notasEl.value; saveProgress(); });
+
+        if (signatureMode === 'draw') setTimeout(initSignatureCanvas, 50);
+        updateGenerateButton();
+    }
+
+    function toggleConfirm(el) { planData.evidenciasConfirmadas = el.checked; saveProgress(); updateGenerateButton(); }
+    function setSignatureMode(mode) { signatureMode = mode; saveProgress(); render(); }
+    function updateTypedSignature(value) { signatureTypedName = value; saveProgress(); updateGenerateButton(); }
+
+    function updateGenerateButton() {
+        const btn = document.getElementById('btnGenerate');
+        if (!btn) return;
+        const hasSig = signatureMode === 'draw' ? hasSignature : (signatureTypedName && signatureTypedName.trim().length > 3);
+        btn.disabled = !(planData.evidenciasConfirmadas && hasSig);
+    }
+
+    function requestUploadViaWhatsApp() {
+        const result = loadAutodiagnosticoResult();
+        const nombre = result ? result.personalData.nombre : 'Candidato';
+        const message = encodeURIComponent(`Hola, ya tengo listo mi video de Zoom y documentos de evidencia EC1375. Soy ${nombre}. ¿Cómo se los envío?`);
+        window.open(`https://wa.me/528136071342?text=${message}`, '_blank');
+    }
+
+    function initSignatureCanvas() {
+        const canvas = document.getElementById('signatureCanvas');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.strokeStyle = '#000'; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+        if (signatureDataUrl) {
+            const img = new Image();
+            img.onload = () => ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            img.src = signatureDataUrl;
+        }
+        function getPos(e) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width, scaleY = canvas.height / rect.height;
+            if (e.touches && e.touches.length) return { x: (e.touches[0].clientX - rect.left) * scaleX, y: (e.touches[0].clientY - rect.top) * scaleY };
+            return { x: (e.clientX - rect.left) * scaleX, y: (e.clientY - rect.top) * scaleY };
+        }
+        function startDraw(e) { e.preventDefault(); isDrawing = true; const p = getPos(e); lastX = p.x; lastY = p.y; }
+        function draw(e) {
+            if (!isDrawing) return;
+            e.preventDefault();
+            const p = getPos(e);
+            ctx.beginPath(); ctx.moveTo(lastX, lastY); ctx.lineTo(p.x, p.y); ctx.stroke();
+            lastX = p.x; lastY = p.y; hasSignature = true;
+        }
+        function stopDraw() {
+            if (isDrawing) { isDrawing = false; signatureDataUrl = canvas.toDataURL('image/png'); saveProgress(); updateGenerateButton(); }
+        }
+        canvas.addEventListener('mousedown', startDraw);
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('mouseup', stopDraw);
+        canvas.addEventListener('mouseleave', stopDraw);
+        canvas.addEventListener('touchstart', startDraw, { passive: false });
+        canvas.addEventListener('touchmove', draw, { passive: false });
+        canvas.addEventListener('touchend', stopDraw);
+    }
+
+    function clearSignature() {
+        const canvas = document.getElementById('signatureCanvas');
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        signatureDataUrl = null; hasSignature = false; saveProgress(); updateGenerateButton();
+    }
+
+    function generateAcuse() { generated = true; saveProgress(); render(); }
+
+    function renderGeneratedState(app, result) {
+        app.innerHTML = `
+            <div class="success-box">
+                <h3>✅ Acuse de Evidencias listo</h3>
+                <p style="color:var(--text);margin-bottom:20px;">Descárgalo y avisa a tu equipo. Tu evaluador revisará tu video y documentos para completar tu Portafolio de Evidencias.</p>
+                <button class="btn btn-primary btn-full" onclick="generatePDF()">📄 Descargar Acuse (PDF)</button>
+                <button class="btn btn-whatsapp btn-full" onclick="notifyWhatsApp()">📱 AVISAR AL EQUIPO POR WHATSAPP</button>
+            </div>
+            <div class="card" style="text-align:center;margin-top:20px;">
+                <a href="encuesta-satisfaccion.html" class="btn btn-secondary btn-full" style="display:block;text-decoration:none;margin-bottom:14px;">📝 Siguiente: Encuesta de Satisfacción →</a>
+                <a href="plan-evaluacion.html" style="color:var(--primary);text-decoration:none;font-size:0.9rem;">← Volver a mi Plan de Evaluación</a>
+            </div>
+        `;
+    }
+
+    function notifyWhatsApp() {
+        const result = loadAutodiagnosticoResult();
+        const nombre = result ? result.personalData.nombre : 'Candidato';
+        const message = encodeURIComponent(
+            `Hola, ya subí todas mis evidencias EC1375 (video + documentos).\n\nNombre: ${nombre}\nNotas: ${planData.notas || 'Ninguna'}\n\nQuedo al pendiente de mi Portafolio final.`
+        );
+        window.open(`https://wa.me/528136071342?text=${message}`, '_blank');
+    }
+
+    function generatePDF() {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        const result = loadAutodiagnosticoResult();
+        const pd = result.personalData;
+
+        doc.setFontSize(15);
+        doc.setFont(undefined, 'bold');
+        doc.text('ACUSE DE ENTREGA DE EVIDENCIAS', 105, 15, { align: 'center' });
+        doc.setFontSize(9);
+        doc.setFont(undefined, 'normal');
+        doc.text('EC1375 - Prestación de servicios auxiliares en la contribución tradicional y complementaria', 105, 21, { align: 'center' });
+
+        doc.autoTable({
+            startY: 30, theme: 'plain', styles: { fontSize: 9, cellPadding: 1.5 },
+            body: [['Candidato/a:', pd.nombre || ''], ['Especialidad:', result.especialidades.join(', ')], ['Fecha de acuse:', new Date().toLocaleDateString('es-MX')]]
+        });
+
+        let y = doc.lastAutoTable.finalY + 8;
+        doc.setFontSize(11); doc.setFont(undefined, 'bold');
+        doc.text('EVIDENCIAS CONFIRMADAS', 14, y); y += 6;
+
+        doc.autoTable({
+            startY: y,
+            head: [['Evidencia', 'Requerido']],
+            body: EVIDENCIAS_REQUERIDAS.map(e => [e.titulo, e.required ? 'Sí' : 'Opcional']),
+            styles: { fontSize: 9, cellPadding: 3 },
+            headStyles: { fillColor: [0, 136, 255] }
+        });
+        y = doc.lastAutoTable.finalY + 10;
+
+        if (planData.notas) {
+            doc.setFontSize(10); doc.setFont(undefined, 'normal');
+            const notasLines = doc.splitTextToSize('Notas: ' + planData.notas, 180);
+            doc.text(notasLines, 14, y);
+            y += notasLines.length * 5 + 8;
+        }
+
+        doc.setFontSize(9); doc.setFont(undefined, 'italic');
+        const acuerdoText = doc.splitTextToSize(
+            'Con mi firma confirmo que subí todas las evidencias obligatorias solicitadas para completar mi Portafolio de Evidencias EC1375, y que la información proporcionada es verdadera.',
+            180
+        );
+        doc.text(acuerdoText, 14, y);
+        y += acuerdoText.length * 4 + 10;
+
+        doc.setFont(undefined, 'normal');
+        doc.text('Firma del candidato/a:', 14, y);
+        if (signatureMode === 'draw' && signatureDataUrl) {
+            doc.addImage(signatureDataUrl, 'PNG', 14, y + 3, 55, 20);
+        } else if (signatureTypedName) {
+            doc.setFont(undefined, 'italic'); doc.setFontSize(13);
+            doc.text(signatureTypedName, 14, y + 12);
+        }
+
+        doc.save(`Acuse_Evidencias_EC1375_${(pd.nombre || 'candidato').replace(/\s+/g, '_')}.pdf`);
+    }
+
+    window.addEventListener('load', () => { loadProgress(); render(); });
+    </script>
+</body>
+</html>
