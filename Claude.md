@@ -3,7 +3,7 @@
 ## 🎯 PROYECTO: EC1375 - Certificación Oficial para Terapeutas Alternativas
 
 **Última actualización:** 3 de agosto, 2026  
-**Estado:** Landing + funnel completo de certificación en producción (v5.0). Falta construir el script de ensamblado del expediente final (ver sección "SISTEMA DE CERTIFICACIÓN EC1375" más abajo — es el siguiente paso pendiente).  
+**Estado:** Landing + funnel completo de certificación en producción (v5.0). Script de ensamblado del expediente final YA CONSTRUIDO — pendiente probarlo con una respuesta real del Form (ver "Paso 4 completado" en la sección "SISTEMA DE CERTIFICACIÓN EC1375" más abajo).  
 **URL en vivo:** https://ec1375-posturalia.vercel.app
 
 ---
@@ -119,7 +119,7 @@ ACCIÓN (botón: "SÍ, QUIERO DORMIR TRANQUILO")
 │   ├── setup_drive_auth.py            # Re-correr si el token expira
 │   ├── test_drive_connection.py       # Prueba rápida de conexión a Drive
 │   ├── plantilla_IEC_blanco.pdf       # IEC en blanco, 83 págs., listo para usar
-│   └── assemble_expediente.py         # ⏭️ PENDIENTE DE CONSTRUIR (Paso 4 del plan)
+│   └── assemble_expediente.py         # ✅ Construido — falta probar con datos reales (ver Paso 5)
 └── assets/                        # (Carpeta para fotos/videos - crear cuando se tengan)
     ├── images/
     │   ├── logo/
@@ -381,20 +381,34 @@ Se generó un portafolio de prueba completo (candidata ficticia "Ana Sofía Ram�
 
 Importante: el INE/CURP del candidato van cerca de la portada (sección "Datos del Candidato"), **no** junto a las evidencias de la sesión — esas evidencias (Ficha/Carta/Plan de Sesión/Plan de Seguimiento) son del **paciente real** de la sesión práctica, no del candidato, y van después del IEC.
 
-### ⏭️ SIGUIENTE PASO INMEDIATO — Paso 4 del plan: script de ensamblado
+### ✅ Paso 4 completado — script de ensamblado construido
 
-**No se ha construido todavía.** Es lo próximo a hacer. Debe vivir en `_internal_no_publicar/assemble_expediente.py` (nunca en el repo público — maneja datos personales reales) y, dado un nombre de candidato:
+`_internal_no_publicar/assemble_expediente.py` (nunca en el repo público — maneja datos personales reales). Uso:
 
-1. Buscar en Drive los archivos de ese candidato (por la respuesta "Nombre completo" del Form) usando las credenciales ya autorizadas en `_internal_no_publicar/token.json`
-2. Descargar: Autodiagnóstico.pdf, Plan_Evaluacion.pdf, Encuesta.pdf, INE, CURP, capturas de sesión, Carta Consentimiento, Plan de Sesión, Plan de Seguimiento
-3. Convertir imágenes (JPG/PNG) a páginas PDF donde haga falta
-4. Generar portada + índice + separadores de sección (mismo patrón `reportlab` ya usado en el portafolio simulado)
-5. Generar la página de referencia al video (liga a YouTube que el candidato puso en `evidencias.html`)
-6. Insertar `plantilla_IEC_blanco.pdf` + una Cédula de Evaluación en blanco (**la Cédula en blanco todavía no se ha generado** — es un documento de 1 página, page 135 en Humberto, hay que replicarla vacía con reportlab, no requiere el mismo tratamiento de redacción que el IEC)
-7. Fusionar todo con `pypdf` en el orden exacto de arriba
-8. Guardar como `Portafolio_EC1375_[Nombre_Candidato].pdf`
+```bash
+cd _internal_no_publicar
+python3 assemble_expediente.py "Nombre Completo Del Candidato" ["liga al video, opcional"]
+```
 
-**Después:** probar con datos reales de Diego (Paso 5 del plan) — corrió su propio proceso de certificación por la herramienta para validarla end-to-end.
+Qué hace:
+1. Usa la **Google Forms API** (no Drive directamente) para leer las respuestas del Form "Evidencia EC1375" y encontrar la respuesta cuyo "Nombre completo" coincide (fuzzy match) con el candidato buscado — esto es necesario porque Google organiza los archivos subidos **por pregunta**, no por candidato, así que sin leer la respuesta específica no hay forma de saber qué archivo pertenece a quién
+2. Descarga cada archivo de esa respuesta desde Drive, convierte imágenes a PDF con Pillow si hace falta (los PDFs subidos se usan tal cual)
+3. Genera dinámicamente con `reportlab`: portada, índice (con lista de avisos de lo que falte), separadores de sección, Cédula de Evaluación en blanco, y la página de referencia al video
+4. Inserta `plantilla_IEC_blanco.pdf`
+5. Fusiona todo con `pypdf` en el orden verificado contra Humberto
+6. Guarda en `_internal_no_publicar/expedientes/Portafolio_EC1375_[Nombre].pdf`
+
+**Diseño clave:** si falta cualquier evidencia (no subida, o la pregunta todavía no existe en el Form real), el script **no falla** — genera el expediente igual y lista cada cosa faltante en rojo en la página de Índice del propio PDF, además de imprimirlo en consola. Ya probado end-to-end con datos simulados (portada, índice con avisos, Cédula) — se ven correctamente.
+
+**Scopes de Google ampliados:** el token ahora incluye `forms.responses.readonly` y `forms.body.readonly` además de `drive.readonly` (tuvo que reautorizarse una vez más — Diego habilitó "Google Forms API" en el mismo proyecto de Cloud). Si el token expira, volver a correr `setup_drive_auth.py`.
+
+**⚠️ Bloqueadores para probar con datos reales (Paso 5), pendientes de que Diego los resuelva:**
+1. **El Form real tiene 0 respuestas enviadas.** Hay carpetas de Drive creadas para cada pregunta de archivo (evidencia de que se seleccionaron archivos en algún intento), pero están vacías y `forms().responses().list()` devuelve 0 — probablemente el formulario se abrió y se seleccionaron archivos pero nunca se le dio clic final a "Enviar". Hay que completar un envío real de principio a fin para poder probar.
+2. **Aún faltan en el Form real:** las 3 preguntas de carga de PDFs (Autodiagnóstico/Plan de Evaluación/Encuesta) y la de "Foto para el diploma" — el script las busca por palabras clave en el título así que las tomará automáticamente en cuanto existan, pero mientras tanto salen como "falta" en los avisos.
+3. **La liga al video** vive en el `localStorage` del navegador del candidato (campo de texto en `evidencias.html`), no en el Form/Drive — el script actual la recibe como segundo argumento manual. Si se quiere automatizar, hay que agregar una pregunta de texto "Liga al video" al Form real también, para que quede junto con el resto de las respuestas.
+4. **Acuse de Recibido del Tríptico** (Anexos): el dato `triptychAccepted` también vive solo en el `localStorage` del candidato — el script no lo incluye todavía por el mismo motivo. Pendiente de decidir cómo capturarlo (ej. otra pregunta en el Form, o aceptar que quede fuera del expediente automatizado).
+
+**Scripts de diagnóstico auxiliares** (en `_internal_no_publicar/`, no forman parte del flujo de producción, quedaron de la exploración): `explore_drive_structure.py`, `explore_forms_api.py`, `find_response_sheet.py`, `check_drive_files_detail.py`.
 
 ### 🔮 Backlog — no urgente, pero anotado para cuando escale a más candidatos
 
