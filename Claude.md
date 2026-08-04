@@ -400,15 +400,27 @@ Qué hace:
 
 **Diseño clave:** si falta cualquier evidencia (no subida, o la pregunta todavía no existe en el Form real), el script **no falla** — genera el expediente igual y lista cada cosa faltante en rojo en la página de Índice del propio PDF, además de imprimirlo en consola. Ya probado end-to-end con datos simulados (portada, índice con avisos, Cédula) — se ven correctamente.
 
-**Scopes de Google ampliados:** el token ahora incluye `forms.responses.readonly` y `forms.body.readonly` además de `drive.readonly` (tuvo que reautorizarse una vez más — Diego habilitó "Google Forms API" en el mismo proyecto de Cloud). Si el token expira, volver a correr `setup_drive_auth.py`.
+**Scopes de Google ampliados:** el token pasó por 3 rondas de reautorización a lo largo de la sesión (cada una abrió el navegador real de Diego para el consentimiento):
+1. `drive.readonly` (inicial)
+2. + `forms.responses.readonly` + `forms.body.readonly` (para leer respuestas y estructura del Form — Diego habilitó "Google Forms API" en el proyecto de Cloud)
+3. + `forms.body` en vez de `forms.body.readonly` (permiso de escritura, para agregar preguntas al Form vía API)
+
+Si el token expira, volver a correr `setup_drive_auth.py` (ya tiene los 3 scopes finales).
+
+**✅ Ya resuelto:** se agregó vía API la pregunta de texto **"Liga al video completo (YouTube u otra plataforma)"** al Form real (`add_text_question.py`, dejado como referencia). `assemble_expediente.py` ya la lee automáticamente de la respuesta del candidato (slot `video_link`) — ya no depende únicamente del argumento manual.
+
+**❌ Descubrimiento importante — límite real de la API de Google:** se intentó agregar las 4 preguntas de "subir archivo" faltantes (Autodiagnóstico, Plan de Evaluación, Encuesta, Foto para diploma) vía `forms().batchUpdate()` y Google la rechaza explícitamente:
+```
+400 INVALID_ARGUMENT: Creation of file_upload question not supported.
+```
+Es una restricción intencional de Google (no se puede evitar con otro scope ni otro método) — las preguntas de tipo archivo **solo se pueden crear desde la interfaz web de Google Forms**, nunca por API. Queda documentado en `add_form_questions.py`.
 
 **⚠️ Bloqueadores para probar con datos reales (Paso 5), pendientes de que Diego los resuelva:**
 1. **El Form real tiene 0 respuestas enviadas.** Hay carpetas de Drive creadas para cada pregunta de archivo (evidencia de que se seleccionaron archivos en algún intento), pero están vacías y `forms().responses().list()` devuelve 0 — probablemente el formulario se abrió y se seleccionaron archivos pero nunca se le dio clic final a "Enviar". Hay que completar un envío real de principio a fin para poder probar.
-2. **Aún faltan en el Form real:** las 3 preguntas de carga de PDFs (Autodiagnóstico/Plan de Evaluación/Encuesta) y la de "Foto para el diploma" — el script las busca por palabras clave en el título así que las tomará automáticamente en cuanto existan, pero mientras tanto salen como "falta" en los avisos.
-3. **La liga al video** vive en el `localStorage` del navegador del candidato (campo de texto en `evidencias.html`), no en el Form/Drive — el script actual la recibe como segundo argumento manual. Si se quiere automatizar, hay que agregar una pregunta de texto "Liga al video" al Form real también, para que quede junto con el resto de las respuestas.
-4. **Acuse de Recibido del Tríptico** (Anexos): el dato `triptychAccepted` también vive solo en el `localStorage` del candidato — el script no lo incluye todavía por el mismo motivo. Pendiente de decidir cómo capturarlo (ej. otra pregunta en el Form, o aceptar que quede fuera del expediente automatizado).
+2. **Diego debe agregar manualmente 4 preguntas tipo "Subir archivo" en la interfaz de Google Forms** (no se puede por API, ver arriba): "Sube tu Autodiagnóstico (PDF)", "Sube tu Plan de Evaluación (PDF)", "Sube tu Encuesta de Satisfacción (PDF)", "Foto para tu diploma". El script las detecta automáticamente por palabras clave en el título en cuanto existan — no hace falta tocar el código, solo agregarlas en Forms.
+3. **Acuse de Recibido del Tríptico** (Anexos): el dato `triptychAccepted` vive solo en el `localStorage` del candidato — el script no lo incluye todavía. Pendiente de decidir cómo capturarlo (ej. otra pregunta de texto/checkbox en el Form, igual que se hizo con la liga al video).
 
-**Scripts de diagnóstico auxiliares** (en `_internal_no_publicar/`, no forman parte del flujo de producción, quedaron de la exploración): `explore_drive_structure.py`, `explore_forms_api.py`, `find_response_sheet.py`, `check_drive_files_detail.py`.
+**Scripts de diagnóstico/setup auxiliares** (en `_internal_no_publicar/`, no forman parte del flujo de producción por candidato): `explore_drive_structure.py`, `explore_forms_api.py`, `find_response_sheet.py`, `check_drive_files_detail.py`, `add_text_question.py`, `add_form_questions.py` (intento fallido, documentado arriba).
 
 ### 🔮 Backlog — no urgente, pero anotado para cuando escale a más candidatos
 
