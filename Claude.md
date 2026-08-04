@@ -104,6 +104,7 @@ ACCIÓN (botón: "SÍ, QUIERO DORMIR TRANQUILO")
 ├── success.html / failure.html / pending.html   # Post-pago Mercado Pago
 ├── autodiagnostico.html           # 142 reactivos EC1375, wizard 8 pasos
 ├── plan-evaluacion.html           # Hereda datos del Autodiagnóstico, agenda cita
+├── documentos-sesion.html         # Ficha/Consentimiento/Plan Sesión/Seguimiento, firma paciente
 ├── evidencias.html                # Checklist + Google Form embebido
 ├── encuesta-satisfaccion.html     # 8 preguntas oficiales, cierre del funnel
 ├── Claude.md                      # Este archivo - documentación del proyecto
@@ -295,10 +296,27 @@ autodiagnostico.html          ✅ EN PRODUCCIÓN
     ↓ botón "Ir a mi Plan de Evaluación"
 plan-evaluacion.html          ✅ EN PRODUCCIÓN (calendario pendiente de conectar)
     Hereda nombre/especialidad/resultado del Autodiagnóstico (localStorage)
-    Muestra criterios fijos (142 reactivos por Elemento) + requerimientos de equipo
+    Muestra la tabla COMPLETA de 25 grupos (=142 reactivos) mapeados a su
+      instrumento (Guía de Observación/Lista de Cotejo/Cuestionario),
+      igual que el oficial — reutiliza AUTODIAGNOSTICO_DATA (duplicado
+      del archivo autodiagnostico.html)
     Agenda cita — placeholder para Google Calendar Appointment Schedule
       (const GOOGLE_CALENDAR_BOOKING_URL en el archivo, vacío = fallback a WhatsApp)
-    Firma + genera PDF/Word
+    Firma + genera PDF/Word (~4 páginas)
+    ↓ botón "Después de tu sesión: Llena tus Documentos"
+documentos-sesion.html        ✅ EN PRODUCCIÓN (3 de agosto, 2026)
+    Wizard de 4 pasos, llenado junto con el usuario/paciente real durante
+      o justo después de la sesión de Zoom — reemplaza la carga de FOTOS
+      de documentos manuscritos por formularios digitales reales:
+      1. Ficha de Registro de Atención (datos + antecedentes + signos
+         vitales del usuario, firma usuario + firma candidato reutilizada
+         del Autodiagnóstico)
+      2. Carta de Consentimiento Informado (texto legal fijo + firma usuario)
+      3. Plan de Sesión (condiciones, número/duración de sesiones, objetivos)
+      4. Plan de Seguimiento (contacto, tabla de sesiones programadas,
+         evolución/pronóstico/recomendaciones, firma usuario + candidato)
+    Genera 4 PDFs independientes ("DOC 1"-"DOC 4", igual que Humberto),
+      cada uno con los logos oficiales, descargables por separado
     ↓ botón "Sube tus Evidencias"
 evidencias.html               ✅ EN PRODUCCIÓN, Google Form conectado
     Checklist de evidencias + Google Form embebido (ver detalle abajo)
@@ -326,9 +344,24 @@ Preguntas de carga de archivo actuales en el Form real (Google exige login para 
 - Foto para el diploma (specs oficiales CETAMM: fondo blanco, sin retoques, no mayor a 2 meses — están documentadas en `evidencias.html`)
 - Certificados/diplomas de formación previa (opcional)
 
-**⚠️ PENDIENTE (lo hace Diego directo en Google Forms, no en código):** agregar 3 preguntas de carga más — "Sube tu Autodiagnóstico (PDF)", "Sube tu Plan de Evaluación (PDF)", "Sube tu Encuesta de Satisfacción (PDF)" — para que esos 3 PDFs generados por el candidato también caigan en Drive junto con las evidencias (el script de ensamblado los necesita, ver abajo).
+**⚠️ PENDIENTE (lo hace Diego directo en Google Forms, no en código):** agregar 4 preguntas de carga más — "Sube tu Autodiagnóstico (PDF)", "Sube tu Plan de Evaluación (PDF)", "Sube tu Encuesta de Satisfacción (PDF)", y **"Sube tu Plan de Sesión (PDF)"** (nueva, generada por `documentos-sesion.html`, ver abajo) — para que esos 4 PDFs generados por el candidato también caigan en Drive junto con las evidencias (el script de ensamblado los necesita, ver abajo).
 
 Todos los archivos subidos caen en la carpeta de Drive **"Evidencia EC1375 (File responses)"** — confirmado y accesible vía API (ver siguiente sección).
+
+### 📎 Auditoría de los 10 "documentos anexos" del expediente (4 de agosto, 2026)
+
+Diego preguntó si los documentos que aparecen como anexos en el expediente de Humberto se podían volver digitales, replicables para cualquier candidato. Se categorizaron en 3 grupos:
+
+**Grupo 1 — Documentos del paciente/usuario, llenados durante/después de la sesión → ✅ CONSTRUIDO HOY** (`documentos-sesion.html`):
+Ficha de Registro de Atención, Carta de Consentimiento Informado, Plan de Sesión, Plan de Seguimiento. Antes se pedía subir una *foto* de estos llenados a mano en `evidencias.html`; ahora es un formulario digital real con firma del paciente capturada en el navegador (canvas o texto), que genera 4 PDFs con el mismo formato "DOC 1"-"DOC 4" que Humberto. La firma del candidato/a se reutiliza automáticamente de la ya capturada en `autodiagnostico.html` (no se le pide firmar de nuevo).
+
+**Grupo 2 — Los 3 "Acuse de recibido" (Tríptico / Cédula / Plan de Evaluación) → ⏭️ NO CONSTRUIDO, siguiente en la fila:**
+Son casi idénticos en estructura (candidato + estándar + "acuso recibido de X" + firma). Diseño recomendado: una función/plantilla reutilizable parametrizada por documento, no 3 páginas separadas. El de Tríptico y el de Plan de Evaluación se pueden generar **automáticamente reutilizando firmas que el candidato ya da** en pasos existentes (`triptychAccepted` del Autodiagnóstico, la firma del Plan de Evaluación) — no requieren que el candidato llene nada nuevo. El de la Cédula depende de que exista el flujo del evaluador (no construido).
+
+**Grupo 3 — Verificación Interna del Proceso de Evaluación → NO es candidate-facing:**
+Checklist de auditoría interna del Centro Evaluador. No va en el sitio del candidato — sería parte de una futura herramienta interna para el equipo de Diego (ver Backlog).
+
+**⚠️ Posible documento faltante sin confirmar del todo:** Diego mencionó que en el documento de Humberto "Encuesta de Satisfacción" y "Encuesta de Satisfacción del Proceso de Evaluación - Certificación de competencias" aparecen como **dos documentos distintos**. Lo que ya está construido (`encuesta-satisfaccion.html`) coincide con el título largo (8 preguntas Likert, pág. 136 de Humberto). El corto probablemente corresponde a la pág. 138 ("Cédula de Evaluación del Servicio a Usuarios", escala Bueno/Regular/Malo sobre trato/instalaciones/comunicación/entrega del certificado) — **no confirmado con Diego, no construido todavía.**
 
 ### Google Drive API — ✅ CONECTADA Y FUNCIONANDO
 
