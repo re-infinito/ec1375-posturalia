@@ -139,6 +139,112 @@
 
         .field-hint { font-size: 0.8rem; color: rgba(255,255,255,0.4); margin-top: 4px; }
 
+        /* CERTIFICACIONES ACCORDION */
+        .cert-accordion {
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .cert-category {
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .cert-category:last-child { border-bottom: none; }
+
+        .cert-category summary {
+            padding: 14px 16px;
+            background: var(--dark);
+            color: var(--text-bright);
+            font-size: 0.88rem;
+            font-weight: 600;
+            cursor: pointer;
+            list-style: none;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            user-select: none;
+        }
+
+        .cert-category summary::-webkit-details-marker { display: none; }
+
+        .cert-category summary::after {
+            content: '▾';
+            color: var(--primary);
+            font-size: 0.8rem;
+            margin-left: 8px;
+        }
+
+        .cert-category[open] summary::after { content: '▴'; }
+
+        .cert-count {
+            background: var(--primary);
+            color: white;
+            font-size: 0.72rem;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 10px;
+            margin-left: auto;
+            margin-right: 8px;
+        }
+
+        .cert-items {
+            padding: 8px 16px 14px;
+            background: rgba(0,0,0,0.15);
+        }
+
+        .cert-item-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 8px 0;
+            font-size: 0.85rem;
+            color: var(--text);
+            cursor: pointer;
+        }
+
+        .cert-item-row input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            flex-shrink: 0;
+            margin-top: 1px;
+            accent-color: var(--primary);
+        }
+
+        .cert-items input[type="text"] {
+            padding: 10px 12px;
+            background: var(--dark);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 6px;
+            color: var(--text-bright);
+            font-size: 0.85rem;
+            font-family: inherit;
+        }
+
+        .cert-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .cert-chip {
+            background: rgba(0, 255, 136, 0.1);
+            border: 1px solid var(--success);
+            color: var(--success);
+            font-size: 0.78rem;
+            font-weight: 600;
+            padding: 5px 12px;
+            border-radius: 20px;
+        }
+
+        .cert-empty-hint {
+            font-size: 0.8rem;
+            color: rgba(255,255,255,0.35);
+            font-style: italic;
+            margin-top: 10px;
+        }
+
         /* ELEMENTO STEP */
         .elemento-header {
             background: linear-gradient(135deg, rgba(0,136,255,0.15), rgba(0,204,255,0.06));
@@ -386,6 +492,60 @@
     </div>
 
     <script>
+    /* =========================================================
+       DATA: Certificaciones y especialidades que cubre el EC1375
+    ========================================================= */
+    const CERTIFICACIONES_EC1375 = [
+        {
+            categoria: "🔹 Terapeutas corporales y energéticos",
+            items: [
+                "Acupuntura y/o Auriculoterapia",
+                "Reflexología podal o facial",
+                "Masaje holístico, Shiatsu, tejido profundo, drenaje linfático, masaje ayurvédico",
+                "Reiki, Johrei, sanación energética o vibracional",
+                "Biomagnetismo, bioenergética y polaridad",
+                "Terapias con sonido (cuencos, diapasones, frecuencias)"
+            ]
+        },
+        {
+            categoria: "🔹 Terapeutas de apoyo emocional (no psicólogos)",
+            items: [
+                "Descodificación biológica y transgeneracional",
+                "Constelaciones familiares",
+                "Técnicas de liberación emocional (EFT, tapping, respiración consciente)",
+                "Hipnosis no clínica",
+                "Terapia del niño interior, acompañamiento emocional y espiritual"
+            ]
+        },
+        {
+            categoria: "🔹 Facilitadores y asistentes",
+            items: [
+                "Asistentes de terapeutas o médicos integrativos o de salud holística",
+                "Facilitadores de círculos, talleres o encuentros de sanación",
+                "Brigadistas comunitarios en salud y bienestar",
+                "Personas que apoyan espacios terapéuticos (consultorios, centros de salud natural, retiros, etc.)"
+            ]
+        },
+        {
+            categoria: "🔹 Terapeutas vibracionales y naturales",
+            items: [
+                "Flores de Bach y otras esencias florales",
+                "Aromaterapia",
+                "Herbolaria tradicional y fitoterapia",
+                "Gemoterapia y uso terapéutico de cristales",
+                "Terapias cuánticas o de reconexión energética"
+            ]
+        },
+        {
+            categoria: "🔹 Personas formadas en técnicas tradicionales",
+            items: [
+                "Curandería, partería tradicional, sobadores, hueseros, temazcaleros",
+                "Practicantes de tradiciones ancestrales de sanación",
+                "Promotores de medicina de los pueblos originarios"
+            ]
+        }
+    ];
+
     /* =========================================================
        DATA: 142 reactivos oficiales del EC1375 (4 Elementos)
     ========================================================= */
@@ -764,6 +924,9 @@
     const STEPS = ['intro', 'personal', 'e1', 'e2', 'e3', 'e4', 'firma', 'resultado'];
 
     let personalData = { nombre: '', curp: '', domicilio: '', escolaridad: '', telefonoCasa: '', telefonoCelular: '', email: '', fecha: todayISO() };
+    let selectedCertificaciones = [];
+    let otraCertificacionText = '';
+    let openCertCategories = new Set();
     let answers = {};
     let signatureMode = 'draw'; // 'draw' | 'type'
     let signatureDataUrl = null;
@@ -781,6 +944,8 @@
             const saved = JSON.parse(localStorage.getItem('autodiagnosticoData') || 'null');
             if (saved) {
                 personalData = Object.assign(personalData, saved.personalData || {});
+                selectedCertificaciones = saved.selectedCertificaciones || [];
+                otraCertificacionText = saved.otraCertificacionText || '';
                 answers = saved.answers || {};
                 signatureDataUrl = saved.signatureDataUrl || null;
                 signatureTypedName = saved.signatureTypedName || '';
@@ -795,7 +960,8 @@
 
     function saveProgress() {
         localStorage.setItem('autodiagnosticoData', JSON.stringify({
-            personalData, answers, signatureDataUrl, signatureTypedName, signatureMode, triptychAccepted
+            personalData, selectedCertificaciones, otraCertificacionText, answers,
+            signatureDataUrl, signatureTypedName, signatureMode, triptychAccepted
         }));
     }
 
@@ -924,6 +1090,9 @@
         if (!confirm('¿Seguro que quieres empezar de nuevo? Se borrará tu avance guardado.')) return;
         localStorage.removeItem('autodiagnosticoData');
         personalData = { nombre: '', curp: '', domicilio: '', escolaridad: '', telefonoCasa: '', telefonoCelular: '', email: '', fecha: todayISO() };
+        selectedCertificaciones = [];
+        otraCertificacionText = '';
+        openCertCategories = new Set();
         answers = {};
         signatureMode = 'draw';
         signatureDataUrl = null;
@@ -950,8 +1119,10 @@
                     <textarea id="f_domicilio" rows="2" placeholder="Calle, número, colonia, ciudad, estado">${escapeHtml(personalData.domicilio)}</textarea>
                 </div>
                 <div class="field-group">
-                    <label>Último grado de estudios *</label>
-                    <input type="text" id="f_escolaridad" value="${escapeHtml(personalData.escolaridad)}" placeholder="Ej. Diplomado en Masaje Terapéutico">
+                    <label>Grado de estudio o Certificaciones (EC1375) *</label>
+                    <p class="field-hint" style="margin-top:-2px;margin-bottom:10px;">Selecciona todas las especialidades que apliquen a tu formación</p>
+                    ${renderCertAccordion()}
+                    <div class="cert-chips" id="certChips">${renderCertChips()}</div>
                 </div>
                 <div class="field-group">
                     <label>Teléfono de casa</label>
@@ -975,7 +1146,7 @@
     }
 
     function attachPersonalFormListeners() {
-        ['nombre','curp','domicilio','escolaridad','telefonoCasa','telefonoCelular','email','fecha'].forEach(field => {
+        ['nombre','curp','domicilio','telefonoCasa','telefonoCelular','email','fecha'].forEach(field => {
             const el = document.getElementById('f_' + field);
             if (el) {
                 el.addEventListener('input', () => {
@@ -985,6 +1156,83 @@
                 });
             }
         });
+    }
+
+    /* =========================================================
+       CERTIFICACIONES EC1375 - Selector acordeón
+    ========================================================= */
+    function renderCertAccordion() {
+        let html = '<div class="cert-accordion">';
+        CERTIFICACIONES_EC1375.forEach((cat, catIdx) => {
+            const count = cat.items.filter(item => selectedCertificaciones.includes(item)).length;
+            const isOpen = openCertCategories.has(catIdx);
+            html += `
+                <details class="cert-category" ${isOpen ? 'open' : ''} ontoggle="onCertDetailsToggle(${catIdx}, this)">
+                    <summary>${cat.categoria} ${count > 0 ? `<span class="cert-count">${count}</span>` : ''}</summary>
+                    <div class="cert-items">`;
+            cat.items.forEach((item, itemIdx) => {
+                const checked = selectedCertificaciones.includes(item);
+                html += `
+                        <label class="cert-item-row">
+                            <input type="checkbox" ${checked ? 'checked' : ''} onchange="toggleCertificacion(${catIdx}, ${itemIdx})">
+                            <span>${item}</span>
+                        </label>`;
+            });
+            html += `</div></details>`;
+        });
+        html += `
+                <details class="cert-category" ${openCertCategories.has('otra') ? 'open' : ''} ontoggle="onCertDetailsToggle('otra', this)">
+                    <summary>🔹 Otra especialidad no listada</summary>
+                    <div class="cert-items">
+                        <input type="text" id="f_otraCertificacion" value="${escapeHtml(otraCertificacionText)}" placeholder="Escribe tu especialidad" oninput="updateOtraCertificacion(this.value)" style="width:100%;">
+                    </div>
+                </details>
+            </div>`;
+        return html;
+    }
+
+    function onCertDetailsToggle(catIdx, el) {
+        if (el.open) openCertCategories.add(catIdx);
+        else openCertCategories.delete(catIdx);
+    }
+
+    function toggleCertificacion(catIdx, itemIdx) {
+        const item = CERTIFICACIONES_EC1375[catIdx].items[itemIdx];
+        const pos = selectedCertificaciones.indexOf(item);
+        if (pos >= 0) selectedCertificaciones.splice(pos, 1);
+        else selectedCertificaciones.push(item);
+        syncEscolaridad();
+        rerenderCertSection();
+    }
+
+    function updateOtraCertificacion(value) {
+        otraCertificacionText = value;
+        syncEscolaridad();
+        updateNavButtons();
+        const chipsEl = document.getElementById('certChips');
+        if (chipsEl) chipsEl.innerHTML = renderCertChips();
+    }
+
+    function syncEscolaridad() {
+        const parts = [...selectedCertificaciones];
+        if (otraCertificacionText && otraCertificacionText.trim()) parts.push(otraCertificacionText.trim());
+        personalData.escolaridad = parts.join(', ');
+        saveProgress();
+    }
+
+    function renderCertChips() {
+        const parts = [...selectedCertificaciones];
+        if (otraCertificacionText && otraCertificacionText.trim()) parts.push(otraCertificacionText.trim());
+        if (!parts.length) return '<p class="cert-empty-hint">Aún no has seleccionado ninguna especialidad</p>';
+        return parts.map(p => `<span class="cert-chip">✓ ${escapeHtml(p)}</span>`).join('');
+    }
+
+    function rerenderCertSection() {
+        const accordionEl = document.querySelector('.cert-accordion');
+        const chipsEl = document.getElementById('certChips');
+        if (accordionEl) accordionEl.outerHTML = renderCertAccordion();
+        if (chipsEl) chipsEl.innerHTML = renderCertChips();
+        updateNavButtons();
     }
 
     function renderElementoStep(elementoIdx) {
