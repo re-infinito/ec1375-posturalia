@@ -2,8 +2,8 @@
 
 ## 🎯 PROYECTO: EC1375 - Certificación Oficial para Terapeutas Alternativas
 
-**Última actualización:** 21 de julio, 2026  
-**Estado:** Landing page en producción (v2.0 emocional)  
+**Última actualización:** 3 de agosto, 2026  
+**Estado:** Landing + funnel completo de certificación en producción (v5.0). Falta construir el script de ensamblado del expediente final (ver sección "SISTEMA DE CERTIFICACIÓN EC1375" más abajo — es el siguiente paso pendiente).  
 **URL en vivo:** https://ec1375-posturalia.vercel.app
 
 ---
@@ -99,14 +99,28 @@ ACCIÓN (botón: "SÍ, QUIERO DORMIR TRANQUILO")
 
 ```
 /Users/diegogarzamx/Desktop/EC1375/
-├── index.html                 # Landing page completa (v2.0 emocional)
-├── Claude.md                  # Este archivo - documentación del proyecto
-├── .env.local                 # Credenciales (NO COMMITEAR)
-├── .gitignore                 # Git ignore rules
-├── vercel.json                # Config de Vercel
-├── ASSETS_GUIDE.md            # Guía para agregar fotos/videos
-├── MERCADO_PAGO_SETUP.md      # Documentación de integración MP
-└── assets/                    # (Carpeta para fotos/videos - crear cuando se tengan)
+├── index.html                     # Landing page completa (v2.0 emocional)
+├── quiz.html                      # Quiz de calentamiento (funnel v3.0)
+├── success.html / failure.html / pending.html   # Post-pago Mercado Pago
+├── autodiagnostico.html           # 142 reactivos EC1375, wizard 8 pasos
+├── plan-evaluacion.html           # Hereda datos del Autodiagnóstico, agenda cita
+├── evidencias.html                # Checklist + Google Form embebido
+├── encuesta-satisfaccion.html     # 8 preguntas oficiales, cierre del funnel
+├── Claude.md                      # Este archivo - documentación del proyecto
+├── .env.local                     # Credenciales (NO COMMITEAR)
+├── .gitignore                     # Git ignore rules (incluye PDFs, credenciales OAuth)
+├── vercel.json                    # Config de Vercel
+├── ASSETS_GUIDE.md                # Guía para agregar fotos/videos
+├── MERCADO_PAGO_SETUP.md          # Documentación de integración MP
+├── client_secret_....json         # Credenciales OAuth Google Drive (NO COMMITEAR)
+├── PORTAFOLIO HUMBERTO LOT 1375.pdf   # Expediente real de referencia (NO COMMITEAR, confidencial)
+├── _internal_no_publicar/         # TODO gitignored — scripts y assets con datos sensibles
+│   ├── token.json                     # Token OAuth ya autorizado para Drive API
+│   ├── setup_drive_auth.py            # Re-correr si el token expira
+│   ├── test_drive_connection.py       # Prueba rápida de conexión a Drive
+│   ├── plantilla_IEC_blanco.pdf       # IEC en blanco, 83 págs., listo para usar
+│   └── assemble_expediente.py         # ⏭️ PENDIENTE DE CONSTRUIR (Paso 4 del plan)
+└── assets/                        # (Carpeta para fotos/videos - crear cuando se tengan)
     ├── images/
     │   ├── logo/
     │   ├── hero/
@@ -252,6 +266,152 @@ OPTIMIZADO:          7-10% (Con mejoras de UX)
 - [ ] Agregar video de Fernando Villarreal (30-60s) en success.html
 - [ ] Pixel de conversión (Facebook/Google) en success.html
 - [ ] Email automático post-pago (opcional)
+
+---
+
+## 🎓 SISTEMA DE CERTIFICACIÓN EC1375 (v5.0 - 3 de agosto, 2026)
+
+**Objetivo:** Después del pago ($2,000), el candidato completa TODO el proceso oficial de certificación EC1375 (autodiagnóstico, plan de evaluación, evidencias, encuesta) desde el navegador, sin papeleo. El equipo evaluador ensambla al final un solo PDF ("Portafolio de Evidencias") con la misma estructura que exige el organismo certificador — igual para cada candidato, solo cambian los datos.
+
+**Documento de referencia:** `PORTAFOLIO HUMBERTO LOT 1375.pdf` (143 páginas, expediente real ya entregado por un centro evaluador) — **no está en git** (es confidencial, contiene datos personales reales). Se usó únicamente para mapear la estructura exacta que debe tener cada expediente. Vive en la raíz del proyecto localmente, gitignored.
+
+### Flujo completo (post-pago)
+
+```
+success.html
+    ↓ botón "Ir a mi Autodiagnóstico"
+autodiagnostico.html          ✅ EN PRODUCCIÓN
+    142 reactivos oficiales EC1375, 4 Elementos, wizard de 8 pasos
+    Selector de especialidad (acordeón, 5 categorías + "otra")
+    Genera PDF/Word, calcula % y recomienda evaluarse si ≥90%
+    ↓ botón "Ir a mi Plan de Evaluación"
+plan-evaluacion.html          ✅ EN PRODUCCIÓN (calendario pendiente de conectar)
+    Hereda nombre/especialidad/resultado del Autodiagnóstico (localStorage)
+    Muestra criterios fijos (142 reactivos por Elemento) + requerimientos de equipo
+    Agenda cita — placeholder para Google Calendar Appointment Schedule
+      (const GOOGLE_CALENDAR_BOOKING_URL en el archivo, vacío = fallback a WhatsApp)
+    Firma + genera PDF/Word
+    ↓ botón "Sube tus Evidencias"
+evidencias.html               ✅ EN PRODUCCIÓN, Google Form conectado
+    Checklist de evidencias + Google Form embebido (ver detalle abajo)
+    Firma + comprobante interno (YA NO se llama "Acuse" como si fuera el
+    expediente final — es solo un aviso interno al equipo)
+    ↓ botón "Encuesta de Satisfacción"
+encuesta-satisfaccion.html    ✅ EN PRODUCCIÓN
+    8 preguntas oficiales (Likert: Totalmente en desacuerdo → Muy de acuerdo)
+    Firma + PDF + pantalla de cierre ("certificado en 60-90 días")
+```
+
+Cada página lee `localStorage.autodiagnosticoData` (guardado por autodiagnostico.html) para heredar nombre/CURP/especialidad sin que el candidato reescriba nada. `plan-evaluacion.html` y `evidencias.html` además guardan su propio estado en `localStorage.planEvaluacionData` / `evidenciasData`.
+
+### Google Form "Evidencia EC1375" — qué sube el candidato
+
+URL del form: `https://forms.gle/NsPV3UbrJ36jN8Nh6`
+Embed URL (ya conectado en `evidencias.html` → `GOOGLE_FORM_EMBED_URL`):
+`https://docs.google.com/forms/d/e/1FAIpQLSeI6K5YkxBnw_-ER8lHQNXk11AiujztXiyFnTHV2S0eJc0qxw/viewform?embedded=true`
+
+Preguntas de carga de archivo actuales en el Form real (Google exige login para subir archivos, no se puede quitar):
+- Nombre completo (texto — clave para identificar al candidato en Drive)
+- Capturas de la sesión Zoom
+- Ficha de Registro / Anamnesis, Carta de Consentimiento, Plan de Seguimiento (evidencias del **paciente/usuario real**, no del candidato)
+- Identificación oficial (INE), CURP (evidencias del **candidato**)
+- Foto para el diploma (specs oficiales CETAMM: fondo blanco, sin retoques, no mayor a 2 meses — están documentadas en `evidencias.html`)
+- Certificados/diplomas de formación previa (opcional)
+
+**⚠️ PENDIENTE (lo hace Diego directo en Google Forms, no en código):** agregar 3 preguntas de carga más — "Sube tu Autodiagnóstico (PDF)", "Sube tu Plan de Evaluación (PDF)", "Sube tu Encuesta de Satisfacción (PDF)" — para que esos 3 PDFs generados por el candidato también caigan en Drive junto con las evidencias (el script de ensamblado los necesita, ver abajo).
+
+Todos los archivos subidos caen en la carpeta de Drive **"Evidencia EC1375 (File responses)"** — confirmado y accesible vía API (ver siguiente sección).
+
+### Google Drive API — ✅ CONECTADA Y FUNCIONANDO
+
+- Proyecto de Google Cloud: `EC1375-Portafolios`, dueño de la cuenta: `de.minconsciente@outlook.com`
+- Credenciales OAuth (tipo "Aplicación de escritorio") descargadas en:
+  `/Users/diegogarzamx/Desktop/EC1375/client_secret_1005730568235-e1k1r7e2g41jr4sujmgob53sab7956hm.apps.googleusercontent.com.json`
+- Token ya autorizado (primer login hecho) en:
+  `/Users/diegogarzamx/Desktop/EC1375/_internal_no_publicar/token.json`
+- Ambos archivos están en `.gitignore` (`client_secret*.json`, `token.json`, `_internal_no_publicar/`) — **nunca deben subirse a GitHub**
+- Scope usado: `drive.readonly`
+- Verificado con `_internal_no_publicar/test_drive_connection.py`: la API lista correctamente la carpeta "Evidencia EC1375 (File responses)"
+- Si el token expira/falla, volver a correr `_internal_no_publicar/setup_drive_auth.py` (abre el navegador real del usuario para reautorizar — nunca ingresar credenciales por Claude)
+
+### Plantilla del Instrumento de Evaluación de Competencia (IEC) — ✅ GENERADA
+
+Derivada del PDF de Humberto (páginas 35-117, 83 páginas), con todas las marcas del evaluador blanqueadas para reutilizar como plantilla en blanco por candidato.
+
+**Ubicación:** `_internal_no_publicar/plantilla_IEC_blanco.pdf` (gitignored, no subir a GitHub — se deriva de un documento con datos reales de un tercero)
+
+**Qué se blanqueó (proceso documentado por si hay que rehacerlo):**
+1. 210 celdas de columnas SÍ/NO en tablas de reactivos — los checks eran **dibujados a mano** (curvas vectoriales), no texto, así que se blanquearon por posición de celda (`pdfplumber.find_tables()` + estado persistente de columnas entre páginas, ya que muchas páginas continúan una tabla sin repetir el encabezado)
+2. 37 respuestas de preguntas de opción múltiple ("Respuesta Elejida: b)" — el documento oficial tiene un typo, "Elejida" con J)
+3. Firmas manuscritas al pie de las 83 páginas (banda blanca y=655-792 en coords PDF; las firmas empiezan tan arriba como y=674, hay que dejar margen generoso)
+4. Nombre de evaluador/candidato en la portada del IEC (página 35), con coordenadas precisas para no tapar las etiquetas del formulario
+
+**⚠️ Artefacto cosmético conocido sin resolver:** aparece la palabra "text0" en un espacio vacío de la portada (pág. 1 del IEC), invisible en el original, probablemente un choque de recursos de fuente entre `reportlab` (usado para generar los overlays blancos) y `pypdf` (usado para fusionarlos). No tapa contenido real. **Revisar antes de usar con un candidato real** — si molesta, hay que investigar más a fondo el merge_page de pypdf o regenerar esa página específica con otra técnica.
+
+**Script usado para generar la plantilla** (no quedó guardado como archivo — se corrió inline vía Bash/Python en la sesión). Si hay que regenerar: usar `pdfplumber` para detectar tablas y columnas SÍ/NO página por página con estado persistente entre páginas, `reportlab` para dibujar rectángulos blancos, `pypdf` (`PdfReader`, `PdfWriter`, `merge_page`) para fusionar el overlay con cada página original.
+
+### Portafolio simulado (prueba de concepto) — ✅ generado y entregado
+
+Se generó un portafolio de prueba completo (candidata ficticia "Ana Sofía Ramírez López") corriendo datos simulados a través de las 4 páginas reales del sitio, capturando la salida real de `jsPDF` (interceptando `.save()` para obtener el PDF en base64 en vez de descargarlo), y fusionando todo con `pypdf` + una portada/índice generados con `reportlab`. Confirma que el pipeline técnico de ensamblado funciona de principio a fin. Sirvió para validar estructura contra el documento de Humberto antes de construir el script de producción.
+
+### 📐 Estructura EXACTA del expediente final (verificada página por página contra Humberto)
+
+```
+1.  Portada                                         (generada — datos del candidato)
+2.  Índice                                          (generado — fijo, mismo para todos)
+3.  "1. Datos del Candidato" (separador)
+4.  Ficha de Registro del candidato                 (cubierto por datos personales del Autodiagnóstico)
+5.  CURP oficial (constancia)                        extraído del Form/Drive
+6.  INE (frente y reverso)                           extraído del Form/Drive
+7.  Autodiagnóstico (142 reactivos)                 generado por el candidato → SUBIDO al Form
+8.  "2. Recopilación de Evidencias" (separador)
+9.  Plan de Evaluación                              generado por el candidato → SUBIDO al Form
+10. Instrumento de Evaluación de Competencia (IEC)   plantilla en blanco (83 págs.) — LO LLENA el evaluador
+11. Ficha de Registro del usuario/paciente (sesión)  extraído del Form/Drive
+12. Carta de Consentimiento Informado (del paciente) extraído del Form/Drive
+13. Plan de Sesión (del paciente)                    extraído del Form/Drive
+14. Plan de Seguimiento (del paciente)               extraído del Form/Drive
+15. Referencia al video de la sesión                 página con liga a YouTube/plataforma
+16. "3. Cierre de la Evaluación" (separador)
+17. Cédula de Evaluación                             plantilla en blanco — LO LLENA el evaluador
+18. Encuesta de Satisfacción                        generada por el candidato → SUBIDA al Form
+19. "4. Anexos" (separador)
+20. Acuse de Recibido — Tríptico Derechos y Obligaciones  (dato ya capturado: `triptychAccepted` del Autodiagnóstico)
+```
+
+Importante: el INE/CURP del candidato van cerca de la portada (sección "Datos del Candidato"), **no** junto a las evidencias de la sesión — esas evidencias (Ficha/Carta/Plan de Sesión/Plan de Seguimiento) son del **paciente real** de la sesión práctica, no del candidato, y van después del IEC.
+
+### ⏭️ SIGUIENTE PASO INMEDIATO — Paso 4 del plan: script de ensamblado
+
+**No se ha construido todavía.** Es lo próximo a hacer. Debe vivir en `_internal_no_publicar/assemble_expediente.py` (nunca en el repo público — maneja datos personales reales) y, dado un nombre de candidato:
+
+1. Buscar en Drive los archivos de ese candidato (por la respuesta "Nombre completo" del Form) usando las credenciales ya autorizadas en `_internal_no_publicar/token.json`
+2. Descargar: Autodiagnóstico.pdf, Plan_Evaluacion.pdf, Encuesta.pdf, INE, CURP, capturas de sesión, Carta Consentimiento, Plan de Sesión, Plan de Seguimiento
+3. Convertir imágenes (JPG/PNG) a páginas PDF donde haga falta
+4. Generar portada + índice + separadores de sección (mismo patrón `reportlab` ya usado en el portafolio simulado)
+5. Generar la página de referencia al video (liga a YouTube que el candidato puso en `evidencias.html`)
+6. Insertar `plantilla_IEC_blanco.pdf` + una Cédula de Evaluación en blanco (**la Cédula en blanco todavía no se ha generado** — es un documento de 1 página, page 135 en Humberto, hay que replicarla vacía con reportlab, no requiere el mismo tratamiento de redacción que el IEC)
+7. Fusionar todo con `pypdf` en el orden exacto de arriba
+8. Guardar como `Portafolio_EC1375_[Nombre_Candidato].pdf`
+
+**Después:** probar con datos reales de Diego (Paso 5 del plan) — corrió su propio proceso de certificación por la herramienta para validarla end-to-end.
+
+### 🔮 Backlog — no urgente, pero anotado para cuando escale a más candidatos
+
+1. **Autenticación por candidato:** usuario/contraseña o token de un solo uso por alumno — hoy cualquiera con el link accede, sin identidad verificada.
+2. **Panel de aprobación/filtrado para el equipo:** ver en qué etapa está cada candidato y aprobar/rechazar antes de ensamblar/entregar.
+3. **Persistencia centralizada:** hoy todo vive en `localStorage` del navegador del candidato — si limpia caché o cambia de dispositivo, pierde su avance. Necesita base de datos real antes de invitar candidatos externos.
+4. **Recuperar PDFs perdidos:** si el candidato pierde sus 3 PDFs antes de subirlos al Form, hoy no hay forma de regenerarlos (mismo motivo que el punto 3).
+5. **Multi-evaluador:** número de WhatsApp y nombre de evaluador están fijos en el código.
+6. **Anti-duplicados:** validar que un mismo CURP no se registre dos veces.
+7. **Notificación de estado al candidato:** página tipo "así va tu proceso" en vez de preguntar por WhatsApp.
+
+### ⚠️ Puntos abiertos sin resolver
+
+1. **"Foto para el diploma" y "Certificados de formación":** no se encontró su lugar exacto en el expediente de Humberto — por ahora van en Anexos, ajustar si la evaluadora indica otra cosa.
+2. **"Formato de Atención a Usuarios"** (págs. 2-3 de Humberto) y **"Verificación Interna"/"Formato Servicio a Usuarios"** (págs. 137-138): parecen documentos de admisión/auditoría interna del Centro Evaluador, no generados por el candidato — se omiten del expediente estándar salvo que la evaluadora confirme que se requieren.
+3. **Cédula de Evaluación y IEC llenos:** ambos los llena el evaluador después de revisar el video/evidencias — el script de ensamblado los inserta en blanco; falta un segundo flujo (fuera de este alcance por ahora) para que el evaluador los llene digitalmente y se regenere el expediente ya completo.
+4. **Google Calendar en `plan-evaluacion.html`:** el candidato pidió que fuera "horarios fijos recurrentes" en vez de un calendario en tiempo real tipo Calendly — **todavía no se configuró**, el placeholder `GOOGLE_CALENDAR_BOOKING_URL` sigue vacío y usa el fallback de WhatsApp.
 
 ---
 
