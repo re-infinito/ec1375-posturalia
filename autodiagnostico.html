@@ -1460,6 +1460,12 @@
             </div>
 
             <div class="card">
+                <h2>📄 Acuse de Recibido — Tríptico</h2>
+                <p style="margin-bottom: 16px; color: var(--text); font-size: 0.9rem;">Confirma que recibiste el Tríptico de Derechos y Obligaciones del Usuario (ya lo aceptaste al firmar arriba — no necesitas hacer nada más).</p>
+                <button class="btn btn-secondary btn-full" onclick="generateAcuseTripticoPDF()">📄 Descargar Acuse de Tríptico</button>
+            </div>
+
+            <div class="card">
                 <h2>📱 Envía tu resultado al equipo</h2>
                 <p style="margin-bottom: 12px; color: var(--text); font-size: 0.9rem;">Se abrirá WhatsApp con tu resumen. Adjunta el PDF que descargaste en el chat.</p>
                 <button class="btn btn-whatsapp btn-full" onclick="sendWhatsAppSummary()">📱 ENVIAR RESULTADO POR WHATSAPP</button>
@@ -1653,6 +1659,50 @@
 
         const filename = `Autodiagnostico_EC1375_${(pd.nombre || 'candidato').replace(/\s+/g, '_')}.pdf`;
         doc.save(filename);
+    }
+
+    /* =========================================================
+       ACUSE DE RECIBIDO — TRÍPTICO
+    ========================================================= */
+    function generateAcuseTripticoPDF() {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        const pd = personalData;
+
+        addOfficialLogos(doc);
+        doc.setFontSize(13);
+        doc.setFont(undefined, 'bold');
+        doc.text('ACUSE DE RECIBIDO TRÍPTICO DE DERECHOS Y OBLIGACIONES DEL USUARIO', 105, 28, { align: 'center', maxWidth: 180 });
+
+        doc.autoTable({
+            startY: 42, theme: 'plain', styles: { fontSize: 9, cellPadding: 1.5 },
+            body: [
+                ['Candidato/a:', pd.nombre || ''],
+                ['Estándar de Competencia:', 'EC1375 - Prestación de servicios auxiliares en la contribución'],
+                ['', 'tradicional y complementaria de la recuperación de las condiciones'],
+                ['', 'físicas y socioemocionales de las personas.'],
+                ['Fecha:', pd.fecha || todayISO()]
+            ]
+        });
+        let y = doc.lastAutoTable.finalY + 16;
+
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'bold');
+        doc.text('ACUSO DE RECIBIDO CON CONFORMIDAD UN TRÍPTICO DE DERECHOS Y', 105, y, { align: 'center' }); y += 5;
+        doc.text('OBLIGACIONES DEL USUARIO', 105, y, { align: 'center' }); y += 20;
+
+        doc.setFont(undefined, 'normal');
+        doc.setFontSize(9);
+        doc.text('Nombre completo y firma:', 14, y);
+        if (signatureMode === 'draw' && signatureDataUrl) {
+            doc.addImage(signatureDataUrl, 'PNG', 14, y + 3, 55, 20);
+        } else if (signatureTypedName) {
+            doc.setFont(undefined, 'italic');
+            doc.setFontSize(13);
+            doc.text(signatureTypedName, 14, y + 14);
+        }
+
+        doc.save(`Acuse_Triptico_EC1375_${(pd.nombre || 'candidato').replace(/\s+/g, '_')}.pdf`);
     }
 
     /* =========================================================

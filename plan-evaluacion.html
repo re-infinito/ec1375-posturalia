@@ -887,6 +887,7 @@ const AUTODIAGNOSTICO_DATA = [
                 <p style="color:var(--text);margin-bottom:20px;">Descárgalo y compártelo con tu evaluador. Tu cita: <strong>${escapeHtml(planData.fechaHoraAgendada)}</strong></p>
                 <button class="btn btn-primary btn-full" onclick="generatePDF()">📄 Descargar PDF</button>
                 <button class="btn btn-secondary btn-full" onclick="generateWord()">📝 Descargar Word (.doc)</button>
+                <button class="btn btn-secondary btn-full" onclick="generateAcusePlanEvaluacionPDF()">📄 Descargar Acuse de Recibido</button>
                 <button class="btn btn-whatsapp btn-full" onclick="notifyWhatsApp()">📱 AVISAR AL EQUIPO POR WHATSAPP</button>
             </div>
             <div class="card" style="text-align:center;margin-top:20px;">
@@ -1004,6 +1005,48 @@ const AUTODIAGNOSTICO_DATA = [
         }
 
         doc.save(`Plan_Evaluacion_EC1375_${(pd.nombre || 'candidato').replace(/\s+/g, '_')}.pdf`);
+    }
+
+    function generateAcusePlanEvaluacionPDF() {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        const result = loadAutodiagnosticoResult();
+        const pd = result.personalData;
+
+        addOfficialLogos(doc);
+        doc.setFontSize(13);
+        doc.setFont(undefined, 'bold');
+        doc.text('ACUSE DE RECIBIDO PLAN DE EVALUACIÓN', 105, 28, { align: 'center' });
+
+        doc.autoTable({
+            startY: 42, theme: 'plain', styles: { fontSize: 9, cellPadding: 1.5 },
+            body: [
+                ['Candidato/a:', pd.nombre || ''],
+                ['Estándar de Competencia:', 'EC1375 - Prestación de servicios auxiliares en la contribución'],
+                ['', 'tradicional y complementaria de la recuperación de las condiciones'],
+                ['', 'físicas y socioemocionales de las personas.'],
+                ['Fecha:', planData.fechaHoraAgendada || new Date().toLocaleDateString('es-MX')]
+            ]
+        });
+        let y = doc.lastAutoTable.finalY + 20;
+
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'bold');
+        doc.text('ACUSO DE RECIBIDO CON CONFORMIDAD COPIA DEL PLAN DE EVALUACIÓN', 105, y, { align: 'center' });
+        y += 24;
+
+        doc.setFont(undefined, 'normal');
+        doc.setFontSize(9);
+        doc.text('Nombre completo y firma:', 14, y);
+        if (signatureMode === 'draw' && signatureDataUrl) {
+            doc.addImage(signatureDataUrl, 'PNG', 14, y + 3, 55, 20);
+        } else if (signatureTypedName) {
+            doc.setFont(undefined, 'italic');
+            doc.setFontSize(13);
+            doc.text(signatureTypedName, 14, y + 14);
+        }
+
+        doc.save(`Acuse_Plan_Evaluacion_EC1375_${(pd.nombre || 'candidato').replace(/\s+/g, '_')}.pdf`);
     }
 
     function generateWord() {
