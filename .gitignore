@@ -8,3 +8,11 @@ node_modules/
 dist/
 build/
 .env*
+
+# Documentos internos de referencia (no publicar)
+FORMATO PORTAFOLIO-1375-2026*.pdf
+FORMATO PORTAFOLIO-1375-2026*.docx
+FORMATO PORTAFOLIO-1375-2026*.pages
+
+# Config local de desarrollo (browser preview tool)
+.claude/

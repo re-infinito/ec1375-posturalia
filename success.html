@@ -149,6 +149,85 @@
             color: var(--success);
         }
 
+        /* Section 2.5: Autodiagnóstico CTA */
+        .autodiag-cta-box {
+            background: linear-gradient(135deg, rgba(255, 215, 0, 0.12) 0%, rgba(255, 215, 0, 0.04) 100%);
+            border: 2px solid var(--accent);
+            border-radius: 16px;
+            padding: 32px;
+            margin-bottom: 40px;
+            text-align: center;
+            animation: slideUp 1s ease 0.3s both;
+        }
+
+        .autodiag-badge {
+            display: inline-block;
+            background: var(--accent);
+            color: var(--dark);
+            font-size: 0.75rem;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            padding: 5px 14px;
+            border-radius: 20px;
+            margin-bottom: 16px;
+        }
+
+        .autodiag-cta-title {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: var(--text-bright);
+            margin-bottom: 12px;
+        }
+
+        .autodiag-cta-subtitle {
+            font-size: 0.98rem;
+            color: var(--text);
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+
+        .autodiag-features {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            text-align: left;
+            background: rgba(0,0,0,0.15);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 22px;
+        }
+
+        .autodiag-feature-item {
+            font-size: 0.85rem;
+            color: var(--text);
+        }
+
+        .autodiag-feature-icon {
+            color: var(--accent);
+            font-weight: 700;
+            margin-right: 6px;
+        }
+
+        .autodiag-cta-btn {
+            display: inline-block;
+            width: 100%;
+            padding: 18px 30px;
+            background: var(--accent);
+            color: var(--dark);
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 800;
+            font-size: 1.05rem;
+            box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .autodiag-cta-btn:hover {
+            background: #ffe033;
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(255, 215, 0, 0.4);
+        }
+
         /* Section 3: WhatsApp Invitation */
         .whatsapp-section {
             background: rgba(0, 136, 255, 0.08);
@@ -467,6 +546,14 @@
                 width: 100%;
             }
 
+            .autodiag-cta-box {
+                padding: 22px;
+            }
+
+            .autodiag-features {
+                grid-template-columns: 1fr;
+            }
+
             .footer-contacts {
                 flex-direction: column;
                 gap: 12px;
@@ -502,6 +589,23 @@
                 <span class="detail-label">Próximo paso:</span>
                 <span class="detail-value">Contacto en 24-48h</span>
             </div>
+        </div>
+
+        <!-- Section 2.5: Autodiagnóstico CTA -->
+        <div class="autodiag-cta-box">
+            <span class="autodiag-badge">📋 SIGUIENTE PASO RECOMENDADO</span>
+            <h2 class="autodiag-cta-title">Inicia tu Autodiagnóstico EC1375</h2>
+            <p class="autodiag-cta-subtitle">
+                Responde 142 preguntas guiadas sobre tu práctica y descubre si estás listo para tu evaluación oficial.
+                Al terminar, descarga tu documento en PDF y Word ya llenado — listo para tu evaluador.
+            </p>
+            <div class="autodiag-features">
+                <div class="autodiag-feature-item"><span class="autodiag-feature-icon">✓</span> Wizard guiado paso a paso (20-30 min)</div>
+                <div class="autodiag-feature-item"><span class="autodiag-feature-icon">✓</span> Tu avance se guarda automáticamente</div>
+                <div class="autodiag-feature-item"><span class="autodiag-feature-icon">✓</span> Firma digital incluida</div>
+                <div class="autodiag-feature-item"><span class="autodiag-feature-icon">✓</span> Descarga PDF + Word al instante</div>
+            </div>
+            <a href="autodiagnostico.html" class="autodiag-cta-btn">📋 INICIAR MI AUTODIAGNÓSTICO</a>
         </div>
 
         <!-- Section 3: WhatsApp Invitation -->

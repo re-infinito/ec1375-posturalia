@@ -1,0 +1,1488 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Autodiagnóstico EC1375 - Posturalia</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --dark: #050a1a;
+            --dark-light: #0f1428;
+            --primary: #0088FF;
+            --primary-light: #00CCFF;
+            --accent: #FFD700;
+            --text: #D0D0D0;
+            --text-bright: #FFFFFF;
+            --danger: #FF3333;
+            --success: #00FF88;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, var(--dark) 0%, #0a1530 100%);
+            color: var(--text);
+            line-height: 1.6;
+            min-height: 100vh;
+            padding-bottom: 100px;
+        }
+
+        .container { max-width: 760px; margin: 0 auto; padding: 24px 20px; }
+
+        /* HEADER / PROGRESS */
+        .top-bar {
+            position: sticky;
+            top: 0;
+            background: var(--dark);
+            border-bottom: 1px solid var(--dark-light);
+            padding: 14px 20px;
+            z-index: 100;
+        }
+
+        .top-bar-inner { max-width: 760px; margin: 0 auto; }
+
+        .top-bar-title {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+            color: var(--text);
+        }
+
+        .top-bar-title strong { color: var(--text-bright); }
+
+        .progress-bar-track {
+            width: 100%;
+            height: 6px;
+            background: var(--dark-light);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), var(--primary-light));
+            transition: width 0.3s ease;
+        }
+
+        /* HERO / INTRO */
+        .intro-hero { text-align: center; padding: 30px 0; }
+        .intro-icon { font-size: 3.5rem; margin-bottom: 16px; }
+        .intro-title { font-size: 1.8rem; font-weight: 700; color: var(--text-bright); margin-bottom: 12px; }
+        .intro-subtitle { font-size: 1rem; color: var(--text); margin-bottom: 28px; }
+
+        .info-box {
+            background: var(--dark-light);
+            border-left: 4px solid var(--primary);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            text-align: left;
+        }
+
+        .info-box h3 { color: var(--text-bright); font-size: 1rem; margin-bottom: 10px; }
+        .info-box ul { padding-left: 20px; color: var(--text); font-size: 0.92rem; }
+        .info-box li { margin-bottom: 6px; }
+
+        .resume-box {
+            background: rgba(0, 255, 136, 0.08);
+            border: 1px solid var(--success);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        /* CARD SECTIONS */
+        .card {
+            background: var(--dark-light);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+        }
+
+        .card h2 { font-size: 1.2rem; color: var(--text-bright); margin-bottom: 16px; }
+
+        /* FORM FIELDS */
+        .field-group { margin-bottom: 18px; }
+        .field-group label {
+            display: block;
+            font-size: 0.88rem;
+            color: var(--text);
+            margin-bottom: 6px;
+            font-weight: 600;
+        }
+
+        .field-group input,
+        .field-group textarea,
+        .field-group select {
+            width: 100%;
+            padding: 12px 14px;
+            background: var(--dark);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 8px;
+            color: var(--text-bright);
+            font-size: 0.95rem;
+            font-family: inherit;
+        }
+
+        .field-group input:focus,
+        .field-group textarea:focus,
+        .field-group select:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .field-hint { font-size: 0.8rem; color: rgba(255,255,255,0.4); margin-top: 4px; }
+
+        /* ELEMENTO STEP */
+        .elemento-header {
+            background: linear-gradient(135deg, rgba(0,136,255,0.15), rgba(0,204,255,0.06));
+            border: 1px solid var(--primary);
+            border-radius: 10px;
+            padding: 18px 20px;
+            margin-bottom: 20px;
+        }
+
+        .elemento-badge {
+            display: inline-block;
+            background: var(--primary);
+            color: white;
+            font-size: 0.78rem;
+            font-weight: 700;
+            padding: 4px 12px;
+            border-radius: 20px;
+            margin-bottom: 10px;
+        }
+
+        .elemento-titulo { color: var(--text-bright); font-size: 1rem; line-height: 1.5; }
+
+        .categoria-block { margin-bottom: 22px; }
+        .categoria-title {
+            font-size: 0.95rem;
+            color: var(--accent);
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid rgba(255,215,0,0.2);
+        }
+
+        .grupo-block { margin-bottom: 16px; }
+        .grupo-titulo {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text-bright);
+            margin-bottom: 8px;
+        }
+
+        .item-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 12px;
+            background: var(--dark);
+            border-radius: 8px;
+            margin-bottom: 6px;
+            border: 1px solid transparent;
+        }
+
+        .item-row.answered { border-color: rgba(0,255,136,0.2); }
+
+        .item-text { font-size: 0.85rem; color: var(--text); flex: 1; }
+
+        .item-toggle { display: flex; gap: 6px; flex-shrink: 0; }
+
+        .toggle-btn {
+            padding: 7px 14px;
+            border-radius: 6px;
+            border: 1px solid rgba(255,255,255,0.2);
+            background: transparent;
+            color: var(--text);
+            font-size: 0.8rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .toggle-btn.active-si { background: var(--success); border-color: var(--success); color: var(--dark); }
+        .toggle-btn.active-no { background: var(--danger); border-color: var(--danger); color: white; }
+
+        .step-counter {
+            text-align: center;
+            font-size: 0.85rem;
+            color: var(--text);
+            margin-bottom: 16px;
+            padding: 10px;
+            background: var(--dark);
+            border-radius: 8px;
+        }
+
+        .step-counter strong { color: var(--primary-light); }
+
+        /* SIGNATURE */
+        .signature-tabs { display: flex; gap: 10px; margin-bottom: 16px; }
+        .sig-tab-btn {
+            flex: 1;
+            padding: 10px;
+            background: var(--dark);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 8px;
+            color: var(--text);
+            font-size: 0.85rem;
+            cursor: pointer;
+        }
+        .sig-tab-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+
+        #signatureCanvas {
+            width: 100%;
+            max-width: 500px;
+            height: 160px;
+            background: #fff;
+            border-radius: 8px;
+            border: 2px solid rgba(255,255,255,0.15);
+            touch-action: none;
+            display: block;
+            margin: 0 auto 12px;
+        }
+
+        .clear-sig-btn {
+            display: block;
+            margin: 0 auto 16px;
+            padding: 8px 16px;
+            background: transparent;
+            border: 1px solid var(--danger);
+            color: var(--danger);
+            border-radius: 6px;
+            font-size: 0.82rem;
+            cursor: pointer;
+        }
+
+        .checkbox-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 14px;
+            background: var(--dark);
+            border-radius: 8px;
+            margin-top: 12px;
+        }
+
+        .checkbox-row input[type="checkbox"] { width: 20px; height: 20px; flex-shrink: 0; margin-top: 2px; }
+        .checkbox-row label { font-size: 0.85rem; color: var(--text); }
+
+        /* RESULTADO */
+        .resultado-hero { text-align: center; padding: 20px 0; }
+        .score-circle {
+            width: 160px;
+            height: 160px;
+            border-radius: 50%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+            border: 6px solid var(--primary);
+        }
+        .score-circle.high { border-color: var(--success); }
+        .score-circle.low { border-color: var(--accent); }
+        .score-percent { font-size: 2.2rem; font-weight: 700; color: var(--text-bright); }
+        .score-label { font-size: 0.75rem; color: var(--text); }
+
+        .recomendacion-box {
+            padding: 18px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: 600;
+        }
+        .recomendacion-box.evaluate { background: rgba(0,255,136,0.1); border: 1px solid var(--success); color: var(--success); }
+        .recomendacion-box.assess { background: rgba(255,215,0,0.1); border: 1px solid var(--accent); color: var(--accent); }
+
+        .download-buttons { display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px; }
+
+        /* BUTTONS */
+        .btn {
+            padding: 15px 24px;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 0.95rem;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: var(--primary-light); transform: translateY(-2px); }
+        .btn-primary:disabled { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.3); cursor: not-allowed; transform: none; }
+
+        .btn-secondary { background: transparent; border: 2px solid var(--primary); color: var(--primary); }
+        .btn-secondary:hover { background: rgba(0,136,255,0.1); }
+
+        .btn-whatsapp { background: #25D366; color: white; }
+        .btn-whatsapp:hover { background: #20ba5a; transform: translateY(-2px); }
+
+        .btn-full { width: 100%; }
+
+        /* NAV BAR (bottom) */
+        .nav-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--dark-light);
+            border-top: 1px solid rgba(255,255,255,0.1);
+            padding: 14px 20px;
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            z-index: 100;
+        }
+
+        .nav-bar-inner { max-width: 760px; width: 100%; display: flex; gap: 12px; }
+        .nav-bar .btn { flex: 1; }
+
+        .whatsapp-note {
+            font-size: 0.8rem;
+            color: rgba(255,255,255,0.5);
+            text-align: center;
+            margin-top: -6px;
+            margin-bottom: 10px;
+        }
+
+        @media (max-width: 600px) {
+            .item-row { flex-direction: column; align-items: flex-start; }
+            .item-toggle { align-self: flex-end; }
+            .intro-title { font-size: 1.4rem; }
+            .score-circle { width: 130px; height: 130px; }
+            .score-percent { font-size: 1.8rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="top-bar">
+        <div class="top-bar-inner">
+            <div class="top-bar-title">
+                <span>📋 Autodiagnóstico EC1375</span>
+                <strong id="topBarStep">Inicio</strong>
+            </div>
+            <div class="progress-bar-track">
+                <div class="progress-bar-fill" id="progressBarFill" style="width: 0%"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container" id="app"></div>
+
+    <div class="nav-bar" id="navBar" style="display:none;">
+        <div class="nav-bar-inner">
+            <button class="btn btn-secondary" id="btnBack" onclick="goBack()">← Atrás</button>
+            <button class="btn btn-primary" id="btnNext" onclick="goNext()">Siguiente →</button>
+        </div>
+    </div>
+
+    <script>
+    /* =========================================================
+       DATA: 142 reactivos oficiales del EC1375 (4 Elementos)
+    ========================================================= */
+    const AUTODIAGNOSTICO_DATA = [
+        {
+            elemento: 1,
+            titulo: "Preparar el espacio en la contribución tradicional y complementaria de la recuperación de las condiciones físicas y socioemocionales de las personas.",
+            categorias: [
+                {
+                    tipo: "DESEMPEÑOS",
+                    pregunta: "¿Puede usted realizar los siguientes DESEMPEÑOS?",
+                    grupos: [
+                        {
+                            titulo: "Realiza los protocolos de seguridad sanitaria:",
+                            items: [
+                                "Antes de recibir al usuario",
+                                "Lavándose las manos, conforme al protocolo señalado por la Organización Mundial de la Salud",
+                                "Colocándose cubrebocas de tipo quirúrgico de triple capa, de acuerdo con las recomendaciones de uso de la Secretaría de Salud",
+                                "Colocando tapete sanitizante con solución desinfectante al ingreso del inmueble",
+                                "Disponiendo de gel antibacterial para el ingreso del inmueble",
+                                "Disponiendo de termómetro digital para el ingreso del inmueble"
+                            ]
+                        }
+                    ]
+                },
+                {
+                    tipo: "PRODUCTOS",
+                    pregunta: "¿Usted puede obtener los siguientes PRODUCTOS?",
+                    grupos: [
+                        {
+                            titulo: "El espacio acondicionado para otorgar el servicio de las técnicas tradicionales y complementarias:",
+                            items: [
+                                "Dispone del material, herramientas, mobiliario y equipo suficientes para otorgar el servicio",
+                                "Cuenta con el espacio suficiente para el desplazamiento libre y a distancia entre el usuario y quien otorga el servicio",
+                                "Cuenta con archivero / medio digital para el resguardo de la documentación del usuario",
+                                "Está ventilado y sin corrientes de aire",
+                                "Cuenta con energía eléctrica e iluminación natural",
+                                "Presenta colores claros en las paredes y techo",
+                                "Dispone de depósitos para desechar basura orgánica e inorgánica",
+                                "Dispone de depósitos para desechar residuos peligrosos biológicos-infecciosos de acuerdo con la NOM-087-ECOL-SSA1-2002",
+                                "Cuenta con un lugar específico para que los usuarios coloquen sus pertenencias"
+                            ]
+                        },
+                        {
+                            titulo: "Las herramientas y materiales de trabajo seleccionados:",
+                            items: [
+                                "Están limpias y desinfectadas / sanitizadas",
+                                "Se encuentran disponibles y en condiciones para su uso",
+                                "Están contenidas en estuches / depósitos / contenedores que las protejan de contaminantes ambientales",
+                                "Tienen las especificaciones de uso / vigencia / garantía / condiciones de operación de la empresa o proveedor"
+                            ]
+                        }
+                    ]
+                },
+                {
+                    tipo: "CONOCIMIENTOS",
+                    pregunta: "¿Usted cuenta con los siguientes CONOCIMIENTOS?",
+                    grupos: [
+                        {
+                            titulo: "Cuenta con conocimientos en los siguientes temas:",
+                            items: [
+                                "Técnicas de atención tradicional y complementaria",
+                                "Desinfección vs Sanitización: Definición, Características, Medios, Recursos",
+                                "Manejo de residuos peligrosos NOM-087-ECOL-SSA1-2002"
+                            ]
+                        }
+                    ]
+                },
+                {
+                    tipo: "ACTITUDES",
+                    pregunta: "¿Usted cuenta con las siguientes ACTITUDES, HÁBITOS y VALORES?",
+                    grupos: [
+                        {
+                            titulo: "Usted presenta:",
+                            items: [
+                                "Limpieza: La manera en que el espacio acondicionado está libre de polvo, suciedad, manchas, malos olores y basura",
+                                "Orden: La manera en que el espacio acondicionado tiene dispuestos de manera organizada un lugar particular para sus equipos, materiales, herramientas, documentación y mobiliario"
+                            ]
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            elemento: 2,
+            titulo: "Preparar al usuario para la contribución tradicional y complementaria de la recuperación de las condiciones físicas y socioemocionales de las personas.",
+            categorias: [
+                {
+                    tipo: "DESEMPEÑOS",
+                    pregunta: "¿Puede usted realizar los siguientes DESEMPEÑOS?",
+                    grupos: [
+                        {
+                            titulo: "Recibe al usuario:",
+                            items: [
+                                "Saludándolo cordialmente",
+                                "Aplicando los protocolos de seguridad sanitaria, con la aplicación de gel antibacterial en las manos y la toma digital de temperatura",
+                                "Presentándose, indicando su nombre completo y su función",
+                                "Agradeciendo su presencia",
+                                "Preguntando su nombre completo",
+                                "Indicándole pasar al lugar de recepción / antesala para su atención",
+                                "Ofreciéndole un lugar cómodo y previamente sanitizado para que tome asiento"
+                            ]
+                        },
+                        {
+                            titulo: "Introduce al usuario para el llenado de la bitácora / carpeta / documentación de atención integral:",
+                            items: [
+                                "Antes de iniciar la atención tradicional y complementaria",
+                                "Estableciendo un clima de confianza",
+                                "Señalando que la prestación de servicios auxiliares complementarios y tradicionales tienen como objetivo la recuperación de las condiciones físicas y socioemocionales de las personas",
+                                "Indicando los principios de discreción y confidencialidad en su atención",
+                                "Comentando al usuario que sus datos personales están protegidos conforme a la Ley Federal de Protección de Datos Personales en Posesión de Particulares",
+                                "Indicándole sobre el llenado de su ficha de registro de atención de condiciones físicas y socioemocionales",
+                                "Indicándole que se le realizará una exploración física, previa autorización manifestada con firma en la ficha de registro",
+                                "Indicándole que se le tomarán signos vitales, el orden a seguir, las razones para ello, y su previa autorización manifestada con firma",
+                                "Preguntándole si tiene dudas, para su aclaración"
+                            ]
+                        },
+                        {
+                            titulo: "Introduce al usuario para el llenado de la ficha de registro de atención de condiciones físicas y socioemocionales:",
+                            items: [
+                                "Comentando al usuario que sus datos personales están protegidos conforme a la Ley Federal de Protección de Datos Personales en Posesión de Particulares",
+                                "Solicitando la firma de enterado del usuario una vez comentado el Aviso de Privacidad",
+                                "Corroborando nombre completo con identificación oficial vigente",
+                                "Recabando la información de manera verbal y presencial por parte del usuario",
+                                "Solicitando al usuario el llenado de la ficha de registro con sus datos generales, médico tratante, antecedentes físicos y socioemocionales, antecedentes heredo familiares, enfermedades crónicas, degenerativas y alergias, hábitos personales de alimentación y sueño, y la práctica de alguna actividad física",
+                                "Registrando información acerca de su interés / necesidad / diagnóstico emitido por el médico tratante / profesional de la salud",
+                                "Señalando que los servicios tradicionales y complementarios que se ofrecen no cubren, ni substituyen las indicaciones del médico tratante / profesional de la salud",
+                                "Agradeciendo su disponibilidad"
+                            ]
+                        },
+                        {
+                            titulo: "Mide niveles de saturación de oxígeno y pulso en el usuario:",
+                            items: [
+                                "Explicando el procedimiento, conforme a las indicaciones del fabricante del oxímetro",
+                                "Limpiando la superficie del sensor, con un paño suave o un algodón y solución desinfectante, conforme a las recomendaciones del fabricante",
+                                "Solicitando al usuario colocar el dedo en el sensor, conforme a las indicaciones del fabricante",
+                                "Solicitando al usuario que durante la toma se mantenga sin movimientos que puedan alterar la medición",
+                                "Presionando el interruptor de inicio de medición, de acuerdo con el fabricante",
+                                "Registrando los valores obtenidos de SpO2 y pulso, en la ficha de registro de atención"
+                            ]
+                        },
+                        {
+                            titulo: "Observa la postura física del usuario:",
+                            items: [
+                                "Revisando visualmente la cabeza, cuello, tórax, extremidades y pelvis",
+                                "Registrando los datos obtenidos en la ficha de registro de atención"
+                            ]
+                        },
+                        {
+                            titulo: "Realiza la toma de la frecuencia respiratoria del usuario:",
+                            items: [
+                                "Solicitando al usuario permanezca sentado y en reposo",
+                                "Contando las elevaciones del tórax y abdomen durante un minuto",
+                                "Registrando los datos obtenidos en la ficha de registro de atención"
+                            ]
+                        },
+                        {
+                            titulo: "Verifica la presión arterial del usuario:",
+                            items: [
+                                "Explicando el procedimiento a seguir, conforme a las indicaciones del fabricante del monitor de presión arterial de brazo",
+                                "Colocando el brazalete en el brazo del usuario, conforme a las indicaciones del fabricante del equipo",
+                                "Solicitando al usuario tome la postura recomendada por el fabricante del equipo",
+                                "Activando el interruptor de inicio conforme lo señala el fabricante",
+                                "Registrando los datos obtenidos en la ficha de registro de atención"
+                            ]
+                        }
+                    ]
+                },
+                {
+                    tipo: "PRODUCTOS",
+                    pregunta: "¿Usted puede obtener los siguientes PRODUCTOS?",
+                    grupos: [
+                        {
+                            titulo: "La bitácora / carpeta / documentación de atención integral del usuario conformada:",
+                            items: [
+                                "Contiene la ficha de registro de atención, plan de seguimiento de atención y consentimiento informado / aceptación del servicio",
+                                "Contiene fecha, nombre completo del usuario, edad, peso, estatura, fecha de nacimiento, dirección y folio asignado",
+                                "Incluye datos del médico tratante / profesional de la salud que atiende al usuario",
+                                "Contiene antecedentes físicos, fisiológicos, socioemocionales y heredo familiares",
+                                "Contiene el registro de enfermedades crónicas, degenerativas y alérgicas",
+                                "Contiene información toxicológica",
+                                "Contiene información sobre hábitos personales, de sueño, alimenticios, de higiene, deportivos, así como el consumo de sustancias farmacológicas y / o adictivas",
+                                "Contiene los registros de la medición de los signos vitales y de las observaciones realizadas de la postura física del usuario",
+                                "Contiene el resumen de los resultados actuales y previos con base en los estudios de laboratorio y gabinete",
+                                "Contiene información acerca de su interés / necesidad / malestar para recibir el servicio",
+                                "Señala la leyenda de que los servicios tradicionales y complementarios que se ofrecen no cubren, ni substituyen las indicaciones del médico tratante",
+                                "Contiene el nombre completo y firma del usuario, del asistente auxiliar y del profesional que brinda los servicios"
+                            ]
+                        }
+                    ]
+                },
+                {
+                    tipo: "CONOCIMIENTOS",
+                    pregunta: "¿Usted cuenta con los siguientes CONOCIMIENTOS?",
+                    grupos: [
+                        {
+                            titulo: "Cuenta con conocimientos en los siguientes temas:",
+                            items: [
+                                "Rangos y niveles de signos vitales en niños, adultos y personas de la tercera edad",
+                                "Goniometría: Concepto, Utilidad, Aplicación",
+                                "Biomecánica: Definición, Planos anatómicos, Ejes del cuerpo, Movimientos del cuerpo, Anatomía y Fisiología topográfica",
+                                "Higiene de columna: Posiciones adecuadas, Manipulaciones de carga",
+                                "Pruebas funcionales musculares de Daniels: Posiciones, Desarrollo"
+                            ]
+                        }
+                    ]
+                },
+                {
+                    tipo: "ACTITUDES",
+                    pregunta: "¿Usted cuenta con las siguientes ACTITUDES, HÁBITOS y VALORES?",
+                    grupos: [
+                        {
+                            titulo: "Usted presenta:",
+                            items: [
+                                "Amabilidad: La manera en que brinda el servicio al usuario, resolviendo sus dudas y recibiendo comentarios",
+                                "Orden: La manera en que integra el expediente clínico del usuario conforme al servicio otorgado",
+                                "Responsabilidad: La manera en que recaba, resguarda y no hace mal uso de la información que ha proporcionado el usuario"
+                            ]
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            elemento: 3,
+            titulo: "Introducir al usuario a la contribución tradicional y complementaria de la recuperación de las condiciones físicas y socioemocionales de las personas.",
+            categorias: [
+                {
+                    tipo: "DESEMPEÑOS",
+                    pregunta: "¿Puede usted realizar los siguientes DESEMPEÑOS?",
+                    grupos: [
+                        {
+                            titulo: "Introduce al usuario a la contribución tradicional y complementaria:",
+                            items: [
+                                "Antes de que reciba la atención tradicional y complementaria",
+                                "Identificando que no haya impedimento para recibir la atención, de las condiciones físicas y socioemocionales de las personas",
+                                "Resaltando la importancia y el compromiso del usuario para el resultado satisfactorio de la atención"
+                            ]
+                        },
+                        {
+                            titulo: "Explica el procedimiento designado por el especialista en la contribución tradicional y complementaria:",
+                            items: [
+                                "Partiendo de los hallazgos encontrados durante la inspección visual de las condiciones del usuario / solicitud de atención / exploración del usuario",
+                                "Describiendo la atención tradicional y complementaria, así como sus bondades / beneficios / ventajas y alcance / casos de éxito",
+                                "Señalando posibles reacciones / sensaciones / efectos durante y después de la atención",
+                                "Mencionando el objetivo a alcanzar",
+                                "Describiendo la vestimenta recomendada para la atención tradicional y complementaria",
+                                "Preguntando si tiene dudas o algún comentario, para atenderlas"
+                            ]
+                        },
+                        {
+                            titulo: "Presenta al usuario el documento de consentimiento informado / aceptación del servicio:",
+                            items: [
+                                "Antes de dar inicio a la atención tradicional y complementaria",
+                                "Describiendo en qué consiste el documento, su contenido y alcances",
+                                "Recabando firma de aceptación por parte del usuario"
+                            ]
+                        },
+                        {
+                            titulo: "Informa al usuario sobre la finalización del servicio tradicional y complementario:",
+                            items: [
+                                "Indicando que el servicio ha finalizado",
+                                "Mencionando que puede permanecer en la mesa / superficie por unos momentos y sus razones",
+                                "Preguntando cómo se siente después de la atención recibida",
+                                "Preguntando si tiene dudas al respecto para atenderlas",
+                                "Informando el efecto de las técnicas dentro de las veinticuatro horas subsecuentes a su aplicación",
+                                "Explicando la forma que debe incorporarse, conforme a los protocolos de Higiene de Columna",
+                                "Dejando el área de trabajo para permitirle al usuario vestirse"
+                            ]
+                        }
+                    ]
+                },
+                {
+                    tipo: "PRODUCTOS",
+                    pregunta: "¿Usted puede obtener los siguientes PRODUCTOS?",
+                    grupos: [
+                        {
+                            titulo: "La carta de consentimiento informado / aceptación del servicio elaborada:",
+                            items: [
+                                "Contiene fecha, nombre completo del usuario, edad, fecha de nacimiento, dirección, nombre de algún familiar a quien avisar en caso de que se requiera",
+                                "Contiene el Aviso de Privacidad, conforme la Ley Federal de Protección de Datos Personales en Posesión de Particulares",
+                                "Contiene descritas las técnicas a aplicar",
+                                "Especifica los puntos y zonas del cuerpo que tocará de acuerdo con el efecto a lograr",
+                                "Contiene descritas las reacciones físicas posibles que se presentan",
+                                "Especifica la vestimenta recomendada para la preparación de las técnicas",
+                                "Señala limitantes de aplicación del servicio de técnicas tradicionales y complementarias",
+                                "Describe las condiciones de preparación que debe cubrir el usuario",
+                                "Contiene el número de sesiones a utilizar y la duración de cada sesión",
+                                "Contiene los objetivos a alcanzar por sesión y los efectos generales",
+                                "Contiene la rúbrica / firma / huella de conformidad del usuario",
+                                "Está integrada al expediente del usuario",
+                                "Contiene nombre y firma / huella digital del usuario y de quien otorga el servicio"
+                            ]
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            elemento: 4,
+            titulo: "Dar seguimiento al usuario en la contribución tradicional y complementaria de la recuperación de las condiciones físicas y socioemocionales de las personas.",
+            categorias: [
+                {
+                    tipo: "DESEMPEÑOS",
+                    pregunta: "¿Puede usted realizar los siguientes DESEMPEÑOS?",
+                    grupos: [
+                        {
+                            titulo: "Aplica encuesta de satisfacción:",
+                            items: [
+                                "Al término del servicio",
+                                "Explicando las instrucciones para su llenado",
+                                "Recibiendo comentarios acerca del servicio",
+                                "Agradeciendo al usuario su colaboración y comentarios"
+                            ]
+                        },
+                        {
+                            titulo: "Acuerda con el usuario el programa de seguimiento:",
+                            items: [
+                                "Una vez finalizado el servicio",
+                                "Atendiendo las indicaciones del profesional que otorgó la atención tradicional y complementaria",
+                                "Mencionando el objetivo a alcanzar por sesión con la atención tradicional y complementaria",
+                                "Proponiendo fechas y horarios",
+                                "Acordando fechas y horarios",
+                                "Resaltando las recomendaciones para su tratamiento por parte del especialista",
+                                "Indicando que la atención será permanente para la aclaración de dudas / manifestación de inquietudes / consulta de información",
+                                "Confirmando que se hayan resuelto las dudas planteadas"
+                            ]
+                        },
+                        {
+                            titulo: "Asegura el medio de contacto para el seguimiento al usuario:",
+                            items: [
+                                "Solicitando la vía más viable para mantener la comunicación",
+                                "Registrando teléfono fijo / teléfono celular / correo electrónico / redes sociales",
+                                "Proporcionándole datos del Centro de Atención Tradicional y Complementaria y los datos de atención telefónica",
+                                "Agradeciendo su asistencia, disposición y confianza"
+                            ]
+                        }
+                    ]
+                },
+                {
+                    tipo: "PRODUCTOS",
+                    pregunta: "¿Usted puede obtener los siguientes PRODUCTOS?",
+                    grupos: [
+                        {
+                            titulo: "Plan de Seguimiento elaborado:",
+                            items: [
+                                "Contiene datos que incluyen información general sobre fechas y horarios",
+                                "Señala el medio de contacto para el seguimiento: encuentro presencial / llamada telefónica / correo electrónico / mensaje telefónico / plataformas digitales",
+                                "Contiene número de sesiones programadas, su frecuencia y duración",
+                                "Contiene el plan de sesión programado",
+                                "Contiene nombre y firma / huella digital del usuario y de quien otorga el servicio"
+                            ]
+                        },
+                        {
+                            titulo: "El Plan de sesión elaborado:",
+                            items: [
+                                "Se integra en el Plan de Seguimiento",
+                                "Contiene por cada sesión de atención, número, fecha, hora de inicio y término y el registro de los signos vitales",
+                                "Describe las actividades / intervenciones / atención que se otorgará en el servicio al usuario",
+                                "Incluye notas de evolución y el pronóstico del número de sesiones de atención que serán necesarias para el bienestar del usuario",
+                                "Incluye para realizar en casa actividades / tareas / ejercicios que coadyuven a la atención recibida"
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
+    ];
+
+    const TOTAL_REACTIVOS = 142;
+
+    /* =========================================================
+       STATE
+    ========================================================= */
+    let currentStepIndex = 0; // 0=intro, 1=personal, 2-5=elementos 1-4, 6=firma, 7=resultado
+    const STEPS = ['intro', 'personal', 'e1', 'e2', 'e3', 'e4', 'firma', 'resultado'];
+
+    let personalData = { nombre: '', curp: '', domicilio: '', escolaridad: '', telefonoCasa: '', telefonoCelular: '', email: '', fecha: todayISO() };
+    let answers = {};
+    let signatureMode = 'draw'; // 'draw' | 'type'
+    let signatureDataUrl = null;
+    let signatureTypedName = '';
+    let triptychAccepted = false;
+    let hasSignature = false;
+    let isDrawing = false;
+    let lastX = 0, lastY = 0;
+
+    /* =========================================================
+       PERSISTENCE
+    ========================================================= */
+    function loadProgress() {
+        try {
+            const saved = JSON.parse(localStorage.getItem('autodiagnosticoData') || 'null');
+            if (saved) {
+                personalData = Object.assign(personalData, saved.personalData || {});
+                answers = saved.answers || {};
+                signatureDataUrl = saved.signatureDataUrl || null;
+                signatureTypedName = saved.signatureTypedName || '';
+                signatureMode = saved.signatureMode || 'draw';
+                triptychAccepted = saved.triptychAccepted || false;
+                hasSignature = !!signatureDataUrl;
+                return true;
+            }
+        } catch (e) { console.warn('No se pudo cargar progreso previo'); }
+        return false;
+    }
+
+    function saveProgress() {
+        localStorage.setItem('autodiagnosticoData', JSON.stringify({
+            personalData, answers, signatureDataUrl, signatureTypedName, signatureMode, triptychAccepted
+        }));
+    }
+
+    /* =========================================================
+       SCORING
+    ========================================================= */
+    function calculateScore() {
+        let si = 0, no = 0;
+        Object.values(answers).forEach(v => { if (v === 'SI') si++; else if (v === 'NO') no++; });
+        const percentage = Math.round((si / TOTAL_REACTIVOS) * 100);
+        return { si, no, percentage, total: TOTAL_REACTIVOS };
+    }
+
+    function countAnsweredInElemento(elementoIdx) {
+        const elemento = AUTODIAGNOSTICO_DATA[elementoIdx];
+        let total = 0, answered = 0;
+        elemento.categorias.forEach((cat, cIdx) => {
+            cat.grupos.forEach((grupo, gIdx) => {
+                grupo.items.forEach((item, iIdx) => {
+                    total++;
+                    const id = `e${elemento.elemento}_c${cIdx}_g${gIdx}_i${iIdx}`;
+                    if (answers[id]) answered++;
+                });
+            });
+        });
+        return { total, answered };
+    }
+
+    /* =========================================================
+       RENDER
+    ========================================================= */
+    function renderStep() {
+        const app = document.getElementById('app');
+        const step = STEPS[currentStepIndex];
+        const navBar = document.getElementById('navBar');
+        const topBarStep = document.getElementById('topBarStep');
+
+        window.scrollTo(0, 0);
+
+        if (step === 'intro') {
+            navBar.style.display = 'none';
+            topBarStep.textContent = 'Inicio';
+            app.innerHTML = renderIntro();
+        } else if (step === 'personal') {
+            navBar.style.display = 'flex';
+            topBarStep.textContent = 'Datos personales';
+            app.innerHTML = renderPersonalForm();
+            attachPersonalFormListeners();
+        } else if (step.startsWith('e')) {
+            const elementoIdx = parseInt(step.substring(1)) - 1;
+            navBar.style.display = 'flex';
+            topBarStep.textContent = `Elemento ${elementoIdx + 1} de 4`;
+            app.innerHTML = renderElementoStep(elementoIdx);
+        } else if (step === 'firma') {
+            navBar.style.display = 'flex';
+            topBarStep.textContent = 'Firma';
+            app.innerHTML = renderFirmaStep();
+            setTimeout(initSignatureCanvas, 50);
+        } else if (step === 'resultado') {
+            navBar.style.display = 'none';
+            topBarStep.textContent = 'Resultado';
+            app.innerHTML = renderResultado();
+        }
+
+        updateProgressBar();
+        updateNavButtons();
+    }
+
+    function updateProgressBar() {
+        const pct = Math.round((currentStepIndex / (STEPS.length - 1)) * 100);
+        document.getElementById('progressBarFill').style.width = pct + '%';
+    }
+
+    function renderIntro() {
+        const hasSaved = localStorage.getItem('autodiagnosticoData') !== null;
+        return `
+            <div class="intro-hero">
+                <div class="intro-icon">📋</div>
+                <h1 class="intro-title">Autodiagnóstico EC1375</h1>
+                <p class="intro-subtitle">Descubre si estás listo para tu evaluación oficial de certificación</p>
+            </div>
+
+            ${hasSaved ? `
+            <div class="resume-box">
+                <p style="color: var(--success); font-weight: 600; margin-bottom: 10px;">✓ Encontramos un avance guardado</p>
+                <button class="btn btn-primary" onclick="resumeDiagnostico()">Continuar donde me quedé</button>
+            </div>` : ''}
+
+            <div class="info-box">
+                <h3>📌 ¿Qué es esto?</h3>
+                <ul>
+                    <li>Un cuestionario de <strong>142 reactivos</strong> basado en el Estándar de Competencia EC1375</li>
+                    <li>Evalúa 4 elementos: preparar el espacio, preparar al usuario, introducir al usuario y dar seguimiento</li>
+                    <li>Al terminar, obtienes tu <strong>% de preparación</strong> y una recomendación clara</li>
+                    <li>Se genera automáticamente tu documento en <strong>PDF y Word</strong>, listo para tu evaluador</li>
+                </ul>
+            </div>
+
+            <div class="info-box">
+                <h3>⏱️ Instrucciones</h3>
+                <ul>
+                    <li>Responde con honestidad cada reactivo: <strong>SÍ</strong> si sabes hacerlo / lo tienes, <strong>NO</strong> en caso contrario</li>
+                    <li>Tiempo estimado: 20-30 minutos</li>
+                    <li>Tu avance se guarda automáticamente — puedes pausar y continuar después</li>
+                    <li>Si obtienes ≥90% se te recomienda evaluarte; si es menor, te recomendamos asesorarte primero</li>
+                </ul>
+            </div>
+
+            <button class="btn btn-primary btn-full" onclick="${hasSaved ? 'restartDiagnostico()' : 'goNext()'}">${hasSaved ? 'Empezar de nuevo' : 'Comenzar Autodiagnóstico →'}</button>
+        `;
+    }
+
+    function resumeDiagnostico() {
+        for (let i = 1; i < STEPS.length - 1; i++) {
+            if (!isStepValid(STEPS[i])) {
+                currentStepIndex = i;
+                renderStep();
+                return;
+            }
+        }
+        currentStepIndex = STEPS.length - 1;
+        renderStep();
+    }
+
+    function restartDiagnostico() {
+        if (!confirm('¿Seguro que quieres empezar de nuevo? Se borrará tu avance guardado.')) return;
+        localStorage.removeItem('autodiagnosticoData');
+        personalData = { nombre: '', curp: '', domicilio: '', escolaridad: '', telefonoCasa: '', telefonoCelular: '', email: '', fecha: todayISO() };
+        answers = {};
+        signatureMode = 'draw';
+        signatureDataUrl = null;
+        signatureTypedName = '';
+        triptychAccepted = false;
+        hasSignature = false;
+        goNext();
+    }
+
+    function renderPersonalForm() {
+        return `
+            <div class="card">
+                <h2>👤 Datos Personales</h2>
+                <div class="field-group">
+                    <label>Nombre Completo *</label>
+                    <input type="text" id="f_nombre" value="${escapeHtml(personalData.nombre)}" placeholder="Ej. María González Pérez">
+                </div>
+                <div class="field-group">
+                    <label>CURP *</label>
+                    <input type="text" id="f_curp" value="${escapeHtml(personalData.curp)}" maxlength="18" style="text-transform:uppercase" placeholder="GOPM850101MDFNRR01">
+                </div>
+                <div class="field-group">
+                    <label>Domicilio *</label>
+                    <textarea id="f_domicilio" rows="2" placeholder="Calle, número, colonia, ciudad, estado">${escapeHtml(personalData.domicilio)}</textarea>
+                </div>
+                <div class="field-group">
+                    <label>Último grado de estudios *</label>
+                    <input type="text" id="f_escolaridad" value="${escapeHtml(personalData.escolaridad)}" placeholder="Ej. Diplomado en Masaje Terapéutico">
+                </div>
+                <div class="field-group">
+                    <label>Teléfono de casa</label>
+                    <input type="tel" id="f_telefonoCasa" value="${escapeHtml(personalData.telefonoCasa)}" placeholder="Opcional">
+                </div>
+                <div class="field-group">
+                    <label>Teléfono celular *</label>
+                    <input type="tel" id="f_telefonoCelular" value="${escapeHtml(personalData.telefonoCelular)}" placeholder="10 dígitos">
+                </div>
+                <div class="field-group">
+                    <label>Correo electrónico *</label>
+                    <input type="email" id="f_email" value="${escapeHtml(personalData.email)}" placeholder="tu@email.com">
+                </div>
+                <div class="field-group">
+                    <label>Fecha de aplicación *</label>
+                    <input type="date" id="f_fecha" value="${personalData.fecha || todayISO()}">
+                </div>
+                <p class="field-hint">* Campos requeridos para generar tu documento oficial</p>
+            </div>
+        `;
+    }
+
+    function attachPersonalFormListeners() {
+        ['nombre','curp','domicilio','escolaridad','telefonoCasa','telefonoCelular','email','fecha'].forEach(field => {
+            const el = document.getElementById('f_' + field);
+            if (el) {
+                el.addEventListener('input', () => {
+                    personalData[field] = el.value;
+                    saveProgress();
+                    updateNavButtons();
+                });
+            }
+        });
+    }
+
+    function renderElementoStep(elementoIdx) {
+        const elemento = AUTODIAGNOSTICO_DATA[elementoIdx];
+        const progress = countAnsweredInElemento(elementoIdx);
+
+        let html = `
+            <div class="step-counter"><strong>${progress.answered}/${progress.total}</strong> reactivos respondidos en este elemento</div>
+            <div class="elemento-header">
+                <span class="elemento-badge">Elemento ${elemento.elemento} de 4</span>
+                <p class="elemento-titulo">${elemento.titulo}</p>
+            </div>
+        `;
+
+        elemento.categorias.forEach((categoria, cIdx) => {
+            html += `<div class="categoria-block">
+                <h3 class="categoria-title">${categoria.pregunta}</h3>`;
+            categoria.grupos.forEach((grupo, gIdx) => {
+                html += `<div class="grupo-block">
+                    <p class="grupo-titulo">${grupo.titulo}</p>
+                    <div class="items-list">`;
+                grupo.items.forEach((item, iIdx) => {
+                    const id = `e${elemento.elemento}_c${cIdx}_g${gIdx}_i${iIdx}`;
+                    const current = answers[id];
+                    html += `
+                        <div class="item-row ${current ? 'answered' : ''}" id="row_${id}">
+                            <span class="item-text">${item}</span>
+                            <div class="item-toggle">
+                                <button class="toggle-btn ${current === 'SI' ? 'active-si' : ''}" onclick="setAnswer('${id}','SI',this)">SÍ</button>
+                                <button class="toggle-btn ${current === 'NO' ? 'active-no' : ''}" onclick="setAnswer('${id}','NO',this)">NO</button>
+                            </div>
+                        </div>`;
+                });
+                html += `</div></div>`;
+            });
+            html += `</div>`;
+        });
+
+        return html;
+    }
+
+    function setAnswer(id, value, btnEl) {
+        answers[id] = value;
+        saveProgress();
+        const row = btnEl.closest('.item-row');
+        row.classList.add('answered');
+        row.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active-si', 'active-no'));
+        btnEl.classList.add(value === 'SI' ? 'active-si' : 'active-no');
+
+        // update step counter
+        const step = STEPS[currentStepIndex];
+        if (step.startsWith('e')) {
+            const elementoIdx = parseInt(step.substring(1)) - 1;
+            const progress = countAnsweredInElemento(elementoIdx);
+            const counter = document.querySelector('.step-counter strong');
+            if (counter) counter.textContent = `${progress.answered}/${progress.total}`;
+        }
+        updateNavButtons();
+    }
+
+    function renderFirmaStep() {
+        return `
+            <div class="card">
+                <h2>✍️ Firma y Aceptación</h2>
+                <div class="info-box">
+                    <h3>📜 Tríptico de Derechos y Obligaciones</h3>
+                    <ul>
+                        <li>Tienes derecho a consultar gratuitamente el Estándar de Competencia en el RENEC (www.conocer.gob.mx)</li>
+                        <li>Tu autodiagnóstico es libre de costo y confidencial</li>
+                        <li>Tienes derecho a recibir retroalimentación verbal y documental sobre tu evaluación</li>
+                        <li>Debes entregar información veraz y cumplir con las actividades acordadas en tu plan de evaluación</li>
+                        <li>Puedes inconformarte formalmente si consideras que tus derechos fueron violados</li>
+                    </ul>
+                </div>
+
+                <div class="checkbox-row">
+                    <input type="checkbox" id="triptychCheck" ${triptychAccepted ? 'checked' : ''} onchange="toggleTriptych(this)">
+                    <label for="triptychCheck">He leído y acepto el Tríptico de Derechos y Obligaciones del Sistema Nacional de Competencias (CONOCER)</label>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Firma del candidato</h2>
+                <div class="signature-tabs">
+                    <button class="sig-tab-btn ${signatureMode === 'draw' ? 'active' : ''}" onclick="setSignatureMode('draw')">✍️ Dibujar firma</button>
+                    <button class="sig-tab-btn ${signatureMode === 'type' ? 'active' : ''}" onclick="setSignatureMode('type')">⌨️ Escribir mi nombre</button>
+                </div>
+
+                <div id="signaturePad" style="${signatureMode === 'draw' ? '' : 'display:none;'}">
+                    <canvas id="signatureCanvas" width="500" height="160"></canvas>
+                    <button class="clear-sig-btn" onclick="clearSignature()">Borrar firma</button>
+                </div>
+
+                <div id="signatureTyped" style="${signatureMode === 'type' ? '' : 'display:none;'}">
+                    <div class="field-group">
+                        <label>Escribe tu nombre completo como firma</label>
+                        <input type="text" id="f_signatureTyped" value="${escapeHtml(signatureTypedName)}" placeholder="Nombre completo" oninput="updateTypedSignature(this.value)">
+                    </div>
+                    <div class="checkbox-row">
+                        <input type="checkbox" id="typedConfirm" ${signatureTypedName ? 'checked' : ''} disabled>
+                        <label>Confirmo que la información proporcionada en este documento es verdadera</label>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    function toggleTriptych(el) {
+        triptychAccepted = el.checked;
+        saveProgress();
+        updateNavButtons();
+    }
+
+    function setSignatureMode(mode) {
+        signatureMode = mode;
+        saveProgress();
+        renderStep();
+    }
+
+    function updateTypedSignature(value) {
+        signatureTypedName = value;
+        saveProgress();
+        updateNavButtons();
+    }
+
+    function initSignatureCanvas() {
+        const canvas = document.getElementById('signatureCanvas');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 2.5;
+        ctx.lineCap = 'round';
+
+        if (signatureDataUrl) {
+            const img = new Image();
+            img.onload = () => ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            img.src = signatureDataUrl;
+        }
+
+        function getPos(e) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            if (e.touches && e.touches.length) {
+                return { x: (e.touches[0].clientX - rect.left) * scaleX, y: (e.touches[0].clientY - rect.top) * scaleY };
+            }
+            return { x: (e.clientX - rect.left) * scaleX, y: (e.clientY - rect.top) * scaleY };
+        }
+
+        function startDraw(e) {
+            e.preventDefault();
+            isDrawing = true;
+            const pos = getPos(e);
+            lastX = pos.x; lastY = pos.y;
+        }
+        function draw(e) {
+            if (!isDrawing) return;
+            e.preventDefault();
+            const pos = getPos(e);
+            ctx.beginPath();
+            ctx.moveTo(lastX, lastY);
+            ctx.lineTo(pos.x, pos.y);
+            ctx.stroke();
+            lastX = pos.x; lastY = pos.y;
+            hasSignature = true;
+        }
+        function stopDraw() {
+            if (isDrawing) {
+                isDrawing = false;
+                signatureDataUrl = canvas.toDataURL('image/png');
+                saveProgress();
+                updateNavButtons();
+            }
+        }
+
+        canvas.addEventListener('mousedown', startDraw);
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('mouseup', stopDraw);
+        canvas.addEventListener('mouseleave', stopDraw);
+        canvas.addEventListener('touchstart', startDraw, { passive: false });
+        canvas.addEventListener('touchmove', draw, { passive: false });
+        canvas.addEventListener('touchend', stopDraw);
+    }
+
+    function clearSignature() {
+        const canvas = document.getElementById('signatureCanvas');
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        signatureDataUrl = null;
+        hasSignature = false;
+        saveProgress();
+        updateNavButtons();
+    }
+
+    function renderResultado() {
+        const score = calculateScore();
+        const isReady = score.percentage >= 90;
+        const quiz = JSON.parse(localStorage.getItem('quizResponses') || '{}');
+
+        return `
+            <div class="resultado-hero">
+                <div class="score-circle ${isReady ? 'high' : 'low'}">
+                    <div class="score-percent">${score.percentage}%</div>
+                    <div class="score-label">${score.si}/${score.total} reactivos</div>
+                </div>
+                <h1 class="intro-title">${isReady ? '¡Felicidades! 🎉' : 'Vas por buen camino 💪'}</h1>
+            </div>
+
+            <div class="recomendacion-box ${isReady ? 'evaluate' : 'assess'}">
+                ${isReady
+                    ? '✅ Tu resultado indica que estás LISTO para EVALUARTE. Tu Centro Evaluador te contactará para agendar tu evaluación oficial.'
+                    : '📚 Te recomendamos ASESORARTE con tu Centro Evaluador antes de la evaluación oficial, para reforzar las áreas pendientes.'}
+            </div>
+
+            <div class="card">
+                <h2>📥 Descarga tu documento</h2>
+                <p style="margin-bottom: 16px; color: var(--text); font-size: 0.9rem;">Genera tu Autodiagnóstico EC1375 completo, con tus 142 respuestas, listo para entregar a tu evaluador.</p>
+                <div class="download-buttons">
+                    <button class="btn btn-primary btn-full" onclick="generatePDF()">📄 Descargar PDF</button>
+                    <button class="btn btn-secondary btn-full" onclick="generateWord()">📝 Descargar Word (.doc)</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>📱 Envía tu resultado al equipo</h2>
+                <p style="margin-bottom: 12px; color: var(--text); font-size: 0.9rem;">Se abrirá WhatsApp con tu resumen. Adjunta el PDF que descargaste en el chat.</p>
+                <button class="btn btn-whatsapp btn-full" onclick="sendWhatsAppSummary()">📱 ENVIAR RESULTADO POR WHATSAPP</button>
+                <p class="whatsapp-note">Recuerda adjuntar tu PDF descargado en el chat de WhatsApp</p>
+            </div>
+
+            <div class="card" style="text-align:center;">
+                <a href="success.html" style="color: var(--primary); text-decoration:none; font-size: 0.9rem;">← Volver a mi confirmación de pago</a>
+            </div>
+        `;
+    }
+
+    /* =========================================================
+       NAVIGATION
+    ========================================================= */
+    function isStepValid(step) {
+        if (step === 'personal') {
+            return personalData.nombre && personalData.curp && personalData.domicilio &&
+                   personalData.escolaridad && personalData.telefonoCelular && personalData.email && personalData.fecha;
+        }
+        if (step.startsWith('e')) {
+            const elementoIdx = parseInt(step.substring(1)) - 1;
+            const progress = countAnsweredInElemento(elementoIdx);
+            return progress.answered === progress.total;
+        }
+        if (step === 'firma') {
+            const hasSig = signatureMode === 'draw' ? hasSignature : (signatureTypedName && signatureTypedName.trim().length > 3);
+            return triptychAccepted && hasSig;
+        }
+        return true;
+    }
+
+    function updateNavButtons() {
+        const btnBack = document.getElementById('btnBack');
+        const btnNext = document.getElementById('btnNext');
+        if (!btnBack || !btnNext) return;
+
+        btnBack.style.visibility = currentStepIndex <= 1 ? 'hidden' : 'visible';
+
+        const step = STEPS[currentStepIndex];
+        const valid = isStepValid(step);
+        btnNext.disabled = !valid;
+        btnNext.textContent = step === 'firma' ? 'Ver mi resultado →' : 'Siguiente →';
+    }
+
+    function goNext() {
+        const step = STEPS[currentStepIndex];
+        if (!isStepValid(step)) return;
+        if (currentStepIndex < STEPS.length - 1) {
+            currentStepIndex++;
+            renderStep();
+        }
+    }
+
+    function goBack() {
+        if (currentStepIndex > 0) {
+            currentStepIndex--;
+            renderStep();
+        }
+    }
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
+    function todayISO() {
+        const d = new Date();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${d.getFullYear()}-${m}-${day}`;
+    }
+
+    /* =========================================================
+       PDF GENERATION
+    ========================================================= */
+    function generatePDF() {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        const pd = personalData;
+        const score = calculateScore();
+
+        doc.setFontSize(15);
+        doc.setFont(undefined, 'bold');
+        doc.text('AUTODIAGNÓSTICO EC1375', 105, 15, { align: 'center' });
+        doc.setFontSize(9);
+        doc.setFont(undefined, 'normal');
+        doc.text('Prestación de servicios auxiliares en la contribución tradicional y complementaria de la', 105, 21, { align: 'center' });
+        doc.text('recuperación de las condiciones físicas y socioemocionales de las personas.', 105, 26, { align: 'center' });
+
+        doc.autoTable({
+            startY: 32,
+            theme: 'plain',
+            styles: { fontSize: 9, cellPadding: 1.5 },
+            body: [
+                ['Nombre completo:', pd.nombre || ''],
+                ['CURP:', pd.curp || ''],
+                ['Domicilio:', pd.domicilio || ''],
+                ['Último grado de estudios:', pd.escolaridad || ''],
+                ['Teléfono:', pd.telefonoCelular || (pd.telefonoCasa || '')],
+                ['Correo electrónico:', pd.email || ''],
+                ['Fecha de aplicación:', pd.fecha || '']
+            ]
+        });
+
+        let y = doc.lastAutoTable.finalY + 6;
+
+        AUTODIAGNOSTICO_DATA.forEach(elemento => {
+            if (y > 260) { doc.addPage(); y = 15; }
+            doc.setFillColor(0, 136, 255);
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(11);
+            doc.setFont(undefined, 'bold');
+            doc.rect(14, y, 182, 8, 'F');
+            doc.text(`ELEMENTO ${elemento.elemento} DE 4`, 17, y + 5.5);
+            y += 11;
+            doc.setTextColor(0, 0, 0);
+            doc.setFontSize(8.5);
+            doc.setFont(undefined, 'italic');
+            const lines = doc.splitTextToSize(elemento.titulo, 180);
+            doc.text(lines, 14, y);
+            y += lines.length * 3.8 + 3;
+
+            elemento.categorias.forEach((categoria, cIdx) => {
+                const rows = [];
+                categoria.grupos.forEach((grupo, gIdx) => {
+                    rows.push([{ content: grupo.titulo, colSpan: 3, styles: { fontStyle: 'bold', fillColor: [235, 235, 235], textColor: [0, 0, 0] } }]);
+                    grupo.items.forEach((item, iIdx) => {
+                        const id = `e${elemento.elemento}_c${cIdx}_g${gIdx}_i${iIdx}`;
+                        const answer = answers[id];
+                        rows.push([item, answer === 'SI' ? 'X' : '', answer === 'NO' ? 'X' : '']);
+                    });
+                });
+
+                if (y > 270) { doc.addPage(); y = 15; }
+                doc.autoTable({
+                    startY: y,
+                    head: [[categoria.tipo, 'SI', 'NO']],
+                    body: rows,
+                    styles: { fontSize: 7.5, cellPadding: 1.3 },
+                    columnStyles: { 0: { cellWidth: 152 }, 1: { cellWidth: 15, halign: 'center' }, 2: { cellWidth: 15, halign: 'center' } },
+                    headStyles: { fillColor: [15, 20, 40], textColor: [255, 255, 255] },
+                    margin: { left: 14, right: 14 }
+                });
+                y = doc.lastAutoTable.finalY + 4;
+            });
+        });
+
+        if (y > 240) { doc.addPage(); y = 15; }
+        doc.setFontSize(12);
+        doc.setFont(undefined, 'bold');
+        doc.text('RESULTADO DEL AUTODIAGNÓSTICO', 14, y); y += 8;
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'normal');
+        doc.text(`Respuestas afirmativas (SI): ${score.si} de ${score.total}`, 14, y); y += 6;
+        doc.text(`Respuestas negativas (NO): ${score.no} de ${score.total}`, 14, y); y += 6;
+        doc.text(`Porcentaje obtenido: ${score.percentage}%`, 14, y); y += 6;
+        doc.setFont(undefined, 'bold');
+        doc.text(`Recomendación: ${score.percentage >= 90 ? 'PROCEDE A EVALUARSE' : 'SE SUGIERE ASESORARSE PREVIAMENTE'}`, 14, y);
+        y += 12;
+
+        doc.setFont(undefined, 'normal');
+        doc.setFontSize(9);
+        doc.text('Firma del candidato/a:', 14, y);
+        if (signatureMode === 'draw' && signatureDataUrl) {
+            doc.addImage(signatureDataUrl, 'PNG', 14, y + 3, 55, 20);
+        } else if (signatureTypedName) {
+            doc.setFont(undefined, 'italic');
+            doc.setFontSize(13);
+            doc.text(signatureTypedName, 14, y + 12);
+        }
+
+        const filename = `Autodiagnostico_EC1375_${(pd.nombre || 'candidato').replace(/\s+/g, '_')}.pdf`;
+        doc.save(filename);
+    }
+
+    /* =========================================================
+       WORD (.doc) GENERATION
+    ========================================================= */
+    function generateWord() {
+        const pd = personalData;
+        const score = calculateScore();
+
+        let bodyHtml = `
+            <h1 style="text-align:center;font-size:18pt;">AUTODIAGNÓSTICO EC1375</h1>
+            <p style="text-align:center;font-size:10pt;">Prestación de servicios auxiliares en la contribución tradicional y complementaria de la recuperación de las condiciones físicas y socioemocionales de las personas.</p>
+            <table border="1" cellpadding="6" style="width:100%;border-collapse:collapse;font-size:10pt;margin-top:14px;">
+                <tr><td><strong>Nombre completo</strong></td><td>${escapeHtml(pd.nombre)}</td></tr>
+                <tr><td><strong>CURP</strong></td><td>${escapeHtml(pd.curp)}</td></tr>
+                <tr><td><strong>Domicilio</strong></td><td>${escapeHtml(pd.domicilio)}</td></tr>
+                <tr><td><strong>Último grado de estudios</strong></td><td>${escapeHtml(pd.escolaridad)}</td></tr>
+                <tr><td><strong>Teléfono</strong></td><td>${escapeHtml(pd.telefonoCelular || pd.telefonoCasa)}</td></tr>
+                <tr><td><strong>Correo electrónico</strong></td><td>${escapeHtml(pd.email)}</td></tr>
+                <tr><td><strong>Fecha de aplicación</strong></td><td>${escapeHtml(pd.fecha)}</td></tr>
+            </table>
+        `;
+
+        AUTODIAGNOSTICO_DATA.forEach(elemento => {
+            bodyHtml += `<h2 style="background:#0088FF;color:#fff;padding:6px;font-size:12pt;margin-top:20px;">ELEMENTO ${elemento.elemento} DE 4</h2>`;
+            bodyHtml += `<p style="font-style:italic;font-size:9pt;">${escapeHtml(elemento.titulo)}</p>`;
+
+            elemento.categorias.forEach((categoria, cIdx) => {
+                bodyHtml += `<table border="1" cellpadding="5" style="width:100%;border-collapse:collapse;font-size:9pt;margin-bottom:8px;">
+                    <tr style="background:#0f1428;color:#fff;"><th style="width:75%;text-align:left;">${categoria.tipo}</th><th>SI</th><th>NO</th></tr>`;
+                categoria.grupos.forEach((grupo, gIdx) => {
+                    bodyHtml += `<tr style="background:#ebebeb;"><td colspan="3"><strong>${escapeHtml(grupo.titulo)}</strong></td></tr>`;
+                    grupo.items.forEach((item, iIdx) => {
+                        const id = `e${elemento.elemento}_c${cIdx}_g${gIdx}_i${iIdx}`;
+                        const answer = answers[id];
+                        bodyHtml += `<tr><td>${escapeHtml(item)}</td><td style="text-align:center;">${answer === 'SI' ? 'X' : ''}</td><td style="text-align:center;">${answer === 'NO' ? 'X' : ''}</td></tr>`;
+                    });
+                });
+                bodyHtml += `</table>`;
+            });
+        });
+
+        bodyHtml += `
+            <h2 style="margin-top:20px;font-size:12pt;">RESULTADO DEL AUTODIAGNÓSTICO</h2>
+            <p>Respuestas afirmativas (SI): <strong>${score.si} de ${score.total}</strong></p>
+            <p>Respuestas negativas (NO): <strong>${score.no} de ${score.total}</strong></p>
+            <p>Porcentaje obtenido: <strong>${score.percentage}%</strong></p>
+            <p>Recomendación: <strong>${score.percentage >= 90 ? 'PROCEDE A EVALUARSE' : 'SE SUGIERE ASESORARSE PREVIAMENTE'}</strong></p>
+            <p style="margin-top:20px;">Firma del candidato/a: ${signatureMode === 'type' && signatureTypedName ? `<em>${escapeHtml(signatureTypedName)}</em>` : (signatureDataUrl ? `<br><img src="${signatureDataUrl}" style="width:180px;">` : '____________________')}</p>
+        `;
+
+        const preHtml = "<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Autodiagnóstico EC1375</title></head><body>";
+        const postHtml = "</body></html>";
+        const fullHtml = preHtml + bodyHtml + postHtml;
+
+        const blob = new Blob(['﻿', fullHtml], { type: 'application/msword' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Autodiagnostico_EC1375_${(pd.nombre || 'candidato').replace(/\s+/g, '_')}.doc`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+
+    /* =========================================================
+       WHATSAPP SUMMARY
+    ========================================================= */
+    function sendWhatsAppSummary() {
+        const pd = personalData;
+        const score = calculateScore();
+        const quiz = JSON.parse(localStorage.getItem('quizResponses') || '{}');
+        const specialty = quiz.specialty || 'terapia';
+        const resultado = score.percentage >= 90 ? 'LISTO PARA EVALUARSE ✅' : 'NECESITA ASESORÍA PREVIA 📚';
+
+        const message = encodeURIComponent(
+            `Hola, terminé mi Autodiagnóstico EC1375.\n\n` +
+            `Nombre: ${pd.nombre}\n` +
+            `Especialidad: ${specialty}\n` +
+            `Resultado: ${score.si}/${score.total} reactivos (${score.percentage}%)\n` +
+            `Recomendación: ${resultado}\n\n` +
+            `Adjunto mi PDF con las respuestas completas.`
+        );
+
+        window.open(`https://wa.me/528136071342?text=${message}`, '_blank');
+    }
+
+    /* =========================================================
+       INIT
+    ========================================================= */
+    window.addEventListener('load', () => {
+        loadProgress();
+        renderStep();
+    });
+    </script>
+</body>
+</html>
