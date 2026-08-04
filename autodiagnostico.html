@@ -128,6 +128,12 @@
             color: var(--text-bright);
             font-size: 0.95rem;
             font-family: inherit;
+            color-scheme: dark;
+        }
+
+        .field-group input[type="date"]::-webkit-calendar-picker-indicator {
+            filter: invert(1);
+            cursor: pointer;
         }
 
         .field-group input:focus,

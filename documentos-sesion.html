@@ -47,7 +47,9 @@
             width: 100%; padding: 12px 14px; background: var(--dark);
             border: 1px solid rgba(255,255,255,0.15); border-radius: 8px;
             color: var(--text-bright); font-size: 0.92rem; font-family: inherit;
+            color-scheme: dark;
         }
+        .field-group input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(1); cursor: pointer; }
         .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
         @media (max-width: 600px) { .field-row { grid-template-columns: 1fr; } }
 
