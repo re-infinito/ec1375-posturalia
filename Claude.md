@@ -3,7 +3,7 @@
 ## 🎯 PROYECTO: EC1375 - Certificación Oficial para Terapeutas Alternativas
 
 **Última actualización:** 5 de agosto, 2026  
-**Estado:** Landing + funnel completo de certificación en producción (v5.0). Script de ensamblado del expediente final probado con datos reales — primer Portafolio de 110 páginas generado exitosamente (ver "Paso 5 completado" en la sección "SISTEMA DE CERTIFICACIÓN EC1375" más abajo). Pendiente: decidir si se conecta Supabase para persistencia entre dispositivos (ver sección de Backlog).  
+**Estado:** Landing + funnel completo de certificación en producción (v5.0). Script de ensamblado del expediente final probado con datos reales — primer Portafolio de 110 páginas generado exitosamente. Supabase conectado como respaldo de `localStorage` + página `recuperar.html` (ver "Persistencia con Supabase" en la sección "SISTEMA DE CERTIFICACIÓN EC1375" más abajo) — pendiente que Diego corra el SQL de creación de tabla una sola vez.  
 **URL en vivo:** https://ec1375-posturalia.vercel.app
 
 ---
@@ -107,6 +107,7 @@ ACCIÓN (botón: "SÍ, QUIERO DORMIR TRANQUILO")
 ├── documentos-sesion.html         # Ficha/Consentimiento/Plan Sesión/Seguimiento, firma paciente
 ├── evidencias.html                # Checklist + Google Form embebido
 ├── encuesta-satisfaccion.html     # 8 preguntas oficiales, cierre del funnel
+├── recuperar.html                 # Recupera progreso por CURP desde Supabase (otro dispositivo)
 ├── Claude.md                      # Este archivo - documentación del proyecto
 ├── .env.local                     # Credenciales (NO COMMITEAR)
 ├── .gitignore                     # Git ignore rules (incluye PDFs, credenciales OAuth)
@@ -494,15 +495,25 @@ Con ambos corregidos, el expediente de Diego se generó completo: **110 páginas
 
 **Scripts de diagnóstico/setup auxiliares** (en `_internal_no_publicar/`, no forman parte del flujo de producción por candidato): `explore_drive_structure.py`, `explore_forms_api.py`, `find_response_sheet.py`, `check_drive_files_detail.py`, `add_text_question.py`, `add_form_questions.py` (intento fallido, documentado arriba).
 
+### ✅ Persistencia con Supabase — CONECTADA (5 de agosto, 2026)
+
+Diego pidió no perder el avance de los candidatos y poder retomarlo en cualquier dispositivo. Se conectó Supabase como respaldo en la nube de lo que ya vivía en `localStorage`, sin cambiar la arquitectura del sitio (sigue siendo HTML estático, sin build):
+
+- **Proyecto:** `yvgwothpkclljrdojtiv` (Supabase, cuenta de Diego). URL y `anon key` están embebidas directamente en el HTML de cada página — es lo esperado con Supabase (la seguridad real va por RLS, no por ocultar la key).
+- **Tabla única `candidatos_ec1375`**, llave primaria `curp`, una columna `jsonb` por etapa (`autodiagnostico_data`, `plan_evaluacion_data`, `documentos_sesion_data`, `encuesta_data`, `evidencias_data`) + `nombre` + `updated_at`. SQL de creación en `_internal_no_publicar/supabase_setup.sql` (Diego lo corre una sola vez en el SQL Editor de Supabase — no hay forma de hacerlo por API con solo la anon key).
+- **RLS abierta a todo (`using (true)`):** sin autenticación por candidato todavía (ver punto 1 del backlog) — la única "protección" hoy es que hace falta saber el CURP exacto de alguien. Trade-off ya aceptado por Diego como paso intermedio.
+- **Escritura:** cada una de las 5 páginas (`autodiagnostico.html`, `plan-evaluacion.html`, `documentos-sesion.html`, `encuesta-satisfaccion.html`, `evidencias.html`) ahora llama a `syncToSupabase(columna, data, curp, nombre)` desde su propio `saveProgress()`/`savePlanProgress()`, con debounce de 800ms — usa `fetch()` directo al endpoint REST de PostgREST con `Prefer: resolution=merge-duplicates` (upsert), sin cargar el SDK de `supabase-js` (mantiene el stack 100% vanilla JS). Es best-effort: si falla (sin internet, tabla no creada, etc.) el `catch` solo hace `console.warn` — el candidato nunca pierde su avance porque `localStorage` se sigue escribiendo primero, siempre.
+- **Recuperación — página nueva `recuperar.html`:** el candidato escribe su CURP, se hace un `GET` a Supabase, y cada columna que exista se vuelve a escribir en el `localStorage` de ese dispositivo (mismas keys que ya usa cada página: `autodiagnosticoData`, `planEvaluacionData`, etc.), con links directos a cada paso para continuar. Enlazada desde `success.html` y desde las 4 pantallas de "bloqueado" (cuando una página no encuentra `autodiagnosticoData` en el dispositivo — típicamente porque es un dispositivo nuevo).
+- **⚠️ Pendiente que Diego corra una sola vez:** el SQL de `_internal_no_publicar/supabase_setup.sql` en el SQL Editor de Supabase — mientras no exista la tabla, el sync falla silenciosamente (probado con `curl`, devuelve 404 `PGRST205`) pero no rompe nada, todo sigue funcionando local.
+
 ### 🔮 Backlog — no urgente, pero anotado para cuando escale a más candidatos
 
-1. **Autenticación por candidato:** usuario/contraseña o token de un solo uso por alumno — hoy cualquiera con el link accede, sin identidad verificada.
-2. **Panel de aprobación/filtrado para el equipo:** ver en qué etapa está cada candidato y aprobar/rechazar antes de ensamblar/entregar.
-3. **Persistencia centralizada:** hoy todo vive en `localStorage` del navegador del candidato — si limpia caché o cambia de dispositivo, pierde su avance. Necesita base de datos real antes de invitar candidatos externos.
-4. **Recuperar PDFs perdidos:** si el candidato pierde sus 3 PDFs antes de subirlos al Form, hoy no hay forma de regenerarlos (mismo motivo que el punto 3).
-5. **Multi-evaluador:** número de WhatsApp y nombre de evaluador están fijos en el código.
-6. **Anti-duplicados:** validar que un mismo CURP no se registre dos veces.
-7. **Notificación de estado al candidato:** página tipo "así va tu proceso" en vez de preguntar por WhatsApp.
+1. **Autenticación por candidato:** usuario/contraseña o token de un solo uso por alumno — hoy cualquiera con el link accede (y ahora también cualquiera que sepa un CURP puede leer esa fila de Supabase), sin identidad verificada.
+2. **Panel de aprobación/filtrado para el equipo:** ver en qué etapa está cada candidato y aprobar/rechazar antes de ensamblar/entregar. Con la tabla de Supabase ya existiendo, esto ahora es mucho más fácil de construir (ya hay de dónde leer el estatus de todos).
+3. **Recuperar PDFs perdidos:** si el candidato pierde sus 3 PDFs antes de subirlos al Form, hoy no hay forma de regenerarlos — con Supabase esto ya casi no aplica (los datos para regenerarlos viven en la nube), pero los PDFs en sí no se guardan, solo los datos con los que se generan.
+4. **Multi-evaluador:** número de WhatsApp y nombre de evaluador están fijos en el código.
+5. **Anti-duplicados:** validar que un mismo CURP no se registre dos veces.
+6. **Notificación de estado al candidato:** página tipo "así va tu proceso" en vez de preguntar por WhatsApp.
 
 ### ⚠️ Puntos abiertos sin resolver
 
@@ -514,6 +525,16 @@ Con ambos corregidos, el expediente de Diego se generó completo: **110 páginas
 ---
 
 ## 🔐 CREDENCIALES Y CONFIGURACIÓN
+
+### Supabase
+```
+Project ref: yvgwothpkclljrdojtiv
+Project URL: https://yvgwothpkclljrdojtiv.supabase.co
+Anon key: pública por diseño (RLS controla el acceso), embebida en las 5 páginas + recuperar.html
+Tabla: candidatos_ec1375 (SQL en _internal_no_publicar/supabase_setup.sql)
+```
+
+**Ubicación en código:** constantes `SUPABASE_URL` / `SUPABASE_ANON_KEY` duplicadas en `autodiagnostico.html`, `plan-evaluacion.html`, `documentos-sesion.html`, `encuesta-satisfaccion.html`, `evidencias.html` y `recuperar.html` (páginas estáticas sin módulos compartidos, mismo patrón que el resto del proyecto).
 
 ### Mercado Pago
 ```

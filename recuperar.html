@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recuperar mi proceso - EC1375 Posturalia</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --dark: #050a1a; --dark-light: #0f1428; --primary: #0088FF; --primary-light: #00CCFF;
+            --accent: #FFD700; --text: #D0D0D0; --text-bright: #FFFFFF; --danger: #FF3333; --success: #00FF88;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, var(--dark) 0%, #0a1530 100%);
+            color: var(--text); line-height: 1.6; min-height: 100vh; padding-bottom: 60px;
+        }
+        .container { max-width: 560px; margin: 0 auto; padding: 24px 20px; }
+        .top-bar {
+            position: sticky; top: 0; background: var(--dark);
+            border-bottom: 1px solid var(--dark-light); padding: 16px 20px; z-index: 100;
+        }
+        .top-bar-inner { max-width: 560px; margin: 0 auto; font-size: 0.95rem; color: var(--text-bright); font-weight: 700; }
+        .hero { text-align: center; padding: 30px 0; }
+        .hero-icon { font-size: 3rem; margin-bottom: 14px; }
+        .hero-title { font-size: 1.6rem; font-weight: 700; color: var(--text-bright); margin-bottom: 10px; }
+        .hero-subtitle { font-size: 0.95rem; color: var(--text); }
+        .card { background: var(--dark-light); border-radius: 12px; padding: 24px; margin-bottom: 20px; }
+        .field-group { margin-bottom: 16px; }
+        .field-group label { display: block; font-size: 0.85rem; color: var(--text); margin-bottom: 6px; font-weight: 600; }
+        .field-group input {
+            width: 100%; padding: 14px; background: var(--dark);
+            border: 1px solid rgba(255,255,255,0.15); border-radius: 8px;
+            color: var(--text-bright); font-size: 1rem; font-family: inherit;
+            text-transform: uppercase; letter-spacing: 1px;
+        }
+        .btn {
+            padding: 15px 24px; border-radius: 8px; font-weight: 700; font-size: 0.95rem;
+            border: none; cursor: pointer; transition: all 0.3s ease; text-align: center; text-decoration: none;
+            display: block;
+        }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: var(--primary-light); }
+        .btn-primary:disabled { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.3); cursor: not-allowed; }
+        .btn-secondary { background: transparent; border: 2px solid var(--primary); color: var(--primary); margin-top: 10px; }
+        .btn-full { width: 100%; }
+        .msg { font-size: 0.88rem; margin-top: 14px; text-align: center; }
+        .msg.error { color: var(--danger); }
+        .msg.success { color: var(--success); }
+        .step-list { margin: 16px 0 0 20px; font-size: 0.88rem; }
+        .step-list li { margin-bottom: 8px; }
+        .step-list a { color: var(--primary); font-weight: 600; }
+        .spinner { text-align: center; color: var(--text); font-size: 0.88rem; }
+    </style>
+</head>
+<body>
+    <div class="top-bar"><div class="top-bar-inner">🔄 Recuperar mi proceso</div></div>
+    <div class="container" id="app"></div>
+
+    <script>
+    const SUPABASE_URL = 'https://yvgwothpkclljrdojtiv.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2Z3dvdGhwa2NsbGpyZG9qdGl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU4OTEzODMsImV4cCI6MjEwMTQ2NzM4M30.QLesb--pkVQsu2x2WR_tIi6EelVG1QsYQ9BdwscnnXo';
+
+    function render() {
+        document.getElementById('app').innerHTML = `
+            <div class="hero">
+                <div class="hero-icon">🔄</div>
+                <h1 class="hero-title">Recuperar mi proceso</h1>
+                <p class="hero-subtitle">Escribe tu CURP para cargar tu avance en este dispositivo</p>
+            </div>
+            <div class="card">
+                <div class="field-group">
+                    <label>CURP</label>
+                    <input type="text" id="f_curp" maxlength="18" placeholder="GOPM850101MDFNRR01">
+                </div>
+                <button class="btn btn-primary btn-full" id="btnBuscar" onclick="buscarProceso()">Buscar mi proceso</button>
+                <div id="resultado"></div>
+            </div>
+        `;
+        document.getElementById('f_curp').addEventListener('keydown', e => { if (e.key === 'Enter') buscarProceso(); });
+    }
+
+    async function buscarProceso() {
+        const curpInput = document.getElementById('f_curp');
+        const curp = curpInput.value.trim().toUpperCase();
+        const resultado = document.getElementById('resultado');
+        const btn = document.getElementById('btnBuscar');
+        if (!curp) { resultado.innerHTML = `<p class="msg error">Escribe tu CURP.</p>`; return; }
+
+        btn.disabled = true;
+        resultado.innerHTML = `<p class="spinner">Buscando...</p>`;
+
+        try {
+            const resp = await fetch(`${SUPABASE_URL}/rest/v1/candidatos_ec1375?curp=eq.${encodeURIComponent(curp)}&select=*`, {
+                headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
+            });
+            const rows = await resp.json();
+            btn.disabled = false;
+
+            if (!Array.isArray(rows) || rows.length === 0) {
+                resultado.innerHTML = `<p class="msg error">No encontramos ningún proceso con ese CURP. Verifica que esté bien escrito, o empieza desde el <a href="autodiagnostico.html" style="color:var(--primary);">Autodiagnóstico</a>.</p>`;
+                return;
+            }
+
+            const row = rows[0];
+            const restored = [];
+            if (row.autodiagnostico_data) { localStorage.setItem('autodiagnosticoData', JSON.stringify(row.autodiagnostico_data)); restored.push({ label: '📋 Autodiagnóstico', href: 'autodiagnostico.html' }); }
+            if (row.plan_evaluacion_data) { localStorage.setItem('planEvaluacionData', JSON.stringify(row.plan_evaluacion_data)); restored.push({ label: '📅 Plan de Evaluación', href: 'plan-evaluacion.html' }); }
+            if (row.documentos_sesion_data) { localStorage.setItem('documentosSesionData', JSON.stringify(row.documentos_sesion_data)); restored.push({ label: '📋 Documentos de Sesión', href: 'documentos-sesion.html' }); }
+            if (row.encuesta_data) { localStorage.setItem('encuestaSatisfaccionData', JSON.stringify(row.encuesta_data)); restored.push({ label: '📝 Encuesta de Satisfacción', href: 'encuesta-satisfaccion.html' }); }
+            if (row.evidencias_data) { localStorage.setItem('evidenciasData', JSON.stringify(row.evidencias_data)); restored.push({ label: '📤 Evidencias', href: 'evidencias.html' }); }
+
+            resultado.innerHTML = `
+                <p class="msg success">✅ ¡Listo, ${escapeHtml(row.nombre || 'candidato/a')}! Recuperamos tu avance en este dispositivo.</p>
+                <p style="font-size:0.85rem;margin-top:10px;">Continúa donde quieras:</p>
+                <ul class="step-list">
+                    ${restored.map(r => `<li><a href="${r.href}">${r.label} →</a></li>`).join('')}
+                </ul>
+            `;
+        } catch (e) {
+            btn.disabled = false;
+            resultado.innerHTML = `<p class="msg error">Hubo un problema buscando tu proceso. Intenta de nuevo en un momento.</p>`;
+        }
+    }
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
+    render();
+    </script>
+</body>
+</html>

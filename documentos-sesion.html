@@ -156,8 +156,35 @@
         } catch (e) {}
     }
 
+    const SUPABASE_URL = 'https://yvgwothpkclljrdojtiv.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2Z3dvdGhwa2NsbGpyZG9qdGl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU4OTEzODMsImV4cCI6MjEwMTQ2NzM4M30.QLesb--pkVQsu2x2WR_tIi6EelVG1QsYQ9BdwscnnXo';
+    let supabaseSyncTimer = null;
+    function syncToSupabase(column, data, curp, nombre) {
+        if (!curp || !curp.trim()) return;
+        clearTimeout(supabaseSyncTimer);
+        supabaseSyncTimer = setTimeout(async () => {
+            try {
+                const row = { curp: curp.trim().toUpperCase(), [column]: data, updated_at: new Date().toISOString() };
+                if (nombre) row.nombre = nombre;
+                await fetch(`${SUPABASE_URL}/rest/v1/candidatos_ec1375`, {
+                    method: 'POST',
+                    headers: {
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                        'Content-Type': 'application/json',
+                        'Prefer': 'resolution=merge-duplicates'
+                    },
+                    body: JSON.stringify(row)
+                });
+            } catch (e) { console.warn('Supabase sync falló (progreso local sigue intacto):', e); }
+        }, 800);
+    }
+
     function saveProgress() {
-        localStorage.setItem('documentosSesionData', JSON.stringify({ sessionData, sesionesSeguimiento, signatures }));
+        const data = { sessionData, sesionesSeguimiento, signatures };
+        localStorage.setItem('documentosSesionData', JSON.stringify(data));
+        const result = loadAutodiagnosticoResult();
+        if (result) syncToSupabase('documentos_sesion_data', data, result.personalData.curp, result.personalData.nombre);
     }
 
     function escapeHtml(str) {
@@ -184,6 +211,7 @@
                 <div class="blocked-box">
                     <p style="margin-bottom:18px;"><strong>Primero necesitas completar tu Autodiagnóstico</strong><br>Esto nos permite identificarte como el/la profesional que otorga el servicio.</p>
                     <a href="autodiagnostico.html" class="btn btn-primary">📋 Ir al Autodiagnóstico</a>
+                    <p style="margin-top:14px;font-size:0.85rem;"><a href="recuperar.html" style="color:var(--primary);">¿Ya empezaste en otro dispositivo? Recupera tu proceso →</a></p>
                 </div>`;
             return;
         }

@@ -943,6 +943,34 @@
     let lastX = 0, lastY = 0;
 
     /* =========================================================
+       SUPABASE SYNC (respaldo en la nube, best-effort — si falla,
+       el progreso sigue guardado en localStorage sin interrupción)
+    ========================================================= */
+    const SUPABASE_URL = 'https://yvgwothpkclljrdojtiv.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2Z3dvdGhwa2NsbGpyZG9qdGl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU4OTEzODMsImV4cCI6MjEwMTQ2NzM4M30.QLesb--pkVQsu2x2WR_tIi6EelVG1QsYQ9BdwscnnXo';
+    let supabaseSyncTimer = null;
+    function syncToSupabase(column, data, curp, nombre) {
+        if (!curp || !curp.trim()) return;
+        clearTimeout(supabaseSyncTimer);
+        supabaseSyncTimer = setTimeout(async () => {
+            try {
+                const row = { curp: curp.trim().toUpperCase(), [column]: data, updated_at: new Date().toISOString() };
+                if (nombre) row.nombre = nombre;
+                await fetch(`${SUPABASE_URL}/rest/v1/candidatos_ec1375`, {
+                    method: 'POST',
+                    headers: {
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                        'Content-Type': 'application/json',
+                        'Prefer': 'resolution=merge-duplicates'
+                    },
+                    body: JSON.stringify(row)
+                });
+            } catch (e) { console.warn('Supabase sync falló (progreso local sigue intacto):', e); }
+        }, 800);
+    }
+
+    /* =========================================================
        PERSISTENCE
     ========================================================= */
     function loadProgress() {
@@ -965,10 +993,12 @@
     }
 
     function saveProgress() {
-        localStorage.setItem('autodiagnosticoData', JSON.stringify({
+        const data = {
             personalData, selectedCertificaciones, otraCertificacionText, answers,
             signatureDataUrl, signatureTypedName, signatureMode, triptychAccepted
-        }));
+        };
+        localStorage.setItem('autodiagnosticoData', JSON.stringify(data));
+        syncToSupabase('autodiagnostico_data', data, personalData.curp, personalData.nombre);
     }
 
     /* =========================================================
