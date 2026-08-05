@@ -3,7 +3,7 @@
 ## 🎯 PROYECTO: EC1375 - Certificación Oficial para Terapeutas Alternativas
 
 **Última actualización:** 5 de agosto, 2026  
-**Estado:** Landing + funnel completo de certificación en producción (v5.0). Script de ensamblado del expediente final probado con datos reales — primer Portafolio de 110 páginas generado exitosamente. Supabase conectado como respaldo de `localStorage` + página `recuperar.html` (ver "Persistencia con Supabase" en la sección "SISTEMA DE CERTIFICACIÓN EC1375" más abajo) — pendiente que Diego corra el SQL de creación de tabla una sola vez.  
+**Estado:** Landing + funnel completo de certificación en producción (v5.0). Script de ensamblado del expediente final probado con datos reales — primer Portafolio de 110 páginas generado exitosamente. Autenticación real de candidatos + gate de pago (Supabase Auth con OTP por correo, autorizado solo si Mercado Pago confirmó el pago vía webhook) **construidos y probados localmente, listos para desplegar** — ver "Persistencia con Supabase — v2" en la sección "SISTEMA DE CERTIFICACIÓN EC1375". Bloqueado en producción hasta que Diego complete la lista de 8 pasos documentada ahí (dashboard de Supabase, dashboard de Mercado Pago, 3 variables de entorno en Vercel, correr el SQL nuevo). El sitio en vivo hoy sigue corriendo el código viejo sin autenticación (v1).  
 **URL en vivo:** https://ec1375-posturalia.vercel.app
 
 ---
@@ -107,7 +107,9 @@ ACCIÓN (botón: "SÍ, QUIERO DORMIR TRANQUILO")
 ├── documentos-sesion.html         # Ficha/Consentimiento/Plan Sesión/Seguimiento, firma paciente
 ├── evidencias.html                # Checklist + Google Form embebido
 ├── encuesta-satisfaccion.html     # 8 preguntas oficiales, cierre del funnel
-├── recuperar.html                 # Recupera progreso por CURP desde Supabase (otro dispositivo)
+├── recuperar.html                 # Login (OTP) / continuar en otro dispositivo
+├── auth.js                        # Supabase Auth (OTP) + sync compartido — única excepción a "sin módulos compartidos"
+├── api/mercadopago-webhook.js     # Webhook de MP → autoriza el correo del comprador (única función serverless del proyecto)
 ├── Claude.md                      # Este archivo - documentación del proyecto
 ├── .env.local                     # Credenciales (NO COMMITEAR)
 ├── .gitignore                     # Git ignore rules (incluye PDFs, credenciales OAuth)
@@ -495,21 +497,57 @@ Con ambos corregidos, el expediente de Diego se generó completo: **110 páginas
 
 **Scripts de diagnóstico/setup auxiliares** (en `_internal_no_publicar/`, no forman parte del flujo de producción por candidato): `explore_drive_structure.py`, `explore_forms_api.py`, `find_response_sheet.py`, `check_drive_files_detail.py`, `add_text_question.py`, `add_form_questions.py` (intento fallido, documentado arriba).
 
-### ✅ Persistencia con Supabase — CONECTADA (5 de agosto, 2026)
+### ✅ Persistencia con Supabase — v1 conectada (5 de agosto, 2026), reemplazada por v2 con autenticación real (mismo día)
 
-Diego pidió no perder el avance de los candidatos y poder retomarlo en cualquier dispositivo. Se conectó Supabase como respaldo en la nube de lo que ya vivía en `localStorage`, sin cambiar la arquitectura del sitio (sigue siendo HTML estático, sin build):
+**v1 (superada):** Diego pidió no perder el avance de los candidatos y poder retomarlo en cualquier dispositivo. Se conectó Supabase como respaldo en la nube de lo que ya vivía en `localStorage`. Diseño original: tabla `candidatos_ec1375` con `curp` como llave primaria, RLS abierta a todo (`using (true)`) — sin autenticación real, la única "protección" era saber el CURP exacto de alguien. SQL original en `_internal_no_publicar/supabase_setup.sql` (ya no se usa, reemplazado por v2 abajo).
 
-- **Proyecto:** `yvgwothpkclljrdojtiv` (Supabase, cuenta de Diego). URL y `anon key` están embebidas directamente en el HTML de cada página — es lo esperado con Supabase (la seguridad real va por RLS, no por ocultar la key).
-- **Tabla única `candidatos_ec1375`**, llave primaria `curp`, una columna `jsonb` por etapa (`autodiagnostico_data`, `plan_evaluacion_data`, `documentos_sesion_data`, `encuesta_data`, `evidencias_data`) + `nombre` + `updated_at`. SQL de creación en `_internal_no_publicar/supabase_setup.sql` (Diego lo corre una sola vez en el SQL Editor de Supabase — no hay forma de hacerlo por API con solo la anon key).
-- **RLS abierta a todo (`using (true)`):** sin autenticación por candidato todavía (ver punto 1 del backlog) — la única "protección" hoy es que hace falta saber el CURP exacto de alguien. Trade-off ya aceptado por Diego como paso intermedio.
-- **Escritura:** cada una de las 5 páginas (`autodiagnostico.html`, `plan-evaluacion.html`, `documentos-sesion.html`, `encuesta-satisfaccion.html`, `evidencias.html`) ahora llama a `syncToSupabase(columna, data, curp, nombre)` desde su propio `saveProgress()`/`savePlanProgress()`, con debounce de 800ms — usa `fetch()` directo al endpoint REST de PostgREST con `Prefer: resolution=merge-duplicates` (upsert), sin cargar el SDK de `supabase-js` (mantiene el stack 100% vanilla JS). Es best-effort: si falla (sin internet, tabla no creada, etc.) el `catch` solo hace `console.warn` — el candidato nunca pierde su avance porque `localStorage` se sigue escribiendo primero, siempre.
-- **Recuperación — página nueva `recuperar.html`:** el candidato escribe su CURP, se hace un `GET` a Supabase, y cada columna que exista se vuelve a escribir en el `localStorage` de ese dispositivo (mismas keys que ya usa cada página: `autodiagnosticoData`, `planEvaluacionData`, etc.), con links directos a cada paso para continuar. Enlazada desde `success.html` y desde las 4 pantallas de "bloqueado" (cuando una página no encuentra `autodiagnosticoData` en el dispositivo — típicamente porque es un dispositivo nuevo).
-- **⚠️ Pendiente que Diego corra una sola vez:** el SQL de `_internal_no_publicar/supabase_setup.sql` en el SQL Editor de Supabase — mientras no exista la tabla, el sync falla silenciosamente (probado con `curl`, devuelve 404 `PGRST205`) pero no rompe nada, todo sigue funcionando local.
+**v2 — Autenticación real con Supabase Auth (código completo, 5 de agosto, 2026 — ⚠️ NO DESPLEGADO A PRODUCCIÓN TODAVÍA):**
+
+Después de dejar v1 funcionando, Diego preguntó "¿cuáles son los siguientes pasos para que funcione al 100%?" y priorizó explícitamente seguridad/autenticación sobre los otros 3 frentes pendientes (flujo del evaluador, pulido menor, acciones manuales de Diego en Google Forms) — porque en v1 cualquiera que supiera o adivinara un CURP podía leer **y escribir** esa fila directamente en Supabase (CURP es semi-predecible: nombre + fecha de nacimiento).
+
+**Mecanismo elegido: código OTP de 6 dígitos por correo (Supabase Auth), no "magic link".** Se prefirió OTP sobre magic link porque el wizard es una sola sesión larga (20-30 min, 142 reactivos) muchas veces desde el celular — un link mágico suele abrirse en el navegador interno de la app de correo (un tab distinto al que tiene el wizard a medias), rompiendo la continuidad justo cuando más se necesita. Un código que se lee y se escribe de vuelta en la misma pestaña evita eso.
+
+**Archivo nuevo `auth.js`** (raíz del proyecto, sin gitignorar) — **excepción deliberada** a la convención de "páginas estáticas sin módulos compartidos" (documentada en el propio archivo con un comentario explicando por qué): la lógica de sesión/RLS es justo el tipo de código de seguridad donde una copia desincronizada entre páginas es el modo de falla a evitar — que es exactamente el problema que tenía v1. Sigue siendo una sola etiqueta `<script src="auth.js">`, cero build step. Expone un objeto global `Auth` con:
+- `getSession()` / `hasSession()` / `signOut()`
+- `syncToSupabase(columna, data, curp, nombre)` — mismo patrón de debounce 800ms y catch silencioso de v1, pero ahora hace upsert vía `supabaseClient.from(...).upsert(...)` con `user_id` de la sesión activa (no anon-key-only)
+- `pullMyRow()` — lee la fila propia vía RLS
+- `restoreLocalStorageFromRow(row)` — repuebla los 5 keys de `localStorage` desde una fila (compartido entre `recuperar.html` y el paso `auth` nuevo de `autodiagnostico.html`)
+- `renderAuthGate(container, {onVerified})` — UI compartida correo → código → verificar, reutilizando `.card`/`.field-group`/`.btn-primary`/`.btn-secondary` ya definidos en cada página
+
+**Dónde entra el login:** `autodiagnostico.html` es la única página que captura identidad — se le agregó un paso nuevo `'auth'` en `STEPS`, entre `'intro'` y `'personal'` (`STEPS = ['intro', 'auth', 'personal', 'e1', 'e2', 'e3', 'e4', 'firma', 'resultado']`). El bootstrap (`window.addEventListener('load', ...)`) espera `Auth.getSession()`; si no hay sesión pero sí había progreso local (dispositivo con datos de antes, o sesión expirada), salta directo al paso `auth` sin importar qué tan avanzado esté — nunca debe quedar a medio wizard sin sesión. Al verificar el OTP (`handleAuthVerified()`), si ya había avance local se reclama bajo la nueva identidad (`saveProgress()`); si no, intenta restaurar de la nube (`Auth.pullMyRow()` + `restoreLocalStorageFromRow`) por si ese correo ya tenía avance de otro dispositivo; si tampoco hay nada en la nube, prellena el correo verificado y sigue limpio. Las otras 4 páginas (`plan-evaluacion.html`, `documentos-sesion.html`, `encuesta-satisfaccion.html`, `evidencias.html`) solo agregan `await Auth.getSession()` a su `render()`/`renderStep()` ya existente, con un mensaje de bloqueo nuevo ("Verifica tu correo para continuar") distinto al de "ve al Autodiagnóstico" para el caso "sí hay progreso local pero no hay sesión".
+
+**`recuperar.html` se convirtió en la página de login / continuar en otro dispositivo** — mismo patrón `Auth.renderAuthGate()` + `pullMyRow()` + `restoreLocalStorageFromRow()`, ya no confía en el CURP como credencial.
+
+**Esquema nuevo — `_internal_no_publicar/supabase_setup_v2_auth.sql`** (gitignored, reemplaza a `supabase_setup.sql`): corte limpio (`drop table if exists` + recreate) porque no había candidatos reales en la tabla, solo filas de prueba. La fila ahora se liga a `user_id uuid references auth.users(id)` en vez de `curp` — CURP se queda como columna normal (lo sigue necesitando `assemble_expediente.py`) pero deja de ser credencial. Política RLS: `using (auth.uid() = user_id) with check (auth.uid() = user_id)` — una request sin sesión (solo anon key) tiene `auth.uid()` nulo, que nunca hace match, así que queda correctamente denegada.
+
+**Verificado en el navegador (sin necesitar el SQL corrido todavía):** las 6 páginas cargan sin errores de consola; el gate de OTP en `autodiagnostico.html` y `recuperar.html` renderiza correctamente; las 4 páginas downstream muestran el nuevo mensaje de bloqueo cuando hay progreso local sin sesión; el bootstrap de `autodiagnostico.html` salta correctamente al paso `auth` cuando corresponde y no lo hace cuando no hay progreso previo; `signInWithOtp()` probado en vivo contra el proyecto real — el error devuelto fue `over_email_send_rate_limit` (no "provider disabled"), confirmando que el mecanismo ya funciona y que el límite de envíos del SMTP compartido de Supabase es bajo, tal como se anticipó.
+
+**Fase 2 — Gate de pago (código completo, 5 de agosto, 2026 — ⚠️ NO DESPLEGADO):** Diego notó que el OTP por sí solo deja que cualquier correo se registre, sin validar que haya pagado — así que se agregó un gate de autorización antes de permitir el login:
+
+- **Nueva tabla `candidatos_autorizados`** (misma migración, `supabase_setup_v2_auth.sql`): `email` (PK), `payment_id`, `monto`, `origen` ('mercadopago' | 'manual'), `autorizado_en`. RLS sin políticas para anon/authenticated — nadie puede leer ni escribir esta tabla por REST directo.
+- **Función `is_email_authorized(check_email)`** (`security definer`, `grant execute to anon`): la única forma en que el cliente puede consultarla — contesta sí/no para un correo puntual, nunca expone la lista completa (privacidad de quién pagó).
+- **RLS de `candidatos_ec1375` actualizada:** el `with check` ahora exige, además de `auth.uid() = user_id`, que `auth.jwt()->>'email'` esté en `candidatos_autorizados`. Así, aunque alguien verifique un OTP para un correo no autorizado (saltándose el aviso de la UI), no puede guardar ni un dato — el bloqueo real está en la base de datos, no solo en el JS.
+- **`auth.js`:** nueva `Auth.isEmailAuthorized(email)` (llama al RPC, falla cerrado — cualquier error de red devuelve `false`), insertada al inicio de `_handleSendOtp()`. Si no está autorizado, no se manda el código (evita gastar cuota de envíos) y se muestra un aviso con botón directo a WhatsApp (`528136071342`) para pedir activación manual.
+- **Nueva función serverless `api/mercadopago-webhook.js`** — primera pieza de backend del proyecto (todo lo demás sigue siendo HTML estático). Valida la firma `x-signature` (HMAC-SHA256, `crypto` nativo de Node, sin dependencias nuevas) contra `MERCADOPAGO_WEBHOOK_SECRET`, consulta el pago completo vía la API de pagos de Mercado Pago con `MERCADOPAGO_ACCESS_TOKEN`, y si `status === 'approved'` hace upsert del `payer.email` en `candidatos_autorizados` usando `SUPABASE_SERVICE_ROLE_KEY` (server-side, nunca en el HTML). Responde 200 incluso ante errores internos propios para no generar reintentos infinitos de Mercado Pago — el candidato afectado siempre puede pedir activación manual por WhatsApp mientras se investiga.
+- **Transferencias bancarias** (Banorte, el otro método de pago del sitio) nunca van a pasar por este webhook — para esos casos Diego agrega el correo a mano en `candidatos_autorizados` vía el Table Editor de Supabase, mismo destino que el camino automático.
+- **Verificado con pruebas aisladas en Node** (bypassing el cacheo del navegador para `auth.js`, que resultó poco confiable en este entorno de pruebas): con `is_email_authorized` simulando `false`, `_handleSendOtp()` muestra el aviso de WhatsApp y **nunca llama** `signInWithOtp`; con `true`, procede normalmente a la pantalla de código. Sintaxis de `api/mercadopago-webhook.js` verificada con `node --check`.
+
+**⚠️ Pendiente antes de poder desplegar a producción (en este orden):**
+1. Diego habilita Email OTP en el dashboard de Supabase (Authentication → Providers → Email) y edita la plantilla de correo para mostrar `{{ .Token }}` (la plantilla de fábrica solo trae el botón de link, no el código) — no afecta el sitio en vivo, se puede hacer en cualquier momento.
+2. Diego configura el webhook en Mercado Pago (Tus integraciones → Webhooks): URL `https://ec1375-posturalia.vercel.app/api/mercadopago-webhook`, suscrito a eventos de pago — copia el webhook secret que se genera ahí.
+3. Diego agrega 3 variables de entorno en Vercel (Project Settings → Environment Variables, nunca por chat): `MERCADOPAGO_ACCESS_TOKEN` (dashboard de Mercado Pago), `MERCADOPAGO_WEBHOOK_SECRET` (paso anterior), `SUPABASE_SERVICE_ROLE_KEY` (dashboard de Supabase, Project Settings → API — ⚠️ distinta de la anon key).
+4. Diego corre `_internal_no_publicar/supabase_setup_v2_auth.sql` en el SQL Editor — a partir de ahí la tabla vieja (v1) deja de existir y solo acepta requests con sesión válida y correo autorizado.
+5. Backfill manual (una sola vez): Diego agrega a mano en `candidatos_autorizados` los correos de quien ya haya pagado antes de que el webhook existiera.
+6. Publicar a producción (`git push`) inmediatamente después del paso 4, para minimizar la ventana en la que el código viejo desplegado intenta escribir contra el esquema nuevo.
+7. Prueba de humo en producción con el correo real de Diego (incluyendo un pago de prueba si es posible, para confirmar que el webhook autoriza automáticamente) antes de invitar a cualquier candidato real.
+8. Configurar SMTP propio (Resend, Postmark, etc.) en Supabase antes de volumen real — el SMTP compartido tiene un límite de envíos por hora bajo, ya confirmado en las pruebas de esta sesión.
+
+Plan completo de esta implementación (Fase 1 + Fase 2): `/Users/diegogarzamx/.claude/plans/desarrollemos-el-plan-para-buzzing-gadget.md`.
 
 ### 🔮 Backlog — no urgente, pero anotado para cuando escale a más candidatos
 
-1. **Autenticación por candidato:** usuario/contraseña o token de un solo uso por alumno — hoy cualquiera con el link accede (y ahora también cualquiera que sepa un CURP puede leer esa fila de Supabase), sin identidad verificada.
-2. **Panel de aprobación/filtrado para el equipo:** ver en qué etapa está cada candidato y aprobar/rechazar antes de ensamblar/entregar. Con la tabla de Supabase ya existiendo, esto ahora es mucho más fácil de construir (ya hay de dónde leer el estatus de todos).
+1. ~~Autenticación por candidato~~ → ✅ implementada (ver arriba), pendiente solo de desplegar.
+2. **Panel de aprobación/filtrado para el equipo:** ver en qué etapa está cada candidato y aprobar/rechazar antes de ensamblar/entregar. Con la tabla de Supabase ya existiendo (y ahora con `user_id` real), esto ahora es mucho más fácil de construir.
 3. **Recuperar PDFs perdidos:** si el candidato pierde sus 3 PDFs antes de subirlos al Form, hoy no hay forma de regenerarlos — con Supabase esto ya casi no aplica (los datos para regenerarlos viven en la nube), pero los PDFs en sí no se guardan, solo los datos con los que se generan.
 4. **Multi-evaluador:** número de WhatsApp y nombre de evaluador están fijos en el código.
 5. **Anti-duplicados:** validar que un mismo CURP no se registre dos veces.
@@ -530,11 +568,19 @@ Diego pidió no perder el avance de los candidatos y poder retomarlo en cualquie
 ```
 Project ref: yvgwothpkclljrdojtiv
 Project URL: https://yvgwothpkclljrdojtiv.supabase.co
-Anon key: pública por diseño (RLS controla el acceso), embebida en las 5 páginas + recuperar.html
-Tabla: candidatos_ec1375 (SQL en _internal_no_publicar/supabase_setup.sql)
+Anon key: pública por diseño (RLS controla el acceso), embebida en auth.js
+Tablas: candidatos_ec1375 + candidatos_autorizados (SQL en _internal_no_publicar/supabase_setup_v2_auth.sql — reemplaza al v1)
 ```
 
-**Ubicación en código:** constantes `SUPABASE_URL` / `SUPABASE_ANON_KEY` duplicadas en `autodiagnostico.html`, `plan-evaluacion.html`, `documentos-sesion.html`, `encuesta-satisfaccion.html`, `evidencias.html` y `recuperar.html` (páginas estáticas sin módulos compartidos, mismo patrón que el resto del proyecto).
+**Ubicación en código:** constantes `SUPABASE_URL` / `SUPABASE_ANON_KEY` centralizadas en `auth.js` (única excepción a "páginas estáticas sin módulos compartidos" — ver sección "Persistencia con Supabase — v2" arriba), cargado vía `<script src="auth.js">` en `autodiagnostico.html`, `plan-evaluacion.html`, `documentos-sesion.html`, `encuesta-satisfaccion.html`, `evidencias.html` y `recuperar.html`.
+
+**⚠️ Secretos nuevos, pendientes de que Diego los agregue en Vercel (Project Settings → Environment Variables — nunca en código ni por chat):**
+```
+MERCADOPAGO_ACCESS_TOKEN   — dashboard de Mercado Pago, Credenciales de producción
+MERCADOPAGO_WEBHOOK_SECRET — dashboard de Mercado Pago, al configurar la URL del webhook
+SUPABASE_SERVICE_ROLE_KEY  — dashboard de Supabase, Project Settings → API (distinta de la anon key)
+```
+Usados únicamente por `api/mercadopago-webhook.js` (server-side, nunca expuestos al cliente).
 
 ### Mercado Pago
 ```

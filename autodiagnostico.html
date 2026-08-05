@@ -6,6 +6,8 @@
     <title>Autodiagnóstico EC1375 - Posturalia</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="auth.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -927,7 +929,7 @@
        STATE
     ========================================================= */
     let currentStepIndex = 0; // 0=intro, 1=personal, 2-5=elementos 1-4, 6=firma, 7=resultado
-    const STEPS = ['intro', 'personal', 'e1', 'e2', 'e3', 'e4', 'firma', 'resultado'];
+    const STEPS = ['intro', 'auth', 'personal', 'e1', 'e2', 'e3', 'e4', 'firma', 'resultado'];
 
     let personalData = { nombre: '', curp: '', domicilio: '', escolaridad: '', telefonoCasa: '', telefonoCelular: '', email: '', fecha: todayISO() };
     let selectedCertificaciones = [];
@@ -941,34 +943,6 @@
     let hasSignature = false;
     let isDrawing = false;
     let lastX = 0, lastY = 0;
-
-    /* =========================================================
-       SUPABASE SYNC (respaldo en la nube, best-effort — si falla,
-       el progreso sigue guardado en localStorage sin interrupción)
-    ========================================================= */
-    const SUPABASE_URL = 'https://yvgwothpkclljrdojtiv.supabase.co';
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2Z3dvdGhwa2NsbGpyZG9qdGl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU4OTEzODMsImV4cCI6MjEwMTQ2NzM4M30.QLesb--pkVQsu2x2WR_tIi6EelVG1QsYQ9BdwscnnXo';
-    let supabaseSyncTimer = null;
-    function syncToSupabase(column, data, curp, nombre) {
-        if (!curp || !curp.trim()) return;
-        clearTimeout(supabaseSyncTimer);
-        supabaseSyncTimer = setTimeout(async () => {
-            try {
-                const row = { curp: curp.trim().toUpperCase(), [column]: data, updated_at: new Date().toISOString() };
-                if (nombre) row.nombre = nombre;
-                await fetch(`${SUPABASE_URL}/rest/v1/candidatos_ec1375`, {
-                    method: 'POST',
-                    headers: {
-                        'apikey': SUPABASE_ANON_KEY,
-                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-                        'Content-Type': 'application/json',
-                        'Prefer': 'resolution=merge-duplicates'
-                    },
-                    body: JSON.stringify(row)
-                });
-            } catch (e) { console.warn('Supabase sync falló (progreso local sigue intacto):', e); }
-        }, 800);
-    }
 
     /* =========================================================
        PERSISTENCE
@@ -998,7 +972,7 @@
             signatureDataUrl, signatureTypedName, signatureMode, triptychAccepted
         };
         localStorage.setItem('autodiagnosticoData', JSON.stringify(data));
-        syncToSupabase('autodiagnostico_data', data, personalData.curp, personalData.nombre);
+        Auth.syncToSupabase('autodiagnostico_data', data, personalData.curp, personalData.nombre);
     }
 
     /* =========================================================
@@ -1041,6 +1015,11 @@
             navBar.style.display = 'none';
             topBarStep.textContent = 'Inicio';
             app.innerHTML = renderIntro();
+        } else if (step === 'auth') {
+            navBar.style.display = 'none';
+            topBarStep.textContent = 'Verifica tu correo';
+            app.innerHTML = renderAuthStep();
+            Auth.renderAuthGate(document.getElementById('authGateContainer'), { onVerified: handleAuthVerified });
         } else if (step === 'personal') {
             navBar.style.display = 'flex';
             topBarStep.textContent = 'Datos personales';
@@ -1108,6 +1087,36 @@
 
             <button class="btn btn-primary btn-full" onclick="${hasSaved ? 'restartDiagnostico()' : 'goNext()'}">${hasSaved ? 'Empezar de nuevo' : 'Comenzar Autodiagnóstico →'}</button>
         `;
+    }
+
+    function renderAuthStep() {
+        return `
+            <div class="intro-hero">
+                <div class="intro-icon">🔐</div>
+                <h1 class="intro-title">Verifica tu correo</h1>
+                <p class="intro-subtitle">Así protegemos tu progreso — solo tú puedes ver o editar tu proceso de certificación</p>
+            </div>
+            <div class="card" id="authGateContainer"></div>
+        `;
+    }
+
+    async function handleAuthVerified(session) {
+        if (localStorage.getItem('autodiagnosticoData')) {
+            // Ya había avance local (p.ej. pruebas hechas antes de este cambio) — se reclama
+            // bajo la identidad recién autenticada en vez de perderse.
+            saveProgress();
+        } else {
+            // Sin avance local en este dispositivo — si este correo ya tiene avance en la
+            // nube (otro dispositivo), se restaura; si no, arranca limpio con el correo prellenado.
+            const row = await Auth.pullMyRow();
+            if (row) {
+                Auth.restoreLocalStorageFromRow(row);
+                loadProgress();
+            } else if (session.user && session.user.email) {
+                personalData.email = session.user.email;
+            }
+        }
+        resumeDiagnostico();
     }
 
     function resumeDiagnostico() {
@@ -1524,6 +1533,9 @@
        NAVIGATION
     ========================================================= */
     function isStepValid(step) {
+        if (step === 'auth') {
+            return Auth.hasSession();
+        }
         if (step === 'personal') {
             return personalData.nombre && personalData.curp && personalData.domicilio &&
                    personalData.escolaridad && personalData.telefonoCelular && personalData.email && personalData.fecha;
@@ -1545,7 +1557,7 @@
         const btnNext = document.getElementById('btnNext');
         if (!btnBack || !btnNext) return;
 
-        btnBack.style.visibility = currentStepIndex <= 1 ? 'hidden' : 'visible';
+        btnBack.style.visibility = currentStepIndex <= 2 ? 'hidden' : 'visible';
 
         const step = STEPS[currentStepIndex];
         const valid = isStepValid(step);
@@ -1830,8 +1842,14 @@
     /* =========================================================
        INIT
     ========================================================= */
-    window.addEventListener('load', () => {
-        loadProgress();
+    window.addEventListener('load', async () => {
+        const hadLocalProgress = loadProgress();
+        const session = await Auth.getSession();
+        if (!session && hadLocalProgress) {
+            // Hay avance local pero no sesión activa (dispositivo nuevo, o sesión
+            // expirada) — nunca debe quedar a medio wizard sin poder sincronizar.
+            currentStepIndex = STEPS.indexOf('auth');
+        }
         renderStep();
     });
     </script>

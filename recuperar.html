@@ -3,7 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Recuperar mi proceso - EC1375 Posturalia</title>
+    <title>Iniciar sesión - EC1375 Posturalia</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="auth.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         :root {
@@ -32,7 +34,6 @@
             width: 100%; padding: 14px; background: var(--dark);
             border: 1px solid rgba(255,255,255,0.15); border-radius: 8px;
             color: var(--text-bright); font-size: 1rem; font-family: inherit;
-            text-transform: uppercase; letter-spacing: 1px;
         }
         .btn {
             padding: 15px 24px; border-radius: 8px; font-weight: 700; font-size: 0.95rem;
@@ -54,73 +55,48 @@
     </style>
 </head>
 <body>
-    <div class="top-bar"><div class="top-bar-inner">🔄 Recuperar mi proceso</div></div>
+    <div class="top-bar"><div class="top-bar-inner">🔐 Iniciar sesión</div></div>
     <div class="container" id="app"></div>
 
     <script>
-    const SUPABASE_URL = 'https://yvgwothpkclljrdojtiv.supabase.co';
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2Z3dvdGhwa2NsbGpyZG9qdGl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU4OTEzODMsImV4cCI6MjEwMTQ2NzM4M30.QLesb--pkVQsu2x2WR_tIi6EelVG1QsYQ9BdwscnnXo';
+    const STEP_LINKS = {
+        autodiagnosticoData: { label: '📋 Autodiagnóstico', href: 'autodiagnostico.html' },
+        planEvaluacionData: { label: '📅 Plan de Evaluación', href: 'plan-evaluacion.html' },
+        documentosSesionData: { label: '📋 Documentos de Sesión', href: 'documentos-sesion.html' },
+        encuestaSatisfaccionData: { label: '📝 Encuesta de Satisfacción', href: 'encuesta-satisfaccion.html' },
+        evidenciasData: { label: '📤 Evidencias', href: 'evidencias.html' }
+    };
 
     function render() {
         document.getElementById('app').innerHTML = `
             <div class="hero">
-                <div class="hero-icon">🔄</div>
-                <h1 class="hero-title">Recuperar mi proceso</h1>
-                <p class="hero-subtitle">Escribe tu CURP para cargar tu avance en este dispositivo</p>
+                <div class="hero-icon">🔐</div>
+                <h1 class="hero-title">Inicia sesión</h1>
+                <p class="hero-subtitle">Verifica tu correo para continuar tu proceso en este dispositivo</p>
             </div>
-            <div class="card">
-                <div class="field-group">
-                    <label>CURP</label>
-                    <input type="text" id="f_curp" maxlength="18" placeholder="GOPM850101MDFNRR01">
-                </div>
-                <button class="btn btn-primary btn-full" id="btnBuscar" onclick="buscarProceso()">Buscar mi proceso</button>
-                <div id="resultado"></div>
-            </div>
+            <div class="card" id="authGateContainer"></div>
         `;
-        document.getElementById('f_curp').addEventListener('keydown', e => { if (e.key === 'Enter') buscarProceso(); });
+        Auth.renderAuthGate(document.getElementById('authGateContainer'), { onVerified: handleVerified });
     }
 
-    async function buscarProceso() {
-        const curpInput = document.getElementById('f_curp');
-        const curp = curpInput.value.trim().toUpperCase();
-        const resultado = document.getElementById('resultado');
-        const btn = document.getElementById('btnBuscar');
-        if (!curp) { resultado.innerHTML = `<p class="msg error">Escribe tu CURP.</p>`; return; }
+    async function handleVerified(session) {
+        const container = document.getElementById('authGateContainer');
+        container.innerHTML = `<p class="spinner">Cargando tu progreso...</p>`;
+        const row = await Auth.pullMyRow();
+        const restored = Auth.restoreLocalStorageFromRow(row);
 
-        btn.disabled = true;
-        resultado.innerHTML = `<p class="spinner">Buscando...</p>`;
-
-        try {
-            const resp = await fetch(`${SUPABASE_URL}/rest/v1/candidatos_ec1375?curp=eq.${encodeURIComponent(curp)}&select=*`, {
-                headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
-            });
-            const rows = await resp.json();
-            btn.disabled = false;
-
-            if (!Array.isArray(rows) || rows.length === 0) {
-                resultado.innerHTML = `<p class="msg error">No encontramos ningún proceso con ese CURP. Verifica que esté bien escrito, o empieza desde el <a href="autodiagnostico.html" style="color:var(--primary);">Autodiagnóstico</a>.</p>`;
-                return;
-            }
-
-            const row = rows[0];
-            const restored = [];
-            if (row.autodiagnostico_data) { localStorage.setItem('autodiagnosticoData', JSON.stringify(row.autodiagnostico_data)); restored.push({ label: '📋 Autodiagnóstico', href: 'autodiagnostico.html' }); }
-            if (row.plan_evaluacion_data) { localStorage.setItem('planEvaluacionData', JSON.stringify(row.plan_evaluacion_data)); restored.push({ label: '📅 Plan de Evaluación', href: 'plan-evaluacion.html' }); }
-            if (row.documentos_sesion_data) { localStorage.setItem('documentosSesionData', JSON.stringify(row.documentos_sesion_data)); restored.push({ label: '📋 Documentos de Sesión', href: 'documentos-sesion.html' }); }
-            if (row.encuesta_data) { localStorage.setItem('encuestaSatisfaccionData', JSON.stringify(row.encuesta_data)); restored.push({ label: '📝 Encuesta de Satisfacción', href: 'encuesta-satisfaccion.html' }); }
-            if (row.evidencias_data) { localStorage.setItem('evidenciasData', JSON.stringify(row.evidencias_data)); restored.push({ label: '📤 Evidencias', href: 'evidencias.html' }); }
-
-            resultado.innerHTML = `
-                <p class="msg success">✅ ¡Listo, ${escapeHtml(row.nombre || 'candidato/a')}! Recuperamos tu avance en este dispositivo.</p>
-                <p style="font-size:0.85rem;margin-top:10px;">Continúa donde quieras:</p>
-                <ul class="step-list">
-                    ${restored.map(r => `<li><a href="${r.href}">${r.label} →</a></li>`).join('')}
-                </ul>
-            `;
-        } catch (e) {
-            btn.disabled = false;
-            resultado.innerHTML = `<p class="msg error">Hubo un problema buscando tu proceso. Intenta de nuevo en un momento.</p>`;
+        if (restored.length === 0) {
+            container.innerHTML = `<p class="msg success">✅ Sesión iniciada. Aún no tienes avance guardado — empieza en el <a href="autodiagnostico.html" style="color:var(--primary);">Autodiagnóstico</a>.</p>`;
+            return;
         }
+
+        container.innerHTML = `
+            <p class="msg success">✅ ¡Listo, ${escapeHtml(row.nombre || 'candidato/a')}! Recuperamos tu avance en este dispositivo.</p>
+            <p style="font-size:0.85rem;margin-top:10px;">Continúa donde quieras:</p>
+            <ul class="step-list">
+                ${restored.map(key => `<li><a href="${STEP_LINKS[key].href}">${STEP_LINKS[key].label} →</a></li>`).join('')}
+            </ul>
+        `;
     }
 
     function escapeHtml(str) {

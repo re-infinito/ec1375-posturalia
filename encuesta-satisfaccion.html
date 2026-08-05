@@ -6,6 +6,8 @@
     <title>Encuesta de Satisfacción EC1375 - Posturalia</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="auth.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -133,35 +135,11 @@
         } catch (e) {}
     }
 
-    const SUPABASE_URL = 'https://yvgwothpkclljrdojtiv.supabase.co';
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2Z3dvdGhwa2NsbGpyZG9qdGl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU4OTEzODMsImV4cCI6MjEwMTQ2NzM4M30.QLesb--pkVQsu2x2WR_tIi6EelVG1QsYQ9BdwscnnXo';
-    let supabaseSyncTimer = null;
-    function syncToSupabase(column, data, curp, nombre) {
-        if (!curp || !curp.trim()) return;
-        clearTimeout(supabaseSyncTimer);
-        supabaseSyncTimer = setTimeout(async () => {
-            try {
-                const row = { curp: curp.trim().toUpperCase(), [column]: data, updated_at: new Date().toISOString() };
-                if (nombre) row.nombre = nombre;
-                await fetch(`${SUPABASE_URL}/rest/v1/candidatos_ec1375`, {
-                    method: 'POST',
-                    headers: {
-                        'apikey': SUPABASE_ANON_KEY,
-                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-                        'Content-Type': 'application/json',
-                        'Prefer': 'resolution=merge-duplicates'
-                    },
-                    body: JSON.stringify(row)
-                });
-            } catch (e) { console.warn('Supabase sync falló (progreso local sigue intacto):', e); }
-        }, 800);
-    }
-
     function saveProgress() {
         const data = { respuestas, comentarios, signatureDataUrl, signatureTypedName, signatureMode };
         localStorage.setItem('encuestaSatisfaccionData', JSON.stringify(data));
         const result = loadAutodiagnosticoResult();
-        if (result) syncToSupabase('encuesta_data', data, result.personalData.curp, result.personalData.nombre);
+        if (result) Auth.syncToSupabase('encuesta_data', data, result.personalData.curp, result.personalData.nombre);
     }
 
     function escapeHtml(str) {
@@ -171,7 +149,7 @@
         return div.innerHTML;
     }
 
-    function render() {
+    async function render() {
         const app = document.getElementById('app');
         const result = loadAutodiagnosticoResult();
 
@@ -186,6 +164,20 @@
                     <p><strong>Primero necesitas completar tu Autodiagnóstico</strong><br>Esto nos permite identificarte para tu encuesta.</p>
                     <a href="autodiagnostico.html" class="btn btn-primary">📋 Ir al Autodiagnóstico</a>
                     <p style="margin-top:14px;font-size:0.85rem;"><a href="recuperar.html" style="color:var(--primary);">¿Ya empezaste en otro dispositivo? Recupera tu proceso →</a></p>
+                </div>`;
+            return;
+        }
+
+        if (!(await Auth.getSession())) {
+            app.innerHTML = `
+                <div class="hero">
+                    <div class="hero-icon">🔐</div>
+                    <h1 class="hero-title">Encuesta de Satisfacción</h1>
+                    <p class="hero-subtitle">Tu opinión es muy importante</p>
+                </div>
+                <div class="blocked-box">
+                    <p><strong>Verifica tu correo para continuar</strong><br>Encontramos tu avance en este dispositivo, pero necesitas iniciar sesión para seguir editándolo y mantenerlo respaldado.</p>
+                    <a href="recuperar.html" class="btn btn-primary">🔐 Iniciar sesión</a>
                 </div>`;
             return;
         }
