@@ -288,13 +288,14 @@
     function renderGeneratedState(app, result) {
         app.innerHTML = `
             <div class="success-box">
-                <h3>🎉 ¡Gracias por completar tu proceso EC1375!</h3>
-                <p style="color:var(--text);margin-bottom:20px;">Tu encuesta fue registrada. Tu evaluador armará tu Portafolio de Evidencias final y tu certificado se emitirá en un plazo de 60-90 días.</p>
+                <h3>🎉 ¡Ya tienes tus 3 documentos generados!</h3>
+                <p style="color:var(--text);margin-bottom:20px;">Descarga tu Encuesta y súbela junto con tu Autodiagnóstico y Plan de Evaluación en el último paso: la Carga de Evidencias.</p>
                 <button class="btn btn-primary btn-full" onclick="generatePDF()">📄 Descargar Encuesta (PDF)</button>
                 <button class="btn btn-whatsapp btn-full" onclick="notifyWhatsApp()">📱 AVISAR AL EQUIPO POR WHATSAPP</button>
             </div>
             <div class="card" style="text-align:center;margin-top:20px;">
-                <a href="evidencias.html" style="color:var(--primary);text-decoration:none;font-size:0.9rem;">← Volver a mis Evidencias</a>
+                <a href="evidencias.html" class="btn btn-primary btn-full" style="display:block;text-decoration:none;margin-bottom:14px;">📤 Siguiente: Sube tus Evidencias →</a>
+                <a href="documentos-sesion.html" style="color:var(--primary);text-decoration:none;font-size:0.9rem;">← Volver a mis Documentos de Sesión</a>
             </div>
         `;
     }

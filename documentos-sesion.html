@@ -111,7 +111,7 @@
         usuarioNombre: '', usuarioEdad: '', usuarioFechaNacimiento: '', usuarioDomicilio: '',
         usuarioTelefono: '', usuarioCorreo: '', contactoEmergencia: '',
         fisiologicos: '', socioemocionales: '', heredofamiliares: '', deportivos: '', consumoSustancias: '',
-        presionArterial: '', pulso: '', temperatura: '', sintomasNecesidades: '',
+        presionArterial: '', pulso: '', temperatura: '', oxigenacion: '', sintomasNecesidades: '',
         tecnicaAplicar: '', expedienteNo: '', fechaConsentimiento: todayISOSession(),
         condicionesPreparacion: '', numeroSesionesPlan: '', duracionSesionPlan: '', objetivosEfectos: '',
         telefonoMovilSeguimiento: '', telefonoFijoSeguimiento: '', correoSeguimiento: '', medioContacto: '',
@@ -120,9 +120,9 @@
     let sesionesSeguimiento = [{ numero: '1', frecuencia: '', duracion: '' }];
 
     let signatures = {
-        usuarioFicha: { mode: 'draw', dataUrl: null, typed: '' },
-        usuarioConsentimiento: { mode: 'draw', dataUrl: null, typed: '' },
-        usuarioSeguimiento: { mode: 'draw', dataUrl: null, typed: '' }
+        usuarioFicha: { mode: 'draw', dataUrl: null, typed: '', uploadDataUrl: null },
+        usuarioConsentimiento: { mode: 'draw', dataUrl: null, typed: '', uploadDataUrl: null },
+        usuarioSeguimiento: { mode: 'draw', dataUrl: null, typed: '', uploadDataUrl: null }
     };
     let drawingState = { isDrawing: false, lastX: 0, lastY: 0 };
     let generated = false;
@@ -192,7 +192,12 @@
         if (step === 'ficha') { app.innerHTML = renderFicha(); attachFichaListeners(); setTimeout(() => initSignatureCanvas('usuarioFicha'), 50); attachNav(); return; }
         if (step === 'consentimiento') { app.innerHTML = renderConsentimiento(result); attachConsentimientoListeners(); setTimeout(() => initSignatureCanvas('usuarioConsentimiento'), 50); attachNav(); return; }
         if (step === 'plan_sesion') { app.innerHTML = renderPlanSesion(); attachPlanSesionListeners(); attachNav(); return; }
-        if (step === 'plan_seguimiento') { app.innerHTML = renderPlanSeguimiento(); attachPlanSeguimientoListeners(); setTimeout(() => initSignatureCanvas('usuarioSeguimiento'), 50); attachNav(); return; }
+        if (step === 'plan_seguimiento') {
+            if (!sessionData.telefonoMovilSeguimiento && sessionData.usuarioTelefono) sessionData.telefonoMovilSeguimiento = sessionData.usuarioTelefono;
+            if (!sessionData.correoSeguimiento && sessionData.usuarioCorreo) sessionData.correoSeguimiento = sessionData.usuarioCorreo;
+            saveProgress();
+            app.innerHTML = renderPlanSeguimiento(); attachPlanSeguimientoListeners(); setTimeout(() => initSignatureCanvas('usuarioSeguimiento'), 50); attachNav(); return;
+        }
         if (step === 'resultado') { renderResultado(app, result); return; }
     }
 
@@ -258,7 +263,10 @@
                     <div class="field-group"><label>Presión arterial</label><input type="text" id="f_presionArterial" value="${escapeHtml(s.presionArterial)}" placeholder="120/80"></div>
                     <div class="field-group"><label>Pulso</label><input type="text" id="f_pulso" value="${escapeHtml(s.pulso)}" placeholder="lpm"></div>
                 </div>
-                <div class="field-group"><label>Temperatura</label><input type="text" id="f_temperatura" value="${escapeHtml(s.temperatura)}" placeholder="°C"></div>
+                <div class="field-row">
+                    <div class="field-group"><label>Temperatura</label><input type="text" id="f_temperatura" value="${escapeHtml(s.temperatura)}" placeholder="°C"></div>
+                    <div class="field-group"><label>Oxigenación (SpO2)</label><input type="text" id="f_oxigenacion" value="${escapeHtml(s.oxigenacion)}" placeholder="%"></div>
+                </div>
 
                 <div class="section-label">Motivo de consulta</div>
                 <div class="field-group"><label>Síntomas, necesidades o interés para recibir tratamiento</label><textarea id="f_sintomasNecesidades" rows="2">${escapeHtml(s.sintomasNecesidades)}</textarea></div>
@@ -328,7 +336,7 @@
         return `
             <div class="card">
                 <h2>📞 Plan de Seguimiento</h2>
-                <p class="desc">Contacto y sesiones programadas para dar seguimiento al usuario</p>
+                <p class="desc">Contacto y sesiones programadas para dar seguimiento al usuario. Teléfono y correo se precargan de la Ficha de Registro — corrígelos aquí solo si el seguimiento debe hacerse por un medio distinto.</p>
 
                 <div class="field-group"><label>Nombre del usuario</label><input type="text" value="${escapeHtml(s.usuarioNombre)}" disabled style="opacity:0.6;"></div>
                 <div class="field-row">
@@ -383,6 +391,7 @@
             <div class="signature-tabs">
                 <button type="button" class="sig-tab-btn ${sig.mode === 'draw' ? 'active' : ''}" onclick="setSignatureMode('${key}', 'draw')">✍️ Dibujar</button>
                 <button type="button" class="sig-tab-btn ${sig.mode === 'type' ? 'active' : ''}" onclick="setSignatureMode('${key}', 'type')">⌨️ Escribir nombre</button>
+                <button type="button" class="sig-tab-btn ${sig.mode === 'upload' ? 'active' : ''}" onclick="setSignatureMode('${key}', 'upload')">📎 Adjuntar firma</button>
             </div>
             <div id="sigPad_${key}" style="${sig.mode === 'draw' ? '' : 'display:none;'}">
                 <canvas class="sig-canvas" id="canvas_${key}" width="500" height="130"></canvas>
@@ -392,6 +401,12 @@
                 <div class="field-group">
                     <input type="text" id="input_${key}" value="${escapeHtml(sig.typed)}" placeholder="Nombre completo" oninput="updateTypedSignature('${key}', this.value)">
                 </div>
+            </div>
+            <div id="sigUpload_${key}" style="${sig.mode === 'upload' ? '' : 'display:none;'}">
+                <p class="desc" style="margin-bottom:10px;">Útil si la sesión es a distancia: pide al usuario que firme en su propio dispositivo (o en papel) y sube la foto o imagen de su firma.</p>
+                ${sig.uploadDataUrl ? `<img src="${sig.uploadDataUrl}" style="max-width:100%; max-height:130px; background:#fff; border-radius:8px; border:2px solid rgba(255,255,255,0.15); display:block; margin-bottom:12px;">` : ''}
+                <input type="file" accept="image/*" id="fileInput_${key}" onchange="handleSignatureUpload('${key}', this)" style="margin-bottom:12px;">
+                ${sig.uploadDataUrl ? `<button type="button" class="clear-sig-btn" onclick="clearUploadSignature('${key}')">Quitar firma</button>` : ''}
             </div>
         `;
     }
@@ -461,7 +476,27 @@
 
     function hasSignature(key) {
         const sig = signatures[key];
-        return sig.mode === 'draw' ? !!sig.dataUrl : (sig.typed && sig.typed.trim().length > 3);
+        if (sig.mode === 'draw') return !!sig.dataUrl;
+        if (sig.mode === 'upload') return !!sig.uploadDataUrl;
+        return sig.typed && sig.typed.trim().length > 3;
+    }
+
+    function handleSignatureUpload(key, inputEl) {
+        const file = inputEl.files && inputEl.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+            signatures[key].uploadDataUrl = reader.result;
+            saveProgress();
+            renderStep();
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function clearUploadSignature(key) {
+        signatures[key].uploadDataUrl = null;
+        saveProgress();
+        renderStep();
     }
 
     /* =========================================================
@@ -480,7 +515,7 @@
     function attachFichaListeners() {
         bindFields(['usuarioNombre', 'usuarioEdad', 'usuarioFechaNacimiento', 'usuarioDomicilio', 'usuarioTelefono', 'usuarioCorreo',
             'contactoEmergencia', 'fisiologicos', 'socioemocionales', 'heredofamiliares', 'deportivos', 'consumoSustancias',
-            'presionArterial', 'pulso', 'temperatura', 'sintomasNecesidades']);
+            'presionArterial', 'pulso', 'temperatura', 'oxigenacion', 'sintomasNecesidades']);
     }
     function attachConsentimientoListeners() { bindFields(['tecnicaAplicar', 'expedienteNo', 'fechaConsentimiento']); }
     function attachPlanSesionListeners() { bindFields(['condicionesPreparacion', 'numeroSesionesPlan', 'duracionSesionPlan', 'objetivosEfectos']); }
@@ -540,6 +575,12 @@ const LOGO_CONOCER_BASE64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAA
         doc.addImage(LOGO_ICE_BASE64, 'PNG', 163, 10, 33, 11.3);
     }
 
+    function imageFormatFromDataUrl(dataUrl) {
+        const match = /^data:image\/(\w+);/.exec(dataUrl || '');
+        const type = (match ? match[1] : 'png').toUpperCase();
+        return type === 'JPG' ? 'JPEG' : type;
+    }
+
     /* =========================================================
        PDF GENERATION
     ========================================================= */
@@ -560,6 +601,8 @@ const LOGO_CONOCER_BASE64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAA
         const sig = signatures[key];
         if (sig.mode === 'draw' && sig.dataUrl) {
             doc.addImage(sig.dataUrl, 'PNG', 14, y + 3, 55, 20);
+        } else if (sig.mode === 'upload' && sig.uploadDataUrl) {
+            doc.addImage(sig.uploadDataUrl, imageFormatFromDataUrl(sig.uploadDataUrl), 14, y + 3, 55, 20);
         } else if (sig.typed) {
             doc.setFont(undefined, 'italic'); doc.setFontSize(12);
             doc.text(sig.typed, 14, y + 14);
@@ -613,7 +656,8 @@ const LOGO_CONOCER_BASE64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAA
             body: [
                 ['Presión arterial', s.presionArterial || '—'],
                 ['Pulso', s.pulso || '—'],
-                ['Temperatura', s.temperatura || '—']
+                ['Temperatura', s.temperatura || '—'],
+                ['Oxigenación (SpO2)', s.oxigenacion || '—']
             ]
         });
         y = doc.lastAutoTable.finalY + 8;
@@ -770,7 +814,7 @@ const LOGO_CONOCER_BASE64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAA
                 `).join('')}
             </div>
             <div class="card" style="text-align:center;margin-top:20px;">
-                <a href="evidencias.html" class="btn btn-secondary btn-full" style="display:block;text-decoration:none;margin-bottom:14px;">📤 Ir a Subir Evidencias →</a>
+                <a href="encuesta-satisfaccion.html" class="btn btn-primary btn-full" style="display:block;text-decoration:none;margin-bottom:14px;">📝 Siguiente: Encuesta de Satisfacción →</a>
                 <a href="plan-evaluacion.html" style="color:var(--primary);text-decoration:none;font-size:0.9rem;">← Volver a mi Plan de Evaluación</a>
             </div>
         `;

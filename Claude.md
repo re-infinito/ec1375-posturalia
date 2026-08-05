@@ -317,16 +317,19 @@ documentos-sesion.html        ✅ EN PRODUCCIÓN (3 de agosto, 2026)
          evolución/pronóstico/recomendaciones, firma usuario + candidato)
     Genera 4 PDFs independientes ("DOC 1"-"DOC 4", igual que Humberto),
       cada uno con los logos oficiales, descargables por separado
-    ↓ botón "Sube tus Evidencias"
-evidencias.html               ✅ EN PRODUCCIÓN, Google Form conectado
+    ↓ botón "Siguiente: Encuesta de Satisfacción"
+encuesta-satisfaccion.html    ✅ EN PRODUCCIÓN
+    8 preguntas oficiales (Likert: Totalmente en desacuerdo → Muy de acuerdo)
+    Firma + PDF
+    ↓ botón "Siguiente: Sube tus Evidencias"
+evidencias.html               ✅ EN PRODUCCIÓN, Google Form conectado — ÚLTIMO PASO
     Checklist de evidencias + Google Form embebido (ver detalle abajo)
     Firma + comprobante interno (YA NO se llama "Acuse" como si fuera el
     expediente final — es solo un aviso interno al equipo)
-    ↓ botón "Encuesta de Satisfacción"
-encuesta-satisfaccion.html    ✅ EN PRODUCCIÓN
-    8 preguntas oficiales (Likert: Totalmente en desacuerdo → Muy de acuerdo)
-    Firma + PDF + pantalla de cierre ("certificado en 60-90 días")
+    Pantalla de cierre ("certificado en 60-90 días")
 ```
+
+**⚠️ Orden corregido (4 de agosto, 2026):** Encuesta de Satisfacción se movió a ANTES de evidencias.html (era al revés, evidencias→encuesta→"volver a evidencias" en círculo). El checklist de `evidencias.html` pide subir el PDF de la Encuesta junto con Autodiagnóstico y Plan de Evaluación (`EVIDENCIAS_REQUERIDAS`, línea "Tus 3 PDFs generados") — con el orden viejo eso era imposible de cumplir porque la Encuesta no existía todavía en ese punto del flujo (Diego lo reportó: "ya cargué todos los documentos pero no me permite avanzar"). Se quitó también el atajo directo de `plan-evaluacion.html` a `evidencias.html` que se saltaba Documentos de Sesión y Encuesta.
 
 Cada página lee `localStorage.autodiagnosticoData` (guardado por autodiagnostico.html) para heredar nombre/CURP/especialidad sin que el candidato reescriba nada. `plan-evaluacion.html` y `evidencias.html` además guardan su propio estado en `localStorage.planEvaluacionData` / `evidenciasData`.
 
@@ -371,6 +374,16 @@ Ficha de Registro de Atención, Carta de Consentimiento Informado, Plan de Sesi�
 Checklist de auditoría interna del Centro Evaluador. No va en el sitio del candidato — sería parte de una futura herramienta interna para el equipo de Diego (ver Backlog).
 
 **⚠️ Posible documento faltante sin confirmar del todo:** Diego mencionó que en el documento de Humberto "Encuesta de Satisfacción" y "Encuesta de Satisfacción del Proceso de Evaluación - Certificación de competencias" aparecen como **dos documentos distintos**. Lo que ya está construido (`encuesta-satisfaccion.html`) coincide con el título largo (8 preguntas Likert, pág. 136 de Humberto). El corto probablemente corresponde a la pág. 138 ("Cédula de Evaluación del Servicio a Usuarios", escala Bueno/Regular/Malo sobre trato/instalaciones/comunicación/entrega del certificado) — **no confirmado con Diego, no construido todavía.**
+
+### 🐛 Feedback de uso real de Diego, resuelto (4 de agosto, 2026)
+
+Diego corrió su propio proceso de principio a fin (candidato de prueba real) y reportó 5 hallazgos, todos resueltos:
+
+1. **Faltaba Oxigenación (SpO2) en signos vitales** de la Ficha de Registro de Atención (`documentos-sesion.html`) — agregado junto a Temperatura, tanto en el formulario como en la tabla del PDF (`sessionData.oxigenacion`).
+2. **Firma electrónica adjunta para sesiones a distancia** — las 3 firmas del usuario/paciente en `documentos-sesion.html` (Ficha, Consentimiento, Seguimiento) ahora tienen una 3ª pestaña "📎 Adjuntar firma" además de Dibujar/Escribir, para cuando la sesión es por Zoom y el paciente firma en su propio dispositivo y sube la foto/imagen. Usa `FileReader` para convertir a base64 (`signatures[key].uploadDataUrl`, campo separado del de dibujo para no pisar datos entre modos) y `imageFormatFromDataUrl()` detecta PNG/JPEG automáticamente para `doc.addImage()` en el PDF (antes solo se asumía PNG del canvas).
+3. **Plan de Seguimiento pedía teléfono/correo de nuevo** aunque ya se habían capturado en la Ficha de Registro (mismo usuario/paciente) — riesgo de que no cuadraran entre documentos. Ahora se precargan automáticamente de `usuarioTelefono`/`usuarioCorreo` la primera vez que se llega a ese paso (editable por si el seguimiento debe ser por otro medio).
+4. **Encuesta de Satisfacción pedida en el checklist de evidencias.html antes de poder generarse** — bug de secuencia real: el flujo iba evidencias.html → encuesta-satisfaccion.html → "← Volver a mis Evidencias" (circular), pero el checklist de evidencias.html ya exige subir el PDF de la Encuesta. Se reordenó el flujo: `documentos-sesion.html` → `encuesta-satisfaccion.html` → `evidencias.html` (ahora sí el último paso). Se quitó el atajo de `plan-evaluacion.html` que saltaba directo a evidencias.html sin pasar por Documentos de Sesión ni Encuesta.
+5. **Botón "Confirmar Entrega" seguía deshabilitado** después de subir todo — causa: `updateGenerateButton()` también exige la liga al video de la sesión (`planData.videoLink`), un campo que vive arriba en el checklist, lejos de la tarjeta de Confirmación, así que era fácil no notar que faltaba. Se agregó un aviso dinámico (`#missingHint`) justo arriba del botón que lista en texto qué falta exactamente ("Te falta: la liga a tu video de sesión, marcar la casilla, tu firma").
 
 ### Google Drive API — ✅ CONECTADA Y FUNCIONANDO
 

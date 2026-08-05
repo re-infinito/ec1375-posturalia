@@ -312,6 +312,7 @@
                 </div>
             </div>
 
+            <p id="missingHint" style="color:var(--accent);font-size:0.85rem;text-align:center;margin-bottom:10px;"></p>
             <button class="btn btn-primary btn-full" id="btnGenerate" onclick="generateAcuse()" disabled>Confirmar Entrega →</button>
         `;
 
@@ -329,10 +330,16 @@
 
     function updateGenerateButton() {
         const btn = document.getElementById('btnGenerate');
+        const hint = document.getElementById('missingHint');
         if (!btn) return;
         const hasSig = signatureMode === 'draw' ? hasSignature : (signatureTypedName && signatureTypedName.trim().length > 3);
         const hasVideoLink = planData.videoLink && planData.videoLink.trim().length > 5;
-        btn.disabled = !(planData.evidenciasConfirmadas && hasSig && hasVideoLink);
+        const missing = [];
+        if (!hasVideoLink) missing.push('la liga a tu video de sesión (arriba, en "Evidencias Requeridas")');
+        if (!planData.evidenciasConfirmadas) missing.push('marcar la casilla de confirmación');
+        if (!hasSig) missing.push('tu firma');
+        btn.disabled = missing.length > 0;
+        if (hint) hint.textContent = missing.length ? `Te falta: ${missing.join(', ')}.` : '';
     }
 
     function requestUploadViaWhatsApp() {
@@ -397,8 +404,7 @@
                 <button class="btn btn-whatsapp btn-full" onclick="notifyWhatsApp()">📱 AVISAR AL EQUIPO POR WHATSAPP</button>
             </div>
             <div class="card" style="text-align:center;margin-top:20px;">
-                <a href="encuesta-satisfaccion.html" class="btn btn-secondary btn-full" style="display:block;text-decoration:none;margin-bottom:14px;">📝 Siguiente: Encuesta de Satisfacción →</a>
-                <a href="plan-evaluacion.html" style="color:var(--primary);text-decoration:none;font-size:0.9rem;">← Volver a mi Plan de Evaluación</a>
+                <a href="encuesta-satisfaccion.html" style="color:var(--primary);text-decoration:none;font-size:0.9rem;">← Volver a mi Encuesta de Satisfacción</a>
             </div>
         `;
     }
