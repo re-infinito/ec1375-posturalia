@@ -2,8 +2,8 @@
 
 ## 🎯 PROYECTO: EC1375 - Certificación Oficial para Terapeutas Alternativas
 
-**Última actualización:** 3 de agosto, 2026  
-**Estado:** Landing + funnel completo de certificación en producción (v5.0). Script de ensamblado del expediente final YA CONSTRUIDO — pendiente probarlo con una respuesta real del Form (ver "Paso 4 completado" en la sección "SISTEMA DE CERTIFICACIÓN EC1375" más abajo).  
+**Última actualización:** 5 de agosto, 2026  
+**Estado:** Landing + funnel completo de certificación en producción (v5.0). Script de ensamblado del expediente final probado con datos reales — primer Portafolio de 110 páginas generado exitosamente (ver "Paso 5 completado" en la sección "SISTEMA DE CERTIFICACIÓN EC1375" más abajo). Pendiente: decidir si se conecta Supabase para persistencia entre dispositivos (ver sección de Backlog).  
 **URL en vivo:** https://ec1375-posturalia.vercel.app
 
 ---
@@ -478,10 +478,19 @@ Si el token expira, volver a correr `setup_drive_auth.py` (ya tiene los 3 scopes
 ```
 Es una restricción intencional de Google (no se puede evitar con otro scope ni otro método) — las preguntas de tipo archivo **solo se pueden crear desde la interfaz web de Google Forms**, nunca por API. Queda documentado en `add_form_questions.py`.
 
-**⚠️ Bloqueadores para probar con datos reales (Paso 5), pendientes de que Diego los resuelva:**
-1. **El Form real tiene 0 respuestas enviadas.** Hay carpetas de Drive creadas para cada pregunta de archivo (evidencia de que se seleccionaron archivos en algún intento), pero están vacías y `forms().responses().list()` devuelve 0 — probablemente el formulario se abrió y se seleccionaron archivos pero nunca se le dio clic final a "Enviar". Hay que completar un envío real de principio a fin para poder probar.
-2. **Diego debe agregar manualmente 4 preguntas tipo "Subir archivo" en la interfaz de Google Forms** (no se puede por API, ver arriba): "Sube tu Autodiagnóstico (PDF)", "Sube tu Plan de Evaluación (PDF)", "Sube tu Encuesta de Satisfacción (PDF)", "Foto para tu diploma". El script las detecta automáticamente por palabras clave en el título en cuanto existan — no hace falta tocar el código, solo agregarlas en Forms.
-3. **Acuse de Recibido del Tríptico** (Anexos): el dato `triptychAccepted` vive solo en el `localStorage` del candidato — el script no lo incluye todavía. Pendiente de decidir cómo capturarlo (ej. otra pregunta de texto/checkbox en el Form, igual que se hizo con la liga al video).
+### ✅ Paso 5 completado (5 de agosto, 2026) — primer expediente real generado
+
+Diego agregó las preguntas de "Subir archivo" faltantes directamente en Google Forms (Autodiagnóstico, Plan de Evaluación, Encuesta, Plan de Sesión, Foto diploma) y completó un envío real end-to-end. Al correr `assemble_expediente.py "Diego Eugenio Garza Arroyo"` contra esa respuesta real aparecieron 2 bugs nuevos en el script (ninguno relacionado con los datos de Diego, ambos en la lógica de emparejamiento de preguntas):
+
+1. **Bug de acentos en `QUESTION_TITLE_TO_SLOT`:** el lookup exacto comparaba `norm_title` (con acentos ya quitados por `normalize()`) contra las claves del diccionario, que están escritas CON acentos ("identificación", "atención", etc.) — nunca podían coincidir. Esto hacía que **Identificación oficial (INE)** y **Ficha de Registro de Atención** se reportaran como "faltantes" aunque sí estaban subidas. Corregido precomputando `NORMALIZED_TITLE_TO_SLOT = {normalize(k): v for k, v in QUESTION_TITLE_TO_SLOT.items()}` y usando ese dict para el lookup.
+2. **`plan_sesion` sin regla de respaldo:** el título real en el Form es "Plan de Sesión (PDF)" (con sufijo), que no calzaba con la entrada exacta `'plan de sesión'` del diccionario. A diferencia de Autodiagnóstico/Plan de Evaluación/Encuesta, este no tenía ninguna regla en `KEYWORD_SLOTS` de respaldo, así que el archivo se perdía silenciosamente. Se agregó `(['plan de sesion'], 'plan_sesion')` a `KEYWORD_SLOTS`.
+
+Con ambos corregidos, el expediente de Diego se generó completo: **110 páginas**, con Portada/Índice/CURP/INE/Autodiagnóstico/Plan de Evaluación/IEC en blanco/Ficha/Carta/Plan de Sesión/Plan de Seguimiento/referencia a video/Cédula en blanco/Encuesta/Anexos, en el orden verificado contra Humberto. Verificado visualmente (portada, índice con avisos, página del IEC, Cédula en blanco, separador de Anexos) — todo correcto.
+
+**⚠️ Pendiente que Diego resuelva en su propia respuesta real (no es bug de código):**
+1. **Subió el archivo equivocado en la pregunta "Encuesta de Satisfacción (PDF)"** — quedó el mismo PDF de Plan de Sesión en vez de la Encuesta real. Necesita volver a enviar el Form (Google Forms no permite editar un envío ya hecho) con el PDF correcto.
+2. **Faltan las 2 preguntas de "Acuse de Recibido"** (Tríptico y Plan de Evaluación) — agregarlas en Google Forms igual que las demás; el script ya tiene los slots `acuse_triptico` / `acuse_plan_evaluacion` listos para detectarlas en cuanto existan.
+3. **INE:** el script sí lo encontró y descargó correctamente en esta corrida (el bug #1 de arriba es lo que lo hacía ver como faltante antes).
 
 **Scripts de diagnóstico/setup auxiliares** (en `_internal_no_publicar/`, no forman parte del flujo de producción por candidato): `explore_drive_structure.py`, `explore_forms_api.py`, `find_response_sheet.py`, `check_drive_files_detail.py`, `add_text_question.py`, `add_form_questions.py` (intento fallido, documentado arriba).
 
