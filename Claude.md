@@ -547,11 +547,12 @@ Plan completo de esta implementación (Fase 1 + Fase 2): `/Users/diegogarzamx/.c
 ### 🔮 Backlog — no urgente, pero anotado para cuando escale a más candidatos
 
 1. ~~Autenticación por candidato~~ → ✅ implementada (ver arriba), pendiente solo de desplegar.
-2. **Panel de aprobación/filtrado para el equipo:** ver en qué etapa está cada candidato y aprobar/rechazar antes de ensamblar/entregar. Con la tabla de Supabase ya existiendo (y ahora con `user_id` real), esto ahora es mucho más fácil de construir.
-3. **Recuperar PDFs perdidos:** si el candidato pierde sus 3 PDFs antes de subirlos al Form, hoy no hay forma de regenerarlos — con Supabase esto ya casi no aplica (los datos para regenerarlos viven en la nube), pero los PDFs en sí no se guardan, solo los datos con los que se generan.
-4. **Multi-evaluador:** número de WhatsApp y nombre de evaluador están fijos en el código.
-5. **Anti-duplicados:** validar que un mismo CURP no se registre dos veces.
-6. **Notificación de estado al candidato:** página tipo "así va tu proceso" en vez de preguntar por WhatsApp.
+2. **Milestones del funnel enlazados a cada pago por fases:** hoy el gate de pago (Fase 2, arriba) solo cubre el Paso 1 — el Apartado ($2,000, único que pasa por el link de Mercado Pago con webhook). Los otros 3 pagos del funnel (Paso 2 Alineación $4,250, Paso 3 Evaluación $6,000, Paso 4 Entrega $2,500 — ver "TIMELINE / CÓMO FUNCIONA" y `success.html`) se cobran hoy por fuera del sitio, por WhatsApp manual, sin ningún control técnico de que se haya pagado antes de dejar avanzar al candidato. La idea: extender el mismo patrón ya construido (`candidatos_autorizados` + `is_email_authorized` + RLS) para que cada fase del sitio se desbloquee solo cuando su pago correspondiente esté confirmado — p.ej. no poder agendar/completar `plan-evaluacion.html` sin el pago de Alineación confirmado, no poder avanzar a `documentos-sesion.html` sin el de Evaluación, etc. Requiere decidir primero cómo se van a cobrar esas 3 fases de forma rastreable (¿links de Mercado Pago independientes por fase, cada uno con su propio webhook? ¿un solo webhook que distinga el monto/concepto? ¿autorización manual de Diego vía Supabase, igual que hoy con las transferencias bancarias, mientras no se automatice?) antes de diseñar el gate técnico.
+3. **Panel de aprobación/filtrado para el equipo:** ver en qué etapa está cada candidato y aprobar/rechazar antes de ensamblar/entregar. Con la tabla de Supabase ya existiendo (y ahora con `user_id` real), esto ahora es mucho más fácil de construir.
+4. **Recuperar PDFs perdidos:** si el candidato pierde sus 3 PDFs antes de subirlos al Form, hoy no hay forma de regenerarlos — con Supabase esto ya casi no aplica (los datos para regenerarlos viven en la nube), pero los PDFs en sí no se guardan, solo los datos con los que se generan.
+5. **Multi-evaluador:** número de WhatsApp y nombre de evaluador están fijos en el código.
+6. **Anti-duplicados:** validar que un mismo CURP no se registre dos veces.
+7. **Notificación de estado al candidato:** página tipo "así va tu proceso" en vez de preguntar por WhatsApp.
 
 ### ⚠️ Puntos abiertos sin resolver
 
