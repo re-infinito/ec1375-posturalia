@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 112" role="img" aria-labelledby="title desc">
+  <title id="title">Paideia Tech</title>
+  <desc id="desc">Paideia Tech logo with a cyan portal of knowledge and gold certification bar.</desc>
+  <g transform="translate(11 11)" fill="none" stroke="#0088FF" stroke-width="8" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true">
+    <path d="M10 10H40V80H10Z"/>
+    <path d="M80 10H50V80H80Z"/>
+    <path d="M35 66H55" stroke="#FFD700"/>
+  </g>
+  <g aria-label="Paideia Tech">
+    <text x="126" y="62" fill="#FFFFFF" font-family="Avenir Next, Avenir, Montserrat, Arial, sans-serif" font-size="42" font-weight="600" letter-spacing="-.8">Paideia</text>
+    <text x="317" y="62" fill="#D0D0D0" font-family="Avenir Next, Avenir, Montserrat, Arial, sans-serif" font-size="26" font-weight="400" letter-spacing="2">Tech</text>
+  </g>
+</svg>

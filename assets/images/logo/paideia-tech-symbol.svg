@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-labelledby="title desc">
+  <title id="title">Paideia Tech symbol</title>
+  <desc id="desc">Cyan portal of knowledge with a gold certification bar.</desc>
+  <g transform="translate(3 3)" fill="none" stroke="#0088FF" stroke-width="8" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true">
+    <path d="M10 10H40V80H10Z"/>
+    <path d="M80 10H50V80H80Z"/>
+    <path d="M35 66H55" stroke="#FFD700"/>
+  </g>
+</svg>
