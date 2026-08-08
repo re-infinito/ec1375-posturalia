@@ -19,6 +19,7 @@ build/
 
 # Config local de desarrollo (browser preview tool)
 .claude/
+.superpowers/
 _internal_no_publicar/
 
 # Credenciales de Google OAuth (nunca subir)
