@@ -1,10 +1,10 @@
-# 📄 Claude.md - EC1375 Posturalia
+# 📄 Claude.md - EC1375 Paideia Tech
 
 ## 🎯 PROYECTO: EC1375 - Certificación Oficial para Terapeutas Alternativas
 
-**Última actualización:** 5 de agosto, 2026  
-**Estado:** Landing + funnel completo de certificación en producción (v5.0). Script de ensamblado del expediente final probado con datos reales — primer Portafolio de 110 páginas generado exitosamente. Autenticación real de candidatos + gate de pago (Supabase Auth con OTP por correo, autorizado solo si Mercado Pago confirmó el pago vía webhook) **construidos y probados localmente, listos para desplegar** — ver "Persistencia con Supabase — v2" en la sección "SISTEMA DE CERTIFICACIÓN EC1375". Bloqueado en producción hasta que Diego complete la lista de 8 pasos documentada ahí (dashboard de Supabase, dashboard de Mercado Pago, 3 variables de entorno en Vercel, correr el SQL nuevo). El sitio en vivo hoy sigue corriendo el código viejo sin autenticación (v1).  
-**URL en vivo:** https://ec1375-posturalia.vercel.app
+**Última actualización:** 8 de agosto, 2026  
+**Estado:** Marca migrada de "Posturalia" a **"Paideia Tech"**, con dominio propio. Autenticación real (OTP por correo) + gate de pago **en producción y verificados end-to-end** (ver "Persistencia con Supabase — v2" y "v3" en la sección "SISTEMA DE CERTIFICACIÓN EC1375"). Fase 4 (pagos dinámicos por las 4 etapas reales del proceso — Registro/Alineación/Evaluación/Entrega, cada una cobrando un % de un total negociado por candidato, vía API de Preferencias de Mercado Pago) también **en producción**. Script de ensamblado del expediente final probado con datos reales — primer Portafolio de 110 páginas generado exitosamente.  
+**URL en vivo:** https://sepconocer.paideiatech.com (dominio anterior `ec1375-posturalia.vercel.app` sigue activo en paralelo, mismo proyecto de Vercel)
 
 ---
 
@@ -98,18 +98,24 @@ ACCIÓN (botón: "SÍ, QUIERO DORMIR TRANQUILO")
 ## 📁 ESTRUCTURA DE ARCHIVOS
 
 ```
-/Users/diegogarzamx/Desktop/EC1375/
-├── index.html                     # Landing page completa (v2.0 emocional)
+/Users/diegogarzamx/Desktop/Paideia Tech/     (carpeta renombrada — antes "EC1375")
+├── index.html                     # Landing page completa (v2.0 emocional, marca Paideia Tech)
 ├── quiz.html                      # Quiz de calentamiento (funnel v3.0)
 ├── success.html / failure.html / pending.html   # Post-pago Mercado Pago
 ├── autodiagnostico.html           # 142 reactivos EC1375, wizard 8 pasos
-├── plan-evaluacion.html           # Hereda datos del Autodiagnóstico, agenda cita
-├── documentos-sesion.html         # Ficha/Consentimiento/Plan Sesión/Seguimiento, firma paciente
+├── plan-evaluacion.html           # Hereda datos del Autodiagnóstico, tabla de 142 reactivos oficial
+├── alineacion.html                # Fase 4: PPT/videos de capacitación, gateada por pago de esta fase
+├── documentos-sesion.html         # Ficha/Consentimiento/Plan Sesión/Seguimiento — gateada por pago de Evaluación
 ├── evidencias.html                # Checklist + Google Form embebido
 ├── encuesta-satisfaccion.html     # 8 preguntas oficiales, cierre del funnel
+├── entrega.html                   # Fase 4: confirmación final, gateada por pago de Entrega
 ├── recuperar.html                 # Login (OTP) / continuar en otro dispositivo
-├── auth.js                        # Supabase Auth (OTP) + sync compartido — única excepción a "sin módulos compartidos"
-├── api/mercadopago-webhook.js     # Webhook de MP → autoriza el correo del comprador (única función serverless del proyecto)
+├── auth.js                        # Supabase Auth (OTP) + sync + gate por fase — única excepción a "sin módulos compartidos"
+├── api/mercadopago-webhook.js     # Webhook de MP → autoriza email+fase según external_reference
+├── api/crear-preferencia.js       # Fase 4: genera Preferencia de MP con monto dinámico por candidato/fase
+├── Logo Paideia Tech.png / Logo Paideia Tech - trimmed.png   # Logo actual (PNG, generado por Diego)
+├── ALINEACION 1375_LN - Paideia Tech.pptx   # PPT de Alineación, reformateado con marca (temporal)
+├── assets/images/logo/paideia-tech-logo-*.svg   # Sistema de logo SVG, inconcluso — ver backlog
 ├── Claude.md                      # Este archivo - documentación del proyecto
 ├── .env.local                     # Credenciales (NO COMMITEAR)
 ├── .gitignore                     # Git ignore rules (incluye PDFs, credenciales OAuth)
@@ -123,7 +129,10 @@ ACCIÓN (botón: "SÍ, QUIERO DORMIR TRANQUILO")
 │   ├── setup_drive_auth.py            # Re-correr si el token expira
 │   ├── test_drive_connection.py       # Prueba rápida de conexión a Drive
 │   ├── plantilla_IEC_blanco.pdf       # IEC en blanco, 83 págs., listo para usar
-│   └── assemble_expediente.py         # ✅ Construido — falta probar con datos reales (ver Paso 5)
+│   ├── assemble_expediente.py         # ✅ Construido y probado con datos reales (Paso 5)
+│   ├── supabase_setup_v2_auth.sql     # Auth (OTP) + gate de pago Registro (Fase 1+2)
+│   ├── supabase_setup_v3_fases.sql    # Fase 4: pagos dinámicos por fase, incremental
+│   └── paideiatech_dns_records.md     # Registros DNS de paideiatech.com (referencia)
 └── assets/                        # (Carpeta para fotos/videos - crear cuando se tengan)
     ├── images/
     │   ├── logo/
@@ -501,7 +510,7 @@ Con ambos corregidos, el expediente de Diego se generó completo: **110 páginas
 
 **v1 (superada):** Diego pidió no perder el avance de los candidatos y poder retomarlo en cualquier dispositivo. Se conectó Supabase como respaldo en la nube de lo que ya vivía en `localStorage`. Diseño original: tabla `candidatos_ec1375` con `curp` como llave primaria, RLS abierta a todo (`using (true)`) — sin autenticación real, la única "protección" era saber el CURP exacto de alguien. SQL original en `_internal_no_publicar/supabase_setup.sql` (ya no se usa, reemplazado por v2 abajo).
 
-**v2 — Autenticación real con Supabase Auth (código completo, 5 de agosto, 2026 — ⚠️ NO DESPLEGADO A PRODUCCIÓN TODAVÍA):**
+**v2 — Autenticación real con Supabase Auth (5 de agosto, 2026 — ✅ EN PRODUCCIÓN, verificada end-to-end el 8 de agosto):**
 
 Después de dejar v1 funcionando, Diego preguntó "¿cuáles son los siguientes pasos para que funcione al 100%?" y priorizó explícitamente seguridad/autenticación sobre los otros 3 frentes pendientes (flujo del evaluador, pulido menor, acciones manuales de Diego en Google Forms) — porque en v1 cualquiera que supiera o adivinara un CURP podía leer **y escribir** esa fila directamente en Supabase (CURP es semi-predecible: nombre + fecha de nacimiento).
 
@@ -522,7 +531,7 @@ Después de dejar v1 funcionando, Diego preguntó "¿cuáles son los siguientes 
 
 **Verificado en el navegador (sin necesitar el SQL corrido todavía):** las 6 páginas cargan sin errores de consola; el gate de OTP en `autodiagnostico.html` y `recuperar.html` renderiza correctamente; las 4 páginas downstream muestran el nuevo mensaje de bloqueo cuando hay progreso local sin sesión; el bootstrap de `autodiagnostico.html` salta correctamente al paso `auth` cuando corresponde y no lo hace cuando no hay progreso previo; `signInWithOtp()` probado en vivo contra el proyecto real — el error devuelto fue `over_email_send_rate_limit` (no "provider disabled"), confirmando que el mecanismo ya funciona y que el límite de envíos del SMTP compartido de Supabase es bajo, tal como se anticipó.
 
-**Fase 2 — Gate de pago (código completo, 5 de agosto, 2026 — ⚠️ NO DESPLEGADO):** Diego notó que el OTP por sí solo deja que cualquier correo se registre, sin validar que haya pagado — así que se agregó un gate de autorización antes de permitir el login:
+**Fase 2 — Gate de pago (5 de agosto, 2026 — ✅ EN PRODUCCIÓN):** Diego notó que el OTP por sí solo deja que cualquier correo se registre, sin validar que haya pagado — así que se agregó un gate de autorización antes de permitir el login:
 
 - **Nueva tabla `candidatos_autorizados`** (misma migración, `supabase_setup_v2_auth.sql`): `email` (PK), `payment_id`, `monto`, `origen` ('mercadopago' | 'manual'), `autorizado_en`. RLS sin políticas para anon/authenticated — nadie puede leer ni escribir esta tabla por REST directo.
 - **Función `is_email_authorized(check_email)`** (`security definer`, `grant execute to anon`): la única forma en que el cliente puede consultarla — contesta sí/no para un correo puntual, nunca expone la lista completa (privacidad de quién pagó).
@@ -532,27 +541,76 @@ Después de dejar v1 funcionando, Diego preguntó "¿cuáles son los siguientes 
 - **Transferencias bancarias** (Banorte, el otro método de pago del sitio) nunca van a pasar por este webhook — para esos casos Diego agrega el correo a mano en `candidatos_autorizados` vía el Table Editor de Supabase, mismo destino que el camino automático.
 - **Verificado con pruebas aisladas en Node** (bypassing el cacheo del navegador para `auth.js`, que resultó poco confiable en este entorno de pruebas): con `is_email_authorized` simulando `false`, `_handleSendOtp()` muestra el aviso de WhatsApp y **nunca llama** `signInWithOtp`; con `true`, procede normalmente a la pantalla de código. Sintaxis de `api/mercadopago-webhook.js` verificada con `node --check`.
 
-**⚠️ Pendiente antes de poder desplegar a producción (en este orden):**
-1. Diego habilita Email OTP en el dashboard de Supabase (Authentication → Providers → Email) y edita la plantilla de correo para mostrar `{{ .Token }}` (la plantilla de fábrica solo trae el botón de link, no el código) — no afecta el sitio en vivo, se puede hacer en cualquier momento.
-2. Diego configura el webhook en Mercado Pago (Tus integraciones → Webhooks): URL `https://ec1375-posturalia.vercel.app/api/mercadopago-webhook`, suscrito a eventos de pago — copia el webhook secret que se genera ahí.
-3. Diego agrega 3 variables de entorno en Vercel (Project Settings → Environment Variables, nunca por chat): `MERCADOPAGO_ACCESS_TOKEN` (dashboard de Mercado Pago), `MERCADOPAGO_WEBHOOK_SECRET` (paso anterior), `SUPABASE_SERVICE_ROLE_KEY` (dashboard de Supabase, Project Settings → API — ⚠️ distinta de la anon key).
-4. Diego corre `_internal_no_publicar/supabase_setup_v2_auth.sql` en el SQL Editor — a partir de ahí la tabla vieja (v1) deja de existir y solo acepta requests con sesión válida y correo autorizado.
-5. Backfill manual (una sola vez): Diego agrega a mano en `candidatos_autorizados` los correos de quien ya haya pagado antes de que el webhook existiera.
-6. Publicar a producción (`git push`) inmediatamente después del paso 4, para minimizar la ventana en la que el código viejo desplegado intenta escribir contra el esquema nuevo.
-7. Prueba de humo en producción con el correo real de Diego (incluyendo un pago de prueba si es posible, para confirmar que el webhook autoriza automáticamente) antes de invitar a cualquier candidato real.
-8. Configurar SMTP propio (Resend, Postmark, etc.) en Supabase antes de volumen real — el SMTP compartido tiene un límite de envíos por hora bajo, ya confirmado en las pruebas de esta sesión.
+**✅ Rollout completado (8 de agosto, 2026):** Email OTP habilitado, `supabase_setup_v2_auth.sql` corrido, webhook de Mercado Pago configurado (URL + evento "Pagos (legacy)" + clave secreta), 3 variables de entorno en Vercel agregadas, backfill manual del correo de prueba de Diego, publicado a producción. SMTP propio configurado con Resend (ver Fase 3 abajo — esto resultó ser más urgente de lo anticipado, ver bloqueo encontrado). Prueba de humo completa exitosa: login OTP de punta a punta con un correo real (`de.minconsciente@outlook.com`), sesión creada, gate de pago funcionando.
 
-Plan completo de esta implementación (Fase 1 + Fase 2): `/Users/diegogarzamx/.claude/plans/desarrollemos-el-plan-para-buzzing-gadget.md`.
+**🐛 Bug encontrado y corregido durante la prueba de humo:** el campo de código en `auth.js` tenía `maxlength="6"` asumiendo que Supabase genera códigos de 6 dígitos — en este proyecto genera **8 dígitos**, así que el input truncaba el código silenciosamente y la verificación fallaba siempre. Corregido a `maxlength="12"` sin asumir una longitud fija, y se quitó la mención a "6 dígitos" del copy. También se descubrió que Supabase usa **dos plantillas de correo distintas** según si es la primera vez que ese correo se registra ("Confirm signup") o si ya es un usuario existente ("Magic link or OTP") — ambas necesitan el `{{ .Token }}` agregado por separado, o el correo de bienvenida para candidatos nuevos llega sin código visible.
+
+Plan completo de esta implementación (Fase 1 + Fase 2 + Fase 3 + Fase 4): `/Users/diegogarzamx/.claude/plans/desarrollemos-el-plan-para-buzzing-gadget.md`.
+
+---
+
+### ✅ Fase 3 — Migración de marca a "Paideia Tech" + dominio propio (8 de agosto, 2026, EN PRODUCCIÓN)
+
+Mientras se probaba el login OTP, apareció un bloqueo real: Resend (recién conectado como SMTP) solo deja mandar correos sin restricción desde un dominio verificado — el remitente de pruebas (`onboarding@resend.dev`) únicamente entrega a la cuenta con la que Diego se registró en Resend (`posturalia.d817@gmail.com`), no a cualquier candidato. Diego decidió aprovechar el momento para migrar la marca completa de "Posturalia" a **"Paideia Tech"**, con dominio propio en vez de depender solo del subdominio de Vercel.
+
+**Dominio:**
+- Nuevo subdominio: **`sepconocer.paideiatech.com`** (CNAME en el Zone Editor de cPanel → `cname.vercel-dns.com`, agregado como Custom Domain en el proyecto de Vercel vía CLI).
+- El dominio viejo (`ec1375-posturalia.vercel.app`) sigue activo en paralelo — Vercel permite varios dominios en el mismo proyecto.
+- **Pendiente que Diego haga:** actualizar la URL del webhook en Mercado Pago (**Modo productivo**, no solo Modo de prueba) al nuevo dominio — si no, el webhook deja de recibir notificaciones de pagos reales.
+
+**Correo / Resend:**
+- Dominio `paideiatech.com` verificado en Resend (registros DKIM/SPF/MX/DMARC agregados en cPanel — referencia completa en `_internal_no_publicar/paideiatech_dns_records.md`, gitignored).
+- Remitente de las notificaciones de OTP: `noreply@paideiatech.com` (configurado en Supabase → Authentication → Emails → SMTP Settings).
+- Correo de contacto público del sitio (footer, WhatsApp): **`contacto@paideiatech.com`** (cuenta creada por Diego en cPanel → Email Accounts), reemplaza a `posturalia.d817@gmail.com`.
+- Cuenta de Resend: registrada con `posturalia.d817@gmail.com` — si hay que entrar al dashboard de Resend en el futuro, es ese el correo de acceso (no el de contacto del sitio).
+
+**Branding en código:**
+- Logo nuevo (`Logo Paideia Tech.png`, generado por Diego con ChatGPT) integrado en el header de `index.html`/`quiz.html` — recortado (`Logo Paideia Tech - trimmed.png`) porque el original traía mucho espacio vacío alrededor.
+- ⚠️ Hay un **segundo sistema de logo en SVG**, construido en paralelo por otra sesión (`assets/images/logo/paideia-tech-logo-*.svg`, con specs en `docs/superpowers/specs/2026-08-08-paideia-tech-logo-design.md`) — Diego confirmó que ese quedó **inconcluso** (nunca se exportaron los PNG finales) y **prefiere seguir usando el PNG actual** hasta que esa versión SVG esté en mejor calidad. No se ha integrado, se deja documentado por si se retoma.
+- "EC1375" (el nombre específico del estándar) se **ocultó deliberadamente** de `index.html`, `quiz.html`, `success.html`, `failure.html`, `pending.html` — decisión de negocio de Diego: conocer el nombre exacto del estándar es en sí mismo "valor agregado" que se revela hasta que el candidato ya pagó y entra al wizard (`autodiagnostico.html` en adelante sigue diciendo "EC1375" sin cambios, porque esas páginas generan los documentos oficiales reales que se entregan a SEP-CONOCER — no se puede quitar de ahí). "SEP-CONOCER"/"RENEC" sí se pueden seguir mencionando, ese respaldo institucional se mantiene visible.
+
+### ✅ Fase 4 — Proceso completo de 9 etapas con pago dinámico por fase (8 de agosto, 2026, EN PRODUCCIÓN)
+
+Diego compartió el documento oficial del proceso (`Proceso EC1375-paideia.pdf`): 9 etapas, 4 con pago — **Registro 15%, Alineación 30%, Evaluación 40%, Entrega 15%** (suman 100% del total acordado). Decisión clave: **el precio total ya no es fijo por candidato** — habrá precio estándar, precio con descuento, y descuentos adicionales según el perfil del candidato para cerrar la venta. Cada fase cobra su % **del total negociado con ese candidato específico**, no un monto igual para todos — esto hizo obligatorio migrar de Payment Links estáticos a la **API de Preferencias de Mercado Pago** (primer uso real en el proyecto).
+
+**Esquema nuevo (`_internal_no_publicar/supabase_setup_v3_fases.sql`, incremental — no toca `candidatos_ec1375` ni `candidatos_autorizados` existentes):**
+- `candidatos_precio` (nueva tabla): `email` (PK), `total_acordado` (default $14,750). Diego ajusta este valor a mano vía Table Editor cuando negocie un descuento — no hay todavía lógica automática de perfiles/precios. Ligada por **correo**, no por `user_id`, a propósito: el primer pago (Registro) ocurre *antes* de que exista cualquier sesión de Supabase Auth.
+- `candidatos_fase_pagos` (nueva tabla, generaliza `candidatos_autorizados`): `email` + `fase` (`'registro'|'alineacion'|'evaluacion'|'entrega'`) como llave compuesta, `monto`, `payment_id`, `origen`. Las autorizaciones de `candidatos_autorizados` ya existentes se migraron aquí con `fase='registro'`.
+- `is_fase_authorized(email, fase)` — RPC genérica (mismo patrón `security definer` que `is_email_authorized`, que ahora es un alias de `is_fase_authorized(email, 'registro')` para no romper el código ya desplegado).
+- RLS de `candidatos_ec1375` actualizada para validar `is_fase_authorized(..., 'registro')` en vez de consultar `candidatos_autorizados` directo.
+
+**`api/crear-preferencia.js`** (función serverless nueva): recibe `{email, fase}`, lee `total_acordado` de `candidatos_precio` (default $14,750 si no hay fila), calcula `monto = total_acordado × % de la fase`, crea una Preferencia de Mercado Pago con ese monto exacto y `external_reference = "email|fase"` (así el webhook sabe qué fase autorizar), y devuelve el `init_point` al que el frontend redirige. Primera vez que el proyecto genera `back_urls` reales (`success.html`/`failure.html`/`pending.html` en el dominio nuevo) — funcionan porque Preferencias sí las soporta, a diferencia del Payment Link estático original.
+
+**`api/mercadopago-webhook.js` actualizado:** extrae `email`+`fase` de `external_reference` del pago; si no hay `external_reference` (el Payment Link estático original de Registro/Apartado no lo manda), asume `fase='registro'` por default — sigue funcionando igual para ese link sin cambios.
+
+**Páginas nuevas:**
+- `alineacion.html` — página de la fase Alineación (Capacitación): PPT + video de capacitación + video de muestra + liga a material bonus. Gateada por `is_phase_authorized(email, 'alineacion')`; si no está pagada, muestra CTA que llama a `crear-preferencia` y redirige al checkout. Contenido configurable al inicio del `<script>` (constantes `PPT_CAPACITACION_URL`, `VIDEO_CAPACITACION_URL`, `VIDEO_MUESTRA_URL`, `MATERIAL_BONUS_URL`) — vacías muestran "disponible pronto" en vez de romperse.
+  - **PPT de Alineación:** Diego proporcionó el PPTX real (62 slides, contenido oficial del estándar EC1375). Se reformateó con la paleta de Paideia Tech (azul `#0088FF`/dorado `#FFD700` vía el `<a:clrScheme>` del theme, títulos en negrita azul vía `titleStyle` del slide master) y el logo de Paideia Tech agregado a nivel de slide master (semi-transparente al 40% y de tamaño reducido a propósito — el deck tiene texto muy denso que llega hasta el borde inferior en varias slides, un logo sólido/grande tapaba contenido real en al menos una, confirmado con QA visual antes de reducirlo). Servido como descarga directa desde `alineacion.html` (no embed — no hay liga de Google Slides todavía). Archivo: `ALINEACION 1375_LN - Paideia Tech.pptx` (~17MB, committeado; el original sin marca se quedó solo local, no se subió a git).
+- `entrega.html` — confirmación final de la fase Entrega, gateada por `is_phase_authorized(email, 'entrega')`. No enlazada desde ningún lado del flujo todavía (a propósito — depende de que el equipo le avise manualmente al candidato que es competente, la etapa 7 "Resultado Evaluación" sigue sin automatizarse; por ahora es un link que el equipo comparte directo por WhatsApp).
+
+**Flujo de navegación actualizado:** `autodiagnostico.html` → `alineacion.html` (nuevo) → `plan-evaluacion.html` (documento oficial de 142 reactivos, sin cambios) → `documentos-sesion.html` (ahora gateado por `is_phase_authorized(email, 'evaluacion')`, con CTA de pago si no está autorizado) → `evidencias.html`.
+
+**Fuera de alcance de esta fase (documentado, no urgente):**
+- Etapa 7 (Resultado Evaluación) y el flujo del evaluador en general — proyecto aparte, ya documentado como pendiente desde antes.
+- Sistema automático de perfiles/descuentos — hoy `total_acordado` se ajusta a mano.
+- Videos del proceso (contexto SEP-CONOCER, capacitación, muestra de atención) — Diego los provee cuando estén listos.
+- Registro manual en portal SEP y subida del portafolio final — procesos del equipo de Diego en el portal gubernamental, no automatizables desde el sitio.
 
 ### 🔮 Backlog — no urgente, pero anotado para cuando escale a más candidatos
 
-1. ~~Autenticación por candidato~~ → ✅ implementada (ver arriba), pendiente solo de desplegar.
-2. **Milestones del funnel enlazados a cada pago por fases:** hoy el gate de pago (Fase 2, arriba) solo cubre el Paso 1 — el Apartado ($2,000, único que pasa por el link de Mercado Pago con webhook). Los otros 3 pagos del funnel (Paso 2 Alineación $4,250, Paso 3 Evaluación $6,000, Paso 4 Entrega $2,500 — ver "TIMELINE / CÓMO FUNCIONA" y `success.html`) se cobran hoy por fuera del sitio, por WhatsApp manual, sin ningún control técnico de que se haya pagado antes de dejar avanzar al candidato. La idea: extender el mismo patrón ya construido (`candidatos_autorizados` + `is_email_authorized` + RLS) para que cada fase del sitio se desbloquee solo cuando su pago correspondiente esté confirmado — p.ej. no poder agendar/completar `plan-evaluacion.html` sin el pago de Alineación confirmado, no poder avanzar a `documentos-sesion.html` sin el de Evaluación, etc. Requiere decidir primero cómo se van a cobrar esas 3 fases de forma rastreable (¿links de Mercado Pago independientes por fase, cada uno con su propio webhook? ¿un solo webhook que distinga el monto/concepto? ¿autorización manual de Diego vía Supabase, igual que hoy con las transferencias bancarias, mientras no se automatice?) antes de diseñar el gate técnico.
-3. **Panel de aprobación/filtrado para el equipo:** ver en qué etapa está cada candidato y aprobar/rechazar antes de ensamblar/entregar. Con la tabla de Supabase ya existiendo (y ahora con `user_id` real), esto ahora es mucho más fácil de construir.
-4. **Recuperar PDFs perdidos:** si el candidato pierde sus 3 PDFs antes de subirlos al Form, hoy no hay forma de regenerarlos — con Supabase esto ya casi no aplica (los datos para regenerarlos viven en la nube), pero los PDFs en sí no se guardan, solo los datos con los que se generan.
-5. **Multi-evaluador:** número de WhatsApp y nombre de evaluador están fijos en el código.
-6. **Anti-duplicados:** validar que un mismo CURP no se registre dos veces.
-7. **Notificación de estado al candidato:** página tipo "así va tu proceso" en vez de preguntar por WhatsApp.
+1. ~~Autenticación por candidato~~ → ✅ implementada y en producción (Fase 1+2, ver arriba).
+2. ~~Milestones del funnel enlazados a cada pago por fases~~ → ✅ implementado y en producción (Fase 4, ver arriba) — `candidatos_fase_pagos` + `is_fase_authorized` + API de Preferencias con monto dinámico.
+3. **Sistema automático de perfiles/descuentos:** hoy `total_acordado` (Fase 4) se edita a mano por candidato en Supabase. Diego mencionó que la estrategia (precio estándar / con descuento / según perfil) todavía se está definiendo — cuando esté lista, automatizar qué descuento aplica a quién.
+4. **Panel de aprobación/filtrado para el equipo:** ver en qué etapa está cada candidato (incluye ahora qué fases de pago tiene autorizadas) y aprobar/rechazar antes de ensamblar/entregar. Con las tablas de Supabase ya existiendo, esto ahora es mucho más fácil de construir.
+5. **Recuperar PDFs perdidos:** si el candidato pierde sus 3 PDFs antes de subirlos al Form, hoy no hay forma de regenerarlos — con Supabase esto ya casi no aplica (los datos para regenerarlos viven en la nube), pero los PDFs en sí no se guardan, solo los datos con los que se generan.
+6. **Multi-evaluador:** número de WhatsApp y nombre de evaluador están fijos en el código.
+7. **Anti-duplicados:** validar que un mismo CURP no se registre dos veces.
+8. **Notificación de estado al candidato:** página tipo "así va tu proceso" en vez de preguntar por WhatsApp.
+9. **Flujo del evaluador:** llenar digitalmente la Cédula de Evaluación y el IEC (hoy se insertan en blanco en el expediente final), y automatizar la etapa 7 "Resultado Evaluación" (competente/no competente) — hoy 100% manual por WhatsApp. Bloquea que `entrega.html` (Fase 4) se pueda enlazar automáticamente desde algún lado del flujo.
+10. **Logo SVG de mejor calidad:** hay un sistema de logo vectorial (`assets/images/logo/paideia-tech-logo-*.svg`) construido en paralelo por otra sesión, pero quedó inconcluso (nunca se exportaron los PNG finales) — Diego prefiere seguir usando el PNG actual (`Logo Paideia Tech - trimmed.png`) hasta que esa versión esté terminada.
+11. **PPT de Alineación de mejor calidad:** el PPTX actual (`ALINEACION 1375_LN - Paideia Tech.pptx`) es temporal — reemplazar cuando Diego tenga una versión de mejor calidad, e idealmente subirlo a Google Slides para poder embeberlo en vez de forzar una descarga de ~17MB.
+12. **Videos del proceso:** faltan los videos de las etapas 1 (contexto SEP-CONOCER, estándar Terapias Integrales) y 4/5 (capacitación, muestra de atención) — `alineacion.html` ya tiene los espacios listos (`VIDEO_CAPACITACION_URL`, `VIDEO_MUESTRA_URL`), solo falta que Diego los provea.
+13. **Webhook de Mercado Pago en Modo productivo:** Diego configuró la URL/evento en "Modo de prueba" — falta replicarlo en "Modo productivo", que es el que realmente recibe notificaciones de pagos reales.
 
 ### ⚠️ Puntos abiertos sin resolver
 
@@ -570,30 +628,53 @@ Plan completo de esta implementación (Fase 1 + Fase 2): `/Users/diegogarzamx/.c
 Project ref: yvgwothpkclljrdojtiv
 Project URL: https://yvgwothpkclljrdojtiv.supabase.co
 Anon key: pública por diseño (RLS controla el acceso), embebida en auth.js
-Tablas: candidatos_ec1375 + candidatos_autorizados (SQL en _internal_no_publicar/supabase_setup_v2_auth.sql — reemplaza al v1)
+Cuenta del dashboard: re-infinito@outlook.com (Diego no recordaba cuál usó — este fue el correcto)
+Tablas: candidatos_ec1375, candidatos_autorizados (legacy, ya no es la fuente de verdad),
+        candidatos_fase_pagos, candidatos_precio
+SQL: _internal_no_publicar/supabase_setup_v2_auth.sql (v2, auth+gate de registro) →
+     _internal_no_publicar/supabase_setup_v3_fases.sql (v3, incremental, Fase 4)
 ```
 
-**Ubicación en código:** constantes `SUPABASE_URL` / `SUPABASE_ANON_KEY` centralizadas en `auth.js` (única excepción a "páginas estáticas sin módulos compartidos" — ver sección "Persistencia con Supabase — v2" arriba), cargado vía `<script src="auth.js">` en `autodiagnostico.html`, `plan-evaluacion.html`, `documentos-sesion.html`, `encuesta-satisfaccion.html`, `evidencias.html` y `recuperar.html`.
+**Ubicación en código:** constantes `SUPABASE_URL` / `SUPABASE_ANON_KEY` centralizadas en `auth.js` (única excepción a "páginas estáticas sin módulos compartidos" — ver sección "Persistencia con Supabase — v2" arriba), cargado vía `<script src="auth.js">` en `autodiagnostico.html`, `plan-evaluacion.html`, `documentos-sesion.html`, `encuesta-satisfaccion.html`, `evidencias.html`, `recuperar.html`, `alineacion.html` y `entrega.html`.
 
-**⚠️ Secretos nuevos, pendientes de que Diego los agregue en Vercel (Project Settings → Environment Variables — nunca en código ni por chat):**
+**Variables de entorno en Vercel** (Project Settings → Environment Variables — ya configuradas, nunca en código ni por chat):
 ```
 MERCADOPAGO_ACCESS_TOKEN   — dashboard de Mercado Pago, Credenciales de producción
 MERCADOPAGO_WEBHOOK_SECRET — dashboard de Mercado Pago, al configurar la URL del webhook
 SUPABASE_SERVICE_ROLE_KEY  — dashboard de Supabase, Project Settings → API (distinta de la anon key)
 ```
-Usados únicamente por `api/mercadopago-webhook.js` (server-side, nunca expuestos al cliente).
+Usadas por `api/mercadopago-webhook.js` y `api/crear-preferencia.js` (server-side, nunca expuestas al cliente).
+
+### Resend (SMTP para los correos de OTP)
+```
+Cuenta: posturalia.d817@gmail.com (correo de acceso al dashboard de resend.com — no confundir con el de contacto del sitio)
+Dominio verificado: paideiatech.com
+Remitente de OTP: noreply@paideiatech.com
+Registros DNS: _internal_no_publicar/paideiatech_dns_records.md (gitignored, referencia por si hay que reconfigurar)
+```
+Conectado en Supabase → Authentication → Emails → SMTP Settings.
+
+### Vercel — dominios
+```
+Producción: https://sepconocer.paideiatech.com (Custom Domain, CNAME en cPanel → cname.vercel-dns.com)
+Alias activo en paralelo: https://ec1375-posturalia.vercel.app
+Proyecto: ec1375-posturalia (nombre del proyecto sin cambiar, cosmético — ver backlog)
+```
 
 ### Mercado Pago
 ```
 Public Key: APP_USR-2465263038921252-072114-fce315dcc9b9550df49c635de92e696f-724130873
 Client ID: 2465263038921252
-Payment Link: https://mpago.la/1QeeSHo
-Precio: $2,000 MXN (apartado)
+Payment Link (Registro/Apartado, fijo): https://mpago.la/1QeeSHo — $2,000 MXN
+Fases Alineación/Evaluación/Entrega: monto dinámico vía api/crear-preferencia.js (Fase 4, no hay link fijo)
 ```
 
 **Ubicación en código:**
-- `index.html` línea 1210: `const publicKey = '...'`
-- `index.html` línea 1249: `window.location.href = 'https://mpago.la/1QeeSHo'`
+- `index.html` línea ~1210: `const publicKey = '...'`
+- `index.html` línea ~1249: `window.location.href = 'https://mpago.la/1QeeSHo'`
+- `api/crear-preferencia.js`: genera el link de pago dinámico para las otras 3 fases
+
+**⚠️ Pendiente que Diego haga:** el webhook está configurado en Mercado Pago "Modo de prueba" — falta replicar la misma URL/evento en **"Modo productivo"**, que es el que dispara con pagos reales.
 
 ### Transferencia Bancaria
 ```
@@ -606,7 +687,7 @@ CLABE: 072580006971824032
 ### Contacto y WhatsApp
 ```
 Teléfono: +52 81 3607 1342
-Email: posturalia.d817@gmail.com
+Email de contacto (sitio): contacto@paideiatech.com
 WhatsApp: https://wa.me/528136071342
 ```
 
@@ -648,7 +729,7 @@ git log --oneline -5
 ### Verificar Deployment
 
 - Vercel dashboard: https://vercel.com/re-infinito/ec1375-posturalia
-- Landing live: https://ec1375-posturalia.vercel.app
+- Landing live: https://sepconocer.paideiatech.com (alias: https://ec1375-posturalia.vercel.app)
 - Tiempo típico: 30-60 segundos después de push
 
 ---
