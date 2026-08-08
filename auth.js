@@ -95,6 +95,22 @@ const Auth = {
         }
     },
 
+    /* Igual que isEmailAuthorized() pero para una fase específica del
+       proceso (Fase 4: 'registro' | 'alineacion' | 'evaluacion' | 'entrega').
+       isEmailAuthorized() sigue existiendo como alias de fase 'registro'
+       (ver is_email_authorized() en Supabase) — este método es el genérico
+       para las páginas gateadas por las otras 3 fases. */
+    async isPhaseAuthorized(email, fase) {
+        try {
+            const { data, error } = await supabaseClient.rpc('is_fase_authorized', { check_email: email, check_fase: fase });
+            if (error) { console.warn('No se pudo verificar autorización de fase:', error); return false; }
+            return !!data;
+        } catch (e) {
+            console.warn('No se pudo verificar autorización de fase:', e);
+            return false;
+        }
+    },
+
     /* Repuebla los 5 localStorage keys que ya usa cada página a partir de
        una fila de candidatos_ec1375 — usado por recuperar.html y por el
        paso 'auth' de autodiagnostico.html cuando alguien inicia sesión en

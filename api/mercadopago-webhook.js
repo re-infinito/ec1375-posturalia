@@ -1,9 +1,16 @@
 // Webhook de Mercado Pago — primera función backend del proyecto (el resto
 // del sitio sigue siendo HTML estático). Recibe la notificación de pago,
 // valida su firma, consulta el pago completo, y si está aprobado autoriza
-// el correo del comprador en `candidatos_autorizados` (Supabase) para que
-// pueda iniciar sesión en el sitio vía OTP — ver auth.js / Claude.md
-// (sección "Persistencia con Supabase — v2", Fase 2: gate de pago).
+// la fase correspondiente en `candidatos_fase_pagos` (Supabase) para que
+// esa persona pueda avanzar en el sitio — ver auth.js / Claude.md
+// (Fase 2: gate de pago; Fase 4: gate por fase con monto dinámico).
+//
+// Qué fase autorizar sale de `external_reference` (formato "email|fase"),
+// que pone api/crear-preferencia.js al generar el link de pago de las
+// fases nuevas (Alineación/Evaluación/Entrega). El Payment Link estático
+// original (Registro/Apartado, mpago.la/1QeeSHo) no manda external_reference
+// — para ese caso se asume fase 'registro', que es lo único que ese link
+// vende.
 //
 // Variables de entorno requeridas (Vercel → Project Settings → Environment
 // Variables, nunca en el código ni en el HTML):
@@ -46,8 +53,21 @@ function verifySignature(req, dataId) {
     }
 }
 
-async function authorizeEmail(email, paymentId, monto) {
-    const resp = await fetch(`${SUPABASE_URL}/rest/v1/candidatos_autorizados`, {
+const FASES_VALIDAS = ['registro', 'alineacion', 'evaluacion', 'entrega'];
+
+// external_reference viene como "email|fase" (ver api/crear-preferencia.js).
+// Si no hay external_reference (el Payment Link estático original no lo
+// manda), se asume 'registro' — es lo único que vende ese link.
+function extraerEmailYFase(payment) {
+    const email = (payment.payer && payment.payer.email || '').trim().toLowerCase();
+    const ref = payment.external_reference || '';
+    const [refEmail, refFase] = ref.split('|');
+    const fase = FASES_VALIDAS.includes(refFase) ? refFase : 'registro';
+    return { email: (refEmail || email).trim().toLowerCase(), fase };
+}
+
+async function authorizeFase(email, fase, paymentId, monto) {
+    const resp = await fetch(`${SUPABASE_URL}/rest/v1/candidatos_fase_pagos`, {
         method: 'POST',
         headers: {
             apikey: process.env.SUPABASE_SERVICE_ROLE_KEY,
@@ -56,14 +76,15 @@ async function authorizeEmail(email, paymentId, monto) {
             Prefer: 'resolution=merge-duplicates'
         },
         body: JSON.stringify({
-            email: email.trim().toLowerCase(),
+            email,
+            fase,
             payment_id: String(paymentId),
             monto,
             origen: 'mercadopago'
         })
     });
     if (!resp.ok) {
-        console.error('No se pudo autorizar el correo en Supabase:', await resp.text());
+        console.error('No se pudo autorizar la fase en Supabase:', await resp.text());
     }
 }
 
@@ -101,7 +122,8 @@ module.exports = async (req, res) => {
         const payment = await paymentResp.json();
 
         if (payment.status === 'approved' && payment.payer && payment.payer.email) {
-            await authorizeEmail(payment.payer.email, dataId, payment.transaction_amount);
+            const { email, fase } = extraerEmailYFase(payment);
+            await authorizeFase(email, fase, dataId, payment.transaction_amount);
         }
 
         res.status(200).send('OK');

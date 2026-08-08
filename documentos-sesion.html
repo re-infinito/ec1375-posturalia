@@ -42,6 +42,7 @@
         .hero-subtitle { font-size: 0.95rem; color: var(--text); }
 
         .blocked-box { background: rgba(255, 215, 0, 0.08); border: 1px solid var(--accent); border-radius: 12px; padding: 28px; text-align: center; }
+        .pay-box { background: linear-gradient(135deg, rgba(0,136,255,0.15), rgba(0,204,255,0.05)); border: 2px solid var(--primary); border-radius: 12px; padding: 28px; text-align: center; }
 
         .field-group { margin-bottom: 16px; }
         .field-group label { display: block; font-size: 0.85rem; color: var(--text); margin-bottom: 6px; font-weight: 600; }
@@ -175,6 +176,26 @@
     /* =========================================================
        RENDER
     ========================================================= */
+    async function pagarFaseEvaluacion() {
+        const btn = document.getElementById('btnPagarEvaluacion');
+        const session = await Auth.getSession();
+        if (!session) { renderStep(); return; }
+        if (btn) { btn.disabled = true; btn.textContent = 'Generando link de pago...'; }
+        try {
+            const resp = await fetch('/api/crear-preferencia', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: session.user.email, fase: 'evaluacion' })
+            });
+            const data = await resp.json();
+            if (!resp.ok || !data.init_point) throw new Error(data.error || 'sin init_point');
+            window.location.href = data.init_point;
+        } catch (e) {
+            if (btn) { btn.disabled = false; btn.textContent = '💳 Pagar Evaluación'; }
+            alert('No se pudo generar el link de pago. Intenta de nuevo o escríbenos por WhatsApp.');
+        }
+    }
+
     async function renderStep() {
         const step = STEPS[currentStepIndex];
         document.getElementById('progressFill').style.width = `${(currentStepIndex / (STEPS.length - 1)) * 100}%`;
@@ -194,12 +215,24 @@
             return;
         }
 
-        if (step !== 'intro' && !(await Auth.getSession())) {
+        const session = step !== 'intro' ? await Auth.getSession() : null;
+        if (step !== 'intro' && !session) {
             app.innerHTML = `
                 <div class="hero"><div class="hero-icon">🔐</div><h1 class="hero-title">Documentos de Sesión</h1></div>
                 <div class="blocked-box">
                     <p style="margin-bottom:18px;"><strong>Verifica tu correo para continuar</strong><br>Encontramos tu avance en este dispositivo, pero necesitas iniciar sesión para seguir editándolo y mantenerlo respaldado.</p>
                     <a href="recuperar.html" class="btn btn-primary">🔐 Iniciar sesión</a>
+                </div>`;
+            return;
+        }
+
+        if (step !== 'intro' && !(await Auth.isPhaseAuthorized(session.user.email, 'evaluacion'))) {
+            app.innerHTML = `
+                <div class="hero"><div class="hero-icon">🩺</div><h1 class="hero-title">Documentos de Sesión</h1></div>
+                <div class="pay-box">
+                    <p>Este paso es parte de tu <strong>Evaluación</strong> — antes de continuar necesitas completar ese pago.</p>
+                    <button id="btnPagarEvaluacion" class="btn btn-primary btn-full" style="margin-top:16px;" onclick="pagarFaseEvaluacion()">💳 Pagar Evaluación</button>
+                    <p style="font-size:0.8rem;color:rgba(255,255,255,0.5);">¿Dudas sobre el monto o prefieres transferencia? <a href="https://wa.me/528136071342" style="color:var(--primary);" target="_blank">Escríbenos por WhatsApp</a></p>
                 </div>`;
             return;
         }

@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Entrega de Certificado - Paideia Tech</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="auth.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --dark: #050a1a;
+            --dark-light: #0f1428;
+            --primary: #0088FF;
+            --primary-light: #00CCFF;
+            --accent: #FFD700;
+            --text: #D0D0D0;
+            --text-bright: #FFFFFF;
+            --danger: #FF3333;
+            --success: #00FF88;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, var(--dark) 0%, #0a1530 100%);
+            color: var(--text);
+            line-height: 1.6;
+            min-height: 100vh;
+            padding-bottom: 60px;
+        }
+
+        .container { max-width: 760px; margin: 0 auto; padding: 24px 20px; }
+
+        .top-bar {
+            position: sticky; top: 0; background: var(--dark);
+            border-bottom: 1px solid var(--dark-light); padding: 16px 20px; z-index: 100;
+        }
+        .top-bar-inner { max-width: 760px; margin: 0 auto; font-size: 0.95rem; color: var(--text-bright); font-weight: 700; }
+
+        .hero { text-align: center; padding: 20px 0 30px; }
+        .hero-icon { font-size: 3rem; margin-bottom: 14px; }
+        .hero-title { font-size: 1.7rem; font-weight: 700; color: var(--text-bright); margin-bottom: 10px; }
+        .hero-subtitle { font-size: 0.98rem; color: var(--text); }
+
+        .blocked-box {
+            background: rgba(255, 215, 0, 0.08); border: 1px solid var(--accent);
+            border-radius: 12px; padding: 28px; text-align: center;
+        }
+        .blocked-box p { color: var(--text); margin-bottom: 18px; }
+
+        .pay-box {
+            background: linear-gradient(135deg, rgba(0,136,255,0.15), rgba(0,204,255,0.05));
+            border: 2px solid var(--primary); border-radius: 12px; padding: 28px; text-align: center;
+        }
+
+        .success-box {
+            background: rgba(0,255,136,0.08); border: 1px solid var(--success); border-radius: 12px;
+            padding: 28px; text-align: center;
+        }
+        .success-box h2 { color: var(--success); margin-bottom: 10px; }
+
+        .btn {
+            padding: 15px 24px; border-radius: 8px; font-weight: 700; font-size: 0.95rem;
+            border: none; cursor: pointer; transition: all 0.3s ease; text-align: center;
+            display: inline-block; text-decoration: none;
+        }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: var(--primary-light); transform: translateY(-2px); }
+        .btn-primary:disabled { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.3); cursor: not-allowed; transform: none; }
+        .btn-full { width: 100%; margin-bottom: 12px; }
+    </style>
+</head>
+<body>
+    <div class="top-bar"><div class="top-bar-inner">🏆 Entrega de Certificado</div></div>
+    <div class="container" id="app"></div>
+
+    <script>
+    function loadAutodiagnosticoResult() {
+        try {
+            const saved = JSON.parse(localStorage.getItem('autodiagnosticoData') || 'null');
+            if (!saved || !saved.personalData || !saved.personalData.nombre) return null;
+            return { personalData: saved.personalData };
+        } catch (e) { return null; }
+    }
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
+    async function pagarFase() {
+        const btn = document.getElementById('btnPagar');
+        const session = await Auth.getSession();
+        if (!session) { render(); return; }
+        if (btn) { btn.disabled = true; btn.textContent = 'Generando link de pago...'; }
+        try {
+            const resp = await fetch('/api/crear-preferencia', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: session.user.email, fase: 'entrega' })
+            });
+            const data = await resp.json();
+            if (!resp.ok || !data.init_point) throw new Error(data.error || 'sin init_point');
+            window.location.href = data.init_point;
+        } catch (e) {
+            if (btn) { btn.disabled = false; btn.textContent = '💳 Pagar Entrega'; }
+            alert('No se pudo generar el link de pago. Intenta de nuevo o escríbenos por WhatsApp.');
+        }
+    }
+
+    async function render() {
+        const app = document.getElementById('app');
+        const result = loadAutodiagnosticoResult();
+
+        if (!result) {
+            app.innerHTML = `
+                <div class="hero"><div class="hero-icon">🏆</div><h1 class="hero-title">Entrega de Certificado</h1></div>
+                <div class="blocked-box">
+                    <p><strong>Primero necesitas completar tu Autodiagnóstico</strong></p>
+                    <a href="autodiagnostico.html" class="btn btn-primary">📋 Ir al Autodiagnóstico</a>
+                </div>`;
+            return;
+        }
+
+        const session = await Auth.getSession();
+        if (!session) {
+            app.innerHTML = `
+                <div class="hero"><div class="hero-icon">🔐</div><h1 class="hero-title">Entrega de Certificado</h1></div>
+                <div class="blocked-box">
+                    <p><strong>Verifica tu correo para continuar</strong></p>
+                    <a href="recuperar.html" class="btn btn-primary">🔐 Iniciar sesión</a>
+                </div>`;
+            return;
+        }
+
+        const email = session.user.email;
+        const autorizado = await Auth.isPhaseAuthorized(email, 'entrega');
+
+        if (!autorizado) {
+            app.innerHTML = `
+                <div class="hero">
+                    <div class="hero-icon">🏆</div>
+                    <h1 class="hero-title">Entrega de Certificado</h1>
+                    <p class="hero-subtitle">Hola ${escapeHtml(result.personalData.nombre)}, ya casi terminas</p>
+                </div>
+                <div class="pay-box">
+                    <p>Tu evaluación está lista. Con el pago de <strong>Entrega</strong> procesamos tu certificado ante la SEP (duración aproximada de 90 días) y te lo hacemos llegar.</p>
+                    <button id="btnPagar" class="btn btn-primary btn-full" style="margin-top:16px;" onclick="pagarFase()">💳 Pagar Entrega</button>
+                    <p style="font-size:0.8rem;color:rgba(255,255,255,0.5);">¿Dudas sobre el monto o prefieres transferencia? <a href="https://wa.me/528136071342" style="color:var(--primary);" target="_blank">Escríbenos por WhatsApp</a></p>
+                </div>`;
+            return;
+        }
+
+        app.innerHTML = `
+            <div class="hero">
+                <div class="hero-icon">🏆</div>
+                <h1 class="hero-title">¡Ya casi lo tienes!</h1>
+                <p class="hero-subtitle">Hola ${escapeHtml(result.personalData.nombre)}</p>
+            </div>
+            <div class="success-box">
+                <h2>✓ Pago de Entrega confirmado</h2>
+                <p>Estamos procesando tu certificado ante la SEP — el trámite oficial dura aproximadamente <strong>90 días</strong>. En cuanto lo recibamos, te contactamos por WhatsApp para hacértelo llegar.</p>
+                <a href="https://wa.me/528136071342?text=${encodeURIComponent('Hola, ya pagué la Entrega de mi certificado. ¿Cómo va el proceso?')}" target="_blank" class="btn btn-primary btn-full" style="margin-top:18px;">📱 Preguntar estatus por WhatsApp</a>
+            </div>`;
+    }
+
+    window.addEventListener('load', render);
+    </script>
+</body>
+</html>
