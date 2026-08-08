@@ -90,7 +90,8 @@
        Vacío = la tarjeta correspondiente muestra un aviso de
        "disponible pronto" en vez de romperse.
     ========================================================= */
-    const PPT_CAPACITACION_URL = ''; // liga a Google Slides/Drive embebible
+    // Descarga directa — temporal mientras se produce una versión de mejor calidad.
+    const PPT_CAPACITACION_URL = 'ALINEACION 1375_LN - Paideia Tech.pptx';
     const VIDEO_CAPACITACION_URL = ''; // video de capacitación (YouTube/Vimeo embed o mp4 directo)
     const VIDEO_MUESTRA_URL = ''; // video de muestra: cómo atender a un paciente según el estándar
     const MATERIAL_BONUS_URL = ''; // liga al portal con material adicional (bonus)
@@ -205,7 +206,9 @@
             <div class="card">
                 <h2>📊 Capacitación (presentación)</h2>
                 <p class="desc">Repasa los puntos clave del estándar antes de tu evaluación práctica.</p>
-                ${embedBlock(PPT_CAPACITACION_URL, 'Presentación de capacitación')}
+                ${PPT_CAPACITACION_URL
+                    ? `<a href="${encodeURI(PPT_CAPACITACION_URL)}" download class="btn btn-secondary btn-full">📥 Descargar presentación (PPTX)</a>`
+                    : `<p class="pending-note">📌 Presentación de capacitación — disponible pronto.</p>`}
             </div>
 
             <div class="card">
