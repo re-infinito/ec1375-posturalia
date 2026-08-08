@@ -139,10 +139,10 @@ const Auth = {
             `;
         } else if (step === 'code') {
             container.innerHTML = `
-                <p style="font-size:0.85rem;margin-bottom:14px;">Te enviamos un código de 6 dígitos a <strong>${Auth._pendingEmail}</strong>. Revisa tu correo (y spam).</p>
+                <p style="font-size:0.85rem;margin-bottom:14px;">Te enviamos un código a <strong>${Auth._pendingEmail}</strong>. Revisa tu correo (y spam).</p>
                 <div class="field-group">
                     <label>Código de verificación</label>
-                    <input type="text" id="authCodeInput" maxlength="6" inputmode="numeric" placeholder="123456" style="letter-spacing:4px;font-size:1.2rem;text-align:center;">
+                    <input type="text" id="authCodeInput" maxlength="12" inputmode="numeric" placeholder="Código" style="letter-spacing:4px;font-size:1.2rem;text-align:center;">
                 </div>
                 ${errorHtml}
                 <button class="btn btn-primary btn-full" onclick="Auth._handleVerifyOtp()">Verificar</button>
