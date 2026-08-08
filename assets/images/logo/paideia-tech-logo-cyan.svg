@@ -1,15 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 112" role="img" aria-labelledby="title desc">
   <title id="title">Paideia Tech</title>
-  <desc id="desc">One-color white Paideia Tech logo with portal of knowledge symbol.</desc>
-  <g transform="translate(11 11)" fill="none" stroke="#FFFFFF" stroke-width="8" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true">
+  <desc id="desc">One-color cyan Paideia Tech logo with portal of knowledge symbol.</desc>
+  <g transform="translate(11 11)" fill="none" stroke="#0088FF" stroke-width="8" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true">
     <path d="M10 10H28V80H10Z"/>
     <path d="M80 10H62V80H80Z"/>
     <path d="M39 66H51"/>
   </g>
-  <g fill="#FFFFFF" fill-rule="evenodd" aria-label="Paideia Tech">
+  <g fill="#0088FF" fill-rule="evenodd" aria-label="Paideia Tech">
     <path d="M126 70V28H144V34H132V47H144V53H132V70ZM132 34V47H144V34Z"/><path d="M151 70L162 28H168L179 70H173L170 59H160L157 70ZM162 53H168L165 40Z"/><path d="M184 70V28H202L211 37V61L202 70ZM190 34V64H199L205 58V40L199 34Z"/><path d="M217 70V28H223V70Z"/><path d="M230 70V28H254V34H236V46H251V52H236V64H254V70Z"/><path d="M260 70V28H278V34H266V47H278V53H266V70ZM266 34V47H278V34Z"/><path d="M283 70L294 28H300L311 70H305L302 59H292L289 70ZM294 53H300L297 40Z"/>
   </g>
-  <g fill="#FFFFFF" fill-rule="evenodd" aria-hidden="true">
+  <g fill="#0088FF" fill-rule="evenodd" aria-hidden="true">
     <path d="M330 62V36H348V41H342V62H336V41H330Z"/><path d="M351 62V36H369V41H357V47H367V52H357V57H369V62Z"/><path d="M372 62V36H390V41H384V62H378V41H372Z"/><path d="M393 62V36H411V41H399V47H409V52H399V62Z"/>
   </g>
 </svg>
