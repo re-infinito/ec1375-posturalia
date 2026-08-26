@@ -122,6 +122,15 @@
         .checklist-item input[type="checkbox"] { width: 18px; height: 18px; flex-shrink: 0; margin-top: 1px; }
         .checklist-item label { color: var(--text); cursor: pointer; }
         .checklist-item.checked label { color: var(--success); text-decoration: line-through; opacity: 0.7; }
+        .mini-checklist { margin: 6px 0 10px; }
+        .mini-checklist .checklist-item { padding: 6px 0; font-size: 0.85rem; }
+        .section-checkpoint {
+            margin-top: 16px; padding: 10px 12px !important; background: rgba(255,215,0,0.06);
+            border: 1px solid rgba(255,215,0,0.25); border-radius: 8px;
+        }
+        .section-checkpoint label { color: var(--accent) !important; font-weight: 700; }
+        .section-checkpoint.checked { background: rgba(0,255,136,0.08); border-color: var(--success); }
+        .section-checkpoint.checked label { color: var(--success) !important; }
         .checklist-progress {
             font-size: 0.85rem; color: var(--text-bright); font-weight: 700; margin-bottom: 12px;
             display: flex; justify-content: space-between; align-items: center;
@@ -147,7 +156,7 @@
     const GUION_SECCIONES = [
         { num: 1, titulo: 'Preparación del espacio', items: [
             { t: 'accion', x: 'Acondicionar el área antes de recibir al usuario.' },
-            { t: 'lista', x: [
+            { t: 'checklist', key: 's1-prep', x: [
                 'Disponer de material, herramientas, mobiliario y equipo suficientes.',
                 'Mantener espacio suficiente para el desplazamiento libre y la distancia entre usuario y prestador.',
                 'Contar con archivero o medio digital para resguardar la documentación.',
@@ -164,16 +173,18 @@
                 'Escritorio o mesa para atención y sillas.', 'Lavabo de manos.',
                 'Mesa de apoyo para herramientas y materiales.', 'Banco de altura.', 'Báscula.',
                 'Estadímetro.', 'Baumanómetro o monitor de presión arterial de brazo.', 'Oxímetro.',
-                'Termómetro digital.', 'Archivero o computadora.', 'Música ambiental para relajación.', 'Perchero.'
+                'Termómetro digital.', 'Tapete sanitizante.', 'Archivero o computadora.', 'Música ambiental para relajación.', 'Perchero.'
             ]},
             { t: 'subtitulo', x: 'Protocolo sanitario' },
-            { t: 'accion', x: 'Lavarse las manos conforme al protocolo señalado en el estándar.' },
-            { t: 'accion', x: 'Colocarse cubrebocas quirúrgico de triple capa.' },
-            { t: 'accion', x: 'Verificar tapete sanitizante con solución desinfectante en el ingreso.' },
-            { t: 'accion', x: 'Disponer gel antibacterial en el ingreso.' },
-            { t: 'accion', x: 'Tener disponible el termómetro digital.' }
+            { t: 'checklist', key: 's1-proto', x: [
+                'Lavarse las manos conforme al protocolo señalado en el estándar.',
+                'Colocarse cubrebocas quirúrgico de triple capa.',
+                'Verificar tapete sanitizante con solución desinfectante en el ingreso.',
+                'Disponer gel antibacterial en el ingreso.',
+                'Tener disponible el termómetro digital.'
+            ]}
         ]},
-        { num: 2, titulo: 'Recepción del usuario', items: [
+        { num: 2, titulo: 'Recepción del usuario', checkpoint: true, items: [
             { t: 'dialogo', x: 'Buenos días. Bienvenido.' },
             { t: 'accion', x: 'Aplicar gel antibacterial en las manos del usuario.' },
             { t: 'dialogo', x: 'Antes de pasar, voy a tomarle la temperatura.' },
@@ -184,7 +195,7 @@
             { t: 'accion', x: 'Conducirlo a recepción/antesala y ofrecer un lugar cómodo previamente sanitizado.' },
             { t: 'dialogo', x: 'Puede tomar asiento aquí, por favor. El lugar ha sido previamente sanitizado.' }
         ]},
-        { num: 3, titulo: 'Explicación inicial y documentación', items: [
+        { num: 3, titulo: 'Explicación inicial y documentación', checkpoint: true, items: [
             { t: 'dialogo', x: 'Antes de comenzar quiero explicarle cómo vamos a llevar a cabo su atención.' },
             { t: 'dialogo', x: 'Los servicios auxiliares tradicionales y complementarios tienen como objetivo contribuir a la recuperación de las condiciones físicas y socioemocionales de las personas.' },
             { t: 'dialogo', x: 'La información que usted nos proporcione será manejada bajo principios de discreción y confidencialidad. Sus datos personales están protegidos conforme a la Ley Federal de Protección de Datos Personales en Posesión de Particulares.' },
@@ -194,14 +205,14 @@
             { t: 'usuario', x: 'No.' },
             { t: 'dialogo', x: 'Perfecto. Si durante el proceso surge cualquier duda, puede comentármela.' }
         ]},
-        { num: 4, titulo: 'Aviso de privacidad e identificación', items: [
+        { num: 4, titulo: 'Aviso de privacidad e identificación', checkpoint: true, items: [
             { t: 'accion', x: 'Presentar/comentar el Aviso de Privacidad.' },
             { t: 'dialogo', x: 'Este es nuestro Aviso de Privacidad. Una vez que ha sido informado sobre el manejo de sus datos personales, necesito su firma de enterado, por favor.' },
             { t: 'accion', x: 'Recabar firma.' },
             { t: 'dialogo', x: 'Ahora necesito corroborar su nombre completo con una identificación oficial vigente, por favor.' },
             { t: 'accion', x: 'Revisar identificación y corroborar nombre.' }
         ]},
-        { num: 5, titulo: 'Ficha de registro', items: [
+        { num: 5, titulo: 'Ficha de registro', checkpoint: true, items: [
             { t: 'dialogo', x: 'Vamos a completar su ficha de registro. Le voy a solicitar algunos datos y antecedentes necesarios para su atención.' },
             { t: 'accion', x: 'Recabar la información de manera verbal y presencial.' },
             { t: 'lista', x: [
@@ -228,13 +239,13 @@
             { t: 'dialogo', x: 'Quiero señalarle también que los servicios tradicionales y complementarios que ofrecemos no cubren ni sustituyen las indicaciones de su médico tratante o profesional de la salud.' },
             { t: 'dialogo', x: 'Muchas gracias por proporcionarme esta información.' }
         ]},
-        { num: 6, titulo: 'Peso y estatura', items: [
+        { num: 6, titulo: 'Peso y estatura', checkpoint: true, items: [
             { t: 'nota', x: 'El EC1375 incluye báscula y estadímetro dentro del equipo mínimo y exige peso y estatura en la documentación, aunque no describe un protocolo específico de medición.' },
             { t: 'dialogo', x: 'Ahora voy a registrar su peso y estatura como parte de sus datos.' },
             { t: 'accion', x: 'Utilizar la báscula y registrar el peso.' },
             { t: 'accion', x: 'Utilizar el estadímetro y registrar la estatura.' }
         ]},
-        { num: 7, titulo: 'Saturación de oxígeno y pulso', items: [
+        { num: 7, titulo: 'Saturación de oxígeno y pulso', checkpoint: true, items: [
             { t: 'dialogo', x: 'Ahora voy a medir su saturación de oxígeno y su pulso utilizando el oxímetro.' },
             { t: 'accion', x: 'Limpiar la superficie del sensor con paño suave o algodón y solución desinfectante, conforme a las recomendaciones del fabricante.' },
             { t: 'dialogo', x: 'Por favor, coloque el dedo en el sensor de esta manera.' },
@@ -243,18 +254,18 @@
             { t: 'dialogo', x: 'Tenemos una saturación de oxígeno de [VALOR REAL] y un pulso de [VALOR REAL].' },
             { t: 'accion', x: 'Registrar SpO2 y pulso en la ficha.' }
         ]},
-        { num: 8, titulo: 'Observación postural', items: [
+        { num: 8, titulo: 'Observación postural', checkpoint: true, items: [
             { t: 'dialogo', x: 'Ahora realizaré una observación visual de su postura. Le voy a pedir que permanezca en la posición que le indique mientras observo diferentes segmentos de su cuerpo.' },
             { t: 'accion', x: 'Revisar visualmente cabeza, cuello, tórax, extremidades y pelvis.' },
             { t: 'accion', x: 'Registrar los hallazgos en la ficha.' },
             { t: 'nota', x: 'Importante: En esta parte el criterio solicita observación visual y registro; no es necesario inventar un diagnóstico.' }
         ]},
-        { num: 9, titulo: 'Frecuencia respiratoria', items: [
+        { num: 9, titulo: 'Frecuencia respiratoria', checkpoint: true, items: [
             { t: 'dialogo', x: 'Ahora voy a registrar su frecuencia respiratoria. Por favor permanezca sentado y en reposo.' },
             { t: 'accion', x: 'Contar las elevaciones del tórax y abdomen durante un minuto completo.' },
             { t: 'accion', x: 'Registrar el resultado.' }
         ]},
-        { num: 10, titulo: 'Presión arterial', items: [
+        { num: 10, titulo: 'Presión arterial', checkpoint: true, items: [
             { t: 'dialogo', x: 'A continuación voy a verificar su presión arterial con el monitor de presión arterial de brazo.' },
             { t: 'dialogo', x: 'Le voy a colocar el brazalete y le pediré que adopte la posición indicada para realizar correctamente la medición.' },
             { t: 'accion', x: 'Colocar el brazalete y posicionar al usuario conforme a las indicaciones del fabricante.' },
@@ -263,12 +274,12 @@
             { t: 'dialogo', x: 'Su presión arterial registrada es [VALOR REAL OBTENIDO].' },
             { t: 'accion', x: 'Registrar el resultado en la ficha.' }
         ]},
-        { num: 11, titulo: 'Verificar que puede recibir la atención', items: [
+        { num: 11, titulo: 'Verificar que puede recibir la atención', checkpoint: true, items: [
             { t: 'accion', x: 'Con la información recabada y la exploración realizada, identificar que no exista impedimento para recibir la atención tradicional y complementaria.' },
             { t: 'dialogo', x: 'Con la información que hemos recabado podemos continuar con la atención programada.' },
             { t: 'dialogo', x: 'Es importante mencionar que su participación y compromiso con las indicaciones forman parte del proceso para buscar un resultado satisfactorio.' }
         ]},
-        { num: 12, titulo: 'Explicación de la terapia manual', items: [
+        { num: 12, titulo: 'Explicación de la terapia manual', checkpoint: true, items: [
             { t: 'dialogo', x: 'De acuerdo con los hallazgos que encontramos durante la inspección y exploración, el procedimiento que se ha designado para esta sesión consiste en [DESCRIBIR ATENCIÓN].' },
             { t: 'dialogo', x: 'Esta atención busca [OBJETIVO DE LA SESIÓN].' },
             { t: 'dialogo', x: 'Entre sus bondades, beneficios o ventajas se encuentran [DESCRIBIR], dentro del alcance propio de este servicio.' },
@@ -276,18 +287,18 @@
             { t: 'dialogo', x: 'Para realizar la atención se recomienda utilizar [VESTIMENTA RECOMENDADA].' },
             { t: 'dialogo', x: '¿Tiene alguna duda o comentario sobre el procedimiento que vamos a realizar?' }
         ]},
-        { num: 13, titulo: 'Consentimiento informado', items: [
+        { num: 13, titulo: 'Consentimiento informado', checkpoint: true, items: [
             { t: 'accion', x: 'Presentar el consentimiento antes de iniciar la atención.' },
             { t: 'dialogo', x: 'Antes de comenzar necesito presentarle el documento de consentimiento informado y aceptación del servicio.' },
             { t: 'dialogo', x: 'En este documento se describe la atención que vamos a realizar, las técnicas que se aplicarán, las zonas del cuerpo que podrán ser abordadas, las posibles reacciones físicas, las condiciones de preparación, las limitantes del servicio, el número y duración de las sesiones y los objetivos que buscamos alcanzar.' },
             { t: 'dialogo', x: 'Si está de acuerdo con lo que hemos explicado y no tiene dudas, le solicito su firma de aceptación.' },
             { t: 'accion', x: 'Recabar firma/huella del usuario, firmar quien otorga el servicio e integrar el consentimiento al expediente.' }
         ]},
-        { num: 14, titulo: 'Atención tradicional/complementaria', items: [
+        { num: 14, titulo: 'Atención tradicional/complementaria', checkpoint: true, items: [
             { t: 'accion', x: 'Preparar al usuario conforme a la técnica indicada y realizar la terapia manual programada.' },
             { t: 'nota', x: 'Importante: El EC1375 no especifica una técnica particular de terapia manual ni prescribe maniobras quiroprácticas concretas. La técnica demostrada debe corresponder a lo previamente explicado y consentido.' }
         ]},
-        { num: 15, titulo: 'Finalización de la atención', items: [
+        { num: 15, titulo: 'Finalización de la atención', checkpoint: true, items: [
             { t: 'dialogo', x: 'Hemos finalizado la atención.' },
             { t: 'dialogo', x: 'Puede permanecer unos momentos sobre la mesa antes de incorporarse.' },
             { t: 'dialogo', x: '¿Cómo se siente después de la atención que recibió?' },
@@ -297,13 +308,13 @@
             { t: 'accion', x: 'Explicar y acompañar la incorporación conforme a los protocolos de higiene de columna.' },
             { t: 'accion', x: 'Cuando corresponda, dejar el área para permitir al usuario vestirse.' }
         ]},
-        { num: 16, titulo: 'Encuesta de satisfacción', items: [
+        { num: 16, titulo: 'Encuesta de satisfacción', checkpoint: true, items: [
             { t: 'dialogo', x: 'Antes de terminar le voy a proporcionar una encuesta de satisfacción.' },
             { t: 'dialogo', x: 'Por favor, lea las indicaciones y registre su opinión respecto al servicio recibido.' },
             { t: 'accion', x: 'Entregar/aplicar la encuesta y recibir comentarios.' },
             { t: 'dialogo', x: 'Muchas gracias por sus comentarios y por su colaboración.' }
         ]},
-        { num: 17, titulo: 'Programa de seguimiento', items: [
+        { num: 17, titulo: 'Programa de seguimiento', checkpoint: true, items: [
             { t: 'dialogo', x: 'Ahora vamos a establecer su programa de seguimiento.' },
             { t: 'dialogo', x: 'El objetivo que buscamos alcanzar en las siguientes sesiones será [OBJETIVO POR SESIÓN].' },
             { t: 'dialogo', x: 'La propuesta es realizar [NÚMERO DE SESIONES], con una frecuencia de [FRECUENCIA] y una duración aproximada de [DURACIÓN] por sesión.' },
@@ -314,12 +325,12 @@
             { t: 'dialogo', x: 'Si posteriormente tiene alguna duda, inquietud o necesita consultar información respecto al servicio recibido, podremos atenderla.' },
             { t: 'dialogo', x: '¿Quedó alguna duda pendiente que no hayamos resuelto?' }
         ]},
-        { num: 18, titulo: 'Medio de contacto', items: [
+        { num: 18, titulo: 'Medio de contacto', checkpoint: true, items: [
             { t: 'dialogo', x: 'Para darle seguimiento, ¿cuál es el medio de contacto que le resulta más conveniente: teléfono, celular, correo electrónico o alguna plataforma digital?' },
             { t: 'accion', x: 'Registrar el medio de contacto.' },
             { t: 'dialogo', x: 'Le proporciono también los datos de nuestro Centro de Atención Tradicional y Complementaria y nuestro medio de atención telefónica para cualquier duda relacionada con su servicio.' }
         ]},
-        { num: 19, titulo: 'Cierre y despedida', items: [
+        { num: 19, titulo: 'Cierre y despedida', checkpoint: true, items: [
             { t: 'subtitulo', x: 'Verificar el Plan de Seguimiento' },
             { t: 'lista', x: ['Fechas y horarios.', 'Medio de contacto.', 'Número de sesiones, frecuencia y duración.', 'Plan de sesión.', 'Nombre y firma/huella del usuario y de quien otorga el servicio.'] },
             { t: 'subtitulo', x: 'Verificar el Plan de Sesión' },
@@ -365,6 +376,14 @@
         return div.innerHTML;
     }
 
+    function checkboxRow(key, label, extraClass) {
+        return `
+            <div class="checklist-item ${extraClass || ''}" id="ci-${key}">
+                <input type="checkbox" id="chk-${key}" onchange="toggleChecklistItem('${key}')">
+                <label for="chk-${key}">${escapeHtml(label)}</label>
+            </div>`;
+    }
+
     function renderItem(item) {
         if (item.t === 'accion') return `<div class="item-accion"><span class="tag">ACCIÓN</span><span>${escapeHtml(item.x)}</span></div>`;
         if (item.t === 'dialogo') return `<div class="item-dialogo">"${escapeHtml(item.x)}"</div>`;
@@ -372,6 +391,7 @@
         if (item.t === 'nota') return `<div class="item-nota">💡 ${escapeHtml(item.x)}</div>`;
         if (item.t === 'subtitulo') return `<div class="subtitulo">${escapeHtml(item.x)}</div>`;
         if (item.t === 'lista') return `<ul class="item-lista">${item.x.map(li => `<li>${escapeHtml(li)}</li>`).join('')}</ul>`;
+        if (item.t === 'checklist') return `<div class="mini-checklist">${item.x.map((label, i) => checkboxRow(`${item.key}-${i}`, label)).join('')}</div>`;
         return '';
     }
 
@@ -381,15 +401,11 @@
             <div class="guion-section" id="seccion-${s.num}">
                 <h3><span class="num-badge">${s.num}</span> ${escapeHtml(s.titulo)}</h3>
                 ${s.items.map(renderItem).join('')}
+                ${s.checkpoint ? checkboxRow(`checkpoint-${s.num}`, '🎬 Video de esta sección grabado', 'section-checkpoint') : ''}
             </div>
         `).join('');
 
-        const checklistHtml = CHECKLIST_ITEMS.map((label, i) => `
-            <div class="checklist-item" id="ci-${i}">
-                <input type="checkbox" id="chk-${i}" onchange="toggleChecklistItem(${i})">
-                <label for="chk-${i}">${escapeHtml(label)}</label>
-            </div>
-        `).join('');
+        const checklistHtml = CHECKLIST_ITEMS.map((label, i) => checkboxRow(`final-${i}`, label)).join('');
 
         return `
             <div class="hero">
@@ -433,31 +449,31 @@
     function updateChecklistProgress() {
         const state = loadChecklistState();
         const total = CHECKLIST_ITEMS.length;
-        const done = Object.values(state).filter(Boolean).length;
+        const done = CHECKLIST_ITEMS.filter((_, i) => state['final-' + i]).length;
         const progressText = document.getElementById('checklistProgressText');
         const progressBar = document.getElementById('progressBarFill');
         if (progressText) progressText.textContent = `${done} / ${total}`;
         if (progressBar) progressBar.style.width = `${Math.round((done / total) * 100)}%`;
     }
-    function toggleChecklistItem(i) {
+    function toggleChecklistItem(key) {
         const state = loadChecklistState();
-        state[i] = !state[i];
+        state[key] = !state[key];
         saveChecklistState(state);
-        document.getElementById('ci-' + i).classList.toggle('checked', !!state[i]);
+        document.getElementById('ci-' + key).classList.toggle('checked', !!state[key]);
         updateChecklistProgress();
     }
     function resetChecklist() {
-        if (!confirm('¿Reiniciar la lista de control?')) return;
+        if (!confirm('¿Reiniciar TODA la lista de control (incluye preparación del espacio y checkpoints de video)?')) return;
         saveChecklistState({});
         applyChecklistState();
     }
     function applyChecklistState() {
         const state = loadChecklistState();
-        CHECKLIST_ITEMS.forEach((_, i) => {
-            const checked = !!state[i];
-            const cb = document.getElementById('chk-' + i);
-            if (cb) cb.checked = checked;
-            const row = document.getElementById('ci-' + i);
+        document.querySelectorAll('#app input[type="checkbox"][id^="chk-"]').forEach(cb => {
+            const key = cb.id.slice(4);
+            const checked = !!state[key];
+            cb.checked = checked;
+            const row = document.getElementById('ci-' + key);
             if (row) row.classList.toggle('checked', checked);
         });
         updateChecklistProgress();
