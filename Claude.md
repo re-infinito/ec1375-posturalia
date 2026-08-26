@@ -2,8 +2,9 @@
 
 ## 🎯 PROYECTO: EC1375 - Certificación Oficial para Terapeutas Alternativas
 
-**Última actualización:** 8 de agosto, 2026  
+**Última actualización:** 11 de agosto, 2026  
 **Estado:** Marca migrada de "Posturalia" a **"Paideia Tech"**, con dominio propio. Autenticación real (OTP por correo) + gate de pago **en producción y verificados end-to-end** (ver "Persistencia con Supabase — v2" y "v3" en la sección "SISTEMA DE CERTIFICACIÓN EC1375"). Fase 4 (pagos dinámicos por las 4 etapas reales del proceso — Registro/Alineación/Evaluación/Entrega, cada una cobrando un % de un total negociado por candidato, vía API de Preferencias de Mercado Pago) también **en producción**. Script de ensamblado del expediente final probado con datos reales — primer Portafolio de 110 páginas generado exitosamente.  
+**⚠️ Migración en curso:** el proyecto de Supabase se movió a una cuenta/proyecto nuevo (`paideia.tech@outlook.com`) porque Supabase bloqueó el anterior por tener varios proyectos en la misma cuenta de `re-infinito` — ver detalle completo en "CREDENCIALES → Supabase". Código ya actualizado, falta configuración manual del dashboard (Email OTP, plantillas, SMTP, variable en Vercel). GitHub/Vercel siguen en la cuenta de `re-infinito` por ahora, sin cambios.  
 **URL en vivo:** https://sepconocer.paideiatech.com (dominio anterior `ec1375-posturalia.vercel.app` sigue activo en paralelo, mismo proyecto de Vercel)
 
 ---
@@ -624,18 +625,32 @@ Diego compartió el documento oficial del proceso (`Proceso EC1375-paideia.pdf`)
 ## 🔐 CREDENCIALES Y CONFIGURACIÓN
 
 ### Supabase
+
+**⚠️ Migrado a proyecto/cuenta nueva (11 de agosto, 2026):** el proyecto original (`yvgwothpkclljrdojtiv`, cuenta `re-infinito@outlook.com`) fue **bloqueado por Supabase** por tener varios proyectos en la misma cuenta — esto es lo que causaba el bug de "página en blanco" en `alineacion.html`/`entrega.html`/`documentos-sesion.html` (las llamadas a la API fallaban silenciosamente). Diego creó cuenta y proyecto nuevos exclusivos para este sitio.
+
 ```
-Project ref: yvgwothpkclljrdojtiv
-Project URL: https://yvgwothpkclljrdojtiv.supabase.co
+Project ref: numsuiuwrvpprhnxovmh
+Project URL: https://numsuiuwrvpprhnxovmh.supabase.co
+Cuenta del dashboard: paideia.tech@outlook.com
 Anon key: pública por diseño (RLS controla el acceso), embebida en auth.js
-Cuenta del dashboard: re-infinito@outlook.com (Diego no recordaba cuál usó — este fue el correcto)
-Tablas: candidatos_ec1375, candidatos_autorizados (legacy, ya no es la fuente de verdad),
-        candidatos_fase_pagos, candidatos_precio
-SQL: _internal_no_publicar/supabase_setup_v2_auth.sql (v2, auth+gate de registro) →
-     _internal_no_publicar/supabase_setup_v3_fases.sql (v3, incremental, Fase 4)
+Tablas: candidatos_ec1375, candidatos_fase_pagos, candidatos_precio
+        (candidatos_autorizados NO existe en este proyecto — era legacy, se omitió al recrear desde cero)
+SQL: _internal_no_publicar/supabase_setup_v5_new_project.sql (consolida v2+v3 en un solo script,
+     ya corrido en el proyecto nuevo — incluye backfill de prueba de de.minconsciente@outlook.com
+     en las 4 fases)
 ```
 
-**Ubicación en código:** constantes `SUPABASE_URL` / `SUPABASE_ANON_KEY` centralizadas en `auth.js` (única excepción a "páginas estáticas sin módulos compartidos" — ver sección "Persistencia con Supabase — v2" arriba), cargado vía `<script src="auth.js">` en `autodiagnostico.html`, `plan-evaluacion.html`, `documentos-sesion.html`, `encuesta-satisfaccion.html`, `evidencias.html`, `recuperar.html`, `alineacion.html` y `entrega.html`.
+**Proyecto viejo (`yvgwothpkclljrdojtiv`, cuenta `re-infinito@outlook.com`):** bloqueado/deprecado, ya no se usa. Los scripts `supabase_setup_v2_auth.sql` y `supabase_setup_v3_fases.sql` (`_internal_no_publicar/`) documentan su historial pero ya no aplican al proyecto activo.
+
+**⚠️ Pendiente que Diego haga en el proyecto nuevo** (el SQL ya está corrido, falta configuración manual del dashboard — no se puede por API):
+1. Authentication → Providers → Email → habilitar.
+2. Authentication → Emails → editar plantillas **"Confirm signup"** y **"Magic link or OTP"** para mostrar `{{ .Token }}` (2 plantillas distintas, ambas lo necesitan — ver sección "Fase 1" más abajo).
+3. Authentication → Emails → SMTP Settings → reconectar el mismo Resend (cuenta `posturalia.d817@gmail.com`, dominio `paideiatech.com` ya verificado, remitente `noreply@paideiatech.com`) — Resend no se movió de cuenta, solo hay que volver a capturar sus credenciales en este proyecto nuevo.
+4. Actualizar `SUPABASE_SERVICE_ROLE_KEY` en Vercel (Project Settings → Environment Variables) con la del proyecto nuevo (Project Settings → API → `service_role`).
+
+**⚠️ Alcance de esta migración:** solo Supabase se movió de cuenta. GitHub (`re-infinito`) y Vercel siguen igual por ahora — Diego migrará esos por separado más adelante cuando cree cuenta de Vercel bajo la identidad nueva.
+
+**Ubicación en código:** constantes `SUPABASE_URL` / `SUPABASE_ANON_KEY` centralizadas en `auth.js` (única excepción a "páginas estáticas sin módulos compartidos" — ver sección "Persistencia con Supabase — v2" arriba), cargado vía `<script src="auth.js">` en `autodiagnostico.html`, `plan-evaluacion.html`, `documentos-sesion.html`, `encuesta-satisfaccion.html`, `evidencias.html`, `recuperar.html`, `alineacion.html` y `entrega.html`. `SUPABASE_URL` también está hardcodeado (mismo valor) en `api/mercadopago-webhook.js` y `api/crear-preferencia.js` — si el proyecto vuelve a migrar, actualizar en los 3 archivos.
 
 **Variables de entorno en Vercel** (Project Settings → Environment Variables — ya configuradas, nunca en código ni por chat):
 ```
