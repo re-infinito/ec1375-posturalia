@@ -10,7 +10,7 @@
 //   MERCADOPAGO_ACCESS_TOKEN
 //   SUPABASE_SERVICE_ROLE_KEY
 
-const SUPABASE_URL = 'https://yvgwothpkclljrdojtiv.supabase.co';
+const SUPABASE_URL = 'https://numsuiuwrvpprhnxovmh.supabase.co';
 const SITE_URL = 'https://sepconocer.paideiatech.com';
 
 const PORCENTAJE_FASE = {

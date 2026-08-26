@@ -24,7 +24,7 @@
 
 const crypto = require('crypto');
 
-const SUPABASE_URL = 'https://yvgwothpkclljrdojtiv.supabase.co';
+const SUPABASE_URL = 'https://numsuiuwrvpprhnxovmh.supabase.co';
 
 function verifySignature(req, dataId) {
     const signatureHeader = req.headers['x-signature'] || '';
