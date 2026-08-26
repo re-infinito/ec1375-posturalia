@@ -235,7 +235,18 @@
         `;
     }
 
-    window.addEventListener('load', render);
+    window.addEventListener('load', () => {
+        render().catch(e => {
+            console.error('Error en render():', e);
+            document.getElementById('app').innerHTML = `
+                <div class="hero"><div class="hero-icon">⚠️</div><h1 class="hero-title">Algo salió mal</h1></div>
+                <div class="blocked-box">
+                    <p>No pudimos cargar esta página. Intenta recargarla — si el problema sigue, escríbenos por WhatsApp.</p>
+                    <button class="btn btn-primary" onclick="window.location.reload()">🔄 Recargar</button>
+                    <p style="margin-top:14px;font-size:0.85rem;"><a href="https://wa.me/528136071342" style="color:var(--primary);" target="_blank">Escribir por WhatsApp</a></p>
+                </div>`;
+        });
+    });
     </script>
 </body>
 </html>

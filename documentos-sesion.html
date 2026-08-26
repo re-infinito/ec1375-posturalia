@@ -114,7 +114,7 @@
         usuarioNombre: '', usuarioEdad: '', usuarioFechaNacimiento: '', usuarioDomicilio: '',
         usuarioTelefono: '', usuarioCorreo: '', contactoEmergencia: '',
         fisiologicos: '', socioemocionales: '', heredofamiliares: '', deportivos: '', consumoSustancias: '',
-        presionArterial: '', pulso: '', temperatura: '', oxigenacion: '', sintomasNecesidades: '',
+        presionArterial: '', pulso: '', temperatura: '', oxigenacion: '', peso: '', estatura: '', sintomasNecesidades: '',
         tecnicaAplicar: '', expedienteNo: '', fechaConsentimiento: todayISOSession(),
         condicionesPreparacion: '', numeroSesionesPlan: '', duracionSesionPlan: '', objetivosEfectos: '',
         telefonoMovilSeguimiento: '', telefonoFijoSeguimiento: '', correoSeguimiento: '', medioContacto: '',
@@ -315,6 +315,10 @@
                 <div class="field-row">
                     <div class="field-group"><label>Temperatura</label><input type="text" id="f_temperatura" value="${escapeHtml(s.temperatura)}" placeholder="°C"></div>
                     <div class="field-group"><label>Oxigenación (SpO2)</label><input type="text" id="f_oxigenacion" value="${escapeHtml(s.oxigenacion)}" placeholder="%"></div>
+                </div>
+                <div class="field-row">
+                    <div class="field-group"><label>Peso</label><input type="text" id="f_peso" value="${escapeHtml(s.peso)}" placeholder="kg"></div>
+                    <div class="field-group"><label>Estatura</label><input type="text" id="f_estatura" value="${escapeHtml(s.estatura)}" placeholder="cm"></div>
                 </div>
 
                 <div class="section-label">Motivo de consulta</div>
@@ -564,7 +568,7 @@
     function attachFichaListeners() {
         bindFields(['usuarioNombre', 'usuarioEdad', 'usuarioFechaNacimiento', 'usuarioDomicilio', 'usuarioTelefono', 'usuarioCorreo',
             'contactoEmergencia', 'fisiologicos', 'socioemocionales', 'heredofamiliares', 'deportivos', 'consumoSustancias',
-            'presionArterial', 'pulso', 'temperatura', 'oxigenacion', 'sintomasNecesidades']);
+            'presionArterial', 'pulso', 'temperatura', 'oxigenacion', 'peso', 'estatura', 'sintomasNecesidades']);
     }
     function attachConsentimientoListeners() { bindFields(['tecnicaAplicar', 'expedienteNo', 'fechaConsentimiento']); }
     function attachPlanSesionListeners() { bindFields(['condicionesPreparacion', 'numeroSesionesPlan', 'duracionSesionPlan', 'objetivosEfectos']); }
@@ -706,7 +710,9 @@ const LOGO_CONOCER_BASE64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAA
                 ['Presión arterial', s.presionArterial || '—'],
                 ['Pulso', s.pulso || '—'],
                 ['Temperatura', s.temperatura || '—'],
-                ['Oxigenación (SpO2)', s.oxigenacion || '—']
+                ['Oxigenación (SpO2)', s.oxigenacion || '—'],
+                ['Peso', s.peso || '—'],
+                ['Estatura', s.estatura || '—']
             ]
         });
         y = doc.lastAutoTable.finalY + 8;
@@ -878,7 +884,19 @@ const LOGO_CONOCER_BASE64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAA
         URL.revokeObjectURL(url);
     }
 
-    window.addEventListener('load', () => { loadProgress(); renderStep(); });
+    window.addEventListener('load', () => {
+        loadProgress();
+        renderStep().catch(e => {
+            console.error('Error en renderStep():', e);
+            document.getElementById('app').innerHTML = `
+                <div class="hero"><div class="hero-icon">⚠️</div><h1 class="hero-title">Algo salió mal</h1></div>
+                <div class="blocked-box">
+                    <p>No pudimos cargar esta página. Intenta recargarla — si el problema sigue, escríbenos por WhatsApp.</p>
+                    <button class="btn btn-primary" onclick="window.location.reload()">🔄 Recargar</button>
+                    <p style="margin-top:14px;font-size:0.85rem;"><a href="https://wa.me/528136071342" style="color:var(--primary);" target="_blank">Escribir por WhatsApp</a></p>
+                </div>`;
+        });
+    });
     </script>
 </body>
 </html>
