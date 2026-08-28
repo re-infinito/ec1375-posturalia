@@ -27,9 +27,19 @@ const TITULO_FASE = {
     entrega: 'Paideia Tech - Entrega de Certificado'
 };
 
-async function obtenerTotalAcordado(email) {
+const COLUMNA_MONTO_FASE = {
+    registro: 'monto_registro',
+    alineacion: 'monto_alineacion',
+    evaluacion: 'monto_evaluacion',
+    entrega: 'monto_entrega'
+};
+
+// Prioriza el monto exacto por fase (editable desde admin-precios.html) —
+// si no está capturado para esa fase, cae al % estándar del total_acordado
+// (compatibilidad con candidatos que solo tienen el total configurado).
+async function obtenerMontoFase(email, fase) {
     const resp = await fetch(
-        `${SUPABASE_URL}/rest/v1/candidatos_precio?email=eq.${encodeURIComponent(email)}&select=total_acordado`,
+        `${SUPABASE_URL}/rest/v1/candidatos_precio?email=eq.${encodeURIComponent(email)}&select=total_acordado,monto_registro,monto_alineacion,monto_evaluacion,monto_entrega`,
         {
             headers: {
                 apikey: process.env.SUPABASE_SERVICE_ROLE_KEY,
@@ -42,7 +52,14 @@ async function obtenerTotalAcordado(email) {
     // Sin fila todavía = candidato nuevo, usa el total estándar (mismo
     // default que la columna en Supabase) sin necesidad de crear la fila
     // por adelantado.
-    return rows.length > 0 ? Number(rows[0].total_acordado) : 14750;
+    if (rows.length === 0) return 14750 * PORCENTAJE_FASE[fase];
+
+    const row = rows[0];
+    const montoExacto = row[COLUMNA_MONTO_FASE[fase]];
+    if (montoExacto !== null && montoExacto !== undefined) return Number(montoExacto);
+
+    const totalAcordado = Number(row.total_acordado);
+    return totalAcordado * PORCENTAJE_FASE[fase];
 }
 
 module.exports = async (req, res) => {
@@ -64,8 +81,8 @@ module.exports = async (req, res) => {
             return;
         }
 
-        const totalAcordado = await obtenerTotalAcordado(emailNormalizado);
-        const monto = Math.round(totalAcordado * PORCENTAJE_FASE[fase] * 100) / 100;
+        const montoBruto = await obtenerMontoFase(emailNormalizado, fase);
+        const monto = Math.round(montoBruto * 100) / 100;
 
         const preferenceResp = await fetch('https://api.mercadopago.com/checkout/preferences', {
             method: 'POST',

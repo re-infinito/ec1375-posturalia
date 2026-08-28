@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin — Precios EC1375 - Paideia Tech</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="auth.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --dark: #050a1a; --dark-light: #0f1428; --primary: #0088FF; --primary-light: #00CCFF;
+            --accent: #FFD700; --text: #D0D0D0; --text-bright: #FFFFFF; --danger: #FF3333; --success: #00FF88;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, var(--dark) 0%, #0a1530 100%);
+            color: var(--text); line-height: 1.6; min-height: 100vh; padding-bottom: 60px;
+        }
+
+        .container { max-width: 980px; margin: 0 auto; padding: 24px 20px; }
+        .container.narrow { max-width: 420px; }
+        .top-bar {
+            position: sticky; top: 0; background: var(--dark); border-bottom: 1px solid var(--dark-light);
+            padding: 16px 20px; z-index: 100; display: flex; justify-content: space-between; align-items: center;
+        }
+        .top-bar-inner { font-size: 0.95rem; color: var(--text-bright); font-weight: 700; }
+        .top-bar a { color: var(--primary); font-size: 0.82rem; text-decoration: none; }
+
+        .card { background: var(--dark-light); border-radius: 12px; padding: 24px; margin-bottom: 20px; }
+        .card h2 { font-size: 1.1rem; color: var(--text-bright); margin-bottom: 10px; }
+        .hero { text-align: center; padding: 30px 0; }
+        .hero-icon { font-size: 3rem; margin-bottom: 14px; }
+        .hero-title { font-size: 1.5rem; font-weight: 700; color: var(--text-bright); margin-bottom: 8px; }
+
+        .blocked-box { background: rgba(255, 215, 0, 0.08); border: 1px solid var(--accent); border-radius: 12px; padding: 24px; text-align: center; }
+
+        .field-group { margin-bottom: 14px; }
+        .field-group label { display: block; font-size: 0.82rem; color: var(--text); margin-bottom: 5px; font-weight: 600; }
+        .field-group input {
+            width: 100%; padding: 11px 13px; background: var(--dark);
+            border: 1px solid rgba(255,255,255,0.15); border-radius: 8px;
+            color: var(--text-bright); font-size: 0.9rem; font-family: inherit;
+        }
+
+        .btn { padding: 12px 20px; border-radius: 8px; font-weight: 700; font-size: 0.88rem; border: none; cursor: pointer; transition: all 0.2s ease; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: var(--primary-light); }
+        .btn-primary:disabled { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.3); cursor: not-allowed; }
+        .btn-secondary { background: transparent; border: 1.5px solid var(--primary); color: var(--primary); }
+        .btn-small { padding: 8px 14px; font-size: 0.8rem; }
+        .btn-full { width: 100%; }
+
+        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        th { text-align: left; color: var(--primary-light); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.4px; padding: 8px 6px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        td { padding: 8px 6px; border-bottom: 1px solid rgba(255,255,255,0.06); vertical-align: middle; }
+        td input { width: 90px; padding: 7px 8px; background: var(--dark); border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; color: var(--text-bright); font-size: 0.85rem; }
+        .email-cell { color: var(--text-bright); font-weight: 600; max-width: 220px; word-break: break-word; }
+        .total-cell { color: var(--accent); font-weight: 700; white-space: nowrap; }
+        .badges { display: flex; gap: 4px; flex-wrap: wrap; }
+        .badge { font-size: 0.68rem; padding: 3px 7px; border-radius: 5px; font-weight: 700; white-space: nowrap; }
+        .badge.on { background: rgba(0,255,136,0.15); color: var(--success); }
+        .badge.off { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.35); }
+        .row-status { font-size: 0.75rem; margin-left: 8px; }
+        .row-status.ok { color: var(--success); }
+        .row-status.err { color: var(--danger); }
+        .table-wrap { overflow-x: auto; }
+
+        .add-form { display: grid; grid-template-columns: 2fr repeat(4, 1fr) auto; gap: 8px; align-items: end; }
+        @media (max-width: 800px) { .add-form { grid-template-columns: 1fr 1fr; } }
+    </style>
+</head>
+<body>
+    <div class="top-bar">
+        <div class="top-bar-inner">💰 Admin — Precios EC1375</div>
+        <a href="#" id="logoutLink" onclick="handleLogout()" style="display:none;">Cerrar sesión</a>
+    </div>
+    <div class="container" id="app"></div>
+
+    <script>
+    const FASES = ['registro', 'alineacion', 'evaluacion', 'entrega'];
+    const FASE_LABEL = { registro: 'Registro', alineacion: 'Alineación', evaluacion: 'Evaluación', entrega: 'Entrega' };
+
+    let pendingEmail = null;
+    let candidatos = []; // filas de candidatos_precio
+    let pagosPorEmail = {}; // { email: Set(fases autorizadas) }
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
+    function renderAdminGateStep(step, message) {
+        const app = document.getElementById('app');
+        const errorHtml = message ? `<p style="color:var(--danger);font-size:0.85rem;margin-bottom:12px;">${escapeHtml(message)}</p>` : '';
+
+        if (step === 'email') {
+            app.innerHTML = `
+                <div class="container narrow">
+                    <div class="hero"><div class="hero-icon">🔐</div><h1 class="hero-title">Panel de Precios</h1></div>
+                    <div class="card">
+                        <div class="field-group"><label>Correo de administrador</label><input type="email" id="adminEmailInput" placeholder="tu@correo.com"></div>
+                        ${errorHtml}
+                        <button class="btn btn-primary btn-full" onclick="handleSendAdminOtp()">Enviar código</button>
+                    </div>
+                </div>`;
+        } else if (step === 'code') {
+            app.innerHTML = `
+                <div class="container narrow">
+                    <div class="hero"><div class="hero-icon">🔐</div><h1 class="hero-title">Panel de Precios</h1></div>
+                    <div class="card">
+                        <p style="font-size:0.85rem;margin-bottom:14px;">Te enviamos un código a <strong>${escapeHtml(pendingEmail)}</strong>.</p>
+                        <div class="field-group"><label>Código de verificación</label><input type="text" id="adminCodeInput" maxlength="12" inputmode="numeric" style="letter-spacing:4px;font-size:1.1rem;text-align:center;"></div>
+                        ${errorHtml}
+                        <button class="btn btn-primary btn-full" onclick="handleVerifyAdminOtp()">Verificar</button>
+                        <button class="btn btn-secondary btn-full" style="margin-top:10px;" onclick="renderAdminGateStep('email')">Usar otro correo</button>
+                    </div>
+                </div>`;
+        } else if (step === 'sending' || step === 'verifying') {
+            app.innerHTML = `<div class="container narrow"><p style="text-align:center;margin-top:60px;">${step === 'sending' ? 'Enviando código...' : 'Verificando...'}</p></div>`;
+        } else if (step === 'not_admin') {
+            app.innerHTML = `
+                <div class="container narrow">
+                    <div class="hero"><div class="hero-icon">⛔</div><h1 class="hero-title">Sin acceso</h1></div>
+                    <div class="blocked-box"><p>El correo <strong>${escapeHtml(pendingEmail)}</strong> no tiene acceso a este panel.</p></div>
+                </div>`;
+        }
+    }
+
+    async function handleSendAdminOtp() {
+        const input = document.getElementById('adminEmailInput');
+        const email = (input.value || '').trim().toLowerCase();
+        if (!email || !email.includes('@')) { renderAdminGateStep('email', 'Escribe un correo válido.'); return; }
+        pendingEmail = email;
+        renderAdminGateStep('sending');
+        try {
+            const { data: esAdmin } = await supabaseClient.rpc('is_admin', { check_email: email });
+            if (!esAdmin) { renderAdminGateStep('not_admin'); return; }
+            const { error } = await supabaseClient.auth.signInWithOtp({ email, options: { shouldCreateUser: true } });
+            if (error) { renderAdminGateStep('email', 'No se pudo enviar el código. Intenta de nuevo.'); return; }
+            renderAdminGateStep('code');
+        } catch (e) {
+            renderAdminGateStep('email', 'No se pudo enviar el código. Intenta de nuevo.');
+        }
+    }
+
+    async function handleVerifyAdminOtp() {
+        const input = document.getElementById('adminCodeInput');
+        const token = (input.value || '').trim();
+        if (!token) { renderAdminGateStep('code', 'Escribe el código.'); return; }
+        renderAdminGateStep('verifying');
+        try {
+            const { error } = await supabaseClient.auth.verifyOtp({ email: pendingEmail, token, type: 'email' });
+            if (error) { renderAdminGateStep('code', 'Código incorrecto o expirado.'); return; }
+            boot();
+        } catch (e) {
+            renderAdminGateStep('code', 'Código incorrecto o expirado.');
+        }
+    }
+
+    async function handleLogout() {
+        await Auth.signOut();
+        window.location.reload();
+    }
+
+    async function cargarDatos() {
+        const [precios, pagos] = await Promise.all([
+            supabaseClient.from('candidatos_precio').select('*').order('email'),
+            supabaseClient.from('candidatos_fase_pagos').select('email,fase')
+        ]);
+        candidatos = precios.data || [];
+        pagosPorEmail = {};
+        (pagos.data || []).forEach(row => {
+            if (!pagosPorEmail[row.email]) pagosPorEmail[row.email] = new Set();
+            pagosPorEmail[row.email].add(row.fase);
+        });
+    }
+
+    function calcularTotal(prefix) {
+        let total = 0;
+        FASES.forEach(fase => {
+            const el = document.getElementById(`${prefix}_${fase}`);
+            total += Number(el && el.value ? el.value : 0);
+        });
+        const totalEl = document.getElementById(`${prefix}_total`);
+        if (totalEl) totalEl.textContent = `$${total.toLocaleString('es-MX')}`;
+        return total;
+    }
+
+    async function guardarFila(email) {
+        const prefix = `row_${btoa(email).replace(/=/g, '')}`;
+        const montos = {};
+        FASES.forEach(fase => {
+            const el = document.getElementById(`${prefix}_${fase}`);
+            montos[`monto_${fase}`] = el.value === '' ? null : Number(el.value);
+        });
+        const total = FASES.reduce((sum, fase) => sum + (montos[`monto_${fase}`] || 0), 0);
+        const statusEl = document.getElementById(`${prefix}_status`);
+        try {
+            const { error } = await supabaseClient
+                .from('candidatos_precio')
+                .upsert({ email, total_acordado: total, ...montos, updated_at: new Date().toISOString() }, { onConflict: 'email' });
+            if (error) throw error;
+            if (statusEl) { statusEl.textContent = '✅ Guardado'; statusEl.className = 'row-status ok'; }
+        } catch (e) {
+            console.error(e);
+            if (statusEl) { statusEl.textContent = '❌ Error al guardar'; statusEl.className = 'row-status err'; }
+        }
+    }
+
+    async function agregarCandidato() {
+        const email = (document.getElementById('newEmail').value || '').trim().toLowerCase();
+        if (!email || !email.includes('@')) { alert('Escribe un correo válido.'); return; }
+        const montos = {};
+        FASES.forEach(fase => { montos[`monto_${fase}`] = Number(document.getElementById(`newMonto_${fase}`).value || 0); });
+        const total = FASES.reduce((sum, fase) => sum + montos[`monto_${fase}`], 0);
+        try {
+            const { error } = await supabaseClient
+                .from('candidatos_precio')
+                .upsert({ email, total_acordado: total, ...montos }, { onConflict: 'email' });
+            if (error) throw error;
+            await cargarDatos();
+            renderPanel();
+        } catch (e) {
+            console.error(e);
+            alert('No se pudo agregar el candidato. Revisa la consola.');
+        }
+    }
+
+    function renderPanel() {
+        const app = document.getElementById('app');
+        const rowsHtml = candidatos.map(c => {
+            const prefix = `row_${btoa(c.email).replace(/=/g, '')}`;
+            const fasesAutorizadas = pagosPorEmail[c.email] || new Set();
+            const badges = FASES.map(fase => `<span class="badge ${fasesAutorizadas.has(fase) ? 'on' : 'off'}">${FASE_LABEL[fase]}</span>`).join('');
+            const montoInputs = FASES.map(fase => `
+                <td><input type="number" id="${prefix}_${fase}" value="${c[`monto_${fase}`] ?? ''}" oninput="calcularTotal('${prefix}')"></td>
+            `).join('');
+            return `
+                <tr>
+                    <td class="email-cell">${escapeHtml(c.email)}</td>
+                    ${montoInputs}
+                    <td class="total-cell" id="${prefix}_total">$${Number(c.total_acordado || 0).toLocaleString('es-MX')}</td>
+                    <td><div class="badges">${badges}</div></td>
+                    <td>
+                        <button class="btn btn-primary btn-small" onclick="guardarFila('${c.email}')">Guardar</button>
+                        <span class="row-status" id="${prefix}_status"></span>
+                    </td>
+                </tr>`;
+        }).join('');
+
+        const addFormFields = FASES.map(fase => `
+            <div class="field-group"><label>${FASE_LABEL[fase]}</label><input type="number" id="newMonto_${fase}" placeholder="0"></div>
+        `).join('');
+
+        app.innerHTML = `
+            <div class="card">
+                <h2>➕ Agregar candidato</h2>
+                <div class="add-form">
+                    <div class="field-group"><label>Correo</label><input type="email" id="newEmail" placeholder="correo@ejemplo.com"></div>
+                    ${addFormFields}
+                    <button class="btn btn-primary" onclick="agregarCandidato()">Agregar</button>
+                </div>
+            </div>
+            <div class="card">
+                <h2>💰 Candidatos (${candidatos.length})</h2>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>Correo</th>${FASES.map(f => `<th>${FASE_LABEL[f]}</th>`).join('')}<th>Total</th><th>Fases pagadas</th><th></th></tr></thead>
+                        <tbody>${rowsHtml || '<tr><td colspan="8" style="text-align:center;color:rgba(255,255,255,0.4);padding:20px;">Sin candidatos todavía.</td></tr>'}</tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+        document.getElementById('logoutLink').style.display = 'inline';
+    }
+
+    async function boot() {
+        const app = document.getElementById('app');
+        app.innerHTML = `<div class="container narrow"><p style="text-align:center;margin-top:60px;">Cargando...</p></div>`;
+        await cargarDatos();
+        renderPanel();
+    }
+
+    window.addEventListener('load', async () => {
+        try {
+            const session = await Auth.getSession();
+            if (session) {
+                const { data: esAdmin } = await supabaseClient.rpc('is_admin', { check_email: session.user.email });
+                if (esAdmin) { boot(); return; }
+                pendingEmail = session.user.email;
+                await Auth.signOut();
+                renderAdminGateStep('not_admin');
+                return;
+            }
+            renderAdminGateStep('email');
+        } catch (e) {
+            console.error('Error al iniciar el panel:', e);
+            document.getElementById('app').innerHTML = `
+                <div class="container narrow">
+                    <div class="hero"><div class="hero-icon">⚠️</div><h1 class="hero-title">Algo salió mal</h1></div>
+                    <div class="blocked-box"><p>No pudimos cargar el panel. Recarga la página.</p></div>
+                </div>`;
+        }
+    });
+    </script>
+</body>
+</html>
