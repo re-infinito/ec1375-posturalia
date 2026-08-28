@@ -92,6 +92,30 @@
         .doc-download-item { display: flex; justify-content: space-between; align-items: center; padding: 14px; background: var(--dark); border-radius: 8px; margin-bottom: 10px; }
         .doc-download-item span { font-size: 0.88rem; color: var(--text-bright); font-weight: 600; }
         .doc-download-item button { padding: 8px 16px; font-size: 0.8rem; }
+
+        /* Guion que acompaña cada paso */
+        .guion-panel { background: var(--dark); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 16px; margin-bottom: 20px; }
+        .guion-panel-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--accent); font-weight: 700; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+        .item-accion { display: flex; gap: 8px; align-items: flex-start; margin-bottom: 8px; font-size: 0.85rem; color: var(--text-bright); }
+        .item-accion .tag { background: rgba(0,136,255,0.2); color: var(--primary-light); font-size: 0.65rem; font-weight: 700; padding: 2px 7px; border-radius: 6px; flex-shrink: 0; margin-top: 2px; }
+        .item-dialogo { background: var(--dark-light); border-left: 3px solid var(--primary); border-radius: 0 6px 6px 0; padding: 8px 12px; margin-bottom: 8px; font-size: 0.85rem; font-style: italic; color: var(--text); }
+        .item-usuario { background: rgba(255,255,255,0.03); border-left: 3px solid rgba(255,255,255,0.25); border-radius: 0 6px 6px 0; padding: 8px 12px; margin-bottom: 8px; font-size: 0.82rem; font-style: italic; color: rgba(255,255,255,0.55); margin-left: 16px; }
+        .item-nota { background: rgba(255,215,0,0.08); border: 1px solid rgba(255,215,0,0.3); border-radius: 8px; padding: 10px 12px; margin: 10px 0; font-size: 0.8rem; color: var(--accent); }
+        .item-lista { font-size: 0.82rem; color: var(--text); margin: 4px 0 10px 20px; }
+        .item-lista li { margin-bottom: 4px; }
+        .subtitulo { font-size: 0.82rem; font-weight: 700; color: var(--primary-light); margin: 12px 0 6px; text-transform: uppercase; letter-spacing: 0.3px; }
+
+        .checklist-item { display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.06); font-size: 0.85rem; }
+        .checklist-item input[type="checkbox"] { width: 18px; height: 18px; flex-shrink: 0; margin-top: 1px; }
+        .checklist-item label { color: var(--text); cursor: pointer; }
+        .checklist-item.checked label { color: var(--success); text-decoration: line-through; opacity: 0.7; }
+        .mini-checklist { margin: 6px 0 10px; }
+        .mini-checklist .checklist-item { padding: 6px 0; font-size: 0.83rem; }
+        .section-checkpoint { margin-top: 14px; padding: 10px 12px !important; background: rgba(255,215,0,0.06); border: 1px solid rgba(255,215,0,0.25); border-radius: 8px; }
+        .section-checkpoint label { color: var(--accent) !important; font-weight: 700; }
+        .section-checkpoint.checked { background: rgba(0,255,136,0.08); border-color: var(--success); }
+        .section-checkpoint.checked label { color: var(--success) !important; }
+        .prep-progress { font-size: 0.85rem; color: var(--text-bright); font-weight: 700; margin-bottom: 10px; }
     </style>
 </head>
 <body>
@@ -104,17 +128,187 @@
 
     <script>
     /* =========================================================
-       CONFIG
+       CONFIG — 19 pasos finos, uno por sección del Guion Maestro
+       (secciones 2-15 y 17-19; la 1 vive como prerrequisito "prep"
+       y la 16 es encuesta-satisfaccion.html, página aparte).
+       Contenido del guion duplicado de guion-maestro.html a propósito
+       (mismo patrón que AUTODIAGNOSTICO_DATA entre autodiagnostico.html
+       y plan-evaluacion.html) — si se edita el guion, actualizar ambos.
     ========================================================= */
-    const STEPS = ['intro', 'ficha', 'consentimiento', 'plan_sesion', 'plan_seguimiento', 'resultado'];
-    const STEP_TITLES = { ficha: 'Ficha de Registro', consentimiento: 'Carta de Consentimiento', plan_sesion: 'Plan de Sesión', plan_seguimiento: 'Plan de Seguimiento' };
+    const STEPS = ['intro', 'prep', 'recepcion', 'explicacion', 'privacidad', 'ficha', 'peso_estatura',
+        'spo2_pulso', 'postura', 'frec_resp', 'presion', 'verificar', 'terapia_explicacion',
+        'consentimiento', 'atencion', 'finalizacion', 'plan_sesion', 'plan_seguimiento',
+        'medio_contacto', 'cierre', 'resultado'];
+
+    const STEP_TITLES = {
+        prep: 'Preparación del Espacio', recepcion: 'Recepción del Usuario', explicacion: 'Explicación Inicial',
+        privacidad: 'Aviso de Privacidad', ficha: 'Ficha de Registro', peso_estatura: 'Peso y Estatura',
+        spo2_pulso: 'Oxigenación y Pulso', postura: 'Observación Postural', frec_resp: 'Frecuencia Respiratoria',
+        presion: 'Presión Arterial', verificar: 'Verificación y Firma', terapia_explicacion: 'Explicación de la Terapia',
+        consentimiento: 'Consentimiento Informado', atencion: 'Atención Tradicional', finalizacion: 'Finalización',
+        plan_sesion: 'Plan de Sesión', plan_seguimiento: 'Sesiones Programadas', medio_contacto: 'Medio de Contacto',
+        cierre: 'Cierre y Firma'
+    };
+
+    /* Guion por paso — mismo esquema de items que guion-maestro.html:
+       t: 'accion' | 'dialogo' | 'usuario' | 'nota' | 'subtitulo' | 'lista' */
+    const PASO_GUION = {
+        recepcion: { seccionNum: 2, items: [
+            { t: 'dialogo', x: 'Buenos días. Bienvenido.' },
+            { t: 'accion', x: 'Aplicar gel antibacterial en las manos del usuario.' },
+            { t: 'dialogo', x: 'Antes de pasar, voy a tomarle la temperatura.' },
+            { t: 'accion', x: 'Tomar la temperatura con termómetro digital.' },
+            { t: 'dialogo', x: 'Mi nombre es [NOMBRE COMPLETO] y mi función es [FUNCIÓN]. Muchas gracias por acompañarnos el día de hoy. ¿Me puede proporcionar su nombre completo, por favor?' },
+            { t: 'usuario', x: '[NOMBRE COMPLETO].' },
+            { t: 'dialogo', x: 'Muchas gracias, [NOMBRE]. Por favor, acompáñeme al área de recepción.' },
+            { t: 'accion', x: 'Conducirlo a recepción/antesala y ofrecer un lugar cómodo previamente sanitizado.' },
+            { t: 'dialogo', x: 'Puede tomar asiento aquí, por favor. El lugar ha sido previamente sanitizado.' }
+        ]},
+        explicacion: { seccionNum: 3, items: [
+            { t: 'dialogo', x: 'Antes de comenzar quiero explicarle cómo vamos a llevar a cabo su atención.' },
+            { t: 'dialogo', x: 'Los servicios auxiliares tradicionales y complementarios tienen como objetivo contribuir a la recuperación de las condiciones físicas y socioemocionales de las personas.' },
+            { t: 'dialogo', x: 'La información que usted nos proporcione será manejada bajo principios de discreción y confidencialidad. Sus datos personales están protegidos conforme a la Ley Federal de Protección de Datos Personales en Posesión de Particulares.' },
+            { t: 'dialogo', x: 'Vamos a integrar su ficha de registro de atención de condiciones físicas y socioemocionales.' },
+            { t: 'dialogo', x: 'Posteriormente realizaremos una exploración física y tomaremos sus signos vitales. Para realizar estos procedimientos necesitaremos previamente su autorización mediante la firma correspondiente en su ficha de registro.' },
+            { t: 'dialogo', x: '¿Hasta este momento tiene alguna duda?' },
+            { t: 'usuario', x: 'No.' },
+            { t: 'dialogo', x: 'Perfecto. Si durante el proceso surge cualquier duda, puede comentármela.' }
+        ]},
+        privacidad: { seccionNum: 4, items: [
+            { t: 'accion', x: 'Presentar/comentar el Aviso de Privacidad.' },
+            { t: 'dialogo', x: 'Este es nuestro Aviso de Privacidad. Una vez que ha sido informado sobre el manejo de sus datos personales, necesito su firma de enterado, por favor.' },
+            { t: 'accion', x: 'Recabar firma.' },
+            { t: 'dialogo', x: 'Ahora necesito corroborar su nombre completo con una identificación oficial vigente, por favor.' },
+            { t: 'accion', x: 'Revisar identificación y corroborar nombre.' }
+        ]},
+        ficha: { seccionNum: 5, items: [
+            { t: 'dialogo', x: 'Vamos a completar su ficha de registro. Le voy a solicitar algunos datos y antecedentes necesarios para su atención.' },
+            { t: 'accion', x: 'Recabar la información de manera verbal y presencial.' },
+            { t: 'subtitulo', x: 'Preguntas naturales de ejemplo' },
+            { t: 'dialogo', x: '¿Actualmente lo atiende algún médico o profesional de la salud?' },
+            { t: 'dialogo', x: '¿Tiene algún antecedente físico o alguna condición que considere importante mencionar?' },
+            { t: 'dialogo', x: '¿Existen enfermedades importantes dentro de sus antecedentes familiares?' },
+            { t: 'dialogo', x: '¿Padece alguna enfermedad crónica o degenerativa?' },
+            { t: 'dialogo', x: '¿Tiene alguna alergia conocida?' },
+            { t: 'dialogo', x: 'Cuénteme un poco sobre sus hábitos de alimentación y sueño.' },
+            { t: 'dialogo', x: '¿Realiza alguna actividad física?' },
+            { t: 'dialogo', x: '¿Consume actualmente algún medicamento o alguna otra sustancia que debamos registrar?' },
+            { t: 'accion', x: 'Registrar las respuestas.' },
+            { t: 'dialogo', x: 'Quiero señalarle también que los servicios tradicionales y complementarios que ofrecemos no cubren ni sustituyen las indicaciones de su médico tratante o profesional de la salud.' }
+        ]},
+        peso_estatura: { seccionNum: 6, items: [
+            { t: 'nota', x: 'El EC1375 incluye báscula y estadímetro dentro del equipo mínimo y exige peso y estatura en la documentación, aunque no describe un protocolo específico de medición.' },
+            { t: 'dialogo', x: 'Ahora voy a registrar su peso y estatura como parte de sus datos.' },
+            { t: 'accion', x: 'Utilizar la báscula y registrar el peso.' },
+            { t: 'accion', x: 'Utilizar el estadímetro y registrar la estatura.' }
+        ]},
+        spo2_pulso: { seccionNum: 7, items: [
+            { t: 'dialogo', x: 'Ahora voy a medir su saturación de oxígeno y su pulso utilizando el oxímetro.' },
+            { t: 'accion', x: 'Limpiar la superficie del sensor con paño suave o algodón y solución desinfectante, conforme a las recomendaciones del fabricante.' },
+            { t: 'dialogo', x: 'Por favor, coloque el dedo en el sensor de esta manera. Durante la medición le pido permanecer sin movimientos, porque podrían alterar el resultado.' },
+            { t: 'accion', x: 'Activar el oxímetro conforme a las instrucciones del fabricante.' },
+            { t: 'dialogo', x: 'Tenemos una saturación de oxígeno de [VALOR REAL] y un pulso de [VALOR REAL].' },
+            { t: 'accion', x: 'Registrar SpO2 y pulso en la ficha.' }
+        ]},
+        postura: { seccionNum: 8, items: [
+            { t: 'dialogo', x: 'Ahora realizaré una observación visual de su postura. Le voy a pedir que permanezca en la posición que le indique mientras observo diferentes segmentos de su cuerpo.' },
+            { t: 'accion', x: 'Revisar visualmente cabeza, cuello, tórax, extremidades y pelvis.' },
+            { t: 'accion', x: 'Registrar los hallazgos en la ficha.' },
+            { t: 'nota', x: 'Importante: en esta parte el criterio solicita observación visual y registro; no es necesario inventar un diagnóstico.' }
+        ]},
+        frec_resp: { seccionNum: 9, items: [
+            { t: 'dialogo', x: 'Ahora voy a registrar su frecuencia respiratoria. Por favor permanezca sentado y en reposo.' },
+            { t: 'accion', x: 'Contar las elevaciones del tórax y abdomen durante un minuto completo.' },
+            { t: 'accion', x: 'Registrar el resultado.' }
+        ]},
+        presion: { seccionNum: 10, items: [
+            { t: 'dialogo', x: 'A continuación voy a verificar su presión arterial con el monitor de presión arterial de brazo. Le voy a colocar el brazalete y le pediré que adopte la posición indicada.' },
+            { t: 'accion', x: 'Colocar el brazalete y posicionar al usuario conforme a las indicaciones del fabricante.' },
+            { t: 'accion', x: 'Activar el equipo y obtener la lectura.' },
+            { t: 'dialogo', x: 'Su presión arterial registrada es [VALOR REAL OBTENIDO].' },
+            { t: 'accion', x: 'Registrar el resultado en la ficha.' }
+        ]},
+        verificar: { seccionNum: 11, items: [
+            { t: 'accion', x: 'Con la información recabada y la exploración realizada, identificar que no exista impedimento para recibir la atención tradicional y complementaria.' },
+            { t: 'dialogo', x: 'Con la información que hemos recabado podemos continuar con la atención programada. Es importante mencionar que su participación y compromiso con las indicaciones forman parte del proceso para buscar un resultado satisfactorio.' }
+        ]},
+        terapia_explicacion: { seccionNum: 12, items: [
+            { t: 'dialogo', x: 'De acuerdo con los hallazgos que encontramos durante la inspección y exploración, el procedimiento que se ha designado para esta sesión consiste en [DESCRIBIR ATENCIÓN].' },
+            { t: 'dialogo', x: 'Esta atención busca [OBJETIVO DE LA SESIÓN]. Entre sus bondades, beneficios o ventajas se encuentran [DESCRIBIR], dentro del alcance propio de este servicio.' },
+            { t: 'dialogo', x: 'Durante la atención podría experimentar [SENSACIONES/REACCIONES POSIBLES] y posteriormente podrían presentarse [EFECTOS O SENSACIONES POSTERIORES].' },
+            { t: 'dialogo', x: 'Para realizar la atención se recomienda utilizar [VESTIMENTA RECOMENDADA]. ¿Tiene alguna duda o comentario sobre el procedimiento que vamos a realizar?' }
+        ]},
+        consentimiento: { seccionNum: 13, items: [
+            { t: 'accion', x: 'Presentar el consentimiento antes de iniciar la atención.' },
+            { t: 'dialogo', x: 'Antes de comenzar necesito presentarle el documento de consentimiento informado y aceptación del servicio. En este documento se describe la atención que vamos a realizar, las técnicas que se aplicarán, las zonas del cuerpo que podrán ser abordadas, las posibles reacciones físicas, las condiciones de preparación, las limitantes del servicio, el número y duración de las sesiones y los objetivos que buscamos alcanzar.' },
+            { t: 'dialogo', x: 'Si está de acuerdo con lo que hemos explicado y no tiene dudas, le solicito su firma de aceptación.' },
+            { t: 'accion', x: 'Recabar firma/huella del usuario, firmar quien otorga el servicio e integrar el consentimiento al expediente.' }
+        ]},
+        atencion: { seccionNum: 14, items: [
+            { t: 'accion', x: 'Preparar al usuario conforme a la técnica indicada y realizar la terapia manual programada.' },
+            { t: 'nota', x: 'Importante: el EC1375 no especifica una técnica particular de terapia manual ni prescribe maniobras quiroprácticas concretas. La técnica demostrada debe corresponder a lo previamente explicado y consentido.' }
+        ]},
+        finalizacion: { seccionNum: 15, items: [
+            { t: 'dialogo', x: 'Hemos finalizado la atención. Puede permanecer unos momentos sobre la mesa antes de incorporarse.' },
+            { t: 'dialogo', x: '¿Cómo se siente después de la atención que recibió? ¿Tiene alguna duda o quiere comentarme algo sobre lo que acaba de experimentar?' },
+            { t: 'dialogo', x: 'Durante las siguientes veinticuatro horas pueden presentarse [EFECTOS CORRESPONDIENTES A LA TÉCNICA APLICADA]. Ahora le voy a explicar cómo incorporarse.' },
+            { t: 'accion', x: 'Explicar y acompañar la incorporación conforme a los protocolos de higiene de columna.' },
+            { t: 'accion', x: 'Cuando corresponda, dejar el área para permitir al usuario vestirse.' }
+        ]},
+        plan_sesion: { seccionNum: 17, items: [
+            { t: 'dialogo', x: 'Ahora vamos a establecer su programa de seguimiento. El objetivo que buscamos alcanzar en las siguientes sesiones será [OBJETIVO POR SESIÓN].' },
+            { t: 'dialogo', x: 'La propuesta es realizar [NÚMERO DE SESIONES], con una frecuencia de [FRECUENCIA] y una duración aproximada de [DURACIÓN] por sesión.' }
+        ]},
+        plan_seguimiento: { seccionNum: 17, items: [
+            { t: 'dialogo', x: 'Tengo disponibles [FECHA Y HORARIO] o [FECHA Y HORARIO]. ¿Cuál le resulta más conveniente? Perfecto, entonces dejamos programada su próxima atención para [FECHA Y HORA ACORDADAS].' },
+            { t: 'dialogo', x: 'Recuerde también las recomendaciones indicadas para su tratamiento: [RECOMENDACIONES]. Para realizar en casa tendrá las siguientes actividades, tareas o ejercicios: [ACTIVIDADES INDICADAS].' },
+            { t: 'dialogo', x: 'Si posteriormente tiene alguna duda, inquietud o necesita consultar información respecto al servicio recibido, podremos atenderla. ¿Quedó alguna duda pendiente que no hayamos resuelto?' }
+        ]},
+        medio_contacto: { seccionNum: 18, items: [
+            { t: 'dialogo', x: 'Para darle seguimiento, ¿cuál es el medio de contacto que le resulta más conveniente: teléfono, celular, correo electrónico o alguna plataforma digital?' },
+            { t: 'accion', x: 'Registrar el medio de contacto.' },
+            { t: 'dialogo', x: 'Le proporciono también los datos de nuestro Centro de Atención Tradicional y Complementaria y nuestro medio de atención telefónica para cualquier duda relacionada con su servicio.' }
+        ]},
+        cierre: { seccionNum: 19, items: [
+            { t: 'dialogo', x: 'Con esto concluimos su atención del día de hoy. Muchas gracias por su asistencia, por su disposición y por la confianza.' },
+            { t: 'dialogo', x: 'Nos vemos en su próxima sesión el [FECHA] a las [HORA]. Que tenga un excelente día.' }
+        ]}
+    };
+
+    const PREP_ITEMS = [
+        'Disponer de material, herramientas, mobiliario y equipo suficientes.',
+        'Mantener espacio suficiente para el desplazamiento libre y la distancia entre usuario y prestador.',
+        'Contar con archivero o medio digital para resguardar la documentación.',
+        'Mantener el área ventilada y sin corrientes de aire.',
+        'Contar con energía eléctrica e iluminación natural.',
+        'Verificar colores claros en paredes y techo.',
+        'Disponer depósitos para basura orgánica e inorgánica.',
+        'Disponer el depósito correspondiente para residuos peligrosos biológico-infecciosos.',
+        'Contar con un lugar específico para las pertenencias del usuario.',
+        'Verificar que herramientas y materiales estén limpios, desinfectados/sanitizados, protegidos y en condiciones de uso.'
+    ];
+    const PREP_MATERIALES = [
+        'Escritorio o mesa para atención y sillas.', 'Lavabo de manos.',
+        'Mesa de apoyo para herramientas y materiales.', 'Banco de altura.', 'Báscula.',
+        'Estadímetro.', 'Baumanómetro o monitor de presión arterial de brazo.', 'Oxímetro.',
+        'Termómetro digital.', 'Tapete sanitizante.', 'Archivero o computadora.', 'Música ambiental para relajación.', 'Perchero.'
+    ];
+    const PREP_PROTOCOLO = [
+        'Lavarse las manos conforme al protocolo señalado en el estándar.',
+        'Colocarse cubrebocas quirúrgico de triple capa.',
+        'Verificar tapete sanitizante con solución desinfectante en el ingreso.',
+        'Disponer gel antibacterial en el ingreso.',
+        'Tener disponible el termómetro digital.'
+    ];
+
     let currentStepIndex = 0;
 
     let sessionData = {
         usuarioNombre: '', usuarioEdad: '', usuarioFechaNacimiento: '', usuarioDomicilio: '',
         usuarioTelefono: '', usuarioCorreo: '', contactoEmergencia: '',
         fisiologicos: '', socioemocionales: '', heredofamiliares: '', deportivos: '', consumoSustancias: '',
-        presionArterial: '', pulso: '', temperatura: '', oxigenacion: '', peso: '', estatura: '', sintomasNecesidades: '',
+        presionArterial: '', pulso: '', temperatura: '', oxigenacion: '', peso: '', estatura: '',
+        observacionPostural: '', frecuenciaRespiratoria: '', sintomasNecesidades: '',
         tecnicaAplicar: '', expedienteNo: '', fechaConsentimiento: todayISOSession(),
         condicionesPreparacion: '', numeroSesionesPlan: '', duracionSesionPlan: '', objetivosEfectos: '',
         telefonoMovilSeguimiento: '', telefonoFijoSeguimiento: '', correoSeguimiento: '', medioContacto: '',
@@ -171,6 +365,80 @@
         const div = document.createElement('div');
         div.textContent = str;
         return div.innerHTML;
+    }
+
+    /* =========================================================
+       CHECKLIST / GUION — mismo localStorage que guion-maestro.html
+       (guionChecklistState), mismas claves (s1-prep-N, s1-proto-N,
+       checkpoint-N) para que el avance se comparta entre ambas páginas.
+    ========================================================= */
+    function loadChecklistState() {
+        try { return JSON.parse(localStorage.getItem('guionChecklistState') || '{}'); } catch (e) { return {}; }
+    }
+    function saveChecklistState(state) {
+        localStorage.setItem('guionChecklistState', JSON.stringify(state));
+    }
+    function checkboxRow(key, label, extraClass) {
+        return `
+            <div class="checklist-item ${extraClass || ''}" id="ci-${key}">
+                <input type="checkbox" id="chk-${key}" onchange="toggleChecklistItem('${key}')">
+                <label for="chk-${key}">${escapeHtml(label)}</label>
+            </div>`;
+    }
+    function toggleChecklistItem(key) {
+        const state = loadChecklistState();
+        state[key] = !state[key];
+        saveChecklistState(state);
+        document.getElementById('ci-' + key).classList.toggle('checked', !!state[key]);
+        const cb = document.getElementById('chk-' + key);
+        if (cb) cb.checked = !!state[key];
+        updateNavButtons();
+        updatePrepProgress();
+    }
+    function applyChecklistState() {
+        const state = loadChecklistState();
+        document.querySelectorAll('#app input[type="checkbox"][id^="chk-"]').forEach(cb => {
+            const key = cb.id.slice(4);
+            const checked = !!state[key];
+            cb.checked = checked;
+            const row = document.getElementById('ci-' + key);
+            if (row) row.classList.toggle('checked', checked);
+        });
+        updatePrepProgress();
+    }
+    function isPrepComplete() {
+        const state = loadChecklistState();
+        return PREP_ITEMS.every((_, i) => state['s1-prep-' + i]) && PREP_PROTOCOLO.every((_, i) => state['s1-proto-' + i]);
+    }
+    function updatePrepProgress() {
+        const el = document.getElementById('prepProgressText');
+        if (!el) return;
+        const state = loadChecklistState();
+        const total = PREP_ITEMS.length + PREP_PROTOCOLO.length;
+        const done = PREP_ITEMS.filter((_, i) => state['s1-prep-' + i]).length + PREP_PROTOCOLO.filter((_, i) => state['s1-proto-' + i]).length;
+        el.textContent = `${done} / ${total} completados`;
+    }
+
+    function renderGuionItem(item) {
+        if (item.t === 'accion') return `<div class="item-accion"><span class="tag">ACCIÓN</span><span>${escapeHtml(item.x)}</span></div>`;
+        if (item.t === 'dialogo') return `<div class="item-dialogo">"${escapeHtml(item.x)}"</div>`;
+        if (item.t === 'usuario') return `<div class="item-usuario">USUARIO: "${escapeHtml(item.x)}"</div>`;
+        if (item.t === 'nota') return `<div class="item-nota">💡 ${escapeHtml(item.x)}</div>`;
+        if (item.t === 'subtitulo') return `<div class="subtitulo">${escapeHtml(item.x)}</div>`;
+        if (item.t === 'lista') return `<ul class="item-lista">${item.x.map(li => `<li>${escapeHtml(li)}</li>`).join('')}</ul>`;
+        return '';
+    }
+
+    function renderGuionPanel(stepKey) {
+        const g = PASO_GUION[stepKey];
+        if (!g) return '';
+        return `
+            <div class="guion-panel">
+                <div class="guion-panel-label">📜 Guion — Sección ${g.seccionNum} <a href="guion-maestro.html#seccion-${g.seccionNum}" target="_blank" style="margin-left:auto;color:var(--primary-light);font-size:0.72rem;text-transform:none;letter-spacing:0;">Ver guion completo ↗</a></div>
+                ${g.items.map(renderGuionItem).join('')}
+                ${checkboxRow('checkpoint-' + g.seccionNum, '🎬 Video de esta sección grabado', 'section-checkpoint')}
+            </div>
+        `;
     }
 
     /* =========================================================
@@ -238,15 +506,30 @@
         }
 
         if (step === 'intro') { app.innerHTML = renderIntro(); attachNav(); return; }
-        if (step === 'ficha') { app.innerHTML = renderFicha(); attachFichaListeners(); setTimeout(() => initSignatureCanvas('usuarioFicha'), 50); attachNav(); return; }
-        if (step === 'consentimiento') { app.innerHTML = renderConsentimiento(result); attachConsentimientoListeners(); setTimeout(() => initSignatureCanvas('usuarioConsentimiento'), 50); attachNav(); return; }
-        if (step === 'plan_sesion') { app.innerHTML = renderPlanSesion(); attachPlanSesionListeners(); attachNav(); return; }
-        if (step === 'plan_seguimiento') {
+        if (step === 'prep') { app.innerHTML = renderPrep(); attachNav(); applyChecklistState(); return; }
+        if (step === 'recepcion') { app.innerHTML = renderRecepcion(); attachRecepcionListeners(); attachNav(); applyChecklistState(); return; }
+        if (step === 'explicacion') { app.innerHTML = renderSoloGuion('explicacion', 'Explicación Inicial y Documentación'); attachNav(); applyChecklistState(); return; }
+        if (step === 'privacidad') { app.innerHTML = renderSoloGuion('privacidad', 'Aviso de Privacidad e Identificación'); attachNav(); applyChecklistState(); return; }
+        if (step === 'ficha') { app.innerHTML = renderFicha(); attachFichaListeners(); attachNav(); applyChecklistState(); return; }
+        if (step === 'peso_estatura') { app.innerHTML = renderPesoEstatura(); attachPesoEstaturaListeners(); attachNav(); applyChecklistState(); return; }
+        if (step === 'spo2_pulso') { app.innerHTML = renderSpo2Pulso(); attachSpo2PulsoListeners(); attachNav(); applyChecklistState(); return; }
+        if (step === 'postura') { app.innerHTML = renderPostura(); attachPosturaListeners(); attachNav(); applyChecklistState(); return; }
+        if (step === 'frec_resp') { app.innerHTML = renderFrecResp(); attachFrecRespListeners(); attachNav(); applyChecklistState(); return; }
+        if (step === 'presion') { app.innerHTML = renderPresion(); attachPresionListeners(); attachNav(); applyChecklistState(); return; }
+        if (step === 'verificar') { app.innerHTML = renderVerificar(); attachVerificarListeners(); setTimeout(() => initSignatureCanvas('usuarioFicha'), 50); attachNav(); applyChecklistState(); return; }
+        if (step === 'terapia_explicacion') { app.innerHTML = renderTerapiaExplicacion(result); attachTerapiaExplicacionListeners(); attachNav(); applyChecklistState(); return; }
+        if (step === 'consentimiento') { app.innerHTML = renderConsentimiento(); attachConsentimientoListeners(); setTimeout(() => initSignatureCanvas('usuarioConsentimiento'), 50); attachNav(); applyChecklistState(); return; }
+        if (step === 'atencion') { app.innerHTML = renderSoloGuion('atencion', 'Atención Tradicional/Complementaria'); attachNav(); applyChecklistState(); return; }
+        if (step === 'finalizacion') { app.innerHTML = renderSoloGuion('finalizacion', 'Finalización de la Atención'); attachNav(); applyChecklistState(); return; }
+        if (step === 'plan_sesion') { app.innerHTML = renderPlanSesion(); attachPlanSesionListeners(); attachNav(); applyChecklistState(); return; }
+        if (step === 'plan_seguimiento') { app.innerHTML = renderPlanSeguimiento(); attachPlanSeguimientoListeners(); attachNav(); applyChecklistState(); return; }
+        if (step === 'medio_contacto') {
             if (!sessionData.telefonoMovilSeguimiento && sessionData.usuarioTelefono) sessionData.telefonoMovilSeguimiento = sessionData.usuarioTelefono;
             if (!sessionData.correoSeguimiento && sessionData.usuarioCorreo) sessionData.correoSeguimiento = sessionData.usuarioCorreo;
             saveProgress();
-            app.innerHTML = renderPlanSeguimiento(); attachPlanSeguimientoListeners(); setTimeout(() => initSignatureCanvas('usuarioSeguimiento'), 50); attachNav(); return;
+            app.innerHTML = renderMedioContacto(); attachMedioContactoListeners(); attachNav(); applyChecklistState(); return;
         }
+        if (step === 'cierre') { app.innerHTML = renderCierre(); setTimeout(() => initSignatureCanvas('usuarioSeguimiento'), 50); attachNav(); applyChecklistState(); return; }
         if (step === 'resultado') { renderResultado(app, result); return; }
     }
 
@@ -256,11 +539,11 @@
             <div class="hero">
                 <div class="hero-icon">📋</div>
                 <h1 class="hero-title">Documentos de tu Sesión</h1>
-                <p class="hero-subtitle">Llénalos junto con tu usuario/paciente, durante o justo después de tu sesión de Zoom</p>
+                <p class="hero-subtitle">Llénalos junto con tu usuario/paciente, durante tu sesión de Zoom — el guion de cada paso te acompaña para que sepas exactamente qué decir y qué hacer</p>
             </div>
             <div class="card">
                 <h2>📌 ¿Qué vas a llenar?</h2>
-                <p class="desc" style="margin-bottom:0;">4 documentos oficiales del expediente EC1375, con la firma digital de tu usuario/paciente en cada uno donde se requiere:</p>
+                <p class="desc" style="margin-bottom:0;">19 pasos, uno por cada sección del Guion Maestro — empezando con la preparación del espacio (antes de que llegue el paciente) hasta el cierre. Al final se generan 4 documentos oficiales del expediente EC1375, con la firma digital de tu usuario/paciente donde se requiere:</p>
                 <ul style="margin:12px 0 0 20px; font-size:0.88rem; color:var(--text);">
                     <li style="margin-bottom:6px;"><strong>Ficha de Registro de Atención</strong> — datos y antecedentes del usuario</li>
                     <li style="margin-bottom:6px;"><strong>Carta de Consentimiento Informado</strong> — autorización del usuario</li>
@@ -273,20 +556,59 @@
     }
 
     function resumeFlow() {
-        for (let i = 1; i <= 4; i++) {
+        for (let i = 1; i < STEPS.length - 1; i++) {
             if (!isStepValid(STEPS[i])) { currentStepIndex = i; renderStep(); return; }
         }
         currentStepIndex = STEPS.length - 1;
         renderStep();
     }
 
+    function renderPrep() {
+        return `
+            <div class="hero">
+                <div class="hero-icon">🧹</div>
+                <h1 class="hero-title">Preparación del Espacio</h1>
+                <p class="hero-subtitle">Complétalo ANTES de que llegue tu usuario/paciente — es prerrequisito para empezar a grabar</p>
+            </div>
+            <div class="card">
+                <h2>✅ Preparación del espacio</h2>
+                <div class="mini-checklist">${PREP_ITEMS.map((label, i) => checkboxRow('s1-prep-' + i, label)).join('')}</div>
+
+                <div class="subtitulo">Equipo y materiales a tener disponibles</div>
+                <ul class="item-lista">${PREP_MATERIALES.map(li => `<li>${escapeHtml(li)}</li>`).join('')}</ul>
+
+                <div class="subtitulo">Protocolo sanitario</div>
+                <div class="mini-checklist">${PREP_PROTOCOLO.map((label, i) => checkboxRow('s1-proto-' + i, label)).join('')}</div>
+
+                <div class="prep-progress" id="prepProgressText">0 / 15 completados</div>
+            </div>
+        `;
+    }
+
+    function renderSoloGuion(stepKey, titulo) {
+        return `
+            <div class="hero"><div class="hero-icon">📜</div><h1 class="hero-title">${escapeHtml(titulo)}</h1></div>
+            ${renderGuionPanel(stepKey)}
+        `;
+    }
+
+    function renderRecepcion() {
+        const s = sessionData;
+        return `
+            <div class="hero"><div class="hero-icon">👋</div><h1 class="hero-title">Recepción del Usuario</h1></div>
+            ${renderGuionPanel('recepcion')}
+            <div class="card">
+                <div class="field-group"><label>Temperatura</label><input type="text" id="f_temperatura" value="${escapeHtml(s.temperatura)}" placeholder="°C"></div>
+            </div>
+        `;
+    }
+
     function renderFicha() {
         const s = sessionData;
         return `
+            <div class="hero"><div class="hero-icon">👤</div><h1 class="hero-title">Ficha de Registro</h1></div>
+            ${renderGuionPanel('ficha')}
             <div class="card">
-                <h2>👤 Ficha de Registro de Atención</h2>
-                <p class="desc">Condiciones físicas y socioemocionales del usuario</p>
-
                 <div class="section-label">Datos generales del usuario</div>
                 <div class="field-group"><label>Nombre completo *</label><input type="text" id="f_usuarioNombre" value="${escapeHtml(s.usuarioNombre)}"></div>
                 <div class="field-row">
@@ -306,40 +628,93 @@
                 <div class="field-group"><label>Heredofamiliares</label><textarea id="f_heredofamiliares" rows="2">${escapeHtml(s.heredofamiliares)}</textarea></div>
                 <div class="field-group"><label>Actividad deportiva</label><input type="text" id="f_deportivos" value="${escapeHtml(s.deportivos)}"></div>
                 <div class="field-group"><label>Consumo de sustancias</label><input type="text" id="f_consumoSustancias" value="${escapeHtml(s.consumoSustancias)}" placeholder="Ej. No / Tabaco ocasional"></div>
+            </div>
+        `;
+    }
 
-                <div class="section-label">Signos vitales</div>
-                <div class="field-row">
-                    <div class="field-group"><label>Presión arterial</label><input type="text" id="f_presionArterial" value="${escapeHtml(s.presionArterial)}" placeholder="120/80"></div>
-                    <div class="field-group"><label>Pulso</label><input type="text" id="f_pulso" value="${escapeHtml(s.pulso)}" placeholder="lpm"></div>
-                </div>
-                <div class="field-row">
-                    <div class="field-group"><label>Temperatura</label><input type="text" id="f_temperatura" value="${escapeHtml(s.temperatura)}" placeholder="°C"></div>
-                    <div class="field-group"><label>Oxigenación (SpO2)</label><input type="text" id="f_oxigenacion" value="${escapeHtml(s.oxigenacion)}" placeholder="%"></div>
-                </div>
+    function renderPesoEstatura() {
+        const s = sessionData;
+        return `
+            <div class="hero"><div class="hero-icon">⚖️</div><h1 class="hero-title">Peso y Estatura</h1></div>
+            ${renderGuionPanel('peso_estatura')}
+            <div class="card">
                 <div class="field-row">
                     <div class="field-group"><label>Peso</label><input type="text" id="f_peso" value="${escapeHtml(s.peso)}" placeholder="kg"></div>
                     <div class="field-group"><label>Estatura</label><input type="text" id="f_estatura" value="${escapeHtml(s.estatura)}" placeholder="cm"></div>
                 </div>
+            </div>
+        `;
+    }
 
+    function renderSpo2Pulso() {
+        const s = sessionData;
+        return `
+            <div class="hero"><div class="hero-icon">🫁</div><h1 class="hero-title">Oxigenación y Pulso</h1></div>
+            ${renderGuionPanel('spo2_pulso')}
+            <div class="card">
+                <div class="field-row">
+                    <div class="field-group"><label>Oxigenación (SpO2)</label><input type="text" id="f_oxigenacion" value="${escapeHtml(s.oxigenacion)}" placeholder="%"></div>
+                    <div class="field-group"><label>Pulso</label><input type="text" id="f_pulso" value="${escapeHtml(s.pulso)}" placeholder="lpm"></div>
+                </div>
+            </div>
+        `;
+    }
+
+    function renderPostura() {
+        const s = sessionData;
+        return `
+            <div class="hero"><div class="hero-icon">🧍</div><h1 class="hero-title">Observación Postural</h1></div>
+            ${renderGuionPanel('postura')}
+            <div class="card">
+                <div class="field-group"><label>Hallazgos observados</label><textarea id="f_observacionPostural" rows="3" placeholder="Cabeza, cuello, tórax, extremidades, pelvis...">${escapeHtml(s.observacionPostural)}</textarea></div>
+            </div>
+        `;
+    }
+
+    function renderFrecResp() {
+        const s = sessionData;
+        return `
+            <div class="hero"><div class="hero-icon">🫀</div><h1 class="hero-title">Frecuencia Respiratoria</h1></div>
+            ${renderGuionPanel('frec_resp')}
+            <div class="card">
+                <div class="field-group"><label>Frecuencia respiratoria</label><input type="text" id="f_frecuenciaRespiratoria" value="${escapeHtml(s.frecuenciaRespiratoria)}" placeholder="respiraciones/min"></div>
+            </div>
+        `;
+    }
+
+    function renderPresion() {
+        const s = sessionData;
+        return `
+            <div class="hero"><div class="hero-icon">🩺</div><h1 class="hero-title">Presión Arterial</h1></div>
+            ${renderGuionPanel('presion')}
+            <div class="card">
+                <div class="field-group"><label>Presión arterial</label><input type="text" id="f_presionArterial" value="${escapeHtml(s.presionArterial)}" placeholder="120/80"></div>
+            </div>
+        `;
+    }
+
+    function renderVerificar() {
+        const s = sessionData;
+        return `
+            <div class="hero"><div class="hero-icon">✅</div><h1 class="hero-title">Verificación y Firma</h1></div>
+            ${renderGuionPanel('verificar')}
+            <div class="card">
                 <div class="section-label">Motivo de consulta</div>
                 <div class="field-group"><label>Síntomas, necesidades o interés para recibir tratamiento</label><textarea id="f_sintomasNecesidades" rows="2">${escapeHtml(s.sintomasNecesidades)}</textarea></div>
-
                 <div class="legal-text">Nota importante: Los servicios tradicionales y complementarios que se ofrecen no cubren, ni sustituyen las indicaciones del médico tratante.</div>
-
-                <div class="section-label">Firma del usuario</div>
+                <div class="section-label">Firma del usuario — cierra tu Ficha de Registro</div>
                 ${renderSignaturePad('usuarioFicha')}
             </div>
         `;
     }
 
-    function renderConsentimiento(result) {
+    function renderTerapiaExplicacion(result) {
         const s = sessionData;
         const especialidadesOptions = (result.especialidades || []).map(e => `<option value="${escapeHtml(e)}">${escapeHtml(e)}</option>`).join('');
         return `
+            <div class="hero"><div class="hero-icon">💬</div><h1 class="hero-title">Explicación de la Terapia</h1></div>
+            ${renderGuionPanel('terapia_explicacion')}
             <div class="card">
-                <h2>📝 Carta de Consentimiento Informado</h2>
-                <p class="desc">Autorización del usuario para recibir el servicio</p>
-
                 <div class="field-group">
                     <label>Técnica a aplicar *</label>
                     <select id="f_tecnicaAplicar">
@@ -348,11 +723,20 @@
                         <option value="Otra">Otra</option>
                     </select>
                 </div>
+            </div>
+        `;
+    }
+
+    function renderConsentimiento() {
+        const s = sessionData;
+        return `
+            <div class="hero"><div class="hero-icon">📝</div><h1 class="hero-title">Consentimiento Informado</h1></div>
+            ${renderGuionPanel('consentimiento')}
+            <div class="card">
                 <div class="field-row">
                     <div class="field-group"><label>Expediente No.</label><input type="text" id="f_expedienteNo" value="${escapeHtml(s.expedienteNo)}" placeholder="Ej. 250812"></div>
                     <div class="field-group"><label>Fecha</label><input type="date" id="f_fechaConsentimiento" value="${s.fechaConsentimiento}"></div>
                 </div>
-
                 <div class="legal-text">
                     Yo, <strong>${escapeHtml(s.usuarioNombre) || '[nombre del usuario]'}</strong>, expreso mi libre voluntad para autorizar el procedimiento señalado en este documento después de haberme proporcionado la información completa sobre padecimiento o estado actual, la cual fue realizada en forma amplia, precisa y suficiente en un lenguaje claro y sencillo, informándome sobre posibles riesgos, complicaciones y secuelas de igual forma los beneficios.
                     <br><br>
@@ -360,8 +744,7 @@
                     <br><br>
                     Otorgo mi autorización al personal asistente auxiliar, así como al profesional que brinda los servicios tradicionales y complementarios la atención de contingencias y urgencias derivadas del procedimiento señalado, atendiendo al principio de libertad prescriptiva.
                 </div>
-
-                <div class="section-label">Firma del usuario (consentimiento)</div>
+                <div class="section-label">Firma del usuario — cierra tu Carta de Consentimiento</div>
                 ${renderSignaturePad('usuarioConsentimiento')}
             </div>
         `;
@@ -370,10 +753,9 @@
     function renderPlanSesion() {
         const s = sessionData;
         return `
+            <div class="hero"><div class="hero-icon">📅</div><h1 class="hero-title">Plan de Sesión</h1></div>
+            ${renderGuionPanel('plan_sesion')}
             <div class="card">
-                <h2>📅 Plan de Sesión</h2>
-                <p class="desc">Condiciones y objetivos del servicio a otorgar</p>
-
                 <div class="field-group"><label>Condiciones de preparación</label><textarea id="f_condicionesPreparacion" rows="2" placeholder="Ej. Limpieza de camilla y sábana desechable nueva">${escapeHtml(s.condicionesPreparacion)}</textarea></div>
                 <div class="field-row">
                     <div class="field-group"><label>Número de sesiones planeadas</label><input type="text" id="f_numeroSesionesPlan" value="${escapeHtml(s.numeroSesionesPlan)}" placeholder="Ej. 7"></div>
@@ -385,30 +767,47 @@
     }
 
     function renderPlanSeguimiento() {
+        return `
+            <div class="hero"><div class="hero-icon">🗓️</div><h1 class="hero-title">Sesiones Programadas</h1></div>
+            ${renderGuionPanel('plan_seguimiento')}
+            <div class="card">
+                <div class="section-label">Sesiones programadas</div>
+                <div class="table-rows" id="sesionesRows">${renderSesionesRows()}</div>
+                <button type="button" class="btn btn-secondary btn-full" onclick="addSesionRow()" style="margin-bottom:20px;">+ Agregar sesión</button>
+
+                <div class="section-label">Notas</div>
+                <div class="field-group"><label>Nota de evolución</label><textarea id="f_notaEvolucion" rows="2">${escapeHtml(sessionData.notaEvolucion)}</textarea></div>
+                <div class="field-group"><label>Pronóstico</label><input type="text" id="f_pronostico" value="${escapeHtml(sessionData.pronostico)}" placeholder="Ej. Positivo, paciente consciente y con apertura"></div>
+                <div class="field-group"><label>Recomendaciones / ejercicios para casa</label><textarea id="f_recomendaciones" rows="2">${escapeHtml(sessionData.recomendaciones)}</textarea></div>
+            </div>
+        `;
+    }
+
+    function renderMedioContacto() {
         const s = sessionData;
         return `
+            <div class="hero"><div class="hero-icon">📞</div><h1 class="hero-title">Medio de Contacto</h1></div>
+            ${renderGuionPanel('medio_contacto')}
             <div class="card">
-                <h2>📞 Plan de Seguimiento</h2>
-                <p class="desc">Contacto y sesiones programadas para dar seguimiento al usuario. Teléfono y correo se precargan de la Ficha de Registro — corrígelos aquí solo si el seguimiento debe hacerse por un medio distinto.</p>
-
-                <div class="field-group"><label>Nombre del usuario</label><input type="text" value="${escapeHtml(s.usuarioNombre)}" disabled style="opacity:0.6;"></div>
+                <p class="desc">Teléfono y correo se precargan de la Ficha de Registro — corrígelos aquí solo si el seguimiento debe hacerse por un medio distinto.</p>
                 <div class="field-row">
                     <div class="field-group"><label>Teléfono móvil</label><input type="tel" id="f_telefonoMovilSeguimiento" value="${escapeHtml(s.telefonoMovilSeguimiento)}"></div>
                     <div class="field-group"><label>Teléfono fijo</label><input type="tel" id="f_telefonoFijoSeguimiento" value="${escapeHtml(s.telefonoFijoSeguimiento)}"></div>
                 </div>
                 <div class="field-group"><label>Correo electrónico</label><input type="email" id="f_correoSeguimiento" value="${escapeHtml(s.correoSeguimiento)}"></div>
                 <div class="field-group"><label>Medio de contacto para seguimiento</label><input type="text" id="f_medioContacto" value="${escapeHtml(s.medioContacto)}" placeholder="Ej. Celular / WhatsApp"></div>
+            </div>
+        `;
+    }
 
-                <div class="section-label">Sesiones programadas</div>
-                <div class="table-rows" id="sesionesRows">${renderSesionesRows()}</div>
-                <button type="button" class="btn btn-secondary btn-full" onclick="addSesionRow()" style="margin-bottom:20px;">+ Agregar sesión</button>
-
-                <div class="section-label">Notas</div>
-                <div class="field-group"><label>Nota de evolución</label><textarea id="f_notaEvolucion" rows="2">${escapeHtml(s.notaEvolucion)}</textarea></div>
-                <div class="field-group"><label>Pronóstico</label><input type="text" id="f_pronostico" value="${escapeHtml(s.pronostico)}" placeholder="Ej. Positivo, paciente consciente y con apertura"></div>
-                <div class="field-group"><label>Recomendaciones / ejercicios para casa</label><textarea id="f_recomendaciones" rows="2">${escapeHtml(s.recomendaciones)}</textarea></div>
-
-                <div class="section-label">Firma del usuario</div>
+    function renderCierre() {
+        const s = sessionData;
+        return `
+            <div class="hero"><div class="hero-icon">🤝</div><h1 class="hero-title">Cierre y Despedida</h1></div>
+            ${renderGuionPanel('cierre')}
+            <div class="card">
+                <p class="desc">Nombre del usuario: <strong>${escapeHtml(s.usuarioNombre) || '—'}</strong></p>
+                <div class="section-label">Firma del usuario — cierra tu Plan de Seguimiento</div>
                 ${renderSignaturePad('usuarioSeguimiento')}
             </div>
         `;
@@ -565,23 +964,34 @@
         });
     }
 
+    function attachRecepcionListeners() { bindFields(['temperatura']); }
     function attachFichaListeners() {
         bindFields(['usuarioNombre', 'usuarioEdad', 'usuarioFechaNacimiento', 'usuarioDomicilio', 'usuarioTelefono', 'usuarioCorreo',
-            'contactoEmergencia', 'fisiologicos', 'socioemocionales', 'heredofamiliares', 'deportivos', 'consumoSustancias',
-            'presionArterial', 'pulso', 'temperatura', 'oxigenacion', 'peso', 'estatura', 'sintomasNecesidades']);
+            'contactoEmergencia', 'fisiologicos', 'socioemocionales', 'heredofamiliares', 'deportivos', 'consumoSustancias']);
     }
-    function attachConsentimientoListeners() { bindFields(['tecnicaAplicar', 'expedienteNo', 'fechaConsentimiento']); }
+    function attachPesoEstaturaListeners() { bindFields(['peso', 'estatura']); }
+    function attachSpo2PulsoListeners() { bindFields(['oxigenacion', 'pulso']); }
+    function attachPosturaListeners() { bindFields(['observacionPostural']); }
+    function attachFrecRespListeners() { bindFields(['frecuenciaRespiratoria']); }
+    function attachPresionListeners() { bindFields(['presionArterial']); }
+    function attachVerificarListeners() { bindFields(['sintomasNecesidades']); }
+    function attachTerapiaExplicacionListeners() { bindFields(['tecnicaAplicar']); }
+    function attachConsentimientoListeners() { bindFields(['expedienteNo', 'fechaConsentimiento']); }
     function attachPlanSesionListeners() { bindFields(['condicionesPreparacion', 'numeroSesionesPlan', 'duracionSesionPlan', 'objetivosEfectos']); }
-    function attachPlanSeguimientoListeners() { bindFields(['telefonoMovilSeguimiento', 'telefonoFijoSeguimiento', 'correoSeguimiento', 'medioContacto', 'notaEvolucion', 'pronostico', 'recomendaciones']); }
+    function attachPlanSeguimientoListeners() { bindFields(['notaEvolucion', 'pronostico', 'recomendaciones']); }
+    function attachMedioContactoListeners() { bindFields(['telefonoMovilSeguimiento', 'telefonoFijoSeguimiento', 'correoSeguimiento', 'medioContacto']); }
 
     /* =========================================================
        NAVIGATION
     ========================================================= */
     function isStepValid(step) {
-        if (step === 'ficha') return !!sessionData.usuarioNombre && hasSignature('usuarioFicha');
-        if (step === 'consentimiento') return !!sessionData.tecnicaAplicar && hasSignature('usuarioConsentimiento');
+        if (step === 'prep') return isPrepComplete();
+        if (step === 'ficha') return !!sessionData.usuarioNombre;
+        if (step === 'verificar') return hasSignature('usuarioFicha');
+        if (step === 'terapia_explicacion') return !!sessionData.tecnicaAplicar;
+        if (step === 'consentimiento') return hasSignature('usuarioConsentimiento');
         if (step === 'plan_sesion') return !!sessionData.objetivosEfectos;
-        if (step === 'plan_seguimiento') return hasSignature('usuarioSeguimiento');
+        if (step === 'cierre') return hasSignature('usuarioSeguimiento');
         return true;
     }
 
@@ -589,7 +999,7 @@
         const step = STEPS[currentStepIndex];
         if (step === 'intro' || step === 'resultado') return;
         const app = document.getElementById('app');
-        const isLast = step === 'plan_seguimiento';
+        const isLast = step === 'cierre';
         const navHtml = `
             <div class="nav-bar">
                 ${currentStepIndex > 0 ? '<button class="btn btn-secondary" onclick="goBack()">← Atrás</button>' : ''}
@@ -712,7 +1122,9 @@ const LOGO_CONOCER_BASE64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAA
                 ['Temperatura', s.temperatura || '—'],
                 ['Oxigenación (SpO2)', s.oxigenacion || '—'],
                 ['Peso', s.peso || '—'],
-                ['Estatura', s.estatura || '—']
+                ['Estatura', s.estatura || '—'],
+                ['Observación postural', s.observacionPostural || '—'],
+                ['Frecuencia respiratoria', s.frecuenciaRespiratoria || '—']
             ]
         });
         y = doc.lastAutoTable.finalY + 8;
