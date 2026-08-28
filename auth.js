@@ -21,6 +21,9 @@ const Auth = {
     _pendingEmail: null,
     _authGateContainer: null,
     _authGateOnVerified: null,
+    _pendingAdminEmail: null,
+    _adminGateContainer: null,
+    _adminGateOnVerified: null,
 
     async getSession() {
         const { data } = await supabaseClient.auth.getSession();
@@ -107,6 +110,20 @@ const Auth = {
             return !!data;
         } catch (e) {
             console.warn('No se pudo verificar autorización de fase:', e);
+            return false;
+        }
+    },
+
+    /* Solo pregunta sí/no por UN correo puntual, vía is_admin() (security
+       definer) — nunca expone la lista completa de administradores. Falla
+       cerrado: cualquier error de red devuelve false. */
+    async isAdmin(email) {
+        try {
+            const { data, error } = await supabaseClient.rpc('is_admin', { check_email: email });
+            if (error) { console.warn('No se pudo verificar acceso de administrador:', error); return false; }
+            return !!data;
+        } catch (e) {
+            console.warn('No se pudo verificar acceso de administrador:', e);
             return false;
         }
     },
@@ -214,6 +231,95 @@ const Auth = {
             if (typeof Auth._authGateOnVerified === 'function') Auth._authGateOnVerified(data.session);
         } catch (e) {
             Auth._renderAuthGateStep('code', 'Código incorrecto o expirado. Intenta de nuevo.');
+        }
+    },
+
+    /* =========================================================
+       UI compartida para páginas de administración (admin-precios.html,
+       admin-index.html, ...): mismo flujo correo → código → verificar,
+       pero gateado por is_admin() en vez de isEmailAuthorized() — el
+       acceso de administrador no depende de haber pagado ninguna fase.
+       Deliberadamente separada de renderAuthGate/_handleSendOtp (no las
+       reutiliza) para no mezclar los dos criterios de autorización.
+    ========================================================= */
+    renderAdminGate(container, opts) {
+        Auth._adminGateContainer = container;
+        Auth._adminGateOnVerified = (opts && opts.onVerified) || null;
+        Auth._renderAdminGateStep('email');
+    },
+
+    _renderAdminGateStep(step, message) {
+        const container = Auth._adminGateContainer;
+        if (!container) return;
+        const errorHtml = message ? `<p style="color:var(--danger);font-size:0.85rem;margin-bottom:12px;">${message}</p>` : '';
+
+        if (step === 'email') {
+            container.innerHTML = `
+                <div class="field-group">
+                    <label>Correo de administrador</label>
+                    <input type="email" id="adminEmailInput" placeholder="tu@correo.com">
+                </div>
+                ${errorHtml}
+                <button class="btn btn-primary btn-full" onclick="Auth._handleSendAdminOtp()">Enviar código</button>
+            `;
+        } else if (step === 'code') {
+            container.innerHTML = `
+                <p style="font-size:0.85rem;margin-bottom:14px;">Te enviamos un código a <strong>${Auth._pendingAdminEmail}</strong>.</p>
+                <div class="field-group">
+                    <label>Código de verificación</label>
+                    <input type="text" id="adminCodeInput" maxlength="12" inputmode="numeric" placeholder="Código" style="letter-spacing:4px;font-size:1.2rem;text-align:center;">
+                </div>
+                ${errorHtml}
+                <button class="btn btn-primary btn-full" onclick="Auth._handleVerifyAdminOtp()">Verificar</button>
+                <button class="btn btn-secondary btn-full" onclick="Auth._renderAdminGateStep('email')">Usar otro correo</button>
+            `;
+        } else if (step === 'sending') {
+            container.innerHTML = `<p style="text-align:center;font-size:0.9rem;">Enviando código...</p>`;
+        } else if (step === 'verifying') {
+            container.innerHTML = `<p style="text-align:center;font-size:0.9rem;">Verificando...</p>`;
+        } else if (step === 'not_admin') {
+            container.innerHTML = `
+                <p style="font-size:0.9rem;">El correo <strong>${Auth._pendingAdminEmail}</strong> no tiene acceso de administrador.</p>
+                <button class="btn btn-secondary btn-full" style="margin-top:14px;" onclick="Auth._renderAdminGateStep('email')">Usar otro correo</button>
+            `;
+        }
+    },
+
+    async _handleSendAdminOtp() {
+        const input = document.getElementById('adminEmailInput');
+        const email = (input.value || '').trim().toLowerCase();
+        if (!email || !email.includes('@')) {
+            Auth._renderAdminGateStep('email', 'Escribe un correo válido.');
+            return;
+        }
+        Auth._pendingAdminEmail = email;
+        Auth._renderAdminGateStep('sending');
+        const esAdmin = await Auth.isAdmin(email);
+        if (!esAdmin) {
+            Auth._renderAdminGateStep('not_admin');
+            return;
+        }
+        try {
+            const { error } = await supabaseClient.auth.signInWithOtp({ email, options: { shouldCreateUser: true } });
+            if (error) { Auth._renderAdminGateStep('email', 'No se pudo enviar el código. Intenta de nuevo.'); return; }
+            Auth._renderAdminGateStep('code');
+        } catch (e) {
+            Auth._renderAdminGateStep('email', 'No se pudo enviar el código. Intenta de nuevo.');
+        }
+    },
+
+    async _handleVerifyAdminOtp() {
+        const input = document.getElementById('adminCodeInput');
+        const token = (input.value || '').trim();
+        if (!token) { Auth._renderAdminGateStep('code', 'Escribe el código.'); return; }
+        Auth._renderAdminGateStep('verifying');
+        try {
+            const { data, error } = await supabaseClient.auth.verifyOtp({ email: Auth._pendingAdminEmail, token, type: 'email' });
+            if (error || !data.session) { Auth._renderAdminGateStep('code', 'Código incorrecto o expirado. Intenta de nuevo.'); return; }
+            Auth._session = data.session;
+            if (typeof Auth._adminGateOnVerified === 'function') Auth._adminGateOnVerified(data.session);
+        } catch (e) {
+            Auth._renderAdminGateStep('code', 'Código incorrecto o expirado. Intenta de nuevo.');
         }
     }
 };

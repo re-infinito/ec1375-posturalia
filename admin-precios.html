@@ -75,7 +75,10 @@
 <body>
     <div class="top-bar">
         <div class="top-bar-inner">💰 Admin — Precios EC1375</div>
-        <a href="#" id="logoutLink" onclick="handleLogout()" style="display:none;">Cerrar sesión</a>
+        <div style="display:flex;gap:16px;">
+            <a href="admin-index.html">🗂️ Índice</a>
+            <a href="#" id="logoutLink" onclick="handleLogout()" style="display:none;">Cerrar sesión</a>
+        </div>
     </div>
     <div class="container" id="app"></div>
 
@@ -83,7 +86,6 @@
     const FASES = ['registro', 'alineacion', 'evaluacion', 'entrega'];
     const FASE_LABEL = { registro: 'Registro', alineacion: 'Alineación', evaluacion: 'Evaluación', entrega: 'Entrega' };
 
-    let pendingEmail = null;
     let candidatos = []; // filas de candidatos_precio
     let pagosPorEmail = {}; // { email: Set(fases autorizadas) }
 
@@ -94,72 +96,14 @@
         return div.innerHTML;
     }
 
-    function renderAdminGateStep(step, message) {
+    function renderGateShell() {
         const app = document.getElementById('app');
-        const errorHtml = message ? `<p style="color:var(--danger);font-size:0.85rem;margin-bottom:12px;">${escapeHtml(message)}</p>` : '';
-
-        if (step === 'email') {
-            app.innerHTML = `
-                <div class="container narrow">
-                    <div class="hero"><div class="hero-icon">🔐</div><h1 class="hero-title">Panel de Precios</h1></div>
-                    <div class="card">
-                        <div class="field-group"><label>Correo de administrador</label><input type="email" id="adminEmailInput" placeholder="tu@correo.com"></div>
-                        ${errorHtml}
-                        <button class="btn btn-primary btn-full" onclick="handleSendAdminOtp()">Enviar código</button>
-                    </div>
-                </div>`;
-        } else if (step === 'code') {
-            app.innerHTML = `
-                <div class="container narrow">
-                    <div class="hero"><div class="hero-icon">🔐</div><h1 class="hero-title">Panel de Precios</h1></div>
-                    <div class="card">
-                        <p style="font-size:0.85rem;margin-bottom:14px;">Te enviamos un código a <strong>${escapeHtml(pendingEmail)}</strong>.</p>
-                        <div class="field-group"><label>Código de verificación</label><input type="text" id="adminCodeInput" maxlength="12" inputmode="numeric" style="letter-spacing:4px;font-size:1.1rem;text-align:center;"></div>
-                        ${errorHtml}
-                        <button class="btn btn-primary btn-full" onclick="handleVerifyAdminOtp()">Verificar</button>
-                        <button class="btn btn-secondary btn-full" style="margin-top:10px;" onclick="renderAdminGateStep('email')">Usar otro correo</button>
-                    </div>
-                </div>`;
-        } else if (step === 'sending' || step === 'verifying') {
-            app.innerHTML = `<div class="container narrow"><p style="text-align:center;margin-top:60px;">${step === 'sending' ? 'Enviando código...' : 'Verificando...'}</p></div>`;
-        } else if (step === 'not_admin') {
-            app.innerHTML = `
-                <div class="container narrow">
-                    <div class="hero"><div class="hero-icon">⛔</div><h1 class="hero-title">Sin acceso</h1></div>
-                    <div class="blocked-box"><p>El correo <strong>${escapeHtml(pendingEmail)}</strong> no tiene acceso a este panel.</p></div>
-                </div>`;
-        }
-    }
-
-    async function handleSendAdminOtp() {
-        const input = document.getElementById('adminEmailInput');
-        const email = (input.value || '').trim().toLowerCase();
-        if (!email || !email.includes('@')) { renderAdminGateStep('email', 'Escribe un correo válido.'); return; }
-        pendingEmail = email;
-        renderAdminGateStep('sending');
-        try {
-            const { data: esAdmin } = await supabaseClient.rpc('is_admin', { check_email: email });
-            if (!esAdmin) { renderAdminGateStep('not_admin'); return; }
-            const { error } = await supabaseClient.auth.signInWithOtp({ email, options: { shouldCreateUser: true } });
-            if (error) { renderAdminGateStep('email', 'No se pudo enviar el código. Intenta de nuevo.'); return; }
-            renderAdminGateStep('code');
-        } catch (e) {
-            renderAdminGateStep('email', 'No se pudo enviar el código. Intenta de nuevo.');
-        }
-    }
-
-    async function handleVerifyAdminOtp() {
-        const input = document.getElementById('adminCodeInput');
-        const token = (input.value || '').trim();
-        if (!token) { renderAdminGateStep('code', 'Escribe el código.'); return; }
-        renderAdminGateStep('verifying');
-        try {
-            const { error } = await supabaseClient.auth.verifyOtp({ email: pendingEmail, token, type: 'email' });
-            if (error) { renderAdminGateStep('code', 'Código incorrecto o expirado.'); return; }
-            boot();
-        } catch (e) {
-            renderAdminGateStep('code', 'Código incorrecto o expirado.');
-        }
+        app.innerHTML = `
+            <div class="container narrow">
+                <div class="hero"><div class="hero-icon">🔐</div><h1 class="hero-title">Panel de Precios</h1></div>
+                <div class="card" id="adminGateContainer"></div>
+            </div>`;
+        Auth.renderAdminGate(document.getElementById('adminGateContainer'), { onVerified: boot });
     }
 
     async function handleLogout() {
@@ -290,14 +234,11 @@
         try {
             const session = await Auth.getSession();
             if (session) {
-                const { data: esAdmin } = await supabaseClient.rpc('is_admin', { check_email: session.user.email });
+                const esAdmin = await Auth.isAdmin(session.user.email);
                 if (esAdmin) { boot(); return; }
-                pendingEmail = session.user.email;
                 await Auth.signOut();
-                renderAdminGateStep('not_admin');
-                return;
             }
-            renderAdminGateStep('email');
+            renderGateShell();
         } catch (e) {
             console.error('Error al iniciar el panel:', e);
             document.getElementById('app').innerHTML = `

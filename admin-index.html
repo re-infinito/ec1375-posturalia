@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin — Índice EC1375 - Paideia Tech</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="auth.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --dark: #050a1a; --dark-light: #0f1428; --primary: #0088FF; --primary-light: #00CCFF;
+            --accent: #FFD700; --text: #D0D0D0; --text-bright: #FFFFFF; --danger: #FF3333; --success: #00FF88;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, var(--dark) 0%, #0a1530 100%);
+            color: var(--text); line-height: 1.6; min-height: 100vh; padding-bottom: 60px;
+        }
+
+        .container { max-width: 900px; margin: 0 auto; padding: 24px 20px; }
+        .container.narrow { max-width: 420px; }
+        .top-bar {
+            position: sticky; top: 0; background: var(--dark); border-bottom: 1px solid var(--dark-light);
+            padding: 16px 20px; z-index: 100; display: flex; justify-content: space-between; align-items: center;
+        }
+        .top-bar-inner { font-size: 0.95rem; color: var(--text-bright); font-weight: 700; }
+        .top-bar a { color: var(--primary); font-size: 0.82rem; text-decoration: none; }
+
+        .card { background: var(--dark-light); border-radius: 12px; padding: 22px; margin-bottom: 18px; }
+        .card h2 { font-size: 1rem; color: var(--primary-light); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 14px; }
+        .hero { text-align: center; padding: 30px 0; }
+        .hero-icon { font-size: 3rem; margin-bottom: 14px; }
+        .hero-title { font-size: 1.5rem; font-weight: 700; color: var(--text-bright); margin-bottom: 8px; }
+
+        .field-group { margin-bottom: 14px; }
+        .field-group label { display: block; font-size: 0.82rem; color: var(--text); margin-bottom: 5px; font-weight: 600; }
+        .field-group input {
+            width: 100%; padding: 11px 13px; background: var(--dark);
+            border: 1px solid rgba(255,255,255,0.15); border-radius: 8px;
+            color: var(--text-bright); font-size: 0.9rem; font-family: inherit;
+        }
+
+        .btn { padding: 12px 20px; border-radius: 8px; font-weight: 700; font-size: 0.88rem; border: none; cursor: pointer; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: var(--primary-light); }
+        .btn-secondary { background: transparent; border: 1.5px solid var(--primary); color: var(--primary); }
+        .btn-full { width: 100%; }
+
+        .link-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+        .link-card {
+            display: block; padding: 14px 16px; background: var(--dark);
+            border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; text-decoration: none;
+        }
+        .link-card:hover { border-color: var(--primary); }
+        .link-card .name { color: var(--text-bright); font-weight: 700; font-size: 0.88rem; margin-bottom: 3px; }
+        .link-card .desc { color: var(--text); font-size: 0.76rem; }
+        .link-card .path { color: rgba(255,255,255,0.3); font-size: 0.68rem; margin-top: 4px; font-family: monospace; }
+    </style>
+</head>
+<body>
+    <div class="top-bar">
+        <div class="top-bar-inner">🗂️ Admin — Índice de Navegación</div>
+        <div style="display:flex;gap:16px;">
+            <a href="admin-precios.html">💰 Precios</a>
+            <a href="#" id="logoutLink" onclick="handleLogout()" style="display:none;">Cerrar sesión</a>
+        </div>
+    </div>
+    <div class="container" id="app"></div>
+
+    <script>
+    // Cada módulo del sitio, agrupado igual que el flujo real del candidato.
+    // Los enlaces abren en pestaña nueva a propósito — este índice está
+    // pensado para moverse rápido entre varios módulos a la vez (QA,
+    // soporte, demos), no como parte del flujo del candidato.
+    const MODULOS = [
+        { grupo: '📣 Marketing / Funnel', items: [
+            { path: 'index.html', name: 'Landing', desc: 'Página principal, oferta y CTA de pago' },
+            { path: 'quiz.html', name: 'Quiz de calentamiento', desc: 'Funnel previo a la landing' }
+        ]},
+        { grupo: '💳 Post-pago', items: [
+            { path: 'success.html', name: 'Success', desc: 'Confirmación de pago aprobado' },
+            { path: 'pending.html', name: 'Pending', desc: 'Pago en proceso' },
+            { path: 'failure.html', name: 'Failure', desc: 'Pago rechazado' }
+        ]},
+        { grupo: '🔐 Cuenta', items: [
+            { path: 'recuperar.html', name: 'Recuperar / Iniciar sesión', desc: 'Login por OTP, continuar en otro dispositivo' }
+        ]},
+        { grupo: '📋 Proceso del candidato (en orden)', items: [
+            { path: 'autodiagnostico.html', name: '1. Autodiagnóstico', desc: '142 reactivos, datos personales, firma' },
+            { path: 'alineacion.html', name: '2. Alineación (Capacitación)', desc: 'PPT, videos, agenda de sesión grupal' },
+            { path: 'plan-evaluacion.html', name: '3. Plan de Evaluación', desc: 'Tabla de 25 grupos, agenda de evaluación' },
+            { path: 'guion-maestro.html', name: '↳ Guion Maestro', desc: 'Guion de apoyo para la sesión práctica' },
+            { path: 'examen-conocimientos.html', name: '↳ Examen de Conocimientos', desc: '37 reactivos, calificación automática' },
+            { path: 'documentos-sesion.html', name: '4. Documentos de Sesión', desc: '19 pasos, genera los 4 documentos oficiales' },
+            { path: 'encuesta-satisfaccion.html', name: '5. Encuesta de Satisfacción', desc: '8 preguntas oficiales' },
+            { path: 'evidencias.html', name: '6. Evidencias', desc: 'Checklist + Google Form de evidencias' },
+            { path: 'entrega.html', name: '7. Entrega', desc: 'Confirmación final de certificación' }
+        ]},
+        { grupo: '⚙️ Administración', items: [
+            { path: 'admin-precios.html', name: 'Panel de Precios', desc: 'Montos por fase, altas de candidatos' },
+            { path: 'admin-index.html', name: 'Este índice', desc: 'Navegación rápida entre módulos' }
+        ]}
+    ];
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
+    function renderGateShell() {
+        const app = document.getElementById('app');
+        app.innerHTML = `
+            <div class="container narrow">
+                <div class="hero"><div class="hero-icon">🔐</div><h1 class="hero-title">Índice de Navegación</h1></div>
+                <div class="card" id="adminGateContainer"></div>
+            </div>`;
+        Auth.renderAdminGate(document.getElementById('adminGateContainer'), { onVerified: renderIndex });
+    }
+
+    async function handleLogout() {
+        await Auth.signOut();
+        window.location.reload();
+    }
+
+    function renderIndex() {
+        const app = document.getElementById('app');
+        const gruposHtml = MODULOS.map(grupo => `
+            <div class="card">
+                <h2>${grupo.grupo}</h2>
+                <div class="link-grid">
+                    ${grupo.items.map(item => `
+                        <a class="link-card" href="${item.path}" target="_blank" rel="noopener">
+                            <div class="name">${escapeHtml(item.name)}</div>
+                            <div class="desc">${escapeHtml(item.desc)}</div>
+                            <div class="path">${escapeHtml(item.path)}</div>
+                        </a>
+                    `).join('')}
+                </div>
+            </div>
+        `).join('');
+        app.innerHTML = gruposHtml;
+        document.getElementById('logoutLink').style.display = 'inline';
+    }
+
+    window.addEventListener('load', async () => {
+        try {
+            const session = await Auth.getSession();
+            if (session) {
+                const esAdmin = await Auth.isAdmin(session.user.email);
+                if (esAdmin) { renderIndex(); document.getElementById('logoutLink').style.display = 'inline'; return; }
+                await Auth.signOut();
+            }
+            renderGateShell();
+        } catch (e) {
+            console.error('Error al iniciar el índice:', e);
+            document.getElementById('app').innerHTML = `
+                <div class="container narrow">
+                    <div class="hero"><div class="hero-icon">⚠️</div><h1 class="hero-title">Algo salió mal</h1></div>
+                    <p style="text-align:center;">No pudimos cargar el índice. Recarga la página.</p>
+                </div>`;
+        }
+    });
+    </script>
+</body>
+</html>
