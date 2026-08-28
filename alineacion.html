@@ -72,6 +72,8 @@
         .btn-primary:hover { background: var(--primary-light); transform: translateY(-2px); }
         .btn-primary:disabled { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.3); cursor: not-allowed; transform: none; }
         .btn-secondary { background: transparent; border: 2px solid var(--primary); color: var(--primary); }
+        .btn-whatsapp { background: #25D366; color: white; }
+        .btn-whatsapp:hover { background: #20ba5a; transform: translateY(-2px); }
         .btn-full { width: 100%; margin-bottom: 12px; }
 
         .pending-note {
@@ -79,21 +81,11 @@
             padding: 16px; border: 1px dashed rgba(255,255,255,0.2); border-radius: 8px;
         }
 
-        .slot-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
-        .slot-option {
-            display: flex; align-items: center; gap: 12px; padding: 14px 16px;
-            background: var(--dark); border: 1px solid rgba(255,255,255,0.12); border-radius: 8px;
-            cursor: pointer;
+        .calendar-cta-box {
+            background: linear-gradient(135deg, rgba(0,136,255,0.15), rgba(0,204,255,0.05));
+            border: 2px solid var(--primary); border-radius: 12px; padding: 22px; text-align: center;
         }
-        .slot-option:hover { border-color: var(--primary); }
-        .slot-option.selected { border-color: var(--primary); background: rgba(0,136,255,0.12); }
-        .slot-option input { flex-shrink: 0; }
-        .slot-option .slot-label { color: var(--text-bright); font-weight: 600; font-size: 0.92rem; }
-        .reserva-confirmada {
-            background: rgba(0,255,136,0.08); border: 1px solid var(--success); border-radius: 12px;
-            padding: 20px; text-align: center; margin-bottom: 16px;
-        }
-        .reserva-confirmada .fecha { font-size: 1.15rem; font-weight: 700; color: var(--success); margin: 6px 0; }
+        #calendarFrameAlineacion { width: 100%; height: 600px; border: none; border-radius: 8px; margin-top: 4px; background: white; }
     </style>
 </head>
 <body>
@@ -112,11 +104,10 @@
     const VIDEO_MUESTRA_URL = ''; // video de muestra: cómo atender a un paciente según el estándar
     const MATERIAL_BONUS_URL = ''; // liga al portal con material adicional (bonus)
 
-    // Horarios fijos de la próxima Alineación (sesión grupal, no cita 1:1 tipo
-    // Calendly). Editar cada vez que haya fechas nuevas — vacío = se muestra un
-    // aviso de "próximamente" en vez de una lista rota. Formato de ejemplo:
-    // { id: '2026-09-15-1730', fecha: '15 de septiembre, 2026', hora: '5:30 PM' }
-    const ALINEACION_SLOTS = [];
+    // Widget de Google Calendar Appointment Schedule para agendar Alineación
+    // (sesión grupal — activar "varias reservas por horario" al crearlo en
+    // Google Calendar). Vacío = se muestra un aviso con opción de WhatsApp.
+    const GOOGLE_CALENDAR_BOOKING_URL = ''; // Ej: 'https://calendar.google.com/calendar/appointments/schedules/AcZ...'
 
     function loadAutodiagnosticoResult() {
         try {
@@ -136,95 +127,27 @@
         return div.innerHTML;
     }
 
-    let reservaActual = null; // fila actual en alineacion_reservas, o null
-    let slotSeleccionado = null;
-
-    async function cargarReserva(email) {
-        try {
-            const { data, error } = await supabaseClient
-                .from('alineacion_reservas')
-                .select('*')
-                .eq('email', email)
-                .maybeSingle();
-            if (error) { console.warn('No se pudo leer tu reservación:', error); return null; }
-            return data;
-        } catch (e) {
-            console.warn('No se pudo leer tu reservación:', e);
-            return null;
-        }
-    }
-
-    function seleccionarSlot(slotId) {
-        slotSeleccionado = slotId;
-        document.querySelectorAll('.slot-option').forEach(el => {
-            el.classList.toggle('selected', el.dataset.slotId === slotId);
-            el.querySelector('input').checked = el.dataset.slotId === slotId;
-        });
-        const btn = document.getElementById('btnConfirmarReserva');
-        if (btn) btn.disabled = false;
-    }
-
-    async function confirmarReserva() {
-        if (!slotSeleccionado) return;
-        const slot = ALINEACION_SLOTS.find(s => s.id === slotSeleccionado);
-        if (!slot) return;
-        const btn = document.getElementById('btnConfirmarReserva');
-        if (btn) { btn.disabled = true; btn.textContent = 'Guardando...'; }
-        try {
-            const session = await Auth.getSession();
-            const result = loadAutodiagnosticoResult();
-            const { error } = await supabaseClient
-                .from('alineacion_reservas')
-                .upsert({
-                    email: session.user.email,
-                    nombre: result.personalData.nombre,
-                    slot_id: slot.id,
-                    fecha_hora_texto: `${slot.fecha} — ${slot.hora}`,
-                    actualizado_en: new Date().toISOString()
-                }, { onConflict: 'email' });
-            if (error) throw error;
-            render();
-        } catch (e) {
-            console.error('No se pudo guardar tu reservación:', e);
-            if (btn) { btn.disabled = false; btn.textContent = 'Confirmar horario'; }
-            alert('No se pudo guardar tu reservación. Intenta de nuevo o escríbenos por WhatsApp.');
-        }
-    }
-
-    function renderReservaSlots() {
-        if (!ALINEACION_SLOTS.length) {
-            return `<p class="pending-note">📌 Las fechas de la próxima Alineación se publicarán pronto. Te avisamos por WhatsApp en cuanto estén listas.</p>`;
-        }
-        const slotsHtml = ALINEACION_SLOTS.map(slot => `
-            <label class="slot-option" data-slot-id="${slot.id}" onclick="seleccionarSlot('${slot.id}')">
-                <input type="radio" name="slot" value="${slot.id}">
-                <span class="slot-label">${escapeHtml(slot.fecha)} — ${escapeHtml(slot.hora)}</span>
-            </label>
-        `).join('');
-        return `
-            <div class="slot-list">${slotsHtml}</div>
-            <button id="btnConfirmarReserva" class="btn btn-primary btn-full" disabled onclick="confirmarReserva()">Confirmar horario</button>
-        `;
+    function requestAlineacionViaWhatsApp() {
+        const result = loadAutodiagnosticoResult();
+        const nombre = result ? result.personalData.nombre : 'Candidato';
+        const message = encodeURIComponent(`Hola, quiero coordinar la fecha de mi sesión de Alineación EC1375.\n\nNombre: ${nombre}`);
+        window.open(`https://wa.me/528136071342?text=${message}`, '_blank');
     }
 
     function renderReservaCard() {
-        if (reservaActual) {
-            return `
-                <div class="card">
-                    <h2>📅 Tu sesión de Alineación</h2>
-                    <div class="reserva-confirmada">
-                        <p style="color:var(--text-bright);">✅ Reservación confirmada</p>
-                        <div class="fecha">${escapeHtml(reservaActual.fecha_hora_texto)}</div>
-                    </div>
-                    <p class="desc" style="margin-bottom:10px;">¿Necesitas cambiar de horario?</p>
-                    ${renderReservaSlots()}
-                </div>`;
-        }
         return `
             <div class="card">
                 <h2>📅 Reserva tu sesión de Alineación</h2>
-                <p class="desc">Es una sesión grupal en vivo — elige el horario que mejor te acomode.</p>
-                ${renderReservaSlots()}
+                <p class="desc">Es una sesión grupal en vivo — agenda directo en el calendario y te llega la confirmación con la liga de la sesión a tu correo.</p>
+                ${GOOGLE_CALENDAR_BOOKING_URL ? `
+                    <iframe id="calendarFrameAlineacion" src="${GOOGLE_CALENDAR_BOOKING_URL}"></iframe>
+                ` : `
+                    <div class="calendar-cta-box">
+                        <p style="color:var(--text-bright);font-weight:600;margin-bottom:10px;">El calendario en línea se está configurando</p>
+                        <p class="desc" style="margin-bottom:16px;">Mientras tanto, coordina tu fecha directamente por WhatsApp:</p>
+                        <button class="btn btn-whatsapp" onclick="requestAlineacionViaWhatsApp()">📱 COORDINAR FECHA POR WHATSAPP</button>
+                    </div>
+                `}
             </div>`;
     }
 
@@ -309,8 +232,6 @@
                 </div>`;
             return;
         }
-
-        reservaActual = await cargarReserva(email);
 
         app.innerHTML = `
             <div class="hero">
