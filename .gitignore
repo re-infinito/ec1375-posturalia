@@ -10,12 +10,18 @@ build/
 .env*
 
 # Documentos internos de referencia (no publicar en el repo)
-# El sitio no usa PDFs/Word/Pages como assets - cualquiera en la raíz
-# es un documento de trabajo/consulta, no debe subirse a GitHub
+# El sitio no usa PDFs/Word/Excel/Pages como assets - cualquiera en la raíz
+# es un documento de trabajo/consulta, no debe subirse a GitHub. Los que sí
+# sirve el sitio (ej. la presentación de Alineación) viven ya trackeados y
+# esta regla no los afecta retroactivamente.
 /*.pdf
 /*.docx
 /*.doc
 /*.pages
+/*.xlsx
+/*.xls
+/*.pptx
+/*.ppt
 
 # Config local de desarrollo (browser preview tool)
 .claude/
