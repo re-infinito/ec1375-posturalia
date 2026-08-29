@@ -121,19 +121,27 @@ ACCIÓN (botón: "SÍ, QUIERO DORMIR TRANQUILO")
 ├── .env.local                     # Credenciales (NO COMMITEAR)
 ├── .gitignore                     # Git ignore rules (incluye PDFs, credenciales OAuth)
 ├── vercel.json                    # Config de Vercel
-├── ASSETS_GUIDE.md                # Guía para agregar fotos/videos
-├── MERCADO_PAGO_SETUP.md          # Documentación de integración MP
+├── docs/guides/ASSETS_GUIDE.md    # Guía para agregar fotos/videos
+├── docs/guides/MERCADO_PAGO_SETUP.md   # Documentación de integración MP
 ├── client_secret_....json         # Credenciales OAuth Google Drive (NO COMMITEAR)
-├── PORTAFOLIO HUMBERTO LOT 1375.pdf   # Expediente real de referencia (NO COMMITEAR, confidencial)
-├── _internal_no_publicar/         # TODO gitignored — scripts y assets con datos sensibles
-│   ├── token.json                     # Token OAuth ya autorizado para Drive API
-│   ├── setup_drive_auth.py            # Re-correr si el token expira
-│   ├── test_drive_connection.py       # Prueba rápida de conexión a Drive
-│   ├── plantilla_IEC_blanco.pdf       # IEC en blanco, 83 págs., listo para usar
-│   ├── assemble_expediente.py         # ✅ Construido y probado con datos reales (Paso 5)
-│   ├── supabase_setup_v2_auth.sql     # Auth (OTP) + gate de pago Registro (Fase 1+2)
-│   ├── supabase_setup_v3_fases.sql    # Fase 4: pagos dinámicos por fase, incremental
-│   └── paideiatech_dns_records.md     # Registros DNS de paideiatech.com (referencia)
+├── _internal_no_publicar/         # TODO gitignored — reorganizado en carpetas numeradas (28 ago, 2026)
+│   ├── 01-scripts/                    # Scripts Python + sus dependencias directas (mismo folder,
+│   │   │                              # por los paths relativos a __file__ — ver nota abajo)
+│   │   ├── token.json                     # Token OAuth ya autorizado para Drive API
+│   │   ├── setup_drive_auth.py            # Re-correr si el token expira
+│   │   ├── test_drive_connection.py       # Prueba rápida de conexión a Drive
+│   │   ├── plantilla_IEC_blanco.pdf       # IEC en blanco, 83 págs., listo para usar
+│   │   ├── assemble_expediente.py         # ✅ Construido y probado con datos reales (Paso 5)
+│   │   ├── workdir/ / expedientes/        # Scratch de descarga / PDFs ensamblados generados
+│   │   └── (add_form_questions.py, add_text_question.py, explore_drive_structure.py,
+│   │        explore_forms_api.py, find_response_sheet.py, check_drive_files_detail.py)
+│   ├── 02-sql/                        # Todas las migraciones .sql (supabase_setup_v5_new_project.sql,
+│   │                                  # add_admin_panel_precios.sql, authorize_16_candidatos..., etc.)
+│   ├── 03-documentos-referencia/      # PDFs/PPTX/DOCX/XLSX de consulta, incluye
+│   │   │                              # PORTAFOLIO HUMBERTO LOT 1375.pdf (confidencial) y
+│   │   └── paideiatech_dns_records.md     # registros DNS de paideiatech.com
+│   ├── 04-backups-supabase/           # Dumps de la base de datos
+│   └── 05-pruebas-diego/              # CURP/INE reales de Diego + PDFs de su propia prueba end-to-end
 └── assets/                        # (Carpeta para fotos/videos - crear cuando se tengan)
     ├── images/
     │   ├── logo/
@@ -407,8 +415,8 @@ Diego corrió su propio proceso de principio a fin (candidato de prueba real) y 
   `/Users/diegogarzamx/Desktop/EC1375/_internal_no_publicar/token.json`
 - Ambos archivos están en `.gitignore` (`client_secret*.json`, `token.json`, `_internal_no_publicar/`) — **nunca deben subirse a GitHub**
 - Scope usado: `drive.readonly`
-- Verificado con `_internal_no_publicar/test_drive_connection.py`: la API lista correctamente la carpeta "Evidencia EC1375 (File responses)"
-- Si el token expira/falla, volver a correr `_internal_no_publicar/setup_drive_auth.py` (abre el navegador real del usuario para reautorizar — nunca ingresar credenciales por Claude)
+- Verificado con `_internal_no_publicar/01-scripts/test_drive_connection.py`: la API lista correctamente la carpeta "Evidencia EC1375 (File responses)"
+- Si el token expira/falla, volver a correr `_internal_no_publicar/01-scripts/setup_drive_auth.py` (abre el navegador real del usuario para reautorizar — nunca ingresar credenciales por Claude)
 
 ### Plantilla del Instrumento de Evaluación de Competencia (IEC) — ✅ GENERADA
 
@@ -459,10 +467,10 @@ Importante: el INE/CURP del candidato van cerca de la portada (sección "Datos d
 
 ### ✅ Paso 4 completado — script de ensamblado construido
 
-`_internal_no_publicar/assemble_expediente.py` (nunca en el repo público — maneja datos personales reales). Uso:
+`_internal_no_publicar/01-scripts/assemble_expediente.py` (nunca en el repo público — maneja datos personales reales). Uso:
 
 ```bash
-cd _internal_no_publicar
+cd _internal_no_publicar/01-scripts
 python3 assemble_expediente.py "Nombre Completo Del Candidato" ["liga al video, opcional"]
 ```
 
@@ -472,7 +480,7 @@ Qué hace:
 3. Genera dinámicamente con `reportlab`: portada, índice (con lista de avisos de lo que falte), separadores de sección, Cédula de Evaluación en blanco, y la página de referencia al video
 4. Inserta `plantilla_IEC_blanco.pdf`
 5. Fusiona todo con `pypdf` en el orden verificado contra Humberto
-6. Guarda en `_internal_no_publicar/expedientes/Portafolio_EC1375_[Nombre].pdf`
+6. Guarda en `_internal_no_publicar/01-scripts/expedientes/Portafolio_EC1375_[Nombre].pdf`
 
 **Diseño clave:** si falta cualquier evidencia (no subida, o la pregunta todavía no existe en el Form real), el script **no falla** — genera el expediente igual y lista cada cosa faltante en rojo en la página de Índice del propio PDF, además de imprimirlo en consola. Ya probado end-to-end con datos simulados (portada, índice con avisos, Cédula) — se ven correctamente.
 
@@ -560,7 +568,7 @@ Mientras se probaba el login OTP, apareció un bloqueo real: Resend (recién con
 - **Pendiente que Diego haga:** actualizar la URL del webhook en Mercado Pago (**Modo productivo**, no solo Modo de prueba) al nuevo dominio — si no, el webhook deja de recibir notificaciones de pagos reales.
 
 **Correo / Resend:**
-- Dominio `paideiatech.com` verificado en Resend (registros DKIM/SPF/MX/DMARC agregados en cPanel — referencia completa en `_internal_no_publicar/paideiatech_dns_records.md`, gitignored).
+- Dominio `paideiatech.com` verificado en Resend (registros DKIM/SPF/MX/DMARC agregados en cPanel — referencia completa en `_internal_no_publicar/03-documentos-referencia/paideiatech_dns_records.md`, gitignored).
 - Remitente de las notificaciones de OTP: `noreply@paideiatech.com` (configurado en Supabase → Authentication → Emails → SMTP Settings).
 - Correo de contacto público del sitio (footer, WhatsApp): **`contacto@paideiatech.com`** (cuenta creada por Diego en cPanel → Email Accounts), reemplaza a `posturalia.d817@gmail.com`.
 - Cuenta de Resend: registrada con `posturalia.d817@gmail.com` — si hay que entrar al dashboard de Resend en el futuro, es ese el correo de acceso (no el de contacto del sitio).
@@ -665,7 +673,7 @@ Usadas por `api/mercadopago-webhook.js` y `api/crear-preferencia.js` (server-sid
 Cuenta: posturalia.d817@gmail.com (correo de acceso al dashboard de resend.com — no confundir con el de contacto del sitio)
 Dominio verificado: paideiatech.com
 Remitente de OTP: noreply@paideiatech.com
-Registros DNS: _internal_no_publicar/paideiatech_dns_records.md (gitignored, referencia por si hay que reconfigurar)
+Registros DNS: _internal_no_publicar/03-documentos-referencia/paideiatech_dns_records.md (gitignored, referencia por si hay que reconfigurar)
 ```
 Conectado en Supabase → Authentication → Emails → SMTP Settings.
 
