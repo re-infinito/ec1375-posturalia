@@ -898,10 +898,15 @@ body.pres .app{height:100vh;overflow:hidden}
 .herr span{font-size:12.2px;color:var(--mid)}
 
 @media (max-width:900px){
-  .topbar{flex-wrap:wrap;row-gap:9px}
-  .rutas{order:3;width:100%;overflow-x:auto;padding-bottom:2px}
+  .topbar{flex-wrap:wrap;row-gap:9px;height:auto;min-height:60px;padding-top:8px;padding-bottom:8px}
+  .rutas{order:3;width:100%;overflow-x:auto;padding-bottom:2px;flex-wrap:nowrap}
   .tb-actions{margin-left:auto}
   .step{flex:1 1 46%}
+  /* topbar ya no mide exactamente 60px al envolver a 2 líneas — .progress
+     asumía ese número fijo para su top: sticky y quedaba tapada por el
+     topbar más alto. Sin sticky en móvil se queda en el flujo normal,
+     justo debajo, en vez de flotar. */
+  .progress{position:static}
 }
 @media (max-width:560px){
   .stepper{gap:6px}
@@ -2854,6 +2859,11 @@ function volverAlOrigen(){
   var o=ORIGEN; ORIGEN=null;
   emit('remediation-complete',{origen:o.route,criterio:o.criterio,
                                progress:avance().remediation});
+  /* V4.4 · «dx-resultado» no es una ruta real (no tiene lista/pos de
+     slides) — es el marcador de "vine de la lista de brechas del
+     resultado del autodiagnóstico", así que el regreso es a esa pantalla
+     y no a una ruta tipo `route` (evita mandar al candidato al centro). */
+  if(o.route==='dx-resultado'){ irReforzamiento(); return {ok:true}; }
   ruta={tipo:o.route,lista:o.lista,pos:o.pos,volver:null};
   app.setAttribute('data-view','route'); vista('route'); pinta();
   return {ok:true};
@@ -3886,7 +3896,8 @@ document.addEventListener('click',function(e){
     else if(g==='dx-imprimir'){ window.print(); }
     else if(g==='dx-reforzar'){
       var cid=t.getAttribute('data-crit');
-      ORIGEN=null; abre('remedial',rutaCriterio(cid)); }
+      ORIGEN={route:'dx-resultado',lista:null,pos:0,criterio:cid};
+      abre('remedial',rutaCriterio(cid)); }
     else if(g==='vobo'){ daVoBo(); }
     else if(g==='centro'){ ORIGEN=null; irCentro(); }
     else if(g==='rem'){ ORIGEN=null; abre('remedial',rutaRemedial()); }
@@ -4339,6 +4350,22 @@ window.EC1375.version='4.4';
     if (row && row.ruta_estudio_data) priorState = row.ruta_estudio_data;
   } catch (e) { /* sin fila previa o sin red — sigue con estado nuevo */ }
 
+  /* El motor no sabe nada de pagos (sólo secuencia pedagógica vía su gate()
+     interno) — «registro» arriba sólo desbloquea la entrada a la herramienta
+     (Autodiagnóstico/Reforzamiento). Alineación/Práctica y Evaluación son
+     las mismas 2 fases pagadas que ya gatean alineacion.html y
+     documentos-sesion.html/examen-conocimientos.html respectivamente, así
+     que se checan una vez aquí y se hacen cumplir con el interceptor de
+     clics de abajo — sin tocar el motor. */
+  var fasePagada = {
+    alineacion: await Auth.isPhaseAuthorized(session.user.email, 'alineacion'),
+    evaluacion: await Auth.isPhaseAuthorized(session.user.email, 'evaluacion')
+  };
+  var FASE_REQUERIDA = { ali: 'alineacion',
+    final: 'evaluacion', 'final-empezar': 'evaluacion',
+    asistida: 'evaluacion', 'asistida-empezar': 'evaluacion' };
+  var FASE_DESTINO = { alineacion: 'alineacion.html', evaluacion: 'documentos-sesion.html' };
+
   window.EC1375_CANDIDATE_STATE = priorState || { answeredYes: answeredYes, answeredNo: answeredNo };
   window.EC1375Bridge = {
     load: function(){ return window.EC1375_CANDIDATE_STATE; },
@@ -4356,6 +4383,19 @@ window.EC1375.version='4.4';
     engineTag.remove();
   }
   window.EC1375.configure({ mode: 'integrated', returnTarget: 'alineacion.html' });
+
+  /* Captura (no burbuja) para adelantarse siempre al listener de clics del
+     motor, sin importar el orden de registro — así se bloquea el salto de
+     sección ANTES de que el motor procese data-go y pinte contenido. */
+  document.addEventListener('click', function(e){
+    var t = e.target.closest('[data-go]');
+    if (!t) return;
+    var fase = FASE_REQUERIDA[t.getAttribute('data-go')];
+    if (fase && !fasePagada[fase]) {
+      e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
+      window.location.href = FASE_DESTINO[fase];
+    }
+  }, true);
 
   document.addEventListener('ec1375:return-to-platform', function(){
     window.location.href = 'alineacion.html';

@@ -57,12 +57,15 @@
         th { text-align: left; color: var(--primary-light); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.4px; padding: 8px 6px; border-bottom: 1px solid rgba(255,255,255,0.1); }
         td { padding: 8px 6px; border-bottom: 1px solid rgba(255,255,255,0.06); vertical-align: middle; }
         td input { width: 90px; padding: 7px 8px; background: var(--dark); border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; color: var(--text-bright); font-size: 0.85rem; }
-        .email-cell { color: var(--text-bright); font-weight: 600; max-width: 220px; word-break: break-word; }
+        .email-cell { color: var(--text-bright); font-weight: 600; white-space: nowrap; }
         .total-cell { color: var(--accent); font-weight: 700; white-space: nowrap; }
         .badges { display: flex; gap: 4px; flex-wrap: wrap; }
-        .badge { font-size: 0.68rem; padding: 3px 7px; border-radius: 5px; font-weight: 700; white-space: nowrap; }
-        .badge.on { background: rgba(0,255,136,0.15); color: var(--success); }
+        .badge { font-size: 0.68rem; padding: 3px 7px; border-radius: 5px; font-weight: 700; white-space: nowrap; border: none; cursor: pointer; font-family: inherit; }
+        .badge.on-mp { background: rgba(0,255,136,0.15); color: var(--success); }
+        .badge.on-manual { background: rgba(255,215,0,0.15); color: var(--accent); }
         .badge.off { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.35); }
+        .badge:hover { filter: brightness(1.3); }
+        .badge:disabled { cursor: wait; opacity: 0.6; }
         .row-status { font-size: 0.75rem; margin-left: 8px; }
         .row-status.ok { color: var(--success); }
         .row-status.err { color: var(--danger); }
@@ -114,14 +117,50 @@
     async function cargarDatos() {
         const [precios, pagos] = await Promise.all([
             supabaseClient.from('candidatos_precio').select('*').order('email'),
-            supabaseClient.from('candidatos_fase_pagos').select('email,fase')
+            supabaseClient.from('candidatos_fase_pagos').select('email,fase,origen')
         ]);
         candidatos = precios.data || [];
+        // pagosPorEmail[email][fase] = 'mercadopago' | 'manual' | undefined (no liberada)
         pagosPorEmail = {};
         (pagos.data || []).forEach(row => {
-            if (!pagosPorEmail[row.email]) pagosPorEmail[row.email] = new Set();
-            pagosPorEmail[row.email].add(row.fase);
+            if (!pagosPorEmail[row.email]) pagosPorEmail[row.email] = {};
+            pagosPorEmail[row.email][row.fase] = row.origen || 'manual';
         });
+    }
+
+    // Liberación/revocación manual con un clic — el origen 'mercadopago' solo
+    // lo escribe el webhook (service_role, no pasa por aquí); esto solo
+    // toca liberaciones manuales, aunque también puede revocar una que llegó
+    // por Mercado Pago (p.ej. un pago que hay que anular).
+    async function toggleFase(email, fase, badgeEl) {
+        const origen = (pagosPorEmail[email] || {})[fase];
+        const liberada = !!origen;
+        if (liberada) {
+            const motivo = origen === 'mercadopago' ? ' (llegó por Mercado Pago)' : ' (liberada a mano)';
+            if (!confirm(`¿Revocar la fase "${FASE_LABEL[fase]}" para ${email}${motivo}?`)) return;
+        } else {
+            if (!confirm(`¿Liberar manualmente la fase "${FASE_LABEL[fase]}" para ${email}?`)) return;
+        }
+        badgeEl.disabled = true;
+        try {
+            if (liberada) {
+                const { error } = await supabaseClient.from('candidatos_fase_pagos')
+                    .delete().eq('email', email).eq('fase', fase);
+                if (error) throw error;
+                delete pagosPorEmail[email][fase];
+            } else {
+                const { error } = await supabaseClient.from('candidatos_fase_pagos')
+                    .insert({ email, fase, origen: 'manual' });
+                if (error) throw error;
+                if (!pagosPorEmail[email]) pagosPorEmail[email] = {};
+                pagosPorEmail[email][fase] = 'manual';
+            }
+            renderPanel();
+        } catch (e) {
+            console.error(e);
+            alert('No se pudo actualizar. Revisa la consola.');
+            badgeEl.disabled = false;
+        }
     }
 
     function calcularTotal(prefix) {
@@ -177,16 +216,32 @@
 
     function renderPanel() {
         const app = document.getElementById('app');
-        const rowsHtml = candidatos.map(c => {
+        // Un candidato puede tener fases pagadas/liberadas (candidatos_fase_pagos,
+        // incluido lo que llega solo del webhook de Mercado Pago) antes de que
+        // nadie lo haya dado de alta en candidatos_precio — se le arma una fila
+        // "sin precio capturado" para que no desaparezca del panel (monitoreo).
+        const emailsConPagoSinPrecio = Object.keys(pagosPorEmail)
+            .filter(email => !candidatos.some(c => c.email === email))
+            .sort();
+        const filas = candidatos.concat(emailsConPagoSinPrecio.map(email => ({ email, _sinPrecio: true })));
+        const rowsHtml = filas.map(c => {
             const prefix = `row_${btoa(c.email).replace(/=/g, '')}`;
-            const fasesAutorizadas = pagosPorEmail[c.email] || new Set();
-            const badges = FASES.map(fase => `<span class="badge ${fasesAutorizadas.has(fase) ? 'on' : 'off'}">${FASE_LABEL[fase]}</span>`).join('');
+            const fasesOrigen = pagosPorEmail[c.email] || {};
+            const badges = FASES.map(fase => {
+                const origen = fasesOrigen[fase];
+                const cls = origen === 'mercadopago' ? 'on-mp' : (origen ? 'on-manual' : 'off');
+                const marca = origen === 'mercadopago' ? ' 💳' : (origen ? ' ✋' : '');
+                const title = origen === 'mercadopago' ? 'Pagada por Mercado Pago — clic para revocar'
+                    : origen ? 'Liberada a mano — clic para revocar'
+                    : 'No liberada — clic para liberar manualmente';
+                return `<button type="button" class="badge ${cls}" title="${title}" onclick="toggleFase('${c.email}','${fase}',this)">${FASE_LABEL[fase]}${marca}</button>`;
+            }).join('');
             const montoInputs = FASES.map(fase => `
                 <td><input type="number" id="${prefix}_${fase}" value="${c[`monto_${fase}`] ?? ''}" oninput="calcularTotal('${prefix}')"></td>
             `).join('');
             return `
                 <tr>
-                    <td class="email-cell">${escapeHtml(c.email)}</td>
+                    <td class="email-cell">${escapeHtml(c.email)}${c._sinPrecio ? '<div style="color:var(--accent);font-weight:400;font-size:0.68rem;">Sin precio capturado — guarda montos para agregarlo a Precios</div>' : ''}</td>
                     ${montoInputs}
                     <td class="total-cell" id="${prefix}_total">$${Number(c.total_acordado || 0).toLocaleString('es-MX')}</td>
                     <td><div class="badges">${badges}</div></td>
@@ -211,7 +266,8 @@
                 </div>
             </div>
             <div class="card">
-                <h2>💰 Candidatos (${candidatos.length})</h2>
+                <h2>💰 Candidatos (${filas.length}${emailsConPagoSinPrecio.length ? `, ${emailsConPagoSinPrecio.length} sin precio capturado` : ''})</h2>
+                <p style="font-size:0.78rem;color:rgba(255,255,255,0.45);margin-bottom:14px;">💳 = pagada por Mercado Pago · ✋ = liberada a mano · clic en una fase para liberarla o revocarla</p>
                 <div class="table-wrap">
                     <table>
                         <thead><tr><th>Correo</th>${FASES.map(f => `<th>${FASE_LABEL[f]}</th>`).join('')}<th>Total</th><th>Fases pagadas</th><th></th></tr></thead>
