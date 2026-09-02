@@ -124,8 +124,15 @@
                     <strong>CLABE:</strong> 012180015208248677
                 </div>
                 <button class="btn btn-full" style="background:transparent;border:2px solid var(--primary);color:var(--primary);" onclick="copyClabeBBVA()">Copiar CLABE</button>
-                <p style="font-size:0.8rem;color:rgba(255,255,255,0.5);margin-top:12px;">Después de transferir, envía tu comprobante de pago por <a href="https://wa.me/528115026729" style="color:var(--primary);" target="_blank">WhatsApp</a> para activar este paso.</p>
+                <button class="btn btn-full" style="background:#25D366;color:white;margin-top:10px;" onclick="enviarComprobanteWhatsApp(${typeof monto === 'number' ? monto : 'null'})">📱 Enviar comprobante por WhatsApp</button>
+                <p style="font-size:0.75rem;color:rgba(255,255,255,0.4);margin-top:10px;">Se abre WhatsApp — adjunta ahí la foto o el PDF de tu comprobante para activar este paso.</p>
             </div>`;
+    }
+
+    function enviarComprobanteWhatsApp(monto) {
+        const montoTxt = typeof monto === 'number' ? `$${monto.toLocaleString('es-MX')} MXN` : '';
+        const message = encodeURIComponent(`Hola, ya hice mi transferencia${montoTxt ? ' de ' + montoTxt : ''} para mi Entrega de certificado EC1375. Aquí está mi comprobante:`);
+        window.open(`https://wa.me/528115026729?text=${message}`, '_blank');
     }
 
     function copyClabeBBVA() {
