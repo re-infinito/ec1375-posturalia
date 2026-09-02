@@ -881,6 +881,22 @@ body.pres .nav{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);
   padding:6px 8px;opacity:.18;transition:opacity .2s;z-index:6}
 body.pres .nav:hover{opacity:1}
 body.pres .app{height:100vh;overflow:hidden}
+/* En celular, forzar el stage a 100vh (pensado para pantalla compartida en
+   la sesión en vivo) deja media pantalla en blanco cuando el contenido de
+   la diapositiva no llena un rectángulo tan alto — igual que .stage ya se
+   deja crecer con su contenido fuera de presentación (regla de arriba en
+   @media max-width:760px), aquí se hace lo mismo sólo que además dejando
+   scroll en .app, ya que a diferencia del modo normal no hay .stagewrap
+   con scroll propio de página. */
+@media (max-width:760px){
+  body.pres .stage{height:auto;max-height:none}
+  /* sin min-height (la regla base .app{min-height:100vh} de la línea ~65
+     no es específica de .pres y seguía aplicando) — .nav sigue flotando
+     fijo al fondo del viewport (position:fixed), así que forzar el alto
+     aquí sólo dejaba una franja de color de sobra debajo de diapositivas
+     cortas. */
+  body.pres .app{height:auto;min-height:0;overflow-y:auto;overflow-x:hidden}
+}
 
 /* ── herramientas y matriz ── */
 .phead .busca{display:flex;gap:8px;align-items:center;flex:1 1 240px;
