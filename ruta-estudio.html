@@ -6,51 +6,70 @@
 
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="description" content="Sistema adaptativo de preparación para la evaluación EC1375 — Academia Posturalia">
-<title>EC1375 · Ruta Posturalia 4.4 · Preparación completa</title>
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<meta name="description" content="Sistema adaptativo de preparación para la evaluación EC1375 — Paideia Tech">
+<title>EC1375 · Ruta de Estudio · Paideia Tech</title>
 <style>
 
 /* ═══ TOKENS ═══ */
 :root{
+  /* Paideia Tech — mismos tokens que index.html/quiz.html/etc. (--dark,
+     --dark-light, --primary, --accent dorado, --text/--text-bright,
+     --danger, --success), adaptados a los nombres que ya usa este motor.
+     La herramienta es oscura siempre (nunca hubo modo claro en el resto
+     del sitio) — por eso el bloque "claro" de abajo y el de
+     prefers-color-scheme quedan con los MISMOS valores: sin importar el
+     tema del sistema operativo, se ve igual en todos lados. */
   --navy-900:#0A1A2F; --navy-800:#0F2740; --navy-700:#14304F; --navy-600:#1D4570;
-  --accent:#007AFF; --accent-dk:#0062CC; --cyan:#06B6D4; --cyan-dk:#0E7490;
-  --ok:#059669; --ok-pale:#ECFDF5; --ok-line:#A7F3D0;
-  --warn:#D97706; --warn-pale:#FFFBEB; --warn-line:#FDE68A;
-  --bad:#DC2626; --bad-pale:#FEF2F2; --bad-line:#FECACA;
-  --ink:#0F172A; --mid:#334155; --muted:#64748B; --faint:#94A3B8;
-  --line:#E2E8F0; --line-soft:#EFF3F8; --surface:#FFFFFF; --surface-2:#F8FAFC;
-  --page:#E9EEF4; --accent-pale:#EFF6FF; --cyan-pale:#ECFEFF;
-  --shadow:0 1px 2px rgba(15,23,42,.05),0 12px 40px rgba(15,23,42,.13);
-  --shadow-sm:0 1px 3px rgba(15,23,42,.09);
+  --accent:#0088FF; --accent-dk:#00CCFF; --cyan:#FFD700; --cyan-dk:#C9A227;
+  --ok:#00FF88; --ok-pale:#062A21; --ok-line:#12664F;
+  --warn:#FBBF24; --warn-pale:#2A1D06; --warn-line:#78500E;
+  --bad:#FF3333; --bad-pale:#2C0F0F; --bad-line:#7F2222;
+  --ink:#FFFFFF; --mid:#D0D0D0; --muted:#93A3B7; --faint:#6E8098;
+  --line:#22344B; --line-soft:#1A2B40; --surface:#0f1428; --surface-2:#141b33;
+  --page:#050a1a; --accent-pale:#0C2440; --cyan-pale:#2A2410;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 16px 46px rgba(0,0,0,.5);
+  --shadow-sm:0 1px 3px rgba(0,0,0,.4);
   --r:16px; --r-sm:10px; --r-xs:6px;
-  --display:"Archivo","Archivo Black",system-ui,sans-serif;
-  --body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
-  --mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,monospace;
+  --display:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  --body:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
 }
 :root:not([data-theme="light"]){ @media (prefers-color-scheme:dark){
   --ok-pale:#062A21; --ok-line:#12664F;
   --warn-pale:#2A1D06; --warn-line:#78500E;
   --bad-pale:#2C0F0F; --bad-line:#7F2222;
-  --ink:#EEF3F9; --mid:#C2CEDC; --muted:#93A3B7; --faint:#6E8098;
-  --line:#22344B; --line-soft:#1A2B40; --surface:#0E1B2B; --surface-2:#132339;
-  --page:#070E18; --accent-pale:#0C2440; --cyan-pale:#08303A;
+  --ink:#FFFFFF; --mid:#D0D0D0; --muted:#93A3B7; --faint:#6E8098;
+  --line:#22344B; --line-soft:#1A2B40; --surface:#0f1428; --surface-2:#141b33;
+  --page:#050a1a; --accent-pale:#0C2440; --cyan-pale:#2A2410;
   --shadow:0 1px 2px rgba(0,0,0,.4),0 16px 46px rgba(0,0,0,.5);
   --shadow-sm:0 1px 3px rgba(0,0,0,.4);
-  --accent:#4DA3FF; --accent-dk:#7CBEFF; --cyan:#22D3EE;
-  --ok:#34D399; --warn:#FBBF24; --bad:#F87171;
+  --accent:#0088FF; --accent-dk:#00CCFF; --cyan:#FFD700; --cyan-dk:#C9A227;
+  --ok:#00FF88; --warn:#FBBF24; --bad:#FF3333;
 }}
 :root[data-theme="dark"]{
   --ok-pale:#062A21; --ok-line:#12664F;
   --warn-pale:#2A1D06; --warn-line:#78500E;
   --bad-pale:#2C0F0F; --bad-line:#7F2222;
-  --ink:#EEF3F9; --mid:#C2CEDC; --muted:#93A3B7; --faint:#6E8098;
-  --line:#22344B; --line-soft:#1A2B40; --surface:#0E1B2B; --surface-2:#132339;
-  --page:#070E18; --accent-pale:#0C2440; --cyan-pale:#08303A;
+  --ink:#FFFFFF; --mid:#D0D0D0; --muted:#93A3B7; --faint:#6E8098;
+  --line:#22344B; --line-soft:#1A2B40; --surface:#0f1428; --surface-2:#141b33;
+  --page:#050a1a; --accent-pale:#0C2440; --cyan-pale:#2A2410;
   --shadow:0 1px 2px rgba(0,0,0,.4),0 16px 46px rgba(0,0,0,.5);
   --shadow-sm:0 1px 3px rgba(0,0,0,.4);
-  --accent:#4DA3FF; --accent-dk:#7CBEFF; --cyan:#22D3EE;
-  --ok:#34D399; --warn:#FBBF24; --bad:#F87171;
+  --accent:#0088FF; --accent-dk:#00CCFF; --cyan:#FFD700; --cyan-dk:#C9A227;
+  --ok:#00FF88; --warn:#FBBF24; --bad:#FF3333;
+}
+/* La impresión (Notas del presentador / exportar) siempre debe verse en
+   claro sobre papel blanco — .stage/body ya fuerzan fondo blanco abajo en
+   @media print, pero el texto seguía tomando --ink blanco (invisible sobre
+   blanco) porque los tokens de arriba ahora son oscuros siempre. */
+@media print{
+  :root{
+    --ink:#0F172A; --mid:#334155; --muted:#64748B; --faint:#94A3B8;
+    --line:#E2E8F0; --line-soft:#EFF3F8; --surface:#FFFFFF; --surface-2:#F8FAFC;
+    --page:#FFFFFF; --accent-pale:#EFF6FF; --cyan-pale:#FFFBEB;
+    --ok-pale:#ECFDF5; --ok-line:#A7F3D0; --warn-pale:#FFFBEB; --warn-line:#FDE68A;
+    --bad-pale:#FEF2F2; --bad-line:#FECACA;
+  }
 }
 
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -67,11 +86,10 @@ button{font:inherit;color:inherit;cursor:pointer;border:none;background:none}
 .topbar{position:sticky;top:0;z-index:60;display:flex;align-items:center;gap:14px;
   padding:0 clamp(12px,2.4vw,26px);height:60px;background:var(--surface);
   border-bottom:1px solid var(--line)}
-.brand{display:flex;align-items:center;gap:9px;flex-shrink:0}
-.brand-mk{width:26px;height:26px;flex-shrink:0}
-.brand-tx{font-family:var(--display);font-weight:800;font-size:15px;letter-spacing:-.02em;line-height:1}
+.brand{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.brand-mk{height:32px;width:auto;flex-shrink:0;border-radius:6px}
 .brand-sub{font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;color:var(--muted);
-  text-transform:uppercase;line-height:1;margin-top:3px}
+  text-transform:uppercase;line-height:1}
 
 .modnav{display:flex;gap:5px;margin-left:6px;overflow-x:auto;scrollbar-width:none}
 .modnav::-webkit-scrollbar{display:none}
@@ -561,13 +579,12 @@ svg .skin{fill:var(--surface-2);stroke:var(--mid);stroke-width:2;stroke-linejoin
   overflow:hidden;text-overflow:ellipsis}
 .step .sb{display:block;font:500 11px/1.35 var(--body);color:var(--muted);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.step[data-st="done"]{border-color:#0f766e}
-.step[data-st="done"] .ic{background:#0f766e;color:#fff}
+.step[data-st="done"]{border-color:#5eead4}
+.step[data-st="done"] .ic{background:#5eead4;color:#04211d}
 .step[data-st="current"]{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-pale)}
 .step[data-st="current"] .ic{background:var(--accent);color:#fff}
 .step[data-st="locked"]{opacity:.55}
 .step[data-st="locked"] .ic{background:var(--line)}
-@media (prefers-color-scheme:dark){.step[data-st="done"] .ic{background:#5eead4;color:#04211d}}
 
 /* ── el MARCO ── */
 .frame{width:min(1240px,100%);display:flex;align-items:center;gap:10px;flex-wrap:wrap;
@@ -722,22 +739,15 @@ svg .skin{fill:var(--surface-2);stroke:var(--mid);stroke-width:2;stroke-linejoin
 .opt:hover{border-color:var(--accent)}
 .opt .l{flex:none;width:22px;height:22px;border-radius:6px;background:var(--line-soft);
   display:grid;place-items:center;font:700 12px/1 var(--body);color:var(--mid)}
-.opt.ok{border-color:#0f766e;background:rgba(15,118,110,.12)}
-.opt.ok .l{background:#0f766e;color:#fff}
-.opt.bad{border-color:#b91c1c;background:rgba(185,28,28,.12)}
-.opt.bad .l{background:#b91c1c;color:#fff}
+.opt.ok{border-color:#5eead4;background:rgba(94,234,212,.10)}
+.opt.ok .l{background:#5eead4;color:#04211d}
+.opt.bad{border-color:#fca5a5;background:rgba(252,165,165,.10)}
+.opt.bad .l{background:#fca5a5;color:#3b0a0a}
 .opt[disabled]{cursor:default}
-@media (prefers-color-scheme:dark){
-  .opt.ok{border-color:#5eead4;background:rgba(94,234,212,.10)}
-  .opt.ok .l{background:#5eead4;color:#04211d}
-  .opt.bad{border-color:#fca5a5;background:rgba(252,165,165,.10)}
-  .opt.bad .l{background:#fca5a5;color:#3b0a0a}}
 .fb{border:1px solid var(--line);border-left-width:4px;border-radius:12px;padding:14px 16px;
   margin-top:14px;background:var(--surface-2)}
-.fb.ok{border-left-color:#0f766e}
-.fb.bad{border-left-color:#b91c1c}
-@media (prefers-color-scheme:dark){
-  .fb.ok{border-left-color:#5eead4}.fb.bad{border-left-color:#fca5a5}}
+.fb.ok{border-left-color:#5eead4}
+.fb.bad{border-left-color:#fca5a5}
 .fb .h{font:700 14px/1.2 var(--body);margin-bottom:6px}
 .fb .tema{margin-top:10px;font-size:12.4px;color:var(--mid)}
 .fb .tema b{color:var(--ink)}
@@ -943,9 +953,8 @@ body.pres .app{height:100vh;overflow:hidden}
 
 <div class="app" id="app" data-view="dx" data-mode="standalone" data-centro="on">
   <header class="topbar">
-    <div class="brand"><svg class="brand-mk" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 3c-3.6 0-6 2.4-6 5.4 0 2.6 1.6 4 3 5.4 1.4 1.4 3 2.6 3 5.2 0 2.6-1.6 3.8-3 5.2-1.4 1.4-3 2.8-3 5.4" fill="none" stroke="var(--navy-900)" stroke-width="2.6" stroke-linecap="round"/><circle cx="22.5" cy="9" r="2.6" fill="var(--navy-900)"/><circle cx="22.5" cy="17" r="2.6" fill="var(--navy-900)" opacity=".6"/><circle cx="22.5" cy="25" r="2.6" fill="var(--navy-900)" opacity=".3"/></svg>
-      <div><div class="brand-tx">POSTURALIA</div>
-           <div class="brand-sub">EC1375 · Preparación</div></div>
+    <div class="brand"><img class="brand-mk" src="Logos/Logo Paideia Tech - trimmed.png" alt="Paideia Tech">
+      <div class="brand-sub">EC1375 · Preparación</div>
     </div>
     <nav class="rutas" aria-label="Rutas">
       <button class="rchip" data-go="centro">Mi preparación</button>
@@ -1066,9 +1075,9 @@ body.pres .app{height:100vh;overflow:hidden}
 <section class="slide" data-mod="1" data-notes="Los seis son reactivos independientes. Se cumplen o no se cumplen por separado: puedes lavarte perfectamente las manos y aun así perder el reactivo del tapete sanitizante." data-sid="v3-11" data-rx="1,2,3,4,5,6" data-crit="E1·D1" data-route="both" data-source="oficial" data-weight="2.94" data-risk="critico" data-media="svg" data-media-role="illustrative" data-action="KEEP" data-core="1" aria-label="Diapositiva 13"><div class="pad-t" style="height:100%;display:flex;flex-direction:column;justify-content:center">
   <div class="kicker">Antes de recibir al usuario</div><h2 class="st">Seis barreras sanitarias, en este orden</h2>
   <div style="margin-top:clamp(10px,1.5cqi,18px)"><svg viewBox="0 0 420 300" role="img" xmlns="http://www.w3.org/2000/svg"><circle cx="60" cy="62" r="31" class="box"/><g transform="translate(60,62)"><circle cx="0" cy="0" r="13" class="s a"/><path d="M0 -8 V0 L6 4" class="s a"/></g><text class="tt ctr" x="60" y="110">Antes</text><text class="sm ctr" x="60" y="124"><tspan x="60" dy="0">de recibir</tspan><tspan x="60" dy="12">al usuario</tspan></text><circle cx="30" cy="36" r="10" class="f-n"/><text class="ctr" x="30" y="39.5" fill="#fff" style="font-size:10px;font-family:IBM Plex Mono;font-weight:600">1</text><circle cx="210" cy="62" r="31" class="box"/><g transform="translate(210,62)"><path d="M-8 8 v-10 a3 3 0 016 0 v-6 a3 3 0 016 0 v4 a3 3 0 016 0 v12 a8 8 0 01-8 8 h-8 a8 8 0 01-8-8z" class="s a"/></g><text class="tt ctr" x="210" y="110">Manos</text><text class="sm ctr" x="210" y="124"><tspan x="210" dy="0">protocolo</tspan><tspan x="210" dy="12">OMS</tspan></text><circle cx="180" cy="36" r="10" class="f-n"/><text class="ctr" x="180" y="39.5" fill="#fff" style="font-size:10px;font-family:IBM Plex Mono;font-weight:600">2</text><circle cx="360" cy="62" r="31" class="box"/><g transform="translate(360,62)"><path d="M-14 -5 q14 -7 28 0 v8 q-14 10 -28 0z" class="s a"/><path d="M-14 -3 h-4 M14 -3 h4 M-14 5 h-4 M14 5 h4" class="s s-t a"/><path d="M-9 0 h18 M-9 4 h18" class="s s-t a"/></g><text class="tt ctr" x="360" y="110">Cubrebocas</text><text class="sm ctr" x="360" y="124"><tspan x="360" dy="0">quirúrgico</tspan><tspan x="360" dy="12">triple capa</tspan></text><circle cx="330" cy="36" r="10" class="f-n"/><text class="ctr" x="330" y="39.5" fill="#fff" style="font-size:10px;font-family:IBM Plex Mono;font-weight:600">3</text><circle cx="60" cy="202" r="31" class="box"/><g transform="translate(60,202)"><rect x="-15" y="-8" width="30" height="17" rx="3" class="s a"/><path d="M-9 -3 h18 M-9 2 h18" class="s s-t a"/><path d="M-4 -14 l3 5 M4 -14 l-3 5" class="s s-t c"/></g><text class="tt ctr" x="60" y="250">Tapete</text><text class="sm ctr" x="60" y="264"><tspan x="60" dy="0">solución</tspan><tspan x="60" dy="12">desinfectante</tspan></text><circle cx="30" cy="176" r="10" class="f-n"/><text class="ctr" x="30" y="179.5" fill="#fff" style="font-size:10px;font-family:IBM Plex Mono;font-weight:600">4</text><circle cx="210" cy="202" r="31" class="box"/><g transform="translate(210,202)"><rect x="-7" y="-6" width="14" height="16" rx="2.5" class="s a"/><path d="M-3 -6 v-4 h6 v4 M0 -10 v-4" class="s a"/><circle cx="10" cy="-9" r="2" class="f-c"/></g><text class="tt ctr" x="210" y="250">Gel</text><text class="sm ctr" x="210" y="264"><tspan x="210" dy="0">al ingreso</tspan><tspan x="210" dy="12">del inmueble</tspan></text><circle cx="180" cy="176" r="10" class="f-n"/><text class="ctr" x="180" y="179.5" fill="#fff" style="font-size:10px;font-family:IBM Plex Mono;font-weight:600">5</text><circle cx="360" cy="202" r="31" class="box"/><g transform="translate(360,202)"><path d="M-2 -13 h6 v18 a4.5 4.5 0 11-6 0z" class="s a"/><path d="M1 -8 v14" class="s s-t r"/><path d="M11 -8 q4 3 0 6 M11 0 q4 3 0 6" class="s s-t c"/></g><text class="tt ctr" x="360" y="250">Termómetro</text><text class="sm ctr" x="360" y="264"><tspan x="360" dy="0">digital</tspan><tspan x="360" dy="12">al ingreso</tspan></text><circle cx="330" cy="176" r="10" class="f-n"/><text class="ctr" x="330" y="179.5" fill="#fff" style="font-size:10px;font-family:IBM Plex Mono;font-weight:600">6</text></svg></div>
-  <div class="sfoot"><div class="imgsug"><b>IMAGEN SUGERIDA</b><span>Infografía de seis círculos con iconos sanitarios; alternativamente fotografías reales de cada elemento en el consultorio de Posturalia.</span></div><div class="src">Fuente técnica: EC1375, Elemento 1 — desempeño «Realiza los protocolos de seguridad sanitaria».</div></div>
+  <div class="sfoot"><div class="imgsug"><b>IMAGEN SUGERIDA</b><span>Infografía de seis círculos con iconos sanitarios; alternativamente fotografías reales de cada elemento en el consultorio de Paideia Tech.</span></div><div class="src">Fuente técnica: EC1375, Elemento 1 — desempeño «Realiza los protocolos de seguridad sanitaria».</div></div>
 </div></section>
-<section class="slide" data-mod="1" data-notes="Video propio de Posturalia. Al terminar, pedir al candidato que enliste los seis elementos sin ver la pantalla; es la mejor forma de fijar la secuencia." data-sid="v3-12" data-rx="1,2,3,4,5,6" data-crit="E1·D1" data-route="both" data-source="oficial" data-weight="2.94" data-risk="critico" data-media="video" data-media-role="instructional" data-action="CORRECT" data-core="1" aria-label="Diapositiva 14"><div class="videoslide"><div class="pad" style="height:100%"><div class="cols c-55" style="height:100%"><div class="stackx"><div class="mediawrap" data-media-id="lavado_manos,cubrebocas,tapete_sanitizante"><div class="media" data-slot="1" data-media-id="lavado_manos"><div class="ph"><div class="ic">🎥</div><div class="nm">Preparación del espacio y protocolos de seguridad sanitaria</div><div class="ins">Video no disponible en este momento</div><div class="ins">y 2 videos más sobre este tema</div></div></div></div></div><div class="stackx"><div class="kicker">Demostración</div><h3 class="st">La secuencia completa, en orden</h3><div class="card-t" style="color:#fff">Mientras observas, identifica:</div><ul class="watch"><li><span class="cn">1</span><span>El momento: todo ocurre con la sala vacía</span></li><li><span class="cn">2</span><span>Técnica de lavado de manos conforme a la OMS</span></li><li><span class="cn">3</span><span>Colocación del cubrebocas quirúrgico de triple capa</span></li><li><span class="cn">4</span><span>Tapete sanitizante con solución desinfectante al ingreso</span></li><li><span class="cn">5</span><span>Gel antibacterial disponible en el acceso</span></li><li><span class="cn">6</span><span>Termómetro digital listo y verificado</span></li></ul></div></div></div></div></section>
+<section class="slide" data-mod="1" data-notes="Video propio de Paideia Tech. Al terminar, pedir al candidato que enliste los seis elementos sin ver la pantalla; es la mejor forma de fijar la secuencia." data-sid="v3-12" data-rx="1,2,3,4,5,6" data-crit="E1·D1" data-route="both" data-source="oficial" data-weight="2.94" data-risk="critico" data-media="video" data-media-role="instructional" data-action="CORRECT" data-core="1" aria-label="Diapositiva 14"><div class="videoslide"><div class="pad" style="height:100%"><div class="cols c-55" style="height:100%"><div class="stackx"><div class="mediawrap" data-media-id="lavado_manos,cubrebocas,tapete_sanitizante"><div class="media" data-slot="1" data-media-id="lavado_manos"><div class="ph"><div class="ic">🎥</div><div class="nm">Preparación del espacio y protocolos de seguridad sanitaria</div><div class="ins">Video no disponible en este momento</div><div class="ins">y 2 videos más sobre este tema</div></div></div></div></div><div class="stackx"><div class="kicker">Demostración</div><h3 class="st">La secuencia completa, en orden</h3><div class="card-t" style="color:#fff">Mientras observas, identifica:</div><ul class="watch"><li><span class="cn">1</span><span>El momento: todo ocurre con la sala vacía</span></li><li><span class="cn">2</span><span>Técnica de lavado de manos conforme a la OMS</span></li><li><span class="cn">3</span><span>Colocación del cubrebocas quirúrgico de triple capa</span></li><li><span class="cn">4</span><span>Tapete sanitizante con solución desinfectante al ingreso</span></li><li><span class="cn">5</span><span>Gel antibacterial disponible en el acceso</span></li><li><span class="cn">6</span><span>Termómetro digital listo y verificado</span></li></ul></div></div></div></div></section>
 <section class="slide" data-mod="1" data-notes="Duraciones de referencia: 40–60 segundos con agua y jabón; 20–30 segundos con solución alcoholada. En la evaluación importa que la técnica sea completa y verbalizada." data-sid="v3-13" data-rx="2" data-crit="E1·D1" data-route="remedial" data-source="oficial" data-weight="2.94" data-risk="critico" data-media="svg" data-media-role="illustrative" data-action="KEEP" aria-label="Diapositiva 15"><div class="pad" style="height:100%"><div class="cols c-45 "><div class="stackx"><div class="kicker">Reactivo 2</div><h2 class="st">Lavado de manos conforme al protocolo de la OMS</h2><div class="lead">El estándar no describe la técnica: <b>remite a la OMS</b>. Por eso el evaluador espera la técnica de la Organización Mundial de la Salud, no un lavado improvisado.</div></div><div class="vfill"><svg viewBox="0 0 470 306" role="img" xmlns="http://www.w3.org/2000/svg"><circle cx="235" cy="142" r="46" class="box"/><text class="tt ctr" x="235" y="136" style="font-size:12px">HIGIENE</text><text class="tt ctr" x="235" y="151" style="font-size:12px">DE MANOS</text><text class="lb ctr" x="235" y="166">5 momentos · OMS</text><line x1="235" y1="68" x2="235" y2="92" class="s s-t a dash"/><circle cx="235" cy="54" r="13" class="f-a"/><text class="ctr" x="235" y="58" fill="#fff" style="font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600">1</text><text class="sm" x="235" y="15" text-anchor="middle"><tspan x="235" dy="0">Antes de tocar</tspan><tspan x="235" dy="11">al usuario</tspan></text><line x1="305" y1="119" x2="283" y2="127" class="s s-t a dash"/><circle cx="319" cy="115" r="13" class="f-a"/><text class="ctr" x="319" y="119" fill="#fff" style="font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600">2</text><text class="sm" x="339" y="112" text-anchor="start"><tspan x="339" dy="0">Antes de una</tspan><tspan x="339" dy="11">tarea limpia o aséptica</tspan></text><line x1="278" y1="202" x2="264" y2="182" class="s s-t a dash"/><circle cx="287" cy="213" r="13" class="f-a"/><text class="ctr" x="287" y="217" fill="#fff" style="font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600">3</text><text class="sm" x="307" y="211" text-anchor="start"><tspan x="307" dy="0">Después del riesgo</tspan><tspan x="307" dy="11">de exposición a fluidos</tspan></text><line x1="192" y1="202" x2="206" y2="182" class="s s-t a dash"/><circle cx="183" cy="213" r="13" class="f-a"/><text class="ctr" x="183" y="217" fill="#fff" style="font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600">4</text><text class="sm" x="163" y="211" text-anchor="end"><tspan x="163" dy="0">Después de tocar</tspan><tspan x="163" dy="11">al usuario</tspan></text><line x1="165" y1="119" x2="187" y2="127" class="s s-t a dash"/><circle cx="151" cy="115" r="13" class="f-a"/><text class="ctr" x="151" y="119" fill="#fff" style="font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600">5</text><text class="sm" x="131" y="112" text-anchor="end"><tspan x="131" dy="0">Después de tocar</tspan><tspan x="131" dy="11">su entorno</tspan></text><rect x="60" y="262" width="160" height="34" rx="8" class="s a"/><text class="lb" x="74" y="278">Agua y jabón</text><text x="74" y="291" fill="var(--ink)" style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600">40 – 60 segundos</text><rect x="250" y="262" width="160" height="34" rx="8" class="s c"/><text class="lb" x="264" y="278">Solución alcoholada</text><text x="264" y="291" fill="var(--ink)" style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600">20 – 30 segundos</text></svg></div></div><div class="sfoot"><div class="imgsug"><b>IMAGEN SUGERIDA</b><span>Fotografía cenital de manos enjabonadas mostrando el frotado palma con palma y el entrelazado de dedos; complementar con póster oficial de los 5 momentos de la OMS.</span></div><div class="src">Fuente técnica: Guía de la OMS sobre Higiene de Manos en la Atención de la Salud (referencia citada por el propio EC1375) — cinco momentos y duraciones recomendadas.</div></div></div></section>
 <section class="slide" data-mod="1" data-notes="" data-sid="v3-14" data-rx="3" data-crit="E1·D1" data-route="remedial" data-source="oficial" data-weight="0.59" data-risk="medio" data-media="none" data-media-role="none" data-action="KEEP" aria-label="Diapositiva 16"><div class="pad-t" style="height:100%;display:flex;flex-direction:column;justify-content:center">
   <div class="kicker">Reactivo 3</div><h2 class="st">Cubrebocas quirúrgico de triple capa</h2><div class="lead">El estándar especifica el <b>tipo</b>: quirúrgico, de triple capa, conforme a las recomendaciones de uso de la Secretaría de Salud.</div>
@@ -1247,7 +1256,7 @@ body.pres .app{height:100vh;overflow:hidden}
   <div style="margin-top:clamp(6px,1cqi,12px)">
   <div class="tw"><table class="t"><thead><tr><th>Bloque de la ficha</th><th>Qué contiene</th><th>Reactivo</th></tr></thead><tbody><tr><td class="lead-c"><b>Datos generales</b></td><td>Fecha, nombre completo, edad, peso, estatura, fecha de nacimiento, dirección y <b>folio asignado</b></td><td class="n">66</td></tr><tr><td class="lead-c"><b>Médico tratante</b></td><td>Datos del médico o profesional de la salud que atiende al usuario</td><td class="n">67</td></tr><tr><td class="lead-c"><b>Antecedentes</b></td><td>Físicos, fisiológicos, socioemocionales y heredofamiliares</td><td class="n">68</td></tr><tr><td class="lead-c"><b>Enfermedades</b></td><td>Crónicas, degenerativas y alérgicas</td><td class="n">69</td></tr><tr><td class="lead-c"><b>Información toxicológica</b></td><td>Exposición a sustancias tóxicas</td><td class="n">70</td></tr><tr><td class="lead-c"><b>Hábitos personales</b></td><td>Sueño, alimentación, higiene, deporte, fármacos y sustancias adictivas</td><td class="n">71</td></tr><tr><td class="lead-c"><b>Signos vitales y postura</b></td><td>SpO₂, pulso, frecuencia respiratoria, presión arterial y observación postural</td><td class="n">72</td></tr><tr><td class="lead-c"><b>Estudios</b></td><td>Resumen de resultados actuales y previos de laboratorio y gabinete</td><td class="n">73</td></tr><tr><td class="lead-c"><b>Motivo</b></td><td>Interés, necesidad o malestar para recibir el servicio</td><td class="n">74</td></tr><tr><td class="lead-c"><b>Leyenda y firmas</b></td><td>Leyenda del médico tratante + firma del usuario, del asistente auxiliar y del profesional</td><td class="n">75 · 76</td></tr></tbody></table></div>
   </div>
-  <div class="sfoot"><div class="imgsug"><b>IMAGEN SUGERIDA</b><span>Formato de ficha de registro de Posturalia con llamadas numeradas por bloque.</span></div><div class="src">Fuente técnica: EC1375, Elemento 2 — producto «La bitácora / carpeta / documentación de atención integral».</div></div>
+  <div class="sfoot"><div class="imgsug"><b>IMAGEN SUGERIDA</b><span>Formato de ficha de registro de Paideia Tech con llamadas numeradas por bloque.</span></div><div class="src">Fuente técnica: EC1375, Elemento 2 — producto «La bitácora / carpeta / documentación de atención integral».</div></div>
 </div></section>
 <section class="slide" data-mod="2" data-notes="" data-sid="v3-39" data-rx="32,36,41,42,43,47,48" data-crit="E2·D2,E2·D3" data-route="both" data-source="oficial" data-weight="0.59" data-risk="medio" data-media="video" data-media-role="instructional" data-action="KEEP" data-core="1" aria-label="Diapositiva 41"><div class="videoslide"><div class="pad" style="height:100%"><div class="cols c-55" style="height:100%"><div class="stackx"><div class="mediawrap" data-media-id="aviso_privacidad"><div class="media" data-slot="1" data-media-id="aviso_privacidad"><div class="ph"><div class="ic">🎥</div><div class="nm">Aviso de privacidad y llenado de la ficha de registro</div><div class="ins">Video no disponible en este momento</div></div></div></div></div><div class="stackx"><div class="kicker">Demostración</div><h3 class="st">Aviso de privacidad y ficha de registro</h3><div class="tiny" style="margin-top:.5em">El video muestra la conversación completa. Concéntrate en los momentos que el evaluador marca en su guía.</div><div class="card-t" style="color:#fff">Mientras observas, identifica:</div><ul class="watch"><li><span class="cn">1</span><span>Cómo se establece el clima de confianza</span></li><li><span class="cn">2</span><span>El momento exacto en que se comenta la LFPDPPP</span></li><li><span class="cn">3</span><span>La corroboración del nombre con identificación oficial vigente</span></li><li><span class="cn">4</span><span>Cómo se anuncian la exploración física y los signos vitales, con su orden y razones</span></li><li><span class="cn">5</span><span>Dónde se enuncia la leyenda del médico tratante</span></li><li><span class="cn">6</span><span>La firma de autorización <b>antes</b> de cualquier maniobra</span></li></ul></div></div></div></div></section>
 <section class="slide" data-mod="2" data-notes="" data-sid="v3-40" data-rx="38,39" data-crit="E2·D2" data-route="optional" data-source="oficial" data-weight="0.59" data-risk="medio" data-media="none" data-media-role="none" data-action="KEEP" aria-label="Diapositiva 42"><div class="pad" style="height:100%"><div class="cols c-45 "><div class="stackx"><div class="kicker">Comprueba que estás listo</div><h2 class="st">Microevaluación · documentación</h2></div><div class="vfill"><div class="stackx"><div class="card-t" style="font-size:clamp(12px,1.4cqi,18px)">El usuario ya llenó su ficha y firmó. Descubres que no le comentaste que se le tomarían signos vitales ni el orden a seguir. ¿Qué corresponde hacer?</div><div class="quiz"><button class="qopt" data-ok="0"><span class="ltr">A</span><span>Continuar: la firma ya cubre todo el procedimiento</span></button><button class="qopt" data-ok="1"><span class="ltr">B</span><span>Explicarlo ahora, con sus razones, y confirmar su autorización antes de medir</span></button><button class="qopt" data-ok="0"><span class="ltr">C</span><span>Anotarlo al final en las observaciones de la ficha</span></button></div><div class="qwhy note note-ok"><div class="note-t">✓ Respuesta</div>El reactivo 39 pide indicar que se tomarán signos vitales, <b>el orden a seguir, las razones para ello</b> y la autorización previa firmada. La firma no sustituye la explicación: son criterios distintos y ambos se observan.</div></div></div></div></div></section>
@@ -1580,7 +1589,7 @@ body.pres .app{height:100vh;overflow:hidden}
 <section class="slide" data-mod="3" data-notes="" data-sid="v3-84" data-rx="104,105,106,107,108,109,110,111,112,113,114,115,116" data-crit="E3·P1" data-route="both" data-source="oficial" data-weight="2.94" data-risk="critico" data-media="svg" data-media-role="illustrative" data-action="RECLASSIFY" aria-label="Diapositiva 88"><div class="pad-t" style="height:100%;display:flex;flex-direction:column;justify-content:center">
   <div class="kicker">Producto evaluado</div><h2 class="st">Anatomía de la carta de consentimiento informado</h2><div class="lead">Trece reactivos revisados con <b>Lista de Cotejo</b>. Es el producto con más criterios del estándar después de la bitácora.</div>
   <div style="margin-top:clamp(6px,1.1cqi,14px)"><svg viewBox="0 0 420 300" role="img" xmlns="http://www.w3.org/2000/svg"><rect x="150" y="30" width="120" height="240" rx="7" class="box"/><rect x="150" y="30" width="120" height="28" rx="7" class="f-n"/><rect x="150" y="50" width="120" height="8" class="f-n"/><text class="ctr" x="210" y="49" fill="#fff" style="font-size:9px;font-family:Archivo;font-weight:700">CONSENTIMIENTO</text><path d="M162 70 h74" class="s s-t" opacity=".35"/><path d="M162 84 h96" class="s s-t" opacity=".35"/><path d="M162 98 h96" class="s s-t" opacity=".35"/><path d="M162 112 h74" class="s s-t" opacity=".35"/><path d="M162 126 h96" class="s s-t" opacity=".35"/><path d="M162 140 h96" class="s s-t" opacity=".35"/><path d="M162 154 h74" class="s s-t" opacity=".35"/><path d="M162 168 h96" class="s s-t" opacity=".35"/><path d="M162 182 h96" class="s s-t" opacity=".35"/><rect x="162" y="228" width="42" height="1.4" class="f-m"/><rect x="216" y="228" width="42" height="1.4" class="f-m"/><text class="lb ctr" x="183" y="242" style="font-size:7px">USUARIO</text><text class="lb ctr" x="237" y="242" style="font-size:7px">PRESTADOR</text><path d="M166 222 q8 -9 14 0 q6 -7 12 -2" class="s a s-t"/><path d="M220 222 q9 -10 15 0 q5 -6 11 -2" class="s a s-t"/><text class="sm end" x="140" y="44">Datos del usuario y familiar</text><path d="M144 40 h6" class="s s-t a"/><text class="sm end" x="140" y="82">Aviso de Privacidad</text><path d="M144 78 h6" class="s s-t a"/><text class="sm end" x="140" y="120">Técnicas a aplicar</text><path d="M144 116 h6" class="s s-t a"/><text class="sm end" x="140" y="158">Zonas del cuerpo</text><path d="M144 154 h6" class="s s-t a"/><text class="sm end" x="140" y="196">Reacciones posibles</text><path d="M144 192 h6" class="s s-t a"/><text class="sm end" x="140" y="234">Vestimenta recomendada</text><path d="M144 230 h6" class="s s-t a"/><text class="sm" x="280" y="44">Limitantes del servicio</text><path d="M270 40 h6" class="s s-t a"/><text class="sm" x="280" y="77">Condiciones de preparación</text><path d="M270 73 h6" class="s s-t a"/><text class="sm" x="280" y="110">Sesiones y duración</text><path d="M270 106 h6" class="s s-t a"/><text class="sm" x="280" y="143">Objetivos y efectos</text><path d="M270 139 h6" class="s s-t a"/><text class="sm" x="280" y="176">Rúbrica de conformidad</text><path d="M270 172 h6" class="s s-t a"/><text class="sm" x="280" y="209">Integrada al expediente</text><path d="M270 205 h6" class="s s-t a"/><text class="sm" x="280" y="242">Firma de ambas partes</text><path d="M270 238 h6" class="s s-t a"/></svg></div>
-  <div class="sfoot"><div class="imgsug"><b>IMAGEN SUGERIDA</b><span>Formato real de consentimiento informado de Posturalia con llamadas numeradas hacia cada bloque de contenido. Datos de ejemplo ficticios.</span></div><div class="src">Fuente técnica: EC1375, Elemento 3 — producto «La carta de consentimiento informado / aceptación del servicio elaborada» (reactivo IEC 24, Lista de Cotejo).</div></div>
+  <div class="sfoot"><div class="imgsug"><b>IMAGEN SUGERIDA</b><span>Formato real de consentimiento informado de Paideia Tech con llamadas numeradas hacia cada bloque de contenido. Datos de ejemplo ficticios.</span></div><div class="src">Fuente técnica: EC1375, Elemento 3 — producto «La carta de consentimiento informado / aceptación del servicio elaborada» (reactivo IEC 24, Lista de Cotejo).</div></div>
 </div></section>
 <section class="slide" data-mod="3" data-notes="Los reactivos 114 y 116 parecen repetidos pero no lo son: uno pide la rúbrica de conformidad y el otro el nombre y firma de AMBAS partes. Revisar que el formato tenga los dos espacios." data-sid="v3-85" data-rx="104,105,106,107,108,109,110,111,112,113,114,115,116" data-crit="E3·P1" data-route="alignment" data-source="oficial" data-weight="2.94" data-risk="critico" data-media="none" data-media-role="none" data-action="KEEP" data-core="1" aria-label="Diapositiva 89"><div class="pad" style="height:100%"><div class="cols c-45 "><div class="stackx"><div class="kicker">Lista de cotejo</div><h2 class="st">Los trece contenidos obligatorios</h2><div class="lead">Revisa tu formato línea por línea contra esta lista <b>antes</b> del día de la evaluación. Un formato incompleto pierde varios reactivos de una sola vez.</div></div><div class="vfill"><ul class="chk"><li><span class="box"></span><span>Fecha, nombre completo, edad, fecha de nacimiento, dirección y <b>familiar a quien avisar</b></span></li><li><span class="box"></span><span><b>Aviso de Privacidad</b> conforme a la LFPDPPP</span></li><li><span class="box"></span><span>Descripción de las <b>técnicas a aplicar</b></span></li><li><span class="box"></span><span><b>Puntos y zonas del cuerpo</b> que se tocarán, según el efecto a lograr</span></li><li><span class="box"></span><span><b>Reacciones físicas posibles</b> que se presentan</span></li><li><span class="box"></span><span><b>Vestimenta recomendada</b> para la preparación de las técnicas</span></li><li><span class="box"></span><span><b>Limitantes</b> de aplicación del servicio</span></li><li><span class="box"></span><span><b>Condiciones de preparación</b> que debe cubrir el usuario</span></li><li><span class="box"></span><span><b>Número de sesiones</b> y duración de cada una</span></li><li><span class="box"></span><span><b>Objetivos por sesión</b> y efectos generales</span></li><li><span class="box"></span><span><b>Rúbrica, firma o huella</b> de conformidad del usuario</span></li><li><span class="box"></span><span>Está <b>integrada al expediente</b> del usuario</span></li><li><span class="box"></span><span>Nombre y firma o huella del <b>usuario</b> y de <b>quien otorga el servicio</b></span></li></ul></div></div></div></section>
 <section class="slide" data-mod="3" data-notes="" data-sid="v3-86" data-rx="106,107,110,111,115,116" data-crit="E3·P1" data-route="alignment" data-source="oficial" data-weight="2.94" data-risk="critico" data-media="none" data-media-role="none" data-action="KEEP" data-core="1" aria-label="Diapositiva 90"><div class="pad-t" style="height:100%;display:flex;flex-direction:column;justify-content:center">
@@ -1679,7 +1688,7 @@ body.pres .app{height:100vh;overflow:hidden}
     <ul class="ul"><li><span class="mk mk-n">1</span><span><b>Al término</b> del servicio — no días después, no por correo</span></li><li><span class="mk mk-n">2</span><span><b>Explicando</b> las instrucciones para su llenado</span></li><li><span class="mk mk-n">3</span><span><b>Recibiendo</b> comentarios acerca del servicio</span></li><li><span class="mk mk-n">4</span><span><b>Agradeciendo</b> su colaboración y sus comentarios</span></li></ul>
     <div class="card rail rail"><div class="card-t">Cómo se ve una encuesta que funciona</div><div class="card-b">Breve —de cinco a ocho preguntas—, con escala sencilla y un espacio abierto para comentarios. Puede ser en papel o digital: el estándar no lo especifica.</div></div>
     <div class="note note-warn"><div class="note-t">El detalle del reactivo 118</div><div>«<b>Explicando las instrucciones</b> para su llenado». Entregar la hoja en silencio no cumple: hay que decir cómo se contesta.</div></div>
-  </div></div></div><div class="sfoot"><div class="imgsug"><b>IMAGEN SUGERIDA</b><span>Formato de encuesta de satisfacción de Posturalia sobre una tabla portapapeles, con escala de caritas o de 1 a 5.</span></div></div></div></section>
+  </div></div></div><div class="sfoot"><div class="imgsug"><b>IMAGEN SUGERIDA</b><span>Formato de encuesta de satisfacción de Paideia Tech sobre una tabla portapapeles, con escala de caritas o de 1 a 5.</span></div></div></div></section>
 <section class="slide" data-mod="4" data-notes="Proponer y acordar son secuencia: primero ofreces opciones, luego cierras la fecha con el usuario. Si solo dices «nos vemos la próxima semana», se pierde uno de los dos." data-sid="v3-96" data-rx="121,122,123,124,125,126,127,128" data-crit="E4·D2" data-route="both" data-source="oficial" data-weight="2.94" data-risk="critico" data-media="none" data-media-role="none" data-action="KEEP" data-core="1" aria-label="Diapositiva 100"><div class="pad" style="height:100%"><div class="cols c-45 "><div class="stackx"><div class="kicker">Reactivos 121–128</div><h2 class="st">Acordar el programa de seguimiento</h2><div class="lead">Ocho reactivos. Fíjate en el par 124 y 125: el estándar distingue <b>proponer</b> fechas de <b>acordarlas</b>. Son dos criterios distintos.</div></div><div class="vfill"><ul class="chk"><li><span class="box"></span><span>Una vez <b>finalizado</b> el servicio</span></li><li><span class="box"></span><span>Atendiendo las <b>indicaciones del profesional</b> que otorgó la atención</span></li><li><span class="box"></span><span>Mencionando el <b>objetivo a alcanzar por sesión</b></span></li><li><span class="box"></span><span><b>Proponiendo</b> fechas y horarios</span></li><li><span class="box"></span><span><b>Acordando</b> fechas y horarios</span></li><li><span class="box"></span><span>Resaltando las <b>recomendaciones</b> del especialista para su tratamiento</span></li><li><span class="box"></span><span>Indicando que la atención será <b>permanente</b> para dudas, inquietudes y consultas</span></li><li><span class="box"></span><span><b>Confirmando</b> que se hayan resuelto las dudas planteadas</span></li></ul></div></div><div class="sfoot"><div class="src">Fuente técnica: EC1375, Elemento 4 — desempeño «Acuerda con el usuario el programa de seguimiento» (reactivo IEC 26, Guía de Observación).</div></div></div></section>
 <section class="slide" data-mod="4" data-notes="" data-sid="v3-97" data-rx="129,130,131,132" data-crit="E4·D3" data-route="both" data-source="oficial" data-weight="0.29" data-risk="menor" data-media="none" data-media-role="none" data-action="KEEP" data-core="1" aria-label="Diapositiva 101"><div class="pad-t" style="height:100%;display:flex;flex-direction:column;justify-content:center">
   <div class="kicker">Reactivos 129–132</div><h2 class="st">Asegurar el medio de contacto</h2><div class="lead">Cuatro acciones: <b>solicitar</b>, <b>registrar</b>, <b>proporcionar</b> y <b>agradecer</b>. La tercera se olvida casi siempre: el intercambio es en las dos direcciones.</div>
@@ -1697,7 +1706,7 @@ body.pres .app{height:100vh;overflow:hidden}
       <div class="step-b">Su <b>asistencia, disposición y confianza</b>. El estándar nombra las tres.</div></div>
   </div>
   <div class="note note-ok"><div class="note-t">Una tarjeta resuelve el reactivo 131</div><div>Ten impresa una tarjeta con el nombre del centro, dirección, teléfono de atención y horarios. Entregarla es la forma más limpia de cumplir «proporcionándole datos del Centro».</div></div>
-<div class="sfoot"><div class="imgsug"><b>IMAGEN SUGERIDA</b><span>Tarjeta de presentación de Posturalia junto a un teléfono con la agenda de contacto abierta.</span></div></div></div></section>
+<div class="sfoot"><div class="imgsug"><b>IMAGEN SUGERIDA</b><span>Tarjeta de presentación de Paideia Tech junto a un teléfono con la agenda de contacto abierta.</span></div></div></div></section>
 <section class="slide" data-mod="4" data-notes="" data-sid="v3-98" data-rx="133,134,135,136,137,138" data-crit="E4·P1,E4·P2" data-route="both" data-source="oficial" data-weight="0.59" data-risk="medio" data-media="image" data-media-role="illustrative" data-action="KEEP" aria-label="Diapositiva 102"><div class="pad-t" style="height:100%;display:flex;flex-direction:column;justify-content:center">
   <div class="kicker">Productos evaluados</div><h2 class="st">Plan de Seguimiento y Plan de Sesión</h2><div class="lead">Diez reactivos entre los dos. El Plan de Sesión <b>se integra dentro</b> del Plan de Seguimiento: no son dos archivos sueltos.</div>
   <div class="figwrap" style="margin-top:clamp(8px,1.2cqi,16px)">
@@ -1873,7 +1882,7 @@ body.pres .app{height:100vh;overflow:hidden}
       correspondiente antes de continuar a evaluación. Tu autodiagnóstico te dice dónde;
       la matriz de trazabilidad te dice en qué diapositiva.</div>
     <div class="meta">
-      <div><span class="k">Academia</span><span class="v">Posturalia</span></div>
+      <div><span class="k">Academia</span><span class="v">Paideia Tech</span></div>
       <div><span class="k">Estándar</span><span class="v">EC1375</span></div>
       <div><span class="k">Cobertura</span><span class="v">142 / 142 reactivos</span></div>
     </div>
