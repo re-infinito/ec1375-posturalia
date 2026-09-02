@@ -125,11 +125,49 @@
         return div.innerHTML;
     }
 
+    // Alternativa manual mientras se resuelven los rechazos de Mercado Pago.
+    // El monto exacto es el mismo que ya se captura en admin-precios.html
+    // (monto_alineacion, o % del total_acordado si no está capturado) —
+    // api/monto-fase.js expone esa misma cuenta sin crear una Preferencia.
+    async function fetchMontoFase(email, fase) {
+        try {
+            const resp = await fetch('/api/monto-fase', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, fase })
+            });
+            if (!resp.ok) return null;
+            const data = await resp.json();
+            return typeof data.monto === 'number' ? data.monto : null;
+        } catch (e) { return null; }
+    }
+
+    function renderTransferenciaCard(monto) {
+        const montoTxt = typeof monto === 'number' ? `$${monto.toLocaleString('es-MX')} MXN` : null;
+        return `
+            <div class="card" style="margin-top:20px;">
+                <h2>🏦 Transferencia Bancaria</h2>
+                <p class="desc">${montoTxt ? `¿Prefieres transferir directamente? Transfiere <strong>${montoTxt}</strong> a:` : '¿Prefieres transferir directamente? Escríbenos por WhatsApp para confirmar el monto, y transfiere a:'}</p>
+                <div style="background:var(--dark);border-radius:8px;padding:16px;font-size:0.9rem;line-height:1.9;margin-bottom:14px;">
+                    <strong>Banco:</strong> BBVA<br>
+                    <strong>Titular:</strong> Jose Fernando Villarreal Flores<br>
+                    <strong>Cuenta:</strong> 1520824867<br>
+                    <strong>CLABE:</strong> 012180015208248677
+                </div>
+                <button class="btn btn-secondary btn-full" onclick="copyClabeBBVA()">Copiar CLABE</button>
+                <p style="font-size:0.8rem;color:rgba(255,255,255,0.5);margin-top:12px;">Después de transferir, envía tu comprobante de pago por <a href="https://wa.me/528115026729" style="color:var(--primary);" target="_blank">WhatsApp</a> para activar este paso.</p>
+            </div>`;
+    }
+
+    function copyClabeBBVA() {
+        navigator.clipboard.writeText('012180015208248677').then(() => alert('CLABE copiada al portapapeles'));
+    }
+
     function requestAlineacionViaWhatsApp() {
         const result = loadAutodiagnosticoResult();
         const nombre = result ? result.personalData.nombre : 'Candidato';
         const message = encodeURIComponent(`Hola, quiero coordinar la fecha de mi sesión de Alineación EC1375.\n\nNombre: ${nombre}`);
-        window.open(`https://wa.me/528136071342?text=${message}`, '_blank');
+        window.open(`https://wa.me/528115026729?text=${message}`, '_blank');
     }
 
     function renderReservaCard() {
@@ -231,6 +269,8 @@
         const autorizado = await Auth.isPhaseAuthorized(email, 'alineacion');
 
         if (!autorizado) {
+            const monto = await fetchMontoFase(email, 'alineacion');
+            const montoTxt = typeof monto === 'number' ? `$${monto.toLocaleString('es-MX')} MXN` : null;
             app.innerHTML = `
                 <div class="hero">
                     <div class="hero-icon">🎓</div>
@@ -239,9 +279,11 @@
                 </div>
                 <div class="pay-box">
                     <p>Con tu Registro listo, el siguiente paso es la <strong>Alineación</strong>: capacitación en power point, video, y el video de muestra de cómo atender a un paciente según el estándar.</p>
+                    ${montoTxt ? `<div class="monto">${montoTxt}</div>` : ''}
                     <button id="btnPagar" class="btn btn-primary btn-full" style="margin-top:16px;" onclick="pagarFase()">💳 Pagar Alineación</button>
-                    <p style="font-size:0.8rem;color:rgba(255,255,255,0.5);">¿Dudas sobre el monto o prefieres transferencia? <a href="https://wa.me/528136071342" style="color:var(--primary);" target="_blank">Escríbenos por WhatsApp</a></p>
-                </div>`;
+                    <p style="font-size:0.8rem;color:rgba(255,255,255,0.5);">¿Dudas? <a href="https://wa.me/528115026729" style="color:var(--primary);" target="_blank">Escríbenos por WhatsApp</a></p>
+                </div>
+                ${renderTransferenciaCard(monto)}`;
             return;
         }
 
@@ -292,7 +334,7 @@
                 <div class="blocked-box">
                     <p>No pudimos cargar esta página. Intenta recargarla — si el problema sigue, escríbenos por WhatsApp.</p>
                     <button class="btn btn-primary" onclick="window.location.reload()">🔄 Recargar</button>
-                    <p style="margin-top:14px;font-size:0.85rem;"><a href="https://wa.me/528136071342" style="color:var(--primary);" target="_blank">Escribir por WhatsApp</a></p>
+                    <p style="margin-top:14px;font-size:0.85rem;"><a href="https://wa.me/528115026729" style="color:var(--primary);" target="_blank">Escribir por WhatsApp</a></p>
                 </div>`;
         });
     });

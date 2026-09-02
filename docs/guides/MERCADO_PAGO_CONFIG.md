@@ -175,7 +175,7 @@ SUCCESS.HTML
     ✅ Timeline próximos pasos
     ↓
     [Usuario hace click en WhatsApp]
-    ↓ https://wa.me/528136071342?text=...
+    ↓ https://wa.me/528115026729?text=...
     
 WHATSAPP
     ✅ Usuario se une a grupo

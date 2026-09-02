@@ -262,7 +262,7 @@ Mercado Pago back_urls:
 success.html → UNIRME A GRUPO button
   const specialty = localStorage.getItem('quizResponses')
   message = `Hola, acabo de apartar. Soy terapeuta de ${specialty}`
-  window.open(`https://wa.me/528136071342?text=${message}`)
+  window.open(`https://wa.me/528115026729?text=${message}`)
 ```
 
 ### 📊 Conversión esperada (Baseline)
@@ -545,7 +545,7 @@ Después de dejar v1 funcionando, Diego preguntó "¿cuáles son los siguientes 
 - **Nueva tabla `candidatos_autorizados`** (misma migración, `supabase_setup_v2_auth.sql`): `email` (PK), `payment_id`, `monto`, `origen` ('mercadopago' | 'manual'), `autorizado_en`. RLS sin políticas para anon/authenticated — nadie puede leer ni escribir esta tabla por REST directo.
 - **Función `is_email_authorized(check_email)`** (`security definer`, `grant execute to anon`): la única forma en que el cliente puede consultarla — contesta sí/no para un correo puntual, nunca expone la lista completa (privacidad de quién pagó).
 - **RLS de `candidatos_ec1375` actualizada:** el `with check` ahora exige, además de `auth.uid() = user_id`, que `auth.jwt()->>'email'` esté en `candidatos_autorizados`. Así, aunque alguien verifique un OTP para un correo no autorizado (saltándose el aviso de la UI), no puede guardar ni un dato — el bloqueo real está en la base de datos, no solo en el JS.
-- **`auth.js`:** nueva `Auth.isEmailAuthorized(email)` (llama al RPC, falla cerrado — cualquier error de red devuelve `false`), insertada al inicio de `_handleSendOtp()`. Si no está autorizado, no se manda el código (evita gastar cuota de envíos) y se muestra un aviso con botón directo a WhatsApp (`528136071342`) para pedir activación manual.
+- **`auth.js`:** nueva `Auth.isEmailAuthorized(email)` (llama al RPC, falla cerrado — cualquier error de red devuelve `false`), insertada al inicio de `_handleSendOtp()`. Si no está autorizado, no se manda el código (evita gastar cuota de envíos) y se muestra un aviso con botón directo a WhatsApp (`528115026729`) para pedir activación manual.
 - **Nueva función serverless `api/mercadopago-webhook.js`** — primera pieza de backend del proyecto (todo lo demás sigue siendo HTML estático). Valida la firma `x-signature` (HMAC-SHA256, `crypto` nativo de Node, sin dependencias nuevas) contra `MERCADOPAGO_WEBHOOK_SECRET`, consulta el pago completo vía la API de pagos de Mercado Pago con `MERCADOPAGO_ACCESS_TOKEN`, y si `status === 'approved'` hace upsert del `payer.email` en `candidatos_autorizados` usando `SUPABASE_SERVICE_ROLE_KEY` (server-side, nunca en el HTML). Responde 200 incluso ante errores internos propios para no generar reintentos infinitos de Mercado Pago — el candidato afectado siempre puede pedir activación manual por WhatsApp mientras se investiga.
 - **Transferencias bancarias** (Banorte, el otro método de pago del sitio) nunca van a pasar por este webhook — para esos casos Diego agrega el correo a mano en `candidatos_autorizados` vía el Table Editor de Supabase, mismo destino que el camino automático.
 - **Verificado con pruebas aisladas en Node** (bypassing el cacheo del navegador para `auth.js`, que resultó poco confiable en este entorno de pruebas): con `is_email_authorized` simulando `false`, `_handleSendOtp()` muestra el aviso de WhatsApp y **nunca llama** `signInWithOtp`; con `true`, procede normalmente a la pantalla de código. Sintaxis de `api/mercadopago-webhook.js` verificada con `node --check`.
@@ -710,9 +710,9 @@ CLABE: 072580006971824032
 
 ### Contacto y WhatsApp
 ```
-Teléfono: +52 81 3607 1342
+Teléfono: +52 81 1502 6729
 Email de contacto (sitio): contacto@paideiatech.com
-WhatsApp: https://wa.me/528136071342
+WhatsApp: https://wa.me/528115026729
 ```
 
 ---
@@ -1066,7 +1066,7 @@ Recibe confirmación + WhatsApp de equipo (Conversión ✓)
 - Video pendiente: 30-60s
 
 **Equipo de Soporte:**
-- WhatsApp: +52 81 3607 1342
+- WhatsApp: +52 81 1502 6729
 - Email: posturalia.d817@gmail.com
 
 ---

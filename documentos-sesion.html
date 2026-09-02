@@ -43,6 +43,7 @@
 
         .blocked-box { background: rgba(255, 215, 0, 0.08); border: 1px solid var(--accent); border-radius: 12px; padding: 28px; text-align: center; }
         .pay-box { background: linear-gradient(135deg, rgba(0,136,255,0.15), rgba(0,204,255,0.05)); border: 2px solid var(--primary); border-radius: 12px; padding: 28px; text-align: center; }
+        .pay-box .monto { font-size: 2rem; font-weight: 700; color: var(--text-bright); margin: 10px 0; }
 
         .field-group { margin-bottom: 16px; }
         .field-group label { display: block; font-size: 0.85rem; color: var(--text); margin-bottom: 6px; font-weight: 600; }
@@ -367,6 +368,44 @@
         return div.innerHTML;
     }
 
+    // Alternativa manual mientras se resuelven los rechazos de Mercado Pago.
+    // El monto exacto es el mismo que ya se captura en admin-precios.html
+    // (monto_evaluacion, o % del total_acordado si no está capturado) —
+    // api/monto-fase.js expone esa misma cuenta sin crear una Preferencia.
+    async function fetchMontoFase(email, fase) {
+        try {
+            const resp = await fetch('/api/monto-fase', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, fase })
+            });
+            if (!resp.ok) return null;
+            const data = await resp.json();
+            return typeof data.monto === 'number' ? data.monto : null;
+        } catch (e) { return null; }
+    }
+
+    function renderTransferenciaCard(monto) {
+        const montoTxt = typeof monto === 'number' ? `$${monto.toLocaleString('es-MX')} MXN` : null;
+        return `
+            <div class="card" style="margin-top:20px;">
+                <h2>🏦 Transferencia Bancaria</h2>
+                <p class="desc">${montoTxt ? `¿Prefieres transferir directamente? Transfiere <strong>${montoTxt}</strong> a:` : '¿Prefieres transferir directamente? Escríbenos por WhatsApp para confirmar el monto, y transfiere a:'}</p>
+                <div style="background:var(--dark);border-radius:8px;padding:16px;font-size:0.9rem;line-height:1.9;margin-bottom:14px;">
+                    <strong>Banco:</strong> BBVA<br>
+                    <strong>Titular:</strong> Jose Fernando Villarreal Flores<br>
+                    <strong>Cuenta:</strong> 1520824867<br>
+                    <strong>CLABE:</strong> 012180015208248677
+                </div>
+                <button class="btn btn-secondary btn-full" onclick="copyClabeBBVA()">Copiar CLABE</button>
+                <p style="font-size:0.8rem;color:rgba(255,255,255,0.5);margin-top:12px;">Después de transferir, envía tu comprobante de pago por <a href="https://wa.me/528115026729" style="color:var(--primary);" target="_blank">WhatsApp</a> para activar este paso.</p>
+            </div>`;
+    }
+
+    function copyClabeBBVA() {
+        navigator.clipboard.writeText('012180015208248677').then(() => alert('CLABE copiada al portapapeles'));
+    }
+
     /* =========================================================
        CHECKLIST / GUION — mismo localStorage que guion-maestro.html
        (guionChecklistState), mismas claves (s1-prep-N, s1-proto-N,
@@ -495,13 +534,17 @@
         }
 
         if (step !== 'intro' && !(await Auth.isPhaseAuthorized(session.user.email, 'evaluacion'))) {
+            const monto = await fetchMontoFase(session.user.email, 'evaluacion');
+            const montoTxt = typeof monto === 'number' ? `$${monto.toLocaleString('es-MX')} MXN` : null;
             app.innerHTML = `
                 <div class="hero"><div class="hero-icon">🩺</div><h1 class="hero-title">Documentos de Sesión</h1></div>
                 <div class="pay-box">
                     <p>Este paso es parte de tu <strong>Evaluación</strong> — antes de continuar necesitas completar ese pago.</p>
+                    ${montoTxt ? `<div class="monto">${montoTxt}</div>` : ''}
                     <button id="btnPagarEvaluacion" class="btn btn-primary btn-full" style="margin-top:16px;" onclick="pagarFaseEvaluacion()">💳 Pagar Evaluación</button>
-                    <p style="font-size:0.8rem;color:rgba(255,255,255,0.5);">¿Dudas sobre el monto o prefieres transferencia? <a href="https://wa.me/528136071342" style="color:var(--primary);" target="_blank">Escríbenos por WhatsApp</a></p>
-                </div>`;
+                    <p style="font-size:0.8rem;color:rgba(255,255,255,0.5);">¿Dudas? <a href="https://wa.me/528115026729" style="color:var(--primary);" target="_blank">Escríbenos por WhatsApp</a></p>
+                </div>
+                ${renderTransferenciaCard(monto)}`;
             return;
         }
 
@@ -1305,7 +1348,7 @@ const LOGO_CONOCER_BASE64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAA
                 <div class="blocked-box">
                     <p>No pudimos cargar esta página. Intenta recargarla — si el problema sigue, escríbenos por WhatsApp.</p>
                     <button class="btn btn-primary" onclick="window.location.reload()">🔄 Recargar</button>
-                    <p style="margin-top:14px;font-size:0.85rem;"><a href="https://wa.me/528136071342" style="color:var(--primary);" target="_blank">Escribir por WhatsApp</a></p>
+                    <p style="margin-top:14px;font-size:0.85rem;"><a href="https://wa.me/528115026729" style="color:var(--primary);" target="_blank">Escribir por WhatsApp</a></p>
                 </div>`;
         });
     });

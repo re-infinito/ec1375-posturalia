@@ -53,6 +53,7 @@
             background: linear-gradient(135deg, rgba(0,136,255,0.15), rgba(0,204,255,0.05));
             border: 2px solid var(--primary); border-radius: 12px; padding: 28px; text-align: center;
         }
+        .pay-box .monto { font-size: 2rem; font-weight: 700; color: var(--text-bright); margin: 10px 0; }
 
         .success-box {
             background: rgba(0,255,136,0.08); border: 1px solid var(--success); border-radius: 12px;
@@ -89,6 +90,46 @@
         const div = document.createElement('div');
         div.textContent = str;
         return div.innerHTML;
+    }
+
+    // Alternativa manual mientras se resuelven los rechazos de Mercado Pago.
+    // El monto exacto es el mismo que ya se captura en admin-precios.html
+    // (monto_entrega, o % del total_acordado si no está capturado) —
+    // api/monto-fase.js expone esa misma cuenta sin crear una Preferencia.
+    // Sin clase .card/.desc/.btn-secondary en este archivo (más simple que
+    // los otros) — estilos inline.
+    async function fetchMontoFase(email, fase) {
+        try {
+            const resp = await fetch('/api/monto-fase', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, fase })
+            });
+            if (!resp.ok) return null;
+            const data = await resp.json();
+            return typeof data.monto === 'number' ? data.monto : null;
+        } catch (e) { return null; }
+    }
+
+    function renderTransferenciaCard(monto) {
+        const montoTxt = typeof monto === 'number' ? `$${monto.toLocaleString('es-MX')} MXN` : null;
+        return `
+            <div style="background:var(--dark-light);border-radius:12px;padding:24px;margin-top:20px;">
+                <h2 style="font-size:1.15rem;color:var(--text-bright);margin-bottom:14px;">🏦 Transferencia Bancaria</h2>
+                <p style="font-size:0.88rem;color:var(--text);margin-bottom:16px;">${montoTxt ? `¿Prefieres transferir directamente? Transfiere <strong>${montoTxt}</strong> a:` : '¿Prefieres transferir directamente? Escríbenos por WhatsApp para confirmar el monto, y transfiere a:'}</p>
+                <div style="background:var(--dark);border-radius:8px;padding:16px;font-size:0.9rem;line-height:1.9;margin-bottom:14px;">
+                    <strong>Banco:</strong> BBVA<br>
+                    <strong>Titular:</strong> Jose Fernando Villarreal Flores<br>
+                    <strong>Cuenta:</strong> 1520824867<br>
+                    <strong>CLABE:</strong> 012180015208248677
+                </div>
+                <button class="btn btn-full" style="background:transparent;border:2px solid var(--primary);color:var(--primary);" onclick="copyClabeBBVA()">Copiar CLABE</button>
+                <p style="font-size:0.8rem;color:rgba(255,255,255,0.5);margin-top:12px;">Después de transferir, envía tu comprobante de pago por <a href="https://wa.me/528115026729" style="color:var(--primary);" target="_blank">WhatsApp</a> para activar este paso.</p>
+            </div>`;
+    }
+
+    function copyClabeBBVA() {
+        navigator.clipboard.writeText('012180015208248677').then(() => alert('CLABE copiada al portapapeles'));
     }
 
     async function pagarFase() {
@@ -140,6 +181,8 @@
         const autorizado = await Auth.isPhaseAuthorized(email, 'entrega');
 
         if (!autorizado) {
+            const monto = await fetchMontoFase(email, 'entrega');
+            const montoTxt = typeof monto === 'number' ? `$${monto.toLocaleString('es-MX')} MXN` : null;
             app.innerHTML = `
                 <div class="hero">
                     <div class="hero-icon">🏆</div>
@@ -148,9 +191,11 @@
                 </div>
                 <div class="pay-box">
                     <p>Tu evaluación está lista. Con el pago de <strong>Entrega</strong> procesamos tu certificado ante la SEP (duración aproximada de 90 días) y te lo hacemos llegar.</p>
+                    ${montoTxt ? `<div class="monto">${montoTxt}</div>` : ''}
                     <button id="btnPagar" class="btn btn-primary btn-full" style="margin-top:16px;" onclick="pagarFase()">💳 Pagar Entrega</button>
-                    <p style="font-size:0.8rem;color:rgba(255,255,255,0.5);">¿Dudas sobre el monto o prefieres transferencia? <a href="https://wa.me/528136071342" style="color:var(--primary);" target="_blank">Escríbenos por WhatsApp</a></p>
-                </div>`;
+                    <p style="font-size:0.8rem;color:rgba(255,255,255,0.5);">¿Dudas? <a href="https://wa.me/528115026729" style="color:var(--primary);" target="_blank">Escríbenos por WhatsApp</a></p>
+                </div>
+                ${renderTransferenciaCard(monto)}`;
             return;
         }
 
@@ -163,7 +208,7 @@
             <div class="success-box">
                 <h2>✓ Pago de Entrega confirmado</h2>
                 <p>Estamos procesando tu certificado ante la SEP — el trámite oficial dura aproximadamente <strong>90 días</strong>. En cuanto lo recibamos, te contactamos por WhatsApp para hacértelo llegar.</p>
-                <a href="https://wa.me/528136071342?text=${encodeURIComponent('Hola, ya pagué la Entrega de mi certificado. ¿Cómo va el proceso?')}" target="_blank" class="btn btn-primary btn-full" style="margin-top:18px;">📱 Preguntar estatus por WhatsApp</a>
+                <a href="https://wa.me/528115026729?text=${encodeURIComponent('Hola, ya pagué la Entrega de mi certificado. ¿Cómo va el proceso?')}" target="_blank" class="btn btn-primary btn-full" style="margin-top:18px;">📱 Preguntar estatus por WhatsApp</a>
             </div>`;
     }
 
@@ -175,7 +220,7 @@
                 <div class="blocked-box">
                     <p>No pudimos cargar esta página. Intenta recargarla — si el problema sigue, escríbenos por WhatsApp.</p>
                     <button class="btn btn-primary" onclick="window.location.reload()">🔄 Recargar</button>
-                    <p style="margin-top:14px;font-size:0.85rem;"><a href="https://wa.me/528136071342" style="color:var(--primary);" target="_blank">Escribir por WhatsApp</a></p>
+                    <p style="margin-top:14px;font-size:0.85rem;"><a href="https://wa.me/528115026729" style="color:var(--primary);" target="_blank">Escribir por WhatsApp</a></p>
                 </div>`;
         });
     });
