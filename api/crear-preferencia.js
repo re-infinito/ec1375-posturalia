@@ -27,6 +27,13 @@ const TITULO_FASE = {
     entrega: 'Paideia Tech - Entrega de Certificado'
 };
 
+const DESCRIPCION_FASE = {
+    registro: 'Apartado de lugar — certificación EC1375, Paideia Tech',
+    alineacion: 'Sesión de capacitación (Alineación) — certificación EC1375, Paideia Tech',
+    evaluacion: 'Evaluación práctica — certificación EC1375, Paideia Tech',
+    entrega: 'Trámite y entrega de certificado — certificación EC1375, Paideia Tech'
+};
+
 const COLUMNA_MONTO_FASE = {
     registro: 'monto_registro',
     alineacion: 'monto_alineacion',
@@ -69,7 +76,7 @@ module.exports = async (req, res) => {
     }
 
     try {
-        const { email, fase } = req.body || {};
+        const { email, fase, nombre } = req.body || {};
         const emailNormalizado = (email || '').trim().toLowerCase();
 
         if (!emailNormalizado || !emailNormalizado.includes('@')) {
@@ -84,6 +91,22 @@ module.exports = async (req, res) => {
         const montoBruto = await obtenerMontoFase(emailNormalizado, fase);
         const monto = Math.round(montoBruto * 100) / 100;
 
+        // Mercado Pago recomienda mandar la mayor cantidad de datos posible
+        // del comprador y del producto para que su motor antifraude tenga
+        // más señales de que es una compra legítima — ver "improve-payment-
+        // approval/recommendations" en sus docs. payer.name/surname es lo
+        // único que tenemos disponible con confianza en este punto del flujo
+        // (el candidato ya capturó su nombre en el Autodiagnóstico); no
+        // mandamos teléfono/dirección/identification para no arriesgar un
+        // valor mal formado que tumbe la creación de la preferencia entera.
+        const payer = { email: emailNormalizado };
+        const nombreLimpio = (nombre || '').trim();
+        if (nombreLimpio) {
+            const partes = nombreLimpio.split(/\s+/);
+            payer.name = partes[0];
+            if (partes.length > 1) payer.surname = partes.slice(1).join(' ');
+        }
+
         const preferenceResp = await fetch('https://api.mercadopago.com/checkout/preferences', {
             method: 'POST',
             headers: {
@@ -94,12 +117,14 @@ module.exports = async (req, res) => {
                 items: [
                     {
                         title: TITULO_FASE[fase],
+                        description: DESCRIPCION_FASE[fase],
+                        category_id: 'services',
                         quantity: 1,
                         currency_id: 'MXN',
                         unit_price: monto
                     }
                 ],
-                payer: { email: emailNormalizado },
+                payer,
                 // El webhook lee esto para saber qué fase autorizar — ver
                 // api/mercadopago-webhook.js.
                 external_reference: `${emailNormalizado}|${fase}`,

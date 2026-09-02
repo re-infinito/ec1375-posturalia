@@ -136,15 +136,32 @@
         const btn = document.getElementById('btnPagar');
         const session = await Auth.getSession();
         if (!session) { render(); return; }
+        const email = session.user.email;
+
+        // Reutiliza el mismo link de pago si el candidato le da clic varias
+        // veces seguidas en vez de generar una preferencia nueva cada vez —
+        // varios intentos idénticos en pocos minutos es justo el patrón que
+        // el motor antifraude de Mercado Pago marca como sospechoso.
+        const cacheKey = 'mpInitPoint_entrega';
+        try {
+            const cached = JSON.parse(sessionStorage.getItem(cacheKey) || 'null');
+            if (cached && cached.initPoint && (Date.now() - cached.ts) < 10 * 60 * 1000) {
+                window.location.href = cached.initPoint;
+                return;
+            }
+        } catch (e) {}
+
         if (btn) { btn.disabled = true; btn.textContent = 'Generando link de pago...'; }
         try {
+            const result = loadAutodiagnosticoResult();
             const resp = await fetch('/api/crear-preferencia', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: session.user.email, fase: 'entrega' })
+                body: JSON.stringify({ email, fase: 'entrega', nombre: result ? result.personalData.nombre : '' })
             });
             const data = await resp.json();
             if (!resp.ok || !data.init_point) throw new Error(data.error || 'sin init_point');
+            try { sessionStorage.setItem(cacheKey, JSON.stringify({ initPoint: data.init_point, ts: Date.now() })); } catch (e) {}
             window.location.href = data.init_point;
         } catch (e) {
             if (btn) { btn.disabled = false; btn.textContent = '💳 Pagar Entrega'; }
