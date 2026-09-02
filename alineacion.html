@@ -114,7 +114,7 @@
             const answers = saved.answers || {};
             const total = 142;
             const answered = Object.keys(answers).length;
-            return { personalData: saved.personalData, answered, total, completo: answered === total };
+            return { personalData: saved.personalData, answered, total, completo: answered === total, ndaAccepted: !!saved.ndaAccepted };
         } catch (e) { return null; }
     }
 
@@ -209,6 +209,20 @@
                 <div class="blocked-box">
                     <p><strong>Verifica tu correo para continuar</strong><br>Encontramos tu avance en este dispositivo, pero necesitas iniciar sesión para seguir.</p>
                     <a href="recuperar.html" class="btn btn-primary">🔐 Iniciar sesión</a>
+                </div>`;
+            return;
+        }
+
+        if (!result.ndaAccepted) {
+            app.innerHTML = `
+                <div class="hero">
+                    <div class="hero-icon">🔒</div>
+                    <h1 class="hero-title">Alineación (Capacitación)</h1>
+                    <p class="hero-subtitle">Hola ${escapeHtml(result.personalData.nombre)}, falta un paso</p>
+                </div>
+                <div class="blocked-box">
+                    <p><strong>Primero necesitas firmar tu Acuerdo de Confidencialidad (NDA)</strong><br>Es un paso corto dentro de tu Autodiagnóstico — protege tanto la información de otros candidatos como el material de Paideia Tech.</p>
+                    <a href="autodiagnostico.html" class="btn btn-primary">🔒 Firmar mi Acuerdo de Confidencialidad</a>
                 </div>`;
             return;
         }

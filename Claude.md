@@ -627,6 +627,7 @@ Diego compartió el documento oficial del proceso (`Proceso EC1375-paideia.pdf`)
 2. **"Formato de Atención a Usuarios"** (págs. 2-3 de Humberto) y **"Verificación Interna"/"Formato Servicio a Usuarios"** (págs. 137-138): parecen documentos de admisión/auditoría interna del Centro Evaluador, no generados por el candidato — se omiten del expediente estándar salvo que la evaluadora confirme que se requieren.
 3. **Cédula de Evaluación y IEC llenos:** ambos los llena el evaluador después de revisar el video/evidencias — el script de ensamblado los inserta en blanco; falta un segundo flujo (fuera de este alcance por ahora) para que el evaluador los llene digitalmente y se regenere el expediente ya completo.
 4. **Google Calendar en `plan-evaluacion.html`:** el candidato pidió que fuera "horarios fijos recurrentes" en vez de un calendario en tiempo real tipo Calendly — **todavía no se configuró**, el placeholder `GOOGLE_CALENDAR_BOOKING_URL` sigue vacío y usa el fallback de WhatsApp.
+5. **Portada de `ruta-estudio.html` (diapositiva 1 de Alineación) todavía dice "ACADEMIA POSTURALIA":** ese texto está incrustado en la fotografía de portada (la terapeuta con el certificado), no es texto vivo — no se pudo corregir con CSS/HTML porque no hay nada que editar en el DOM. Pendiente que Diego regenere esa imagen con la marca correcta (foto nueva o edición de la actual) para reemplazarla.
 
 ---
 

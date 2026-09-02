@@ -929,7 +929,7 @@
        STATE
     ========================================================= */
     let currentStepIndex = 0; // 0=intro, 1=personal, 2-5=elementos 1-4, 6=firma, 7=resultado
-    const STEPS = ['intro', 'auth', 'personal', 'e1', 'e2', 'e3', 'e4', 'firma', 'resultado'];
+    const STEPS = ['intro', 'auth', 'personal', 'nda', 'e1', 'e2', 'e3', 'e4', 'firma', 'resultado'];
 
     let personalData = { nombre: '', curp: '', domicilio: '', escolaridad: '', telefonoCasa: '', telefonoCelular: '', email: '', fecha: todayISO() };
     let selectedCertificaciones = [];
@@ -943,6 +943,14 @@
     let hasSignature = false;
     let isDrawing = false;
     let lastX = 0, lastY = 0;
+    let ndaAccepted = false;
+    let ndaSignedAt = null;
+    let ndaSignatureMode = 'draw'; // 'draw' | 'type'
+    let ndaSignatureDataUrl = null;
+    let ndaSignatureTypedName = '';
+    let ndaHasSignature = false;
+    let ndaIsDrawing = false;
+    let ndaLastX = 0, ndaLastY = 0;
 
     /* =========================================================
        PERSISTENCE
@@ -960,6 +968,12 @@
                 signatureMode = saved.signatureMode || 'draw';
                 triptychAccepted = saved.triptychAccepted || false;
                 hasSignature = !!signatureDataUrl;
+                ndaAccepted = saved.ndaAccepted || false;
+                ndaSignedAt = saved.ndaSignedAt || null;
+                ndaSignatureDataUrl = saved.ndaSignatureDataUrl || null;
+                ndaSignatureTypedName = saved.ndaSignatureTypedName || '';
+                ndaSignatureMode = saved.ndaSignatureMode || 'draw';
+                ndaHasSignature = !!ndaSignatureDataUrl;
                 return true;
             }
         } catch (e) { console.warn('No se pudo cargar progreso previo'); }
@@ -969,7 +983,8 @@
     function saveProgress() {
         const data = {
             personalData, selectedCertificaciones, otraCertificacionText, answers,
-            signatureDataUrl, signatureTypedName, signatureMode, triptychAccepted
+            signatureDataUrl, signatureTypedName, signatureMode, triptychAccepted,
+            ndaAccepted, ndaSignedAt, ndaSignatureDataUrl, ndaSignatureTypedName, ndaSignatureMode
         };
         localStorage.setItem('autodiagnosticoData', JSON.stringify(data));
         Auth.syncToSupabase('autodiagnostico_data', data, personalData.curp, personalData.nombre);
@@ -1025,6 +1040,11 @@
             topBarStep.textContent = 'Datos personales';
             app.innerHTML = renderPersonalForm();
             attachPersonalFormListeners();
+        } else if (step === 'nda') {
+            navBar.style.display = 'flex';
+            topBarStep.textContent = 'Confidencialidad';
+            app.innerHTML = renderNdaStep();
+            setTimeout(initNdaSignatureCanvas, 50);
         } else if (step.startsWith('e')) {
             const elementoIdx = parseInt(step.substring(1)) - 1;
             navBar.style.display = 'flex';
@@ -1144,6 +1164,12 @@
         signatureTypedName = '';
         triptychAccepted = false;
         hasSignature = false;
+        ndaAccepted = false;
+        ndaSignedAt = null;
+        ndaSignatureMode = 'draw';
+        ndaSignatureDataUrl = null;
+        ndaSignatureTypedName = '';
+        ndaHasSignature = false;
         goNext();
     }
 
@@ -1475,6 +1501,212 @@
         updateNavButtons();
     }
 
+    /* =========================================================
+       ACUERDO DE CONFIDENCIALIDAD (NDA)
+       Se firma una sola vez, justo después de los datos personales y
+       antes de empezar los 142 reactivos — así ni el Autodiagnóstico ni
+       la Alineación (que exige el Autodiagnóstico completo) se pueden
+       hacer sin haberlo aceptado. Vive en el mismo objeto/columna
+       autodiagnostico_data (ndaAccepted/ndaSignedAt/ndaSignature*) en vez
+       de una tabla aparte — mismo patrón que triptychAccepted arriba.
+    ========================================================= */
+    function renderNdaStep() {
+        const pd = personalData;
+        return `
+            <div class="card">
+                <h2>🔒 Acuerdo de Confidencialidad (NDA)</h2>
+                <p class="field-hint" style="margin-bottom:14px;">Antes de comenzar tus 142 reactivos, necesitamos tu aceptación de este acuerdo — protege tanto la información de otros candidatos y usuarios que puedas conocer durante el proceso, como el material propio de Paideia Tech.</p>
+                <div class="info-box" style="max-height:340px;overflow-y:auto;">
+                    <h3>Acuerdo de Confidencialidad — Candidato/a EC1375</h3>
+                    <p style="margin-bottom:10px;">Entre <strong>Paideia Tech</strong> (el Centro Evaluador) y <strong>${escapeHtml(pd.nombre) || 'el/la candidato/a'}</strong>${pd.curp ? ` (CURP ${escapeHtml(pd.curp)})` : ''}, con motivo de su participación en el proceso de certificación del Estándar de Competencia EC1375.</p>
+                    <h3 style="margin-top:14px;">1. Qué se considera información confidencial</h3>
+                    <ul>
+                        <li>El contenido del Instrumento de Evaluación de Competencia (IEC), incluyendo las preguntas del Cuestionario y los criterios de la Guía de Observación y Lista de Cotejo.</li>
+                        <li>El material de capacitación de Paideia Tech: la Ruta de Estudio, videos, presentaciones y cualquier documento entregado durante la Alineación.</li>
+                        <li>Los datos personales de cualquier otro candidato, paciente o usuario que conozcas durante sesiones grupales, prácticas o videos de evaluación — nombre, condición de salud, información de contacto, o cualquier otro dato personal.</li>
+                        <li>Las grabaciones de las sesiones de evaluación, propias o de otros candidatos.</li>
+                    </ul>
+                    <h3 style="margin-top:14px;">2. Tus obligaciones como candidato/a</h3>
+                    <ul>
+                        <li>No compartir, publicar, fotografiar, grabar ni distribuir el contenido del Cuestionario, el IEC o el material de capacitación, por ningún medio.</li>
+                        <li>No divulgar los datos personales de otros candidatos, pacientes o usuarios que conozcas durante el proceso.</li>
+                        <li>Usar el material de capacitación únicamente para tu propia preparación, y las grabaciones de tus propias sesiones únicamente para los fines de tu evaluación.</li>
+                        <li>Avisar de inmediato a Paideia Tech si detectas una fuga o uso indebido de esta información.</li>
+                    </ul>
+                    <h3 style="margin-top:14px;">3. Vigencia y consecuencias</h3>
+                    <p>Esta confidencialidad aplica durante todo tu proceso de certificación y de forma indefinida respecto al contenido del Cuestionario y del IEC. Incumplirla puede resultar en la cancelación de tu proceso de certificación, sin perjuicio de cualquier otra acción que proceda conforme a la ley.</p>
+                </div>
+
+                <div class="checkbox-row">
+                    <input type="checkbox" id="ndaCheck" ${ndaAccepted ? 'checked' : ''} onchange="toggleNda(this)">
+                    <label for="ndaCheck">He leído y acepto los términos de este Acuerdo de Confidencialidad (NDA)</label>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Firma del candidato</h2>
+                <div class="signature-tabs">
+                    <button class="sig-tab-btn ${ndaSignatureMode === 'draw' ? 'active' : ''}" onclick="setNdaSignatureMode('draw')">✍️ Dibujar firma</button>
+                    <button class="sig-tab-btn ${ndaSignatureMode === 'type' ? 'active' : ''}" onclick="setNdaSignatureMode('type')">⌨️ Escribir mi nombre</button>
+                </div>
+
+                <div id="ndaSignaturePad" style="${ndaSignatureMode === 'draw' ? '' : 'display:none;'}">
+                    <canvas id="ndaSignatureCanvas" width="500" height="160"></canvas>
+                    <button class="clear-sig-btn" onclick="clearNdaSignature()">Borrar firma</button>
+                </div>
+
+                <div id="ndaSignatureTyped" style="${ndaSignatureMode === 'type' ? '' : 'display:none;'}">
+                    <div class="field-group">
+                        <label>Escribe tu nombre completo como firma</label>
+                        <input type="text" id="f_ndaSignatureTyped" value="${escapeHtml(ndaSignatureTypedName)}" placeholder="Nombre completo" oninput="updateNdaTypedSignature(this.value)">
+                    </div>
+                    <div class="checkbox-row">
+                        <input type="checkbox" id="ndaTypedConfirm" ${ndaSignatureTypedName ? 'checked' : ''} disabled>
+                        <label>Confirmo que acepto este Acuerdo de Confidencialidad con esta firma</label>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    function toggleNda(el) {
+        ndaAccepted = el.checked;
+        if (ndaAccepted && !ndaSignedAt) ndaSignedAt = new Date().toISOString();
+        if (!ndaAccepted) ndaSignedAt = null;
+        saveProgress();
+        updateNavButtons();
+    }
+
+    function setNdaSignatureMode(mode) {
+        ndaSignatureMode = mode;
+        saveProgress();
+        renderStep();
+    }
+
+    function updateNdaTypedSignature(value) {
+        ndaSignatureTypedName = value;
+        saveProgress();
+        updateNavButtons();
+    }
+
+    function initNdaSignatureCanvas() {
+        const canvas = document.getElementById('ndaSignatureCanvas');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 2.5;
+        ctx.lineCap = 'round';
+
+        if (ndaSignatureDataUrl) {
+            const img = new Image();
+            img.onload = () => ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            img.src = ndaSignatureDataUrl;
+        }
+
+        function getPos(e) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            if (e.touches && e.touches.length) {
+                return { x: (e.touches[0].clientX - rect.left) * scaleX, y: (e.touches[0].clientY - rect.top) * scaleY };
+            }
+            return { x: (e.clientX - rect.left) * scaleX, y: (e.clientY - rect.top) * scaleY };
+        }
+
+        function startDraw(e) {
+            e.preventDefault();
+            ndaIsDrawing = true;
+            const pos = getPos(e);
+            ndaLastX = pos.x; ndaLastY = pos.y;
+        }
+        function draw(e) {
+            if (!ndaIsDrawing) return;
+            e.preventDefault();
+            const pos = getPos(e);
+            ctx.beginPath();
+            ctx.moveTo(ndaLastX, ndaLastY);
+            ctx.lineTo(pos.x, pos.y);
+            ctx.stroke();
+            ndaLastX = pos.x; ndaLastY = pos.y;
+            ndaHasSignature = true;
+        }
+        function stopDraw() {
+            if (ndaIsDrawing) {
+                ndaIsDrawing = false;
+                ndaSignatureDataUrl = canvas.toDataURL('image/png');
+                saveProgress();
+                updateNavButtons();
+            }
+        }
+
+        canvas.addEventListener('mousedown', startDraw);
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('mouseup', stopDraw);
+        canvas.addEventListener('mouseleave', stopDraw);
+        canvas.addEventListener('touchstart', startDraw, { passive: false });
+        canvas.addEventListener('touchmove', draw, { passive: false });
+        canvas.addEventListener('touchend', stopDraw);
+    }
+
+    function clearNdaSignature() {
+        const canvas = document.getElementById('ndaSignatureCanvas');
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ndaSignatureDataUrl = null;
+        ndaHasSignature = false;
+        saveProgress();
+        updateNavButtons();
+    }
+
+    function generateAcuseNdaPDF() {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        const pd = personalData;
+
+        addOfficialLogos(doc);
+        doc.setFontSize(13);
+        doc.setFont(undefined, 'bold');
+        doc.text('ACUERDO DE CONFIDENCIALIDAD (NDA) — CANDIDATO/A EC1375', 105, 28, { align: 'center', maxWidth: 180 });
+
+        doc.autoTable({
+            startY: 42, theme: 'plain', styles: { fontSize: 9, cellPadding: 1.5 },
+            body: [
+                ['Candidato/a:', pd.nombre || ''],
+                ['CURP:', pd.curp || ''],
+                ['Estándar de Competencia:', 'EC1375'],
+                ['Fecha de aceptación:', ndaSignedAt ? new Date(ndaSignedAt).toLocaleString('es-MX') : (pd.fecha || todayISO())]
+            ]
+        });
+        let y = doc.lastAutoTable.finalY + 12;
+
+        doc.setFontSize(9);
+        doc.setFont(undefined, 'normal');
+        const parrafos = [
+            'El/la candidato/a declara haber leído y aceptado el Acuerdo de Confidencialidad de Paideia Tech, mediante el cual se compromete a no compartir, publicar ni distribuir el contenido del Cuestionario, el Instrumento de Evaluación de Competencia (IEC) ni el material de capacitación (Ruta de Estudio, videos, presentaciones), y a no divulgar los datos personales de otros candidatos, pacientes o usuarios que conozca durante el proceso de certificación.',
+            'Esta confidencialidad aplica durante todo el proceso de certificación y de forma indefinida respecto al contenido del Cuestionario y del IEC.'
+        ];
+        parrafos.forEach(p => {
+            const lines = doc.splitTextToSize(p, 180);
+            doc.text(lines, 14, y);
+            y += lines.length * 5 + 6;
+        });
+        y += 10;
+
+        doc.text('Nombre completo y firma:', 14, y);
+        if (ndaSignatureMode === 'draw' && ndaSignatureDataUrl) {
+            doc.addImage(ndaSignatureDataUrl, 'PNG', 14, y + 3, 55, 20);
+        } else if (ndaSignatureTypedName) {
+            doc.setFont(undefined, 'italic');
+            doc.setFontSize(13);
+            doc.text(ndaSignatureTypedName, 14, y + 14);
+        }
+
+        doc.save(`Acuerdo_Confidencialidad_EC1375_${(pd.nombre || 'candidato').replace(/\s+/g, '_')}.pdf`);
+    }
+
     function renderResultado() {
         const score = calculateScore();
         const isReady = score.percentage >= 90;
@@ -1508,6 +1740,12 @@
                 <h2>📄 Acuse de Recibido — Tríptico</h2>
                 <p style="margin-bottom: 16px; color: var(--text); font-size: 0.9rem;">Confirma que recibiste el Tríptico de Derechos y Obligaciones del Usuario (ya lo aceptaste al firmar arriba — no necesitas hacer nada más).</p>
                 <button class="btn btn-secondary btn-full" onclick="generateAcuseTripticoPDF()">📄 Descargar Acuse de Tríptico</button>
+            </div>
+
+            <div class="card">
+                <h2>🔒 Acuerdo de Confidencialidad (NDA)</h2>
+                <p style="margin-bottom: 16px; color: var(--text); font-size: 0.9rem;">Ya lo aceptaste y firmaste antes de empezar tus reactivos — aquí puedes descargar tu copia.</p>
+                <button class="btn btn-secondary btn-full" onclick="generateAcuseNdaPDF()">🔒 Descargar Acuerdo de Confidencialidad</button>
             </div>
 
             <div class="card">
@@ -1545,6 +1783,10 @@
         if (step === 'personal') {
             return personalData.nombre && personalData.curp && personalData.domicilio &&
                    personalData.escolaridad && personalData.telefonoCelular && personalData.email && personalData.fecha;
+        }
+        if (step === 'nda') {
+            const hasSig = ndaSignatureMode === 'draw' ? ndaHasSignature : (ndaSignatureTypedName && ndaSignatureTypedName.trim().length > 3);
+            return ndaAccepted && hasSig;
         }
         if (step.startsWith('e')) {
             const elementoIdx = parseInt(step.substring(1)) - 1;

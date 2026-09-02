@@ -4334,7 +4334,7 @@ window.EC1375.version='4.4';
       if (!saved || !saved.personalData || !saved.personalData.nombre) return null;
       var answers = saved.answers || {};
       var completo = Object.keys(answers).length === 142;
-      return { personalData: saved.personalData, answers: answers, completo: completo };
+      return { personalData: saved.personalData, answers: answers, completo: completo, ndaAccepted: !!saved.ndaAccepted };
     } catch (e) { return null; }
   }
 
@@ -4343,6 +4343,12 @@ window.EC1375.version='4.4';
     blockedScreen('📋', 'Primero completa tu Autodiagnóstico',
       'Esta herramienta usa tus respuestas del Autodiagnóstico para armar tu ruta de estudio.',
       'autodiagnostico.html', '📋 Ir al Autodiagnóstico');
+    return;
+  }
+  if (!result.ndaAccepted) {
+    blockedScreen('🔒', 'Falta firmar tu Acuerdo de Confidencialidad',
+      'Es un paso corto dentro de tu Autodiagnóstico — protege tanto la información de otros candidatos como el material de Paideia Tech.',
+      'autodiagnostico.html', '🔒 Firmar mi Acuerdo de Confidencialidad');
     return;
   }
 
