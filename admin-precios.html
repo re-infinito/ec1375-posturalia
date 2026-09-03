@@ -71,8 +71,11 @@
         .row-status.err { color: var(--danger); }
         .table-wrap { overflow-x: auto; }
 
-        .add-form { display: grid; grid-template-columns: 2fr repeat(4, 1fr) auto; gap: 8px; align-items: end; }
+        .add-form { display: grid; grid-template-columns: 1.6fr 1.6fr repeat(4, 1fr) auto; gap: 8px; align-items: end; }
         @media (max-width: 800px) { .add-form { grid-template-columns: 1fr 1fr; } }
+        .nombre-cell { color: var(--text-bright); font-weight: 600; }
+        .nombre-cell .email-sub { font-size: 0.72rem; color: rgba(255,255,255,0.4); font-weight: 400; margin-top: 2px; }
+        .nombre-cell input { width: 100%; margin-top: 4px; padding: 6px 8px; background: var(--dark); border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; color: var(--text-bright); font-size: 0.78rem; font-family: inherit; }
     </style>
 </head>
 <body>
@@ -91,6 +94,7 @@
 
     let candidatos = []; // filas de candidatos_precio
     let pagosPorEmail = {}; // { email: Set(fases autorizadas) }
+    let nombresAutoPorEmail = {}; // { email: nombre } — real, cruzado desde candidatos_ec1375 (ya hizo su Autodiagnóstico)
 
     function escapeHtml(str) {
         if (!str) return '';
@@ -115,9 +119,10 @@
     }
 
     async function cargarDatos() {
-        const [precios, pagos] = await Promise.all([
+        const [precios, pagos, nombres] = await Promise.all([
             supabaseClient.from('candidatos_precio').select('*').order('email'),
-            supabaseClient.from('candidatos_fase_pagos').select('email,fase,origen')
+            supabaseClient.from('candidatos_fase_pagos').select('email,fase,origen'),
+            supabaseClient.rpc('admin_lista_nombres')
         ]);
         candidatos = precios.data || [];
         // pagosPorEmail[email][fase] = 'mercadopago' | 'manual' | undefined (no liberada)
@@ -126,6 +131,16 @@
             if (!pagosPorEmail[row.email]) pagosPorEmail[row.email] = {};
             pagosPorEmail[row.email][row.fase] = row.origen || 'manual';
         });
+        // Nombre real (candidato ya hizo su Autodiagnóstico) — manda sobre
+        // cualquier nombre capturado a mano en candidatos_precio.nombre.
+        // Si la función no existe todavía (SQL no corrido) falla en
+        // silencio y el panel sigue funcionando solo con nombres manuales.
+        nombresAutoPorEmail = {};
+        if (!nombres.error) {
+            (nombres.data || []).forEach(row => { nombresAutoPorEmail[row.email] = row.nombre; });
+        } else {
+            console.warn('No se pudo cargar nombres automáticos (¿falta correr add_nombres_admin_precios.sql?):', nombres.error);
+        }
     }
 
     // Liberación/revocación manual con un clic — el origen 'mercadopago' solo
@@ -183,10 +198,15 @@
         });
         const total = FASES.reduce((sum, fase) => sum + (montos[`monto_${fase}`] || 0), 0);
         const statusEl = document.getElementById(`${prefix}_status`);
+        // El input de nombre manual solo existe en el DOM cuando ese
+        // candidato no tiene todavía un nombre "real" auto-cruzado.
+        const nombreEl = document.getElementById(`${prefix}_nombre`);
+        const row = { email, total_acordado: total, ...montos, updated_at: new Date().toISOString() };
+        if (nombreEl) row.nombre = nombreEl.value.trim() || null;
         try {
             const { error } = await supabaseClient
                 .from('candidatos_precio')
-                .upsert({ email, total_acordado: total, ...montos, updated_at: new Date().toISOString() }, { onConflict: 'email' });
+                .upsert(row, { onConflict: 'email' });
             if (error) throw error;
             if (statusEl) { statusEl.textContent = '✅ Guardado'; statusEl.className = 'row-status ok'; }
         } catch (e) {
@@ -198,13 +218,14 @@
     async function agregarCandidato() {
         const email = (document.getElementById('newEmail').value || '').trim().toLowerCase();
         if (!email || !email.includes('@')) { alert('Escribe un correo válido.'); return; }
+        const nombre = (document.getElementById('newNombre').value || '').trim();
         const montos = {};
         FASES.forEach(fase => { montos[`monto_${fase}`] = Number(document.getElementById(`newMonto_${fase}`).value || 0); });
         const total = FASES.reduce((sum, fase) => sum + montos[`monto_${fase}`], 0);
         try {
             const { error } = await supabaseClient
                 .from('candidatos_precio')
-                .upsert({ email, total_acordado: total, ...montos }, { onConflict: 'email' });
+                .upsert({ email, nombre: nombre || null, total_acordado: total, ...montos }, { onConflict: 'email' });
             if (error) throw error;
             await cargarDatos();
             renderPanel();
@@ -239,9 +260,14 @@
             const montoInputs = FASES.map(fase => `
                 <td><input type="number" id="${prefix}_${fase}" value="${c[`monto_${fase}`] ?? ''}" oninput="calcularTotal('${prefix}')"></td>
             `).join('');
+            const nombreAuto = nombresAutoPorEmail[c.email];
+            const nombreCell = nombreAuto
+                ? `<div class="nombre-cell">${escapeHtml(nombreAuto)}<div class="email-sub">${escapeHtml(c.email)}</div></div>`
+                : `<div class="nombre-cell"><div class="email-sub" style="margin-top:0;">${escapeHtml(c.email)}</div>
+                     <input type="text" id="${prefix}_nombre" placeholder="Nombre (aún sin Autodiagnóstico)" value="${escapeHtml(c.nombre || '')}"></div>`;
             return `
                 <tr>
-                    <td class="email-cell">${escapeHtml(c.email)}${c._sinPrecio ? '<div style="color:var(--accent);font-weight:400;font-size:0.68rem;">Sin precio capturado — guarda montos para agregarlo a Precios</div>' : ''}</td>
+                    <td>${nombreCell}${c._sinPrecio ? '<div style="color:var(--accent);font-weight:400;font-size:0.68rem;margin-top:4px;">Sin precio capturado — guarda montos para agregarlo a Precios</div>' : ''}</td>
                     ${montoInputs}
                     <td class="total-cell" id="${prefix}_total">$${Number(c.total_acordado || 0).toLocaleString('es-MX')}</td>
                     <td><div class="badges">${badges}</div></td>
@@ -261,16 +287,17 @@
                 <h2>➕ Agregar candidato</h2>
                 <div class="add-form">
                     <div class="field-group"><label>Correo</label><input type="email" id="newEmail" placeholder="correo@ejemplo.com"></div>
+                    <div class="field-group"><label>Nombre</label><input type="text" id="newNombre" placeholder="Nombre completo"></div>
                     ${addFormFields}
                     <button class="btn btn-primary" onclick="agregarCandidato()">Agregar</button>
                 </div>
             </div>
             <div class="card">
                 <h2>💰 Candidatos (${filas.length}${emailsConPagoSinPrecio.length ? `, ${emailsConPagoSinPrecio.length} sin precio capturado` : ''})</h2>
-                <p style="font-size:0.78rem;color:rgba(255,255,255,0.45);margin-bottom:14px;">💳 = pagada por Mercado Pago · ✋ = liberada a mano · clic en una fase para liberarla o revocarla</p>
+                <p style="font-size:0.78rem;color:rgba(255,255,255,0.45);margin-bottom:14px;">💳 = pagada por Mercado Pago · ✋ = liberada a mano · clic en una fase para liberarla o revocarla · el nombre se llena solo en cuanto el candidato hace su Autodiagnóstico</p>
                 <div class="table-wrap">
                     <table>
-                        <thead><tr><th>Correo</th>${FASES.map(f => `<th>${FASE_LABEL[f]}</th>`).join('')}<th>Total</th><th>Fases pagadas</th><th></th></tr></thead>
+                        <thead><tr><th>Nombre / Correo</th>${FASES.map(f => `<th>${FASE_LABEL[f]}</th>`).join('')}<th>Total</th><th>Fases pagadas</th><th></th></tr></thead>
                         <tbody>${rowsHtml || '<tr><td colspan="8" style="text-align:center;color:rgba(255,255,255,0.4);padding:20px;">Sin candidatos todavía.</td></tr>'}</tbody>
                     </table>
                 </div>
