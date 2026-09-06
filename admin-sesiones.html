@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Sesiones de Alineación - Paideia Tech</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="auth.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --dark: #050a1a;
+            --dark-light: #0f1428;
+            --primary: #0088FF;
+            --primary-light: #00CCFF;
+            --accent: #FFD700;
+            --text: #D0D0D0;
+            --text-bright: #FFFFFF;
+            --danger: #FF3333;
+            --success: #00FF88;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, var(--dark) 0%, #0a1530 100%);
+            color: var(--text);
+            line-height: 1.6;
+            min-height: 100vh;
+            padding-bottom: 60px;
+        }
+
+        .container { max-width: 1000px; margin: 0 auto; padding: 24px 20px; }
+
+        .top-bar {
+            position: sticky; top: 0; background: var(--dark);
+            border-bottom: 1px solid var(--dark-light); padding: 16px 20px; z-index: 100;
+        }
+        .top-bar-inner { max-width: 1000px; margin: 0 auto; font-size: 0.95rem; color: var(--text-bright); font-weight: 700; }
+
+        .tabs {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 24px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .tab-btn {
+            padding: 12px 20px;
+            background: transparent;
+            border: none;
+            color: var(--text);
+            cursor: pointer;
+            font-weight: 600;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        .tab-btn.active {
+            color: var(--primary-light);
+            border-bottom-color: var(--primary-light);
+        }
+
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        .card {
+            background: var(--dark-light);
+            border: 1px solid rgba(0,136,255,0.2);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: var(--text-bright);
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 6px;
+            color: var(--text-bright);
+            font-family: inherit;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 8px rgba(0,136,255,0.2);
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: var(--primary-light); }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-success { background: var(--success); color: #000; }
+
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .sesion-item {
+            background: rgba(0,136,255,0.1);
+            border-left: 4px solid var(--primary);
+            padding: 16px;
+            margin-bottom: 12px;
+            border-radius: 6px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .sesion-info {
+            flex: 1;
+        }
+
+        .sesion-meta {
+            font-size: 0.9rem;
+            color: var(--text);
+            margin-top: 4px;
+        }
+
+        .alert {
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+        }
+
+        .alert-success { background: rgba(0,255,136,0.1); border: 1px solid var(--success); color: var(--success); }
+        .alert-error { background: rgba(255,51,51,0.1); border: 1px solid var(--danger); color: var(--danger); }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        @media (max-width: 768px) {
+            .grid-2 { grid-template-columns: 1fr; }
+            .sesion-item { flex-direction: column; align-items: flex-start; }
+        }
+    </style>
+</head>
+<body>
+    <div class="top-bar"><div class="top-bar-inner">⚙️ Admin - Sesiones de Alineación</div></div>
+    <div class="container">
+        <div id="app"></div>
+    </div>
+
+    <script>
+    let sesiones = [];
+    const supabase = window.supabaseClient;
+
+    async function init() {
+        const session = await Auth.getSession();
+        if (!session) {
+            document.getElementById('app').innerHTML = `
+                <div style="text-align: center; padding: 40px;">
+                    <p>Necesitas iniciar sesión</p>
+                    <a href="recuperar.html" class="btn btn-primary">Ir a login</a>
+                </div>
+            `;
+            return;
+        }
+
+        // TODO: Verificar que sea admin
+        render();
+    }
+
+    async function cargarSesiones() {
+        try {
+            const { data, error } = await supabase
+                .from('sesiones_alineacion')
+                .select(`
+                    id,
+                    fecha,
+                    hora_inicio,
+                    hora_fin,
+                    capacidad_maxima,
+                    instructor_nombre,
+                    estado,
+                    google_meet_link,
+                    created_at
+                `)
+                .order('fecha', { ascending: true });
+
+            if (error) throw error;
+            sesiones = data || [];
+            actualizarListaSesiones();
+        } catch (error) {
+            mostrarError('Error cargando sesiones: ' + error.message);
+        }
+    }
+
+    function actualizarListaSesiones() {
+        const lista = document.getElementById('sesiones-lista');
+        if (!lista) return;
+
+        if (sesiones.length === 0) {
+            lista.innerHTML = '<p style="text-align: center; color: #888;">No hay sesiones creadas</p>';
+            return;
+        }
+
+        lista.innerHTML = sesiones.map(s => `
+            <div class="sesion-item">
+                <div class="sesion-info">
+                    <div style="font-weight: 600; color: var(--text-bright);">
+                        ${s.fecha} • ${s.hora_inicio} - ${s.hora_fin}
+                    </div>
+                    <div class="sesion-meta">
+                        👨‍🏫 ${s.instructor_nombre || '(sin instructor)'} •
+                        📊 ${s.capacidad_maxima} cupos •
+                        ${s.google_meet_link ? '✓ Google Meet listo' : '⚠️ Sin Google Meet'}
+                    </div>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn btn-primary" style="padding: 8px 12px; font-size: 0.85rem;"
+                            onclick="editarSesion('${s.id}')">Editar</button>
+                    <button class="btn btn-danger" style="padding: 8px 12px; font-size: 0.85rem;"
+                            onclick="eliminarSesion('${s.id}')">Eliminar</button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    async function crearSesion(event) {
+        event.preventDefault();
+
+        const fecha = document.getElementById('fecha').value;
+        const horaInicio = document.getElementById('horaInicio').value;
+        const horaFin = document.getElementById('horaFin').value;
+        const capacidad = parseInt(document.getElementById('capacidad').value);
+        const instructor = document.getElementById('instructor').value;
+        const descripcion = document.getElementById('descripcion').value;
+
+        if (!fecha || !horaInicio || !horaFin || !capacidad) {
+            mostrarError('Completa todos los campos requeridos');
+            return;
+        }
+
+        const btn = event.target.querySelector('button');
+        btn.disabled = true;
+        btn.textContent = '⏳ Creando...';
+
+        try {
+            // Crear evento en Google Calendar
+            const googleEventId = await crearEventoGoogleCalendar(
+                fecha, horaInicio, horaFin, instructor
+            );
+
+            // Guardar en Supabase
+            const { data, error } = await supabase
+                .from('sesiones_alineacion')
+                .insert([{
+                    fecha,
+                    hora_inicio: horaInicio,
+                    hora_fin: horaFin,
+                    capacidad_maxima: capacidad,
+                    instructor_nombre: instructor,
+                    descripcion,
+                    estado: 'abierta',
+                    google_event_id: googleEventId
+                }])
+                .select();
+
+            if (error) throw error;
+
+            mostrarExito('Sesión creada exitosamente');
+            document.getElementById('formCrearSesion').reset();
+            await cargarSesiones();
+        } catch (error) {
+            mostrarError('Error: ' + error.message);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Crear Sesión';
+        }
+    }
+
+    async function crearEventoGoogleCalendar(fecha, horaInicio, horaFin, instructor) {
+        // Este endpoint debe existir en tu backend
+        // Por ahora retornamos null (lo llenaremos después)
+        try {
+            const resp = await fetch('/api/crear-evento-google', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ fecha, horaInicio, horaFin, instructor })
+            });
+
+            const data = await resp.json();
+            return data.google_event_id || null;
+        } catch (e) {
+            console.warn('No se pudo crear evento Google:', e);
+            return null;
+        }
+    }
+
+    async function eliminarSesion(sesionId) {
+        if (!confirm('¿Eliminar esta sesión?')) return;
+
+        try {
+            const { error } = await supabase
+                .from('sesiones_alineacion')
+                .delete()
+                .eq('id', sesionId);
+
+            if (error) throw error;
+            mostrarExito('Sesión eliminada');
+            await cargarSesiones();
+        } catch (error) {
+            mostrarError('Error: ' + error.message);
+        }
+    }
+
+    function mostrarExito(msg) {
+        const app = document.getElementById('app');
+        const alert = document.createElement('div');
+        alert.className = 'alert alert-success';
+        alert.textContent = '✓ ' + msg;
+        app.insertBefore(alert, app.firstChild);
+        setTimeout(() => alert.remove(), 3000);
+    }
+
+    function mostrarError(msg) {
+        const app = document.getElementById('app');
+        const alert = document.createElement('div');
+        alert.className = 'alert alert-error';
+        alert.textContent = '✗ ' + msg;
+        app.insertBefore(alert, app.firstChild);
+        setTimeout(() => alert.remove(), 5000);
+    }
+
+    function render() {
+        document.getElementById('app').innerHTML = `
+            <!-- TABS -->
+            <div class="tabs">
+                <button class="tab-btn active" onclick="switchTab('crear')">➕ Crear Sesión</button>
+                <button class="tab-btn" onclick="switchTab('listar')">📋 Listar Sesiones</button>
+                <button class="tab-btn" onclick="switchTab('reportes')">📊 Reportes</button>
+            </div>
+
+            <!-- TAB: CREAR -->
+            <div id="tab-crear" class="tab-content active">
+                <div class="card">
+                    <h2 style="margin-bottom: 20px;">Crear Nueva Sesión</h2>
+                    <form id="formCrearSesion" onsubmit="crearSesion(event)">
+                        <div class="grid-2">
+                            <div class="form-group">
+                                <label>Fecha *</label>
+                                <input type="date" id="fecha" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Capacidad (máximo de asistentes) *</label>
+                                <input type="number" id="capacidad" value="30" min="1" max="100" required>
+                            </div>
+                        </div>
+
+                        <div class="grid-2">
+                            <div class="form-group">
+                                <label>Hora Inicio *</label>
+                                <input type="time" id="horaInicio" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Hora Fin *</label>
+                                <input type="time" id="horaFin" required>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Instructor</label>
+                            <input type="text" id="instructor" placeholder="Nombre del instructor">
+                        </div>
+
+                        <div class="form-group">
+                            <label>Descripción</label>
+                            <textarea id="descripcion" rows="3" placeholder="Notas adicionales para los participantes"></textarea>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary">✓ Crear Sesión</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- TAB: LISTAR -->
+            <div id="tab-listar" class="tab-content">
+                <div class="card">
+                    <h2 style="margin-bottom: 20px;">Sesiones Programadas</h2>
+                    <div id="sesiones-lista"></div>
+                </div>
+            </div>
+
+            <!-- TAB: REPORTES -->
+            <div id="tab-reportes" class="tab-content">
+                <div class="card">
+                    <h2 style="margin-bottom: 20px;">📊 Reportes de Asistencia</h2>
+                    <p style="color: #888;">Reportes de inscritos por sesión — próximamente</p>
+                </div>
+            </div>
+        `;
+
+        cargarSesiones();
+    }
+
+    function switchTab(tab) {
+        // Actualizar botones
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+        event.target.classList.add('active');
+
+        // Actualizar contenido
+        document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+        document.getElementById('tab-' + tab).classList.add('active');
+    }
+
+    window.addEventListener('load', init);
+    window.switchTab = switchTab;
+    window.crearSesion = crearSesion;
+    window.eliminarSesion = eliminarSesion;
+    window.editarSesion = (id) => console.log('Editar sesión:', id);
+    </script>
+</body>
+</html>
