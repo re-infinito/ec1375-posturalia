@@ -1068,6 +1068,7 @@
         const app = document.getElementById('app');
         const isLast = step === 'cierre';
         const navHtml = `
+            <div id="validationStatus"></div>
             <div class="nav-bar">
                 ${currentStepIndex > 0 ? '<button class="btn btn-secondary" onclick="goBack()">← Atrás</button>' : ''}
                 <button class="btn btn-primary" id="btnNext" onclick="${isLast ? 'goGenerate()' : 'goNext()'}">${isLast ? 'Generar Documentos →' : 'Siguiente →'}</button>
@@ -1079,9 +1080,32 @@
 
     function updateNavButtons() {
         const btn = document.getElementById('btnNext');
+        const validationBox = document.getElementById('validationStatus');
         if (!btn) return;
+
         const step = STEPS[currentStepIndex];
-        btn.disabled = step !== 'intro' && step !== 'resultado' && !isStepValid(step);
+        const isValid = step === 'intro' || step === 'resultado' || isStepValid(step);
+        btn.disabled = !isValid;
+
+        // Mostrar validación visual
+        if (validationBox) {
+            if (isValid) {
+                validationBox.innerHTML = '';
+            } else {
+                const stepTitle = STEP_TITLES[step] || step;
+                validationBox.innerHTML = `
+                    <div style="background: rgba(255,51,51,0.08); border: 1px solid var(--danger); border-radius: 8px; padding: 14px; margin-bottom: 16px;">
+                        <p style="color: var(--danger); font-weight: 600; margin-bottom: 8px; font-size: 0.9rem;">
+                            ⚠️ Por favor, completa toda la información en esta sección
+                        </p>
+                        <p style="color: var(--text); font-size: 0.85rem;">
+                            Revisar los campos requeridos en "${stepTitle}" antes de continuar.
+                        </p>
+                    </div>
+                `;
+                validationBox.style.display = 'block';
+            }
+        }
     }
 
     function goNext() {
