@@ -735,9 +735,9 @@ const AUTODIAGNOSTICO_DATA = [
                     </div>
                 `}
                 <div class="field-group" style="margin-top:16px;">
-                    <label>Fecha y hora que agendaste *</label>
-                    <input type="text" id="f_fechaHoraAgendada" value="${escapeHtml(planData.fechaHoraAgendada)}" placeholder="Ej. Martes 12 de agosto, 10:00 am">
-                    <p style="font-size:0.78rem;color:rgba(255,255,255,0.4);margin-top:4px;">Anótala aquí después de agendar arriba, para incluirla en tu Plan de Evaluación</p>
+                    <label>Fecha y hora que agendaste <span style="color:var(--danger);">*</span></label>
+                    <input type="text" id="f_fechaHoraAgendada" value="${escapeHtml(planData.fechaHoraAgendada)}" placeholder="Ej. Martes 12 de agosto, 10:00 am" style="border-color: ${planData.fechaHoraAgendada && planData.fechaHoraAgendada.trim().length > 0 ? 'var(--success)' : 'rgba(255,255,255,0.15)'};">
+                    <p style="font-size:0.78rem;color:rgba(255,255,255,0.4);margin-top:4px;">⚠️ Este campo es REQUERIDO para generar tu Plan de Evaluación</p>
                 </div>
                 <div class="field-group">
                     <label>Lugar para el desarrollo de la evaluación</label>
@@ -792,8 +792,13 @@ const AUTODIAGNOSTICO_DATA = [
         ['fechaHoraAgendada', 'lugarDesarrollo', 'lugarResultados'].forEach(field => {
             const el = document.getElementById('f_' + field);
             if (el) {
-                el.addEventListener('input', () => {
-                    planData[field] = el.value;
+                // Remove existing listeners by replacing with a new element to avoid duplicates
+                const newEl = el.cloneNode(true);
+                el.parentNode.replaceChild(newEl, el);
+
+                // Attach the listener to the new element
+                newEl.addEventListener('input', function() {
+                    planData[field] = this.value;
                     savePlanProgress();
                     updateGenerateButton();
                 });
@@ -822,8 +827,9 @@ const AUTODIAGNOSTICO_DATA = [
     function updateGenerateButton() {
         const btn = document.getElementById('btnGenerate');
         if (!btn) return;
-        const hasSig = signatureMode === 'draw' ? hasSignature : (signatureTypedName && signatureTypedName.trim().length > 3);
-        const valid = planData.acuerdoAceptado && hasSig && planData.fechaHoraAgendada && planData.fechaHoraAgendada.trim().length > 3;
+        const hasSig = signatureMode === 'draw' ? hasSignature : (signatureTypedName && signatureTypedName.trim().length > 0);
+        const fechaCompleta = planData.fechaHoraAgendada && planData.fechaHoraAgendada.trim().length > 0;
+        const valid = planData.acuerdoAceptado && hasSig && fechaCompleta;
         btn.disabled = !valid;
     }
 
