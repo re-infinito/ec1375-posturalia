@@ -735,9 +735,14 @@ const AUTODIAGNOSTICO_DATA = [
                     </div>
                 `}
                 <div class="field-group" style="margin-top:16px;">
-                    <label>Fecha y hora que agendaste <span style="color:var(--danger);">*</span></label>
-                    <input type="text" id="f_fechaHoraAgendada" value="${escapeHtml(planData.fechaHoraAgendada)}" placeholder="Ej. Martes 12 de agosto, 10:00 am" style="border-color: ${planData.fechaHoraAgendada && planData.fechaHoraAgendada.trim().length > 0 ? 'var(--success)' : 'rgba(255,255,255,0.15)'};">
-                    <p style="font-size:0.78rem;color:rgba(255,255,255,0.4);margin-top:4px;">⚠️ Este campo es REQUERIDO para generar tu Plan de Evaluación</p>
+                    <label style="display: flex; justify-content: space-between; align-items: center;">
+                        <span>Fecha y hora que agendaste <span style="color:var(--danger);">*</span></span>
+                        <span style="font-size: 0.75rem; color: ${planData.fechaHoraAgendada && planData.fechaHoraAgendada.trim().length > 0 ? 'var(--success)' : 'rgba(255,255,255,0.4)'};">
+                            ${planData.fechaHoraAgendada && planData.fechaHoraAgendada.trim().length > 0 ? '✓ Completado' : '○ Pendiente'}
+                        </span>
+                    </label>
+                    <input type="text" id="f_fechaHoraAgendada" value="${escapeHtml(planData.fechaHoraAgendada)}" placeholder="Ej. Martes 12 de agosto, 10:00 am" style="border-color: ${planData.fechaHoraAgendada && planData.fechaHoraAgendada.trim().length > 0 ? 'var(--success)' : 'var(--danger)'}; border-width: 2px;">
+                    <p style="font-size:0.78rem;color:rgba(255,255,255,0.4);margin-top:4px;">📌 Escribe la fecha después de agendar por WhatsApp o Google Calendar</p>
                 </div>
                 <div class="field-group">
                     <label>Lugar para el desarrollo de la evaluación</label>
@@ -759,11 +764,21 @@ const AUTODIAGNOSTICO_DATA = [
                         <li>Entiendo que si no concluyo el proceso en los tiempos acordados, podré solicitar reiniciarlo, responsabilizándome de los costos adicionales que esto genere.</li>
                     </ul>
                 </div>
-                <div class="checkbox-row">
+                <div class="checkbox-row" style="background: ${planData.acuerdoAceptado ? 'rgba(0,255,136,0.08)' : 'rgba(255,51,51,0.08)'}; border: 1px solid ${planData.acuerdoAceptado ? 'var(--success)' : 'var(--danger)'};">
                     <input type="checkbox" id="acuerdoCheck" ${planData.acuerdoAceptado ? 'checked' : ''} onchange="toggleAcuerdo(this)">
-                    <label for="acuerdoCheck">Acepto el Plan de Evaluación descrito arriba</label>
+                    <label for="acuerdoCheck" style="color: ${planData.acuerdoAceptado ? 'var(--success)' : 'var(--text)'};">
+                        ${planData.acuerdoAceptado ? '✓ ' : '○ '}Acepto el Plan de Evaluación descrito arriba
+                    </label>
                 </div>
 
+                <div style="margin-bottom: 12px;">
+                    <label style="display: flex; justify-content: space-between; align-items: center; font-size: 0.9rem;">
+                        <span>Tu Firma <span style="color:var(--danger);">*</span></span>
+                        <span style="font-size: 0.75rem; color: ${hasSignature || (signatureMode === 'type' && signatureTypedName && signatureTypedName.trim().length > 0) ? 'var(--success)' : 'rgba(255,255,255,0.4)'};">
+                            ${hasSignature || (signatureMode === 'type' && signatureTypedName && signatureTypedName.trim().length > 0) ? '✓ Completado' : '○ Pendiente'}
+                        </span>
+                    </label>
+                </div>
                 <div class="signature-tabs">
                     <button class="sig-tab-btn ${signatureMode === 'draw' ? 'active' : ''}" onclick="setSignatureMode('draw')">✍️ Dibujar firma</button>
                     <button class="sig-tab-btn ${signatureMode === 'type' ? 'active' : ''}" onclick="setSignatureMode('type')">⌨️ Escribir mi nombre</button>
@@ -780,6 +795,7 @@ const AUTODIAGNOSTICO_DATA = [
                 </div>
             </div>
 
+            <div id="validationStatus"></div>
             <button class="btn btn-primary btn-full" id="btnGenerate" onclick="generatePlan()" disabled>Generar mi Plan de Evaluación →</button>
         `;
 
@@ -824,13 +840,53 @@ const AUTODIAGNOSTICO_DATA = [
         updateGenerateButton();
     }
 
-    function updateGenerateButton() {
-        const btn = document.getElementById('btnGenerate');
-        if (!btn) return;
+    function getValidationStatus() {
         const hasSig = signatureMode === 'draw' ? hasSignature : (signatureTypedName && signatureTypedName.trim().length > 0);
         const fechaCompleta = planData.fechaHoraAgendada && planData.fechaHoraAgendada.trim().length > 0;
-        const valid = planData.acuerdoAceptado && hasSig && fechaCompleta;
-        btn.disabled = !valid;
+
+        return {
+            acuerdo: planData.acuerdoAceptado,
+            firma: hasSig,
+            fecha: fechaCompleta,
+            completo: planData.acuerdoAceptado && hasSig && fechaCompleta
+        };
+    }
+
+    function getMissingFields() {
+        const status = getValidationStatus();
+        const missing = [];
+
+        if (!status.acuerdo) missing.push('✓ Marcar el checkbox de acuerdo');
+        if (!status.firma) missing.push('✓ Proporcionar una firma (dibujada o escrita)');
+        if (!status.fecha) missing.push('✓ Completar la fecha y hora de evaluación');
+
+        return missing;
+    }
+
+    function updateGenerateButton() {
+        const btn = document.getElementById('btnGenerate');
+        const statusBox = document.getElementById('validationStatus');
+        if (!btn) return;
+
+        const status = getValidationStatus();
+        btn.disabled = !status.completo;
+
+        if (statusBox) {
+            if (status.completo) {
+                statusBox.style.display = 'none';
+            } else {
+                const missing = getMissingFields();
+                statusBox.innerHTML = `
+                    <div style="background: rgba(255,51,51,0.08); border: 1px solid var(--danger); border-radius: 8px; padding: 14px; margin-bottom: 16px;">
+                        <p style="color: var(--danger); font-weight: 600; margin-bottom: 10px; font-size: 0.9rem;">⚠️ Faltan los siguientes pasos para continuar:</p>
+                        <div style="color: var(--text); font-size: 0.85rem; line-height: 1.6;">
+                            ${missing.map(field => `<div style="margin-bottom: 6px;">${field}</div>`).join('')}
+                        </div>
+                    </div>
+                `;
+                statusBox.style.display = 'block';
+            }
+        }
     }
 
     function requestScheduleViaWhatsApp() {
