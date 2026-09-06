@@ -1174,23 +1174,53 @@
     }
 
     function renderPersonalForm() {
+        const isNombreComplete = personalData.nombre?.trim().length > 0;
+        const isCurpComplete = personalData.curp?.trim().length > 0;
+        const isDomicilioComplete = personalData.domicilio?.trim().length > 0;
+        const isEscolaridadComplete = personalData.escolaridad?.trim().length > 0;
+        const isTelefonoComplete = personalData.telefonoCelular?.trim().length > 0;
+        const isEmailComplete = personalData.email?.trim().length > 0;
+        const isFechaComplete = personalData.fecha?.trim().length > 0;
+
         return `
             <div class="card">
                 <h2>👤 Datos Personales</h2>
                 <div class="field-group">
-                    <label>Nombre Completo *</label>
-                    <input type="text" id="f_nombre" value="${escapeHtml(personalData.nombre)}" placeholder="Ej. María González Pérez">
+                    <label style="display: flex; justify-content: space-between;">
+                        <span>Nombre Completo <span style="color:var(--danger);">*</span></span>
+                        <span style="font-size: 0.75rem; color: ${isNombreComplete ? 'var(--success)' : 'rgba(255,255,255,0.4)'};">
+                            ${isNombreComplete ? '✓ Completado' : '○ Pendiente'}
+                        </span>
+                    </label>
+                    <input type="text" id="f_nombre" value="${escapeHtml(personalData.nombre)}" placeholder="Ej. María González Pérez"
+                        style="border-color: ${isNombreComplete ? 'var(--success)' : 'var(--danger)'}; border-width: 2px;">
                 </div>
                 <div class="field-group">
-                    <label>CURP *</label>
-                    <input type="text" id="f_curp" value="${escapeHtml(personalData.curp)}" maxlength="18" style="text-transform:uppercase" placeholder="GOPM850101MDFNRR01">
+                    <label style="display: flex; justify-content: space-between;">
+                        <span>CURP <span style="color:var(--danger);">*</span></span>
+                        <span style="font-size: 0.75rem; color: ${isCurpComplete ? 'var(--success)' : 'rgba(255,255,255,0.4)'};">
+                            ${isCurpComplete ? '✓ Completado' : '○ Pendiente'}
+                        </span>
+                    </label>
+                    <input type="text" id="f_curp" value="${escapeHtml(personalData.curp)}" maxlength="18" style="text-transform:uppercase; border-color: ${isCurpComplete ? 'var(--success)' : 'var(--danger)'}; border-width: 2px;" placeholder="GOPM850101MDFNRR01">
                 </div>
                 <div class="field-group">
-                    <label>Domicilio *</label>
-                    <textarea id="f_domicilio" rows="2" placeholder="Calle, número, colonia, ciudad, estado">${escapeHtml(personalData.domicilio)}</textarea>
+                    <label style="display: flex; justify-content: space-between;">
+                        <span>Domicilio <span style="color:var(--danger);">*</span></span>
+                        <span style="font-size: 0.75rem; color: ${isDomicilioComplete ? 'var(--success)' : 'rgba(255,255,255,0.4)'};">
+                            ${isDomicilioComplete ? '✓ Completado' : '○ Pendiente'}
+                        </span>
+                    </label>
+                    <textarea id="f_domicilio" rows="2" placeholder="Calle, número, colonia, ciudad, estado"
+                        style="border-color: ${isDomicilioComplete ? 'var(--success)' : 'var(--danger)'}; border-width: 2px;">${escapeHtml(personalData.domicilio)}</textarea>
                 </div>
                 <div class="field-group">
-                    <label>Grado de estudio o Certificaciones (EC1375) *</label>
+                    <label style="display: flex; justify-content: space-between;">
+                        <span>Grado de estudio o Certificaciones (EC1375) <span style="color:var(--danger);">*</span></span>
+                        <span style="font-size: 0.75rem; color: ${isEscolaridadComplete ? 'var(--success)' : 'rgba(255,255,255,0.4)'};">
+                            ${isEscolaridadComplete ? '✓ Completado' : '○ Pendiente'}
+                        </span>
+                    </label>
                     <p class="field-hint" style="margin-top:-2px;margin-bottom:10px;">Selecciona todas las especialidades que apliquen a tu formación</p>
                     ${renderCertAccordion()}
                     <div class="cert-chips" id="certChips">${renderCertChips()}</div>
@@ -1200,19 +1230,38 @@
                     <input type="tel" id="f_telefonoCasa" value="${escapeHtml(personalData.telefonoCasa)}" placeholder="Opcional">
                 </div>
                 <div class="field-group">
-                    <label>Teléfono celular *</label>
-                    <input type="tel" id="f_telefonoCelular" value="${escapeHtml(personalData.telefonoCelular)}" placeholder="10 dígitos">
+                    <label style="display: flex; justify-content: space-between;">
+                        <span>Teléfono celular <span style="color:var(--danger);">*</span></span>
+                        <span style="font-size: 0.75rem; color: ${isTelefonoComplete ? 'var(--success)' : 'rgba(255,255,255,0.4)'};">
+                            ${isTelefonoComplete ? '✓ Completado' : '○ Pendiente'}
+                        </span>
+                    </label>
+                    <input type="tel" id="f_telefonoCelular" value="${escapeHtml(personalData.telefonoCelular)}" placeholder="10 dígitos"
+                        style="border-color: ${isTelefonoComplete ? 'var(--success)' : 'var(--danger)'}; border-width: 2px;">
                 </div>
                 <div class="field-group">
-                    <label>Correo electrónico *</label>
-                    <input type="email" id="f_email" value="${escapeHtml(personalData.email)}" placeholder="tu@email.com">
+                    <label style="display: flex; justify-content: space-between;">
+                        <span>Correo electrónico <span style="color:var(--danger);">*</span></span>
+                        <span style="font-size: 0.75rem; color: ${isEmailComplete ? 'var(--success)' : 'rgba(255,255,255,0.4)'};">
+                            ${isEmailComplete ? '✓ Completado' : '○ Pendiente'}
+                        </span>
+                    </label>
+                    <input type="email" id="f_email" value="${escapeHtml(personalData.email)}" placeholder="tu@email.com"
+                        style="border-color: ${isEmailComplete ? 'var(--success)' : 'var(--danger)'}; border-width: 2px;">
                 </div>
                 <div class="field-group">
-                    <label>Fecha de aplicación *</label>
-                    <input type="date" id="f_fecha" value="${personalData.fecha || todayISO()}">
+                    <label style="display: flex; justify-content: space-between;">
+                        <span>Fecha de aplicación <span style="color:var(--danger);">*</span></span>
+                        <span style="font-size: 0.75rem; color: ${isFechaComplete ? 'var(--success)' : 'rgba(255,255,255,0.4)'};">
+                            ${isFechaComplete ? '✓ Completado' : '○ Pendiente'}
+                        </span>
+                    </label>
+                    <input type="date" id="f_fecha" value="${personalData.fecha || todayISO()}"
+                        style="border-color: ${isFechaComplete ? 'var(--success)' : 'var(--danger)'}; border-width: 2px;">
                 </div>
                 <p class="field-hint">* Campos requeridos para generar tu documento oficial</p>
             </div>
+            <div id="validationStatus"></div>
         `;
     }
 
@@ -1379,14 +1428,22 @@
                     </ul>
                 </div>
 
-                <div class="checkbox-row">
+                <div class="checkbox-row" style="background: ${triptychAccepted ? 'rgba(0,255,136,0.08)' : 'rgba(255,51,51,0.08)'}; border: 1px solid ${triptychAccepted ? 'var(--success)' : 'var(--danger)'};">
                     <input type="checkbox" id="triptychCheck" ${triptychAccepted ? 'checked' : ''} onchange="toggleTriptych(this)">
-                    <label for="triptychCheck">He leído y acepto el Tríptico de Derechos y Obligaciones del Sistema Nacional de Competencias (CONOCER)</label>
+                    <label for="triptychCheck" style="color: ${triptychAccepted ? 'var(--success)' : 'var(--text)'};">
+                        ${triptychAccepted ? '✓ ' : '○ '}He leído y acepto el Tríptico de Derechos y Obligaciones del Sistema Nacional de Competencias (CONOCER)
+                    </label>
                 </div>
             </div>
 
             <div class="card">
-                <h2>Firma del candidato</h2>
+                <h2>Firma del candidato <span style="color:var(--danger);">*</span></h2>
+                <label style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <span style="font-size: 0.9rem;">Tu firma</span>
+                    <span style="font-size: 0.75rem; color: ${hasSignature || (signatureMode === 'type' && signatureTypedName && signatureTypedName.trim().length > 0) ? 'var(--success)' : 'rgba(255,255,255,0.4)'};">
+                        ${hasSignature || (signatureMode === 'type' && signatureTypedName && signatureTypedName.trim().length > 0) ? '✓ Completado' : '○ Pendiente'}
+                    </span>
+                </label>
                 <div class="signature-tabs">
                     <button class="sig-tab-btn ${signatureMode === 'draw' ? 'active' : ''}" onclick="setSignatureMode('draw')">✍️ Dibujar firma</button>
                     <button class="sig-tab-btn ${signatureMode === 'type' ? 'active' : ''}" onclick="setSignatureMode('type')">⌨️ Escribir mi nombre</button>
@@ -1408,6 +1465,7 @@
                     </div>
                 </div>
             </div>
+            <div id="validationStatus"></div>
         `;
     }
 
@@ -1537,14 +1595,22 @@
                     <p>Esta confidencialidad aplica durante todo tu proceso de certificación y de forma indefinida respecto al contenido del Cuestionario y del IEC. Incumplirla puede resultar en la cancelación de tu proceso de certificación, sin perjuicio de cualquier otra acción que proceda conforme a la ley.</p>
                 </div>
 
-                <div class="checkbox-row">
+                <div class="checkbox-row" style="background: ${ndaAccepted ? 'rgba(0,255,136,0.08)' : 'rgba(255,51,51,0.08)'}; border: 1px solid ${ndaAccepted ? 'var(--success)' : 'var(--danger)'};">
                     <input type="checkbox" id="ndaCheck" ${ndaAccepted ? 'checked' : ''} onchange="toggleNda(this)">
-                    <label for="ndaCheck">He leído y acepto los términos de este Acuerdo de Confidencialidad (NDA)</label>
+                    <label for="ndaCheck" style="color: ${ndaAccepted ? 'var(--success)' : 'var(--text)'};">
+                        ${ndaAccepted ? '✓ ' : '○ '}He leído y acepto los términos de este Acuerdo de Confidencialidad (NDA)
+                    </label>
                 </div>
             </div>
 
             <div class="card">
-                <h2>Firma del candidato</h2>
+                <h2>Firma del candidato <span style="color:var(--danger);">*</span></h2>
+                <label style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <span style="font-size: 0.9rem;">Tu firma</span>
+                    <span style="font-size: 0.75rem; color: ${ndaHasSignature || (ndaSignatureMode === 'type' && ndaSignatureTypedName && ndaSignatureTypedName.trim().length > 0) ? 'var(--success)' : 'rgba(255,255,255,0.4)'};">
+                        ${ndaHasSignature || (ndaSignatureMode === 'type' && ndaSignatureTypedName && ndaSignatureTypedName.trim().length > 0) ? '✓ Completado' : '○ Pendiente'}
+                    </span>
+                </label>
                 <div class="signature-tabs">
                     <button class="sig-tab-btn ${ndaSignatureMode === 'draw' ? 'active' : ''}" onclick="setNdaSignatureMode('draw')">✍️ Dibujar firma</button>
                     <button class="sig-tab-btn ${ndaSignatureMode === 'type' ? 'active' : ''}" onclick="setNdaSignatureMode('type')">⌨️ Escribir mi nombre</button>
@@ -1566,6 +1632,7 @@
                     </div>
                 </div>
             </div>
+            <div id="validationStatus"></div>
         `;
     }
 
@@ -1776,6 +1843,36 @@
     /* =========================================================
        NAVIGATION
     ========================================================= */
+    function getMissingFields(step) {
+        const missing = [];
+
+        if (step === 'personal') {
+            if (!personalData.nombre?.trim()) missing.push('Nombre completo');
+            if (!personalData.curp?.trim()) missing.push('CURP');
+            if (!personalData.domicilio?.trim()) missing.push('Domicilio');
+            if (!personalData.escolaridad?.trim()) missing.push('Escolaridad');
+            if (!personalData.telefonoCelular?.trim()) missing.push('Teléfono celular');
+            if (!personalData.email?.trim()) missing.push('Correo electrónico');
+            if (!personalData.fecha?.trim()) missing.push('Fecha de nacimiento');
+        } else if (step === 'nda') {
+            if (!ndaAccepted) missing.push('Aceptar el acuerdo de confidencialidad');
+            const hasSig = ndaSignatureMode === 'draw' ? ndaHasSignature : (ndaSignatureTypedName && ndaSignatureTypedName.trim().length > 3);
+            if (!hasSig) missing.push('Proporcionar firma');
+        } else if (step === 'firma') {
+            if (!triptychAccepted) missing.push('Aceptar el Tríptico de Derechos');
+            const hasSig = signatureMode === 'draw' ? hasSignature : (signatureTypedName && signatureTypedName.trim().length > 3);
+            if (!hasSig) missing.push('Proporcionar firma');
+        } else if (step.startsWith('e')) {
+            const elementoIdx = parseInt(step.substring(1)) - 1;
+            const progress = countAnsweredInElemento(elementoIdx);
+            if (progress.answered < progress.total) {
+                missing.push(`Responder ${progress.total - progress.answered} pregunta(s) más`);
+            }
+        }
+
+        return missing;
+    }
+
     function isStepValid(step) {
         if (step === 'auth') {
             return Auth.hasSession();
@@ -1803,6 +1900,7 @@
     function updateNavButtons() {
         const btnBack = document.getElementById('btnBack');
         const btnNext = document.getElementById('btnNext');
+        const validationBox = document.getElementById('validationStatus');
         if (!btnBack || !btnNext) return;
 
         btnBack.style.visibility = currentStepIndex <= 2 ? 'hidden' : 'visible';
@@ -1811,6 +1909,28 @@
         const valid = isStepValid(step);
         btnNext.disabled = !valid;
         btnNext.textContent = step === 'firma' ? 'Ver mi resultado →' : 'Siguiente →';
+
+        // Mostrar validación visual
+        if (validationBox) {
+            if (valid) {
+                validationBox.innerHTML = '';
+            } else {
+                const missing = getMissingFields(step);
+                if (missing.length > 0) {
+                    validationBox.innerHTML = `
+                        <div style="background: rgba(255,51,51,0.08); border: 1px solid var(--danger); border-radius: 8px; padding: 14px; margin-bottom: 16px;">
+                            <p style="color: var(--danger); font-weight: 600; margin-bottom: 10px; font-size: 0.9rem;">⚠️ Faltan los siguientes pasos para continuar:</p>
+                            <div style="color: var(--text); font-size: 0.85rem; line-height: 1.6;">
+                                ${missing.map(field => `<div style="margin-bottom: 6px;">✓ ${field}</div>`).join('')}
+                            </div>
+                        </div>
+                    `;
+                    validationBox.style.display = 'block';
+                } else {
+                    validationBox.style.display = 'none';
+                }
+            }
+        }
     }
 
     function goNext() {
