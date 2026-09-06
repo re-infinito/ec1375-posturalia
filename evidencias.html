@@ -355,11 +355,30 @@
         const hasSig = signatureMode === 'draw' ? hasSignature : (signatureTypedName && signatureTypedName.trim().length > 3);
         const hasVideoLink = planData.videoLink && planData.videoLink.trim().length > 5;
         const missing = [];
-        if (!hasVideoLink) missing.push('la liga a tu video de sesión (arriba, en "Evidencias Requeridas")');
+        if (!hasVideoLink) missing.push('liga a tu video de sesión');
         if (!planData.evidenciasConfirmadas) missing.push('marcar la casilla de confirmación');
-        if (!hasSig) missing.push('tu firma');
+        if (!hasSig) missing.push('proporcionar tu firma');
+
         btn.disabled = missing.length > 0;
-        if (hint) hint.textContent = missing.length ? `Te falta: ${missing.join(', ')}.` : '';
+
+        if (hint) {
+            if (missing.length > 0) {
+                hint.innerHTML = `
+                    <div style="background: rgba(255,51,51,0.08); border: 1px solid var(--danger); border-radius: 8px; padding: 14px; margin-bottom: 12px;">
+                        <p style="color: var(--danger); font-weight: 600; margin-bottom: 10px; font-size: 0.9rem;">
+                            ⚠️ Faltan los siguientes pasos para continuar:
+                        </p>
+                        <div style="color: var(--text); font-size: 0.85rem; line-height: 1.6;">
+                            ${missing.map(f => `<div style="margin-bottom: 6px;">✓ ${f}</div>`).join('')}
+                        </div>
+                    </div>
+                `;
+                hint.style.display = 'block';
+            } else {
+                hint.innerHTML = '';
+                hint.style.display = 'none';
+            }
+        }
     }
 
     function requestUploadViaWhatsApp() {
