@@ -184,6 +184,10 @@
 
         if (generated) { renderGeneratedState(app, result); return; }
 
+        const hasSig = signatureMode === 'draw' ? hasSignature : (signatureTypedName && signatureTypedName.trim().length > 3);
+        const allAnswered = PREGUNTAS.every((_, idx) => respuestas[idx]);
+        const unansweredCount = PREGUNTAS.filter((_, idx) => !respuestas[idx]).length;
+
         app.innerHTML = `
             <div class="hero">
                 <div class="hero-icon">📝</div>
@@ -193,25 +197,41 @@
 
             <div class="card">
                 <h2>Conteste marcando la opción que considere adecuada</h2>
-                ${PREGUNTAS.map((p, idx) => `
-                    <div class="likert-item">
-                        <div class="likert-question">${idx + 1}. ${p}</div>
+                <p style="font-size: 0.85rem; color: var(--text); margin-bottom: 14px;">
+                    <span style="color: ${allAnswered ? 'var(--success)' : 'var(--danger)'}; font-weight: 600;">
+                        ${allAnswered ? '✓ Todas respondidas' : `${unansweredCount} sin responder`}
+                    </span>
+                </p>
+                ${PREGUNTAS.map((p, idx) => {
+                    const isAnswered = respuestas[idx];
+                    return `
+                    <div class="likert-item" style="border-left: 4px solid ${isAnswered ? 'var(--success)' : 'var(--danger)'}; padding-left: 12px;">
+                        <div class="likert-question" style="color: ${isAnswered ? 'var(--success)' : 'var(--danger)'};">
+                            ${isAnswered ? '✓' : '○'} ${idx + 1}. ${p}
+                        </div>
                         <div class="likert-options">
                             ${ESCALA.map(e => `<button class="likert-btn ${respuestas[idx] === e.valor ? e.clase : ''}" onclick="setRespuesta(${idx}, '${e.valor.replace(/'/g, "\\'")}', this)">${e.valor}</button>`).join('')}
                         </div>
                     </div>
-                `).join('')}
+                `}).join('')}
             </div>
 
             <div class="card">
                 <h2>💬 Comentarios y/o sugerencias</h2>
+                <p style="font-size: 0.85rem; color: var(--text); margin-bottom: 12px;">Opcional</p>
                 <div class="field-group">
                     <textarea id="f_comentarios" rows="3" placeholder="Opcional">${escapeHtml(comentarios)}</textarea>
                 </div>
             </div>
 
             <div class="card">
-                <h2>✍️ Firma</h2>
+                <h2>✍️ Firma <span style="color:var(--danger);">*</span></h2>
+                <label style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <span style="font-size: 0.9rem;">Tu firma</span>
+                    <span style="font-size: 0.75rem; color: ${hasSig ? 'var(--success)' : 'rgba(255,255,255,0.4)'};">
+                        ${hasSig ? '✓ Completado' : '○ Pendiente'}
+                    </span>
+                </label>
                 <div class="signature-tabs">
                     <button class="sig-tab-btn ${signatureMode === 'draw' ? 'active' : ''}" onclick="setSignatureMode('draw')">✍️ Dibujar firma</button>
                     <button class="sig-tab-btn ${signatureMode === 'type' ? 'active' : ''}" onclick="setSignatureMode('type')">⌨️ Escribir mi nombre</button>
@@ -228,6 +248,7 @@
                 </div>
             </div>
 
+            <div id="validationStatus"></div>
             <button class="btn btn-primary btn-full" id="btnGenerate" onclick="generateEncuesta()" disabled>Enviar mi Encuesta →</button>
         `;
 
@@ -253,10 +274,36 @@
 
     function updateGenerateButton() {
         const btn = document.getElementById('btnGenerate');
+        const statusBox = document.getElementById('validationStatus');
         if (!btn) return;
+
         const hasSig = signatureMode === 'draw' ? hasSignature : (signatureTypedName && signatureTypedName.trim().length > 3);
         const allAnswered = PREGUNTAS.every((_, idx) => respuestas[idx]);
-        btn.disabled = !(allAnswered && hasSig);
+        const isValid = allAnswered && hasSig;
+
+        btn.disabled = !isValid;
+
+        if (statusBox) {
+            if (isValid) {
+                statusBox.innerHTML = '';
+            } else {
+                const missing = [];
+                if (!allAnswered) {
+                    const unanswered = PREGUNTAS.filter((_, idx) => !respuestas[idx]).length;
+                    missing.push(`Responder ${unanswered} pregunta${unanswered !== 1 ? 's' : ''} más`);
+                }
+                if (!hasSig) missing.push('Proporcionar una firma (dibujada o escrita)');
+
+                statusBox.innerHTML = `
+                    <div style="background: rgba(255,51,51,0.08); border: 1px solid var(--danger); border-radius: 8px; padding: 14px; margin-bottom: 16px;">
+                        <p style="color: var(--danger); font-weight: 600; margin-bottom: 10px; font-size: 0.9rem;">⚠️ Faltan los siguientes pasos para continuar:</p>
+                        <div style="color: var(--text); font-size: 0.85rem; line-height: 1.6;">
+                            ${missing.map(field => `<div style="margin-bottom: 6px;">✓ ${field}</div>`).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+        }
     }
 
     function initSignatureCanvas() {
