@@ -35,8 +35,10 @@
         .top-bar {
             position: sticky; top: 0; background: var(--dark);
             border-bottom: 1px solid var(--dark-light); padding: 16px 20px; z-index: 100;
+            display: flex; justify-content: space-between; align-items: center;
         }
-        .top-bar-inner { max-width: 1000px; margin: 0 auto; font-size: 0.95rem; color: var(--text-bright); font-weight: 700; }
+        .top-bar-inner { font-size: 0.95rem; color: var(--text-bright); font-weight: 700; }
+        .top-bar a { color: var(--primary); font-size: 0.82rem; text-decoration: none; }
 
         .tabs {
             display: flex;
@@ -162,7 +164,10 @@
     </style>
 </head>
 <body>
-    <div class="top-bar"><div class="top-bar-inner">⚙️ Admin - Sesiones de Alineación</div></div>
+    <div class="top-bar">
+        <div class="top-bar-inner">⚙️ Admin - Sesiones de Alineación</div>
+        <a href="admin-index.html">🗂️ Índice</a>
+    </div>
     <div class="container">
         <div id="app"></div>
     </div>
