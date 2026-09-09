@@ -52,6 +52,45 @@ Vercel:
 
 ---
 
+## ✅ CAUSA RAÍZ CONFIRMADA Y RESUELTA (Sonnet 5, misma fecha, segunda vuelta)
+
+El usuario reportó DevTools Console con el error real:
+
+```
+Uncaught SyntaxError: Identifier 'supabase' has already been declared
+(at admin-sesiones.html:170:13)
+```
+
+**Causa raíz real:** `admin-sesiones.html` tenía `const supabase = window.supabaseClient;`
+a nivel superior del script. El CDN `@supabase/supabase-js@2` (cargado antes vía
+`<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2">`) ya expone un
+global `supabase` (además de en `window.supabase`, el UMD lo deja como binding global
+plano). Declarar `const supabase = ...` cuando ya existe un global `var`/binding con
+ese mismo nombre es un **SyntaxError de tiempo de parseo** (no un error de ejecución) —
+esto invalida TODO el bloque `<script>` completo, por lo que ni siquiera el try/catch
+agregado en el intento anterior llegaba a ejecutarse. Esto explica el "blank total"
+persistente: el navegador nunca llegó a correr una sola línea de nuestro JS.
+
+`admin-precios.html` (que sí funciona) nunca declara este alias — usa `supabaseClient`
+directamente en cada llamada (bare identifier que resuelve a `window.supabaseClient`).
+Ese es el patrón correcto.
+
+**Fix aplicado (commit en esta sesión):**
+- Eliminada la línea `const supabase = window.supabaseClient;`
+- Todas las llamadas `await supabase.from(...)` → `await supabaseClient.from(...)`
+  (3 ocurrencias: `cargarSesiones`, `crearSesion`, `eliminarSesion`)
+- Verificado que ningún otro archivo de frontend (sesiones-alineacion-component.js,
+  alineacion.html) tiene este mismo patrón — solo los archivos backend en `/api/*.js`
+  declaran `const supabase = createClient(...)`, pero esos corren en Node.js (sin CDN
+  de navegador), sin riesgo de colisión.
+
+**Lección para futuras páginas admin:** Nunca declarar `const/let supabase = ...` en
+un script de navegador que también carga el CDN `@supabase/supabase-js` — ese nombre
+ya está ocupado por el propio CDN. Usar siempre `supabaseClient` (el nombre que exporta
+auth.js) como identificador, igual que en admin-precios.html.
+
+---
+
 ## 🆕 ACTUALIZACIÓN (Sesión Sonnet 5 — misma fecha)
 
 **Contexto:** El usuario reportó que, tras el fix de Haiku (window.supabaseClient / window.Auth),
