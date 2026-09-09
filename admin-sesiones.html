@@ -409,8 +409,18 @@
             });
 
             if (!resp.ok) {
-                const error = await resp.json();
-                throw new Error(error.error || 'Error creando evento en Google Calendar');
+                const bodyText = await resp.text();
+                let mensaje = `Error del servidor (${resp.status})`;
+                try {
+                    const error = JSON.parse(bodyText);
+                    mensaje = error.error || error.message || mensaje;
+                } catch (parseErr) {
+                    // La respuesta no fue JSON (p.ej. un crash de la función
+                    // serverless) — mostrar el texto crudo en vez de romper
+                    // con "Unexpected token" sin decir nada útil.
+                    if (bodyText) mensaje = bodyText.slice(0, 200);
+                }
+                throw new Error(mensaje);
             }
 
             const data = await resp.json();

@@ -7,7 +7,6 @@
 
 const { createClient } = require('@supabase/supabase-js');
 const { google } = require('googleapis');
-const fs = require('fs');
 const { enviarConfirmacionInscripcion } = require('./utils/send-email');
 
 const supabase = createClient(
@@ -15,12 +14,24 @@ const supabase = createClient(
     process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-const googleAuth = new google.auth.GoogleAuth({
-    keyFile: process.env.GOOGLE_CALENDAR_KEY_FILE,
-    scopes: ['https://www.googleapis.com/auth/calendar']
-});
-
-const calendar = google.calendar({ version: 'v3', auth: googleAuth });
+// GOOGLE_CALENDAR_KEY_FILE contiene el JSON completo de la Service
+// Account (no una ruta de archivo — ver api/crear-evento-google.js para
+// el detalle). Se construye por request, dentro del try/catch que ya
+// envuelve la llamada a Google Calendar más abajo, para que un env var
+// faltante o mal formado quede registrado en logs en vez de fallar en
+// silencio (antes: 'keyFile' apuntando a una ruta local inexistente en
+// Vercel hacía que calendar.events.update() fallara siempre, y el
+// catch interno se lo tragaba sin agregar nunca al invitado).
+function getCalendarClient() {
+    const raw = process.env.GOOGLE_CALENDAR_KEY_FILE;
+    if (!raw) throw new Error('GOOGLE_CALENDAR_KEY_FILE no está configurada');
+    const credentials = JSON.parse(raw);
+    const googleAuth = new google.auth.GoogleAuth({
+        credentials,
+        scopes: ['https://www.googleapis.com/auth/calendar']
+    });
+    return google.calendar({ version: 'v3', auth: googleAuth });
+}
 
 module.exports = async (req, res) => {
     res.setHeader('Content-Type', 'application/json');
@@ -86,16 +97,27 @@ module.exports = async (req, res) => {
 
         if (sesion.google_event_id) {
             try {
-                const attendeeRes = await calendar.events.update({
+                const calendar = getCalendarClient();
+
+                // events.patch() reemplaza por completo el campo `attendees`
+                // que se le pase (no hace merge) — hay que leer los
+                // invitados actuales del evento y añadir el nuevo, si no
+                // cada inscripción pisaría a las anteriores en una sesión
+                // grupal en vez de sumarse.
+                const eventoActual = await calendar.events.get({
+                    calendarId: process.env.GOOGLE_CALENDAR_ID,
+                    eventId: sesion.google_event_id
+                });
+                const attendeesActuales = eventoActual.data.attendees || [];
+                const yaEsInvitado = attendeesActuales.some(a => a.email === usuario_email);
+                const nuevosAttendees = yaEsInvitado
+                    ? attendeesActuales
+                    : [...attendeesActuales, { email: usuario_email, displayName: usuario_nombre, responseStatus: 'needsAction' }];
+
+                const attendeeRes = await calendar.events.patch({
                     calendarId: process.env.GOOGLE_CALENDAR_ID,
                     eventId: sesion.google_event_id,
-                    requestBody: {
-                        attendees: {
-                            email: usuario_email,
-                            displayName: usuario_nombre,
-                            responseStatus: 'needsAction'
-                        }
-                    },
+                    requestBody: { attendees: nuevosAttendees },
                     sendUpdates: 'all' // Envía invitación a Google Calendar
                 });
 
