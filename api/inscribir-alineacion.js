@@ -8,6 +8,7 @@
 const { createClient } = require('@supabase/supabase-js');
 const { google } = require('googleapis');
 const fs = require('fs');
+const { enviarConfirmacionInscripcion } = require('./utils/send-email');
 
 const supabase = createClient(
     process.env.SUPABASE_URL,
@@ -135,9 +136,12 @@ module.exports = async (req, res) => {
             });
         }
 
-        // 6. Enviar email de confirmación (asincrónico)
+        // 6. Enviar email de confirmación (asincrónico, no bloquea la inscripción)
         enviarEmailConfirmacion(inscripcion, sesion, googleMeetLink)
-            .catch(err => console.error('Error enviando email:', err));
+            .catch(err => {
+                console.error('Error enviando email de confirmación:', err);
+                // Error de email no falla la inscripción, pero lo registramos
+            });
 
         res.status(200).json({
             success: true,
@@ -157,56 +161,43 @@ module.exports = async (req, res) => {
 };
 
 /**
- * Enviar email de confirmación de inscripción
+ * Enviar email de confirmación de inscripción vía Resend
  */
 async function enviarEmailConfirmacion(inscripcion, sesion, googleMeetLink) {
-    // Aquí integrarás tu servicio de emails (SendGrid, Resend, etc.)
-    // Por ahora, un placeholder
+    try {
+        const resultado = await enviarConfirmacionInscripcion(inscripcion, sesion, googleMeetLink);
 
-    const emailHtml = `
-        <h2>¡Inscripción Confirmada!</h2>
-        <p>Hola ${inscripcion.usuario_nombre},</p>
-        <p>Tu inscripción a la <strong>Sesión de Alineación EC1375</strong> ha sido confirmada.</p>
+        // Registrar en auditoría que fue enviado
+        await supabase.from('emails_enviados_alineacion').insert([
+            {
+                inscripcion_id: inscripcion.id,
+                tipo_email: 'confirmacion',
+                destinatario: inscripcion.usuario_email,
+                asunto: `✓ Inscripción Confirmada - Sesión de Alineación EC1375 (${sesion.fecha})`,
+                fecha_envio: new Date().toISOString(),
+                estado_envio: 'enviado',
+                email_id_resend: resultado.email_id
+            }
+        ]);
 
-        <h3>📅 Detalles de la Sesión:</h3>
-        <ul>
-            <li><strong>Fecha:</strong> ${sesion.fecha}</li>
-            <li><strong>Hora:</strong> ${sesion.hora_inicio} - ${sesion.hora_fin}</li>
-            <li><strong>Instructor:</strong> ${sesion.instructor_nombre || 'Por confirmar'}</li>
-            <li><strong>Google Meet:</strong> ${googleMeetLink ? `<a href="${googleMeetLink}">${googleMeetLink}</a>` : 'Se enviará 1 hora antes'}</li>
-        </ul>
+        console.log('✓ Email de confirmación enviado a:', inscripcion.usuario_email);
+        return resultado;
+    } catch (error) {
+        console.error('Error enviando email:', error);
 
-        <h3>✅ Próximos Pasos:</h3>
-        <ol>
-            <li>Asegúrate de tener cámara y micrófono funcionando</li>
-            <li>Revisa tu conexión a internet</li>
-            <li>Entra 5 minutos antes del horario</li>
-        </ol>
+        // Registrar en auditoría que falló
+        await supabase.from('emails_enviados_alineacion').insert([
+            {
+                inscripcion_id: inscripcion.id,
+                tipo_email: 'confirmacion',
+                destinatario: inscripcion.usuario_email,
+                asunto: `✓ Inscripción Confirmada - Sesión de Alineación EC1375 (${sesion.fecha})`,
+                fecha_envio: new Date().toISOString(),
+                estado_envio: 'fallido',
+                error_mensaje: error.message
+            }
+        ]);
 
-        <p style="color: #888; font-size: 0.9em; margin-top: 30px;">
-            Si tienes dudas, escríbenos por WhatsApp:
-            <a href="https://wa.me/528115026729">+52 811 5026729</a>
-        </p>
-    `;
-
-    // TODO: Integrar con tu servicio de emails
-    // await sendEmail({
-    //     to: inscripcion.usuario_email,
-    //     subject: '✓ Inscripción Confirmada - Sesión de Alineación EC1375',
-    //     html: emailHtml
-    // });
-
-    console.log('Email a enviar a:', inscripcion.usuario_email);
-    console.log('Sesión:', sesion.fecha, sesion.hora_inicio);
-
-    // Por ahora, guardar en BD que intenta enviar
-    await supabase.from('emails_enviados_alineacion').insert([
-        {
-            inscripcion_id: inscripcion.id,
-            tipo_email: 'confirmacion',
-            destinatario: inscripcion.usuario_email,
-            asunto: '✓ Inscripción Confirmada - Sesión de Alineación EC1375',
-            estado_envio: 'pendiente' // Cambiar a 'enviado' cuando integres servicio
-        }
-    ]);
+        throw error;
+    }
 }
