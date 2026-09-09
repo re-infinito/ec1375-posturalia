@@ -52,6 +52,46 @@ Vercel:
 
 ---
 
+## 🆕 ACTUALIZACIÓN (Sesión Sonnet 5 — misma fecha)
+
+**Contexto:** El usuario reportó que, tras el fix de Haiku (window.supabaseClient / window.Auth),
+el admin panel **sigue en blanco**. No se pudo verificar en vivo: el proxy de este entorno
+remoto bloquea `sepconocer.paideiatech.com` Y `numsuiuwrvpprhnxovmh.supabase.co` (confirmado
+de nuevo — mismo bloqueo que en la sesión anterior). Tampoco hay GitHub Actions/check runs
+que reflejen el estado del deploy de Vercel (es integración directa Vercel↔GitHub, no Actions).
+
+**Hallazgo clave (comparando con admin-precios.html, que si funciona):**
+`admin-sesiones.html` NO tenía try/catch alrededor de `init()`. Si `Auth.getSession()`
+lanzaba una excepción (por ejemplo, `window.Auth`/`window.supabaseClient` aún undefined por
+caché de navegador sirviendo el auth.js viejo, o el CDN de Supabase sin cargar), la promesa
+quedaba rechazada sin manejar → la página se queda 100% en blanco, sin ningún rastro visible.
+`admin-precios.html` sí envuelve todo en try/catch y muestra un mensaje de error visible
+(línea ~325-331), por eso nunca se ha reportado como "en blanco".
+
+**Fix aplicado (admin-sesiones.html, función init()):**
+1. Chequeo explícito: `typeof window.supabase === 'undefined'` → error "CDN no cargó"
+2. Chequeo explícito: `typeof window.Auth === 'undefined' || typeof window.supabaseClient === 'undefined'` → error "auth.js no se inicializó"
+3. `try/catch` alrededor de todo `init()` con mensaje de error visible en pantalla + botón "Recargar"
+4. **NO se activó** el chequeo `Auth.isAdmin()` (estaba como TODO) — se dejó pendiente
+   deliberadamente para no introducir un nuevo bloqueo si el email del usuario no está
+   registrado como admin en Supabase (no se pudo verificar por las restricciones de red).
+
+**Por qué esto es lo más valioso que se puede hacer sin acceso al navegador en vivo:**
+Ahora, la próxima vez que el usuario abra admin-sesiones.html, UNA de estas dos cosas pasará:
+- ✅ El panel renderiza correctamente (si el fix anterior de Haiku ya se propagó bien)
+- ⚠️ Aparece un mensaje de error EXPLÍCITO en pantalla (ya no blank) que dirá exactamente
+  cuál de los 2 checks falló — esto da información accionable real por primera vez.
+
+**Siguiente paso inmediato para quien continúe:**
+Pedir al usuario un hard refresh (Ctrl+Shift+R) del admin panel y reportar EXACTAMENTE
+qué ve ahora: ¿sigue en blanco? ¿aparece el mensaje de error? ¿qué dice? Si sigue en blanco
+tras este fix, el problema NO es JS del lado cliente sino algo previo: Vercel no deployó,
+DNS/CDN cache, o el archivo servido en producción no es el que está en `main` (verificar
+Vercel dashboard → Deployments → confirmar que el commit `05ff27b` o posterior es el
+"Production" activo).
+
+---
+
 ## 🔴 PROBLEMA ACTUAL
 
 ### Síntoma

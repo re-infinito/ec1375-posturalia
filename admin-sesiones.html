@@ -172,19 +172,39 @@
     const supabase = window.supabaseClient;
 
     async function init() {
-        const session = await Auth.getSession();
-        if (!session) {
+        try {
+            if (typeof window.supabase === 'undefined') {
+                throw new Error('El CDN de Supabase (@supabase/supabase-js) no cargó. Revisa tu conexión o bloqueadores de script.');
+            }
+            if (typeof window.Auth === 'undefined' || typeof window.supabaseClient === 'undefined') {
+                throw new Error('auth.js no se inicializó correctamente (window.Auth / window.supabaseClient no definidos).');
+            }
+
+            const session = await Auth.getSession();
+            if (!session) {
+                document.getElementById('app').innerHTML = `
+                    <div style="text-align: center; padding: 40px;">
+                        <p>Necesitas iniciar sesión</p>
+                        <a href="recuperar.html" class="btn btn-primary">Ir a login</a>
+                    </div>
+                `;
+                return;
+            }
+
+            // TODO: Verificar que sea admin (Auth.isAdmin) — pendiente de
+            // confirmar que el email del usuario esté registrado como admin
+            // antes de activar este gate. Ver PROYECTO_MEMORIA.md.
+            render();
+        } catch (error) {
+            console.error('Error al iniciar el panel admin-sesiones:', error);
             document.getElementById('app').innerHTML = `
                 <div style="text-align: center; padding: 40px;">
-                    <p>Necesitas iniciar sesión</p>
-                    <a href="recuperar.html" class="btn btn-primary">Ir a login</a>
+                    <p style="color: var(--danger); font-weight: 600;">⚠️ Error al cargar el panel</p>
+                    <p style="margin-top: 8px; font-size: 0.85rem; color: var(--text);">${(error && error.message) || 'Error desconocido'}</p>
+                    <button class="btn btn-primary" style="margin-top: 16px;" onclick="location.reload()">Recargar</button>
                 </div>
             `;
-            return;
         }
-
-        // TODO: Verificar que sea admin
-        render();
     }
 
     async function cargarSesiones() {
