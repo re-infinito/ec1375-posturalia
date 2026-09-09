@@ -52,6 +52,39 @@ Vercel:
 
 ---
 
+## ✅ PANEL YA RENDERIZA — Fix #3: columna `created_at` no existe (Sonnet 5, tercera vuelta)
+
+Con el SyntaxError resuelto, el panel admin-sesiones.html ya renderiza el formulario
+correctamente. Apareció un nuevo error, esta vez de datos, no de JS:
+
+```
+✗ Error cargando sesiones: column sesiones_alineacion.created_at does not exist
+```
+
+**Causa:** `cargarSesiones()` en admin-sesiones.html pedía la columna `created_at` en
+su `.select(...)`, pero esa columna no existe en la tabla real `sesiones_alineacion`.
+Confirmado comparando con `api/sesiones-alineacion.js` (el endpoint que sí funciona
+para alineacion.html): ese archivo selecciona `id, fecha, hora_inicio, hora_fin,
+capacidad_maxima, instructor_nombre, google_meet_link, estado, descripcion` y ordena
+por `fecha` — nunca toca `created_at`. Tampoco se usaba `created_at` en ningún lugar
+del render de `actualizarListaSesiones()`, así que era seguro quitarlo sin más.
+
+**Fix:** Eliminada `created_at` del `.select()` en `cargarSesiones()`. El `insert()` de
+`crearSesion()` ya no la incluía (correcto), y sus columnas coinciden con las que usan
+los demás endpoints backend.
+
+**Columnas reales confirmadas de `sesiones_alineacion`:** id, fecha, hora_inicio,
+hora_fin, capacidad_maxima, instructor_nombre, descripcion, estado, google_event_id,
+google_meet_link. (Notar: NO tiene created_at expuesto/usable desde el cliente —
+puede que exista a nivel de tabla pero sin ser necesaria/consultable así, o simplemente
+no exista; no se ha confirmado el DDL real porque no hay archivo .sql en el repo).
+
+**Siguiente paso:** Usuario debe recargar admin-sesiones.html y probar de nuevo crear
+una sesión. Si el error de `created_at` desaparece y el formulario permite crear/listar
+sesiones, el admin panel está resuelto end-to-end.
+
+---
+
 ## ✅ CAUSA RAÍZ CONFIRMADA Y RESUELTA (Sonnet 5, misma fecha, segunda vuelta)
 
 El usuario reportó DevTools Console con el error real:
