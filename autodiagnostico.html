@@ -147,71 +147,18 @@
 
         .field-hint { font-size: 0.8rem; color: rgba(255,255,255,0.4); margin-top: 4px; }
 
-        /* CERTIFICACIONES ACCORDION */
-        .cert-accordion {
-            border: 1px solid rgba(255,255,255,0.15);
-            border-radius: 8px;
-            overflow: hidden;
-        }
-
-        .cert-category {
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-        }
-
-        .cert-category:last-child { border-bottom: none; }
-
-        .cert-category summary {
-            padding: 14px 16px;
-            background: var(--dark);
-            color: var(--text-bright);
-            font-size: 0.88rem;
-            font-weight: 600;
-            cursor: pointer;
-            list-style: none;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            user-select: none;
-        }
-
-        .cert-category summary::-webkit-details-marker { display: none; }
-
-        .cert-category summary::after {
-            content: '▾';
-            color: var(--primary);
-            font-size: 0.8rem;
-            margin-left: 8px;
-        }
-
-        .cert-category[open] summary::after { content: '▴'; }
-
-        .cert-count {
-            background: var(--primary);
-            color: white;
-            font-size: 0.72rem;
-            font-weight: 700;
-            padding: 2px 8px;
-            border-radius: 10px;
-            margin-left: auto;
-            margin-right: 8px;
-        }
-
-        .cert-items {
-            padding: 8px 16px 14px;
-            background: rgba(0,0,0,0.15);
-        }
-
-        .cert-item-row {
+        /* CERTIFICADOS DE FORMACIÓN PREVIA */
+        .cert-sin-toggle {
             display: flex;
             align-items: flex-start;
             gap: 10px;
-            padding: 8px 0;
             font-size: 0.85rem;
             color: var(--text);
             cursor: pointer;
+            margin-bottom: 14px;
         }
 
-        .cert-item-row input[type="checkbox"] {
+        .cert-sin-toggle input[type="checkbox"] {
             width: 18px;
             height: 18px;
             flex-shrink: 0;
@@ -219,7 +166,16 @@
             accent-color: var(--primary);
         }
 
-        .cert-items input[type="text"] {
+        .cert-row {
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 8px;
+            padding: 14px;
+            margin-bottom: 12px;
+            background: rgba(0,0,0,0.15);
+        }
+
+        .cert-row input[type="text"] {
+            width: 100%;
             padding: 10px 12px;
             background: var(--dark);
             border: 1px solid rgba(255,255,255,0.15);
@@ -227,31 +183,22 @@
             color: var(--text-bright);
             font-size: 0.85rem;
             font-family: inherit;
+            margin-bottom: 10px;
         }
 
-        .cert-chips {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            margin-top: 12px;
-        }
-
-        .cert-chip {
-            background: rgba(0, 255, 136, 0.1);
-            border: 1px solid var(--success);
-            color: var(--success);
-            font-size: 0.78rem;
-            font-weight: 600;
-            padding: 5px 12px;
-            border-radius: 20px;
-        }
-
-        .cert-empty-hint {
+        .cert-row input[type="file"] {
+            width: 100%;
             font-size: 0.8rem;
-            color: rgba(255,255,255,0.35);
-            font-style: italic;
-            margin-top: 10px;
+            color: var(--text);
+            margin-bottom: 10px;
         }
+
+        .cert-row-status { font-size: 0.8rem; margin-bottom: 10px; }
+        .cert-row-status-ok { color: var(--success); }
+        .cert-row-status-error { color: var(--danger); }
+        .cert-row-status-pending { color: rgba(255,255,255,0.5); }
+
+        .btn-sm { padding: 8px 16px; font-size: 0.82rem; }
 
         /* ELEMENTO STEP */
         .elemento-header {
@@ -500,60 +447,6 @@
     </div>
 
     <script>
-    /* =========================================================
-       DATA: Certificaciones y especialidades que cubre el EC1375
-    ========================================================= */
-    const CERTIFICACIONES_EC1375 = [
-        {
-            categoria: "🔹 Terapeutas corporales y energéticos",
-            items: [
-                "Acupuntura y/o Auriculoterapia",
-                "Reflexología podal o facial",
-                "Masaje holístico, Shiatsu, tejido profundo, drenaje linfático, masaje ayurvédico",
-                "Reiki, Johrei, sanación energética o vibracional",
-                "Biomagnetismo, bioenergética y polaridad",
-                "Terapias con sonido (cuencos, diapasones, frecuencias)"
-            ]
-        },
-        {
-            categoria: "🔹 Terapeutas de apoyo emocional (no psicólogos)",
-            items: [
-                "Descodificación biológica y transgeneracional",
-                "Constelaciones familiares",
-                "Técnicas de liberación emocional (EFT, tapping, respiración consciente)",
-                "Hipnosis no clínica",
-                "Terapia del niño interior, acompañamiento emocional y espiritual"
-            ]
-        },
-        {
-            categoria: "🔹 Facilitadores y asistentes",
-            items: [
-                "Asistentes de terapeutas o médicos integrativos o de salud holística",
-                "Facilitadores de círculos, talleres o encuentros de sanación",
-                "Brigadistas comunitarios en salud y bienestar",
-                "Personas que apoyan espacios terapéuticos (consultorios, centros de salud natural, retiros, etc.)"
-            ]
-        },
-        {
-            categoria: "🔹 Terapeutas vibracionales y naturales",
-            items: [
-                "Flores de Bach y otras esencias florales",
-                "Aromaterapia",
-                "Herbolaria tradicional y fitoterapia",
-                "Gemoterapia y uso terapéutico de cristales",
-                "Terapias cuánticas o de reconexión energética"
-            ]
-        },
-        {
-            categoria: "🔹 Personas formadas en técnicas tradicionales",
-            items: [
-                "Curandería, partería tradicional, sobadores, hueseros, temazcaleros",
-                "Practicantes de tradiciones ancestrales de sanación",
-                "Promotores de medicina de los pueblos originarios"
-            ]
-        }
-    ];
-
     /* =========================================================
        DATA: 142 reactivos oficiales del EC1375 (4 Elementos)
     ========================================================= */
@@ -932,9 +825,8 @@
     const STEPS = ['intro', 'auth', 'personal', 'nda', 'e1', 'e2', 'e3', 'e4', 'firma', 'resultado'];
 
     let personalData = { nombre: '', curp: '', domicilio: '', escolaridad: '', telefonoCasa: '', telefonoCelular: '', email: '', fecha: todayISO() };
-    let selectedCertificaciones = [];
-    let otraCertificacionText = '';
-    let openCertCategories = new Set();
+    let certificados = []; // [{ nombre, path, fileName, size, uploadedAt, uploading, error }]
+    let sinCertificadosPrevios = false;
     let answers = {};
     let signatureMode = 'draw'; // 'draw' | 'type'
     let signatureDataUrl = null;
@@ -960,8 +852,8 @@
             const saved = JSON.parse(localStorage.getItem('autodiagnosticoData') || 'null');
             if (saved) {
                 personalData = Object.assign(personalData, saved.personalData || {});
-                selectedCertificaciones = saved.selectedCertificaciones || [];
-                otraCertificacionText = saved.otraCertificacionText || '';
+                certificados = saved.certificados || [];
+                sinCertificadosPrevios = saved.sinCertificadosPrevios || false;
                 answers = saved.answers || {};
                 signatureDataUrl = saved.signatureDataUrl || null;
                 signatureTypedName = saved.signatureTypedName || '';
@@ -982,7 +874,7 @@
 
     function saveProgress() {
         const data = {
-            personalData, selectedCertificaciones, otraCertificacionText, answers,
+            personalData, certificados, sinCertificadosPrevios, answers,
             signatureDataUrl, signatureTypedName, signatureMode, triptychAccepted,
             ndaAccepted, ndaSignedAt, ndaSignatureDataUrl, ndaSignatureTypedName, ndaSignatureMode
         };
@@ -1155,9 +1047,8 @@
         if (!confirm('¿Seguro que quieres empezar de nuevo? Se borrará tu avance guardado.')) return;
         localStorage.removeItem('autodiagnosticoData');
         personalData = { nombre: '', curp: '', domicilio: '', escolaridad: '', telefonoCasa: '', telefonoCelular: '', email: '', fecha: todayISO() };
-        selectedCertificaciones = [];
-        otraCertificacionText = '';
-        openCertCategories = new Set();
+        certificados = [];
+        sinCertificadosPrevios = false;
         answers = {};
         signatureMode = 'draw';
         signatureDataUrl = null;
@@ -1190,10 +1081,9 @@
                     <textarea id="f_domicilio" rows="2" placeholder="Calle, número, colonia, ciudad, estado">${escapeHtml(personalData.domicilio)}</textarea>
                 </div>
                 <div class="field-group">
-                    <label>Grado de estudio o Certificaciones (EC1375) *</label>
-                    <p class="field-hint" style="margin-top:-2px;margin-bottom:10px;">Selecciona todas las especialidades que apliquen a tu formación</p>
-                    ${renderCertAccordion()}
-                    <div class="cert-chips" id="certChips">${renderCertChips()}</div>
+                    <label>Certificados de formación previa *</label>
+                    <p class="field-hint" style="margin-top:-2px;margin-bottom:10px;">Sube el certificado o diploma de cada especialidad en la que ya te has formado. Escribe el nombre tal cual aparece en el documento.</p>
+                    <div id="certificadosSectionContainer">${renderCertificadosSection()}</div>
                 </div>
                 <div class="field-group">
                     <label>Teléfono de casa</label>
@@ -1230,79 +1120,115 @@
     }
 
     /* =========================================================
-       CERTIFICACIONES EC1375 - Selector acordeón
+       CERTIFICADOS DE FORMACIÓN PREVIA — lista con subida de archivo
     ========================================================= */
-    function renderCertAccordion() {
-        let html = '<div class="cert-accordion">';
-        CERTIFICACIONES_EC1375.forEach((cat, catIdx) => {
-            const count = cat.items.filter(item => selectedCertificaciones.includes(item)).length;
-            const isOpen = openCertCategories.has(catIdx);
-            html += `
-                <details class="cert-category" ${isOpen ? 'open' : ''} ontoggle="onCertDetailsToggle(${catIdx}, this)">
-                    <summary>${cat.categoria} ${count > 0 ? `<span class="cert-count">${count}</span>` : ''}</summary>
-                    <div class="cert-items">`;
-            cat.items.forEach((item, itemIdx) => {
-                const checked = selectedCertificaciones.includes(item);
-                html += `
-                        <label class="cert-item-row">
-                            <input type="checkbox" ${checked ? 'checked' : ''} onchange="toggleCertificacion(${catIdx}, ${itemIdx})">
-                            <span>${item}</span>
-                        </label>`;
-            });
-            html += `</div></details>`;
-        });
-        html += `
-                <details class="cert-category" ${openCertCategories.has('otra') ? 'open' : ''} ontoggle="onCertDetailsToggle('otra', this)">
-                    <summary>🔹 Otra especialidad no listada</summary>
-                    <div class="cert-items">
-                        <input type="text" id="f_otraCertificacion" value="${escapeHtml(otraCertificacionText)}" placeholder="Escribe tu especialidad" oninput="updateOtraCertificacion(this.value)" style="width:100%;">
-                    </div>
-                </details>
-            </div>`;
-        return html;
+    const CERTIFICADO_MAX_BYTES = 10 * 1024 * 1024; // 10MB
+    const CERTIFICADO_ACCEPT_TYPES = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
+
+    function renderCertificadosSection() {
+        const rowsHtml = certificados.map((c, idx) => renderCertificadoRow(c, idx)).join('');
+        return `
+            <label class="cert-sin-toggle">
+                <input type="checkbox" id="f_sinCertificados" ${sinCertificadosPrevios ? 'checked' : ''} onchange="toggleSinCertificados(this.checked)">
+                <span>No tengo ningún certificado o diploma de formación previa</span>
+            </label>
+            <div id="certificadosList" ${sinCertificadosPrevios ? 'style="display:none;"' : ''}>
+                ${rowsHtml}
+                <button type="button" class="btn btn-secondary btn-sm" onclick="addCertificadoRow()">+ Agregar otro certificado</button>
+            </div>
+        `;
     }
 
-    function onCertDetailsToggle(catIdx, el) {
-        if (el.open) openCertCategories.add(catIdx);
-        else openCertCategories.delete(catIdx);
+    function renderCertificadoRow(c, idx) {
+        let statusHtml = '';
+        if (c.uploading) statusHtml = `<p class="cert-row-status cert-row-status-pending">Subiendo...</p>`;
+        else if (c.error) statusHtml = `<p class="cert-row-status cert-row-status-error">⚠ ${escapeHtml(c.error)}</p>`;
+        else if (c.path) statusHtml = `<p class="cert-row-status cert-row-status-ok">✓ ${escapeHtml(c.fileName || 'Archivo subido')}</p>`;
+        return `
+            <div class="cert-row">
+                <input type="text" value="${escapeHtml(c.nombre || '')}" placeholder="Nombre de la certificación tal cual aparece en tu certificado" oninput="updateCertificadoNombre(${idx}, this.value)">
+                <input type="file" accept=".pdf,image/*" onchange="handleCertificadoFileChange(${idx}, this)">
+                ${statusHtml}
+                <button type="button" class="btn btn-secondary btn-sm" onclick="removeCertificadoRow(${idx})">Quitar</button>
+            </div>
+        `;
     }
 
-    function toggleCertificacion(catIdx, itemIdx) {
-        const item = CERTIFICACIONES_EC1375[catIdx].items[itemIdx];
-        const pos = selectedCertificaciones.indexOf(item);
-        if (pos >= 0) selectedCertificaciones.splice(pos, 1);
-        else selectedCertificaciones.push(item);
+    function toggleSinCertificados(checked) {
+        sinCertificadosPrevios = checked;
         syncEscolaridad();
-        rerenderCertSection();
+        rerenderCertificadosSection();
     }
 
-    function updateOtraCertificacion(value) {
-        otraCertificacionText = value;
+    function addCertificadoRow() {
+        certificados.push({ nombre: '', path: null, fileName: null, size: null, uploadedAt: null, uploading: false, error: null });
+        syncEscolaridad();
+        rerenderCertificadosSection();
+    }
+
+    function removeCertificadoRow(idx) {
+        certificados.splice(idx, 1);
+        syncEscolaridad();
+        rerenderCertificadosSection();
+    }
+
+    function updateCertificadoNombre(idx, value) {
+        certificados[idx].nombre = value;
         syncEscolaridad();
         updateNavButtons();
-        const chipsEl = document.getElementById('certChips');
-        if (chipsEl) chipsEl.innerHTML = renderCertChips();
+    }
+
+    async function handleCertificadoFileChange(idx, inputEl) {
+        const file = inputEl.files[0];
+        if (!file) return;
+        if (!CERTIFICADO_ACCEPT_TYPES.includes(file.type)) {
+            certificados[idx].error = 'Tipo de archivo no permitido. Usa PDF, JPG, PNG o WEBP.';
+            rerenderCertificadosSection();
+            return;
+        }
+        if (file.size > CERTIFICADO_MAX_BYTES) {
+            certificados[idx].error = 'El archivo pesa más de 10MB.';
+            rerenderCertificadosSection();
+            return;
+        }
+        certificados[idx].uploading = true;
+        certificados[idx].error = null;
+        rerenderCertificadosSection();
+
+        const session = await Auth.getSession();
+        if (!session) {
+            certificados[idx].uploading = false;
+            certificados[idx].error = 'Tu sesión expiró. Vuelve a iniciar sesión.';
+            rerenderCertificadosSection();
+            return;
+        }
+        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+        const path = `${session.user.id}/${Date.now()}-${safeName}`;
+        const { path: savedPath, error } = await Auth.uploadCertificado(file, path);
+        certificados[idx].uploading = false;
+        if (error) {
+            certificados[idx].error = 'No se pudo subir el archivo. Intenta de nuevo.';
+        } else {
+            certificados[idx].path = savedPath;
+            certificados[idx].fileName = file.name;
+            certificados[idx].size = file.size;
+            certificados[idx].uploadedAt = new Date().toISOString();
+            certificados[idx].error = null;
+        }
+        syncEscolaridad();
+        rerenderCertificadosSection();
     }
 
     function syncEscolaridad() {
-        const parts = [...selectedCertificaciones];
-        if (otraCertificacionText && otraCertificacionText.trim()) parts.push(otraCertificacionText.trim());
-        personalData.escolaridad = parts.join(', ');
+        personalData.escolaridad = sinCertificadosPrevios
+            ? 'Sin certificaciones previas'
+            : certificados.filter(c => c.nombre && c.nombre.trim()).map(c => c.nombre.trim()).join(', ');
         saveProgress();
     }
 
-    function renderCertChips() {
-        const parts = [...selectedCertificaciones];
-        if (otraCertificacionText && otraCertificacionText.trim()) parts.push(otraCertificacionText.trim());
-        if (!parts.length) return '<p class="cert-empty-hint">Aún no has seleccionado ninguna especialidad</p>';
-        return parts.map(p => `<span class="cert-chip">✓ ${escapeHtml(p)}</span>`).join('');
-    }
-
-    function rerenderCertSection() {
-        const accordionEl = document.querySelector('.cert-accordion');
-        const chipsEl = document.getElementById('certChips');
-        if (accordionEl) accordionEl.outerHTML = renderCertAccordion();
-        if (chipsEl) chipsEl.innerHTML = renderCertChips();
+    function rerenderCertificadosSection() {
+        const container = document.getElementById('certificadosSectionContainer');
+        if (container) container.innerHTML = renderCertificadosSection();
         updateNavButtons();
     }
 
@@ -1781,8 +1707,11 @@
             return Auth.hasSession();
         }
         if (step === 'personal') {
+            const certificadosOk = sinCertificadosPrevios ||
+                (certificados.length > 0 && certificados.every(c => c.nombre && c.nombre.trim() && c.path));
             return personalData.nombre && personalData.curp && personalData.domicilio &&
-                   personalData.escolaridad && personalData.telefonoCelular && personalData.email && personalData.fecha;
+                   personalData.escolaridad && personalData.telefonoCelular && personalData.email &&
+                   personalData.fecha && certificadosOk;
         }
         if (step === 'nda') {
             const hasSig = ndaSignatureMode === 'draw' ? ndaHasSignature : (ndaSignatureTypedName && ndaSignatureTypedName.trim().length > 3);
