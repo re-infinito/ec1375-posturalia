@@ -602,8 +602,9 @@ const AUTODIAGNOSTICO_DATA = [
             const answered = Object.keys(answers).length;
             const si = Object.values(answers).filter(v => v === 'SI').length;
             const percentage = Math.round((si / total) * 100);
-            const especialidades = Array.isArray(saved.selectedCertificaciones) ? [...saved.selectedCertificaciones] : [];
-            if (saved.otraCertificacionText && saved.otraCertificacionText.trim()) especialidades.push(saved.otraCertificacionText.trim());
+            const especialidades = Array.isArray(saved.certificados)
+                ? saved.certificados.map(c => c.nombre).filter(n => n && n.trim())
+                : [];
             return {
                 personalData: saved.personalData,
                 especialidades,
