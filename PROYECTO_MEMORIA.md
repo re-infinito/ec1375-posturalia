@@ -1,0 +1,288 @@
+# 📚 MEMORIA DEL PROYECTO: EC1375 Sesiones de Alineación
+
+**Última actualización:** 2026-09-09  
+**Status:** 🔴 Admin panel no renderiza (en debugging)  
+
+---
+
+## 🎯 Objetivo General
+
+Reemplazar Google Calendar Appointment Scheduler con sistema custom de inscripción a sesiones de grupo con:
+- ✅ Usuarios ven grilla de sesiones disponibles
+- ✅ Pueden inscribirse a sesiones con múltiples participantes
+- ✅ Reciben confirmación + recordatorios por email
+- ✅ Admin puede crear/gestionar sesiones
+
+---
+
+## 🏗️ Arquitectura
+
+### Stack Tecnológico
+```
+Frontend:
+  - alineacion.html → Usuarios finales (ver sesiones, inscribirse)
+  - admin-sesiones.html → Administradores (crear sesiones)
+  - sesiones-alineacion-component.js → Componente Vue-like
+
+Backend:
+  - Vercel Functions (/api/*.js)
+  - Supabase PostgreSQL (RLS policies)
+  - Google Calendar API (eventos + Meet links)
+  - Resend (emails transaccionales)
+  - Supabase Cron (recordatorios cada hora)
+
+Auth:
+  - auth.js → OTP por correo + Supabase Auth
+```
+
+### URLs Importantes
+```
+Producción: https://sepconocer.paideiatech.com
+Admin Panel: https://sepconocer.paideiatech.com/admin-sesiones.html
+Usuario Panel: https://sepconocer.paideiatech.com/alineacion.html
+
+Supabase:
+  - URL: https://numsuiuwrvpprhnxovmh.supabase.co
+  - Keys: auth.js líneas 13-14 (SUPABASE_URL, SUPABASE_ANON_KEY)
+
+Vercel:
+  - Proyecto: re-infinito/ec1375-posturalia
+  - Dashboard: https://vercel.com/re-infinito/ec1375-posturalia
+```
+
+---
+
+## 🔴 PROBLEMA ACTUAL
+
+### Síntoma
+Admin panel (admin-sesiones.html) carga pero está en blanco. El usuario ve:
+- ✅ URL correcta: sepconocer.paideiatech.com/admin-sesiones.html
+- ✅ Top bar visible con título "⊕ Admin - Sesiones de Alineación"
+- ❌ Resto de página vacía (no hay formulario, tabs, contenido)
+
+### Historia de Debugging
+
+**Intento 1: Crear sesiones vía API desde CLI**
+- ❌ Proxy bloqueó conexiones a sepconocer.paideiatech.com
+- Conclusión: No se puede testear desde este entorno remoto
+
+**Intento 2: Crear sesiones directamente en Supabase**
+- ❌ Proxy también bloqueó conexiones a numsuiuwrvpprhnxovmh.supabase.co
+- Conclusión: Red ambiente remoto muy restringida
+
+**Intento 3: Analizar código admin-sesiones.html**
+- ✅ ENCONTRADO: admin-sesiones.html línea 172:
+  ```javascript
+  const supabase = window.supabaseClient;  // ← undefined!
+  ```
+- ✅ ENCONTRADO: admin-sesiones.html línea 175:
+  ```javascript
+  const session = await Auth.getSession();  // ← Auth es undefined!
+  ```
+
+**Intento 4: Revisar auth.js**
+- ✅ ENCONTRADO CULPABLE: auth.js línea 16
+  ```javascript
+  const supabaseClient = window.supabase.createClient(...);
+  // ❌ NO EXPORTA a window.supabaseClient
+  // ❌ NO EXPORTA window.Auth
+  ```
+
+### Fix Aplicado
+
+**Cambio 1: auth.js línea 17**
+```javascript
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+window.supabaseClient = supabaseClient;  // ✅ AGREGADO
+```
+
+**Cambio 2: auth.js línea 328**
+```javascript
+};
+
+window.Auth = Auth;  // ✅ AGREGADO
+```
+
+**Commit:** `Fix: Export supabaseClient and Auth to window global scope`
+
+---
+
+## ✅ Verificaciones Realizadas
+
+- [x] auth.js línea 17: `window.supabaseClient = supabaseClient;` ✅ Present
+- [x] auth.js línea 328: `window.Auth = Auth;` ✅ Present
+- [x] Cambios commiteados a main ✅
+- [x] Cambios pusheados a main ✅
+- [x] Cambios pusheados a feature branch ✅
+
+---
+
+## 🤔 ¿Por qué sigue en blanco?
+
+El fix debería funcionar, pero usuario reporta que sigue sin aparecer. Posibles causas:
+
+1. **Cache del navegador** - Vercel cachea assets
+   - Solución: Ctrl+Shift+R (hard refresh) o limpiar cache
+
+2. **Vercel no actualizó** - La función no re-deployó
+   - Solución: Ir a https://vercel.com/re-infinito/ec1375-posturalia/logs
+   - Ver si el último commit fue deployed
+
+3. **Script error en console** - Algo más está fallando
+   - Solución: Abrir DevTools (F12) → Console tab
+   - Buscar errores rojos
+
+4. **Script de auth.js no carga** - Supabase CDN falla
+   - Solución: Verificar en DevTools → Network tab
+   - Ver si "auth.js" tiene status 200
+
+5. **Admin gate required** - admin-sesiones.html está gateado para admin
+   - Ver admin-sesiones.html líneas 175-184
+   - Posible que Auth.getSession() esté forzando admin verification
+
+---
+
+## 📋 Checklist de Debugging para Sonnet
+
+- [ ] Verificar que Vercel deployó el último commit (auth.js fix)
+- [ ] Abrir admin panel en navegador
+- [ ] Ctrl+Shift+R (hard refresh)
+- [ ] Abrir DevTools (F12)
+- [ ] Console tab: ¿Hay errores rojos?
+- [ ] Network tab: ¿auth.js se cargó? (status 200)
+- [ ] Console: `console.log(window.supabaseClient)` → ¿Es object?
+- [ ] Console: `console.log(window.Auth)` → ¿Es object?
+- [ ] Si undefined: El fix no se aplicó o Vercel no deployó
+- [ ] Si object: El problema está en otro lado (parsing, renderizado, etc.)
+
+---
+
+## 📁 Archivos Clave
+
+### Estructura
+```
+/home/user/ec1375-posturalia/
+├── auth.js                          ← ⭐ FIX APLICADO AQUÍ
+├── admin-sesiones.html              ← Depende de window.Auth y window.supabaseClient
+├── alineacion.html                  ← Página usuario (funciona)
+├── sesiones-alineacion-component.js ← Componente sesiones
+├── api/
+│   ├── sesiones-alineacion.js       ← GET sesiones disponibles
+│   ├── inscribir-alineacion.js      ← POST inscribirse
+│   ├── crear-evento-google.js       ← POST crear en Google Calendar
+│   ├── enviar-recordatorios.js      ← POST recordatorios (Cron)
+│   ├── mis-inscripciones-alineacion.js
+│   └── utils/send-email.js
+└── .env                             ← Credenciales (no trackear)
+```
+
+### Tablas Supabase
+```
+sesiones_alineacion:
+  - id (UUID)
+  - fecha (date)
+  - hora_inicio, hora_fin (time)
+  - capacidad_maxima (int)
+  - instructor_nombre (text)
+  - descripcion (text)
+  - google_event_id (text)
+  - google_meet_link (text)
+  - recordatorio_24h_enviado (boolean)
+  - recordatorio_1h_enviado (boolean)
+
+inscripciones_alineacion:
+  - id (UUID)
+  - sesion_id (UUID foreign key)
+  - usuario_email (text)
+  - usuario_nombre (text)
+  - usuario_curp (text)
+  - estado_inscripcion (text)
+  - created_at (timestamp)
+
+emails_enviados_alineacion:
+  - id (UUID)
+  - usuario_email (text)
+  - tipo_email (text) - 'confirmacion', 'recordatorio_24h', 'recordatorio_1h'
+  - estado_envio (text) - 'enviado', 'fallido'
+  - error_mensaje (text)
+  - fecha_envio (timestamp)
+```
+
+---
+
+## 🔐 Credenciales & Acceso
+
+### Supabase
+```
+URL: https://numsuiuwrvpprhnxovmh.supabase.co
+Anon Key: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+Service Role: [En .env, no exponer]
+```
+
+### Google Calendar
+```
+Service Account: ec1375-alineacion-bot@ec1375-paideaia.iam.gserviceaccount.com
+Calendar ID: [En .env]
+Compartido con: Calendar de Diego (comprobado ✅)
+```
+
+### Resend
+```
+API Key: [En Vercel env vars]
+Sender Email: noreply@ec1375.paideia.tech
+Status: ✅ Conectado (testeado en Phase 4)
+```
+
+---
+
+## 🚀 Estado de Features
+
+| Feature | Status | Notas |
+|---------|--------|-------|
+| Crear sesiones (admin) | ❌ Bloqueado | Admin panel no renderiza |
+| Ver sesiones (usuario) | ✅ Funciona | alineacion.html renderiza bien |
+| Inscribirse a sesión | ✅ Ready | Espera sesiones en BD |
+| Google Calendar sync | ✅ Funciona | API testeada |
+| Email confirmación | ✅ Funciona | Resend integrado |
+| Recordatorios cron | ✅ Configurado | Supabase pg_cron activo |
+| Admin panel UI | ❌ Bloqueado | Blank page issue |
+
+---
+
+## 📝 Próximos Pasos
+
+1. **Sonnet:**
+   - [ ] Verificar que fix (auth.js) se deployd en Vercel
+   - [ ] Hard refresh admin panel
+   - [ ] Debug con DevTools si sigue en blanco
+   - [ ] Reportar console errors
+
+2. **Si admin panel funciona:**
+   - [ ] Usuario crea 3 sesiones de prueba
+   - [ ] Verificar que aparecen en Google Calendar
+   - [ ] Verificar que aparecen en alineacion.html
+   - [ ] Probar inscripción completa
+
+3. **Si persiste el problema:**
+   - [ ] Revisar Vercel logs
+   - [ ] Verificar que .env tiene credenciales correctas
+   - [ ] Revisar RLS policies de Supabase
+   - [ ] Testear cada endpoint por separado
+
+---
+
+## 📞 Contacto & Referencias
+
+**GitHub:** https://github.com/re-infinito/ec1375-posturalia  
+**Vercel Dashboard:** https://vercel.com/re-infinito/ec1375-posturalia  
+**Supabase Dashboard:** https://app.supabase.com/projects  
+
+---
+
+## 📚 Documentación Generada
+
+- `DEPLOY_SUMMARY.md` - Resumen deployment (20/21 tests)
+- `ADMIN_PANEL_GUIDE.md` - Cómo usar panel admin
+- `BUG_REPORT_ADMIN_PANEL.md` - Análisis del bug de hoy
+- `test-endpoints.sh` - Script testing endpoints
+- `setup-supabase-cron.md` - Configuración Cron
