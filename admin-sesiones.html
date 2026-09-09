@@ -264,9 +264,14 @@
 
         try {
             // Crear evento en Google Calendar
-            const googleEventId = await crearEventoGoogleCalendar(
+            const googleResult = await crearEventoGoogleCalendar(
                 fecha, horaInicio, horaFin, instructor
             );
+
+            if (!googleResult || !googleResult.google_event_id) {
+                mostrarError('No se pudo crear el evento en Google Calendar');
+                return;
+            }
 
             // Guardar en Supabase
             const { data, error } = await supabase
@@ -279,13 +284,14 @@
                     instructor_nombre: instructor,
                     descripcion,
                     estado: 'abierta',
-                    google_event_id: googleEventId
+                    google_event_id: googleResult.google_event_id,
+                    google_meet_link: googleResult.google_meet_link
                 }])
                 .select();
 
             if (error) throw error;
 
-            mostrarExito('Sesión creada exitosamente');
+            mostrarExito('Sesión creada exitosamente en Google Calendar y Supabase');
             document.getElementById('formCrearSesion').reset();
             await cargarSesiones();
         } catch (error) {
@@ -297,8 +303,6 @@
     }
 
     async function crearEventoGoogleCalendar(fecha, horaInicio, horaFin, instructor) {
-        // Este endpoint debe existir en tu backend
-        // Por ahora retornamos null (lo llenaremos después)
         try {
             const resp = await fetch('/api/crear-evento-google', {
                 method: 'POST',
@@ -306,11 +310,19 @@
                 body: JSON.stringify({ fecha, horaInicio, horaFin, instructor })
             });
 
+            if (!resp.ok) {
+                const error = await resp.json();
+                throw new Error(error.error || 'Error creando evento en Google Calendar');
+            }
+
             const data = await resp.json();
-            return data.google_event_id || null;
+            return {
+                google_event_id: data.google_event_id,
+                google_meet_link: data.google_meet_link
+            };
         } catch (e) {
-            console.warn('No se pudo crear evento Google:', e);
-            return null;
+            console.error('Error en crearEventoGoogleCalendar:', e);
+            throw e;
         }
     }
 
