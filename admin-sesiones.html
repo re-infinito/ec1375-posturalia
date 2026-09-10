@@ -368,23 +368,37 @@
                 return;
             }
 
-            // Guardar en Supabase
-            const { data, error } = await supabaseClient
-                .from('sesiones_alineacion')
-                .insert([{
-                    fecha,
-                    hora_inicio: horaInicio,
-                    hora_fin: horaFin,
-                    capacidad_maxima: capacidad,
-                    instructor_nombre: instructor,
-                    descripcion,
-                    estado: 'abierta',
-                    google_event_id: googleResult.google_event_id,
-                    google_meet_link: googleResult.google_meet_link
-                }])
-                .select();
+            // Guardar en Supabase. El evento de Google Calendar ya se creó
+            // en el paso anterior — si esto falla, ese evento queda
+            // huérfano (sin fila en sesiones_alineacion). No hay rollback
+            // automático del lado de Calendar, así que el mensaje de error
+            // incluye el link directo al evento para borrarlo a mano.
+            try {
+                const { error } = await supabaseClient
+                    .from('sesiones_alineacion')
+                    .insert([{
+                        fecha,
+                        hora_inicio: horaInicio,
+                        hora_fin: horaFin,
+                        capacidad_maxima: capacidad,
+                        instructor_nombre: instructor,
+                        descripcion,
+                        estado: 'abierta',
+                        google_event_id: googleResult.google_event_id,
+                        google_meet_link: googleResult.google_meet_link
+                    }])
+                    .select();
 
-            if (error) throw error;
+                if (error) throw error;
+            } catch (dbError) {
+                const linkEvento = googleResult.event_url
+                    ? ` Borra el evento huérfano en Calendar: ${googleResult.event_url}`
+                    : '';
+                mostrarError(
+                    `El evento SÍ se creó en Google Calendar, pero no se pudo guardar en la base de datos: ${dbError.message}.${linkEvento}`
+                );
+                return;
+            }
 
             mostrarExito('Sesión creada exitosamente en Google Calendar y Supabase');
             document.getElementById('formCrearSesion').reset();
