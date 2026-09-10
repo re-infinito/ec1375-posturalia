@@ -6,6 +6,7 @@
     <title>Alineación (Capacitación) - Paideia Tech</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="auth.js"></script>
+    <script src="sesiones-alineacion-component.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -178,20 +179,7 @@
     }
 
     function renderReservaCard() {
-        return `
-            <div class="card">
-                <h2>📅 Reserva tu sesión de Alineación</h2>
-                <p class="desc">Es una sesión grupal en vivo — agenda directo en el calendario y te llega la confirmación con la liga de la sesión a tu correo.</p>
-                ${GOOGLE_CALENDAR_BOOKING_URL ? `
-                    <iframe id="calendarFrameAlineacion" src="${GOOGLE_CALENDAR_BOOKING_URL}"></iframe>
-                ` : `
-                    <div class="calendar-cta-box">
-                        <p style="color:var(--text-bright);font-weight:600;margin-bottom:10px;">El calendario en línea se está configurando</p>
-                        <p class="desc" style="margin-bottom:16px;">Mientras tanto, coordina tu fecha directamente por WhatsApp:</p>
-                        <button class="btn btn-whatsapp" onclick="requestAlineacionViaWhatsApp()">📱 COORDINAR FECHA POR WHATSAPP</button>
-                    </div>
-                `}
-            </div>`;
+        return `<div id="sesiones-alineacion-container" style="margin-bottom:20px;"></div>`;
     }
 
     function embedBlock(url, label) {
@@ -347,6 +335,14 @@
 
             <a href="plan-evaluacion.html" class="btn btn-primary btn-full">Siguiente: Agenda tu Plan de Evaluación →</a>
         `;
+
+        // Initialize the sessions component after DOM is ready
+        setTimeout(() => {
+            const component = new SesionesAlineacionComponent('sesiones-alineacion-container');
+            component.init(email, result.personalData.nombre).catch(e => {
+                console.error('Error initializing sesiones component:', e);
+            });
+        }, 0);
     }
 
     window.addEventListener('load', () => {

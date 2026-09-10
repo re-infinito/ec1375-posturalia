@@ -338,7 +338,10 @@
             <div class="progress-bar">
                 <div class="progress-fill" id="progressFill"></div>
             </div>
-            <p class="progress-text" id="progressText">Pregunta 1 de 5</p>
+            <p class="progress-text" id="progressText" style="display: flex; justify-content: space-between; align-items: center;">
+                <span>Pregunta 1 de 5</span>
+                <span id="answerStatus" style="font-size: 0.85rem; color: rgba(255,255,255,0.4);">○ Sin responder</span>
+            </p>
         </div>
 
         <!-- Quiz Content -->
@@ -533,11 +536,22 @@
 
         function updateNextButtonState() {
             const currentQNum = currentQuestion;
+            const selectedAnswer = document.querySelector(`input[name="q${currentQNum}"]:checked`);
+            const isAnswered = !!selectedAnswer;
+            const statusEl = document.getElementById('answerStatus');
+
+            if (statusEl) {
+                statusEl.style.color = isAnswered ? 'var(--success)' : 'rgba(255,255,255,0.4)';
+                statusEl.textContent = isAnswered ? '✓ Respondida' : '○ Sin responder';
+            }
+
             if (currentQNum === 6) {
                 document.getElementById('nextBtn').disabled = false;
             } else {
-                const selectedAnswer = document.querySelector(`input[name="q${currentQNum}"]:checked`);
-                document.getElementById('nextBtn').disabled = !selectedAnswer;
+                document.getElementById('nextBtn').disabled = !isAnswered;
+                if (!isAnswered) {
+                    document.getElementById('nextBtn').title = 'Selecciona una respuesta antes de continuar';
+                }
             }
         }
 

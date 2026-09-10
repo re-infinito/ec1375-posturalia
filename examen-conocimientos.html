@@ -257,11 +257,15 @@
 
     function renderExamen(app) {
         const answeredCount = Object.keys(examState.answers).length;
+        const unansweredCount = REACTIVOS.length - answeredCount;
+        const isComplete = answeredCount === REACTIVOS.length;
+
         document.getElementById('topBarProgress').textContent = `${answeredCount} / ${REACTIVOS.length} respondidas`;
 
         const questionsHtml = examState.order.map((entry, position) => {
             const r = REACTIVOS[entry.qIndex];
             const selected = examState.answers[entry.qIndex];
+            const isAnswered = selected !== undefined;
             const optionsHtml = entry.optionOrder.map(optIndex => `
                 <label class="exam-option ${selected === optIndex ? 'selected' : ''}">
                     <input type="radio" name="q${entry.qIndex}" ${selected === optIndex ? 'checked' : ''} onchange="selectAnswer(${entry.qIndex}, ${optIndex})">
@@ -269,13 +273,26 @@
                 </label>
             `).join('');
             return `
-                <div class="exam-question">
-                    <div class="exam-question-num">Reactivo ${position + 1} de ${REACTIVOS.length} — ${escapeHtml(r.tema)}</div>
+                <div class="exam-question" style="border-left: 4px solid ${isAnswered ? 'var(--success)' : 'var(--danger)'}; padding-left: 16px;">
+                    <div class="exam-question-num" style="color: ${isAnswered ? 'var(--success)' : 'var(--danger)'};">
+                        ${isAnswered ? '✓' : '○'} Reactivo ${position + 1} de ${REACTIVOS.length} — ${escapeHtml(r.tema)}
+                    </div>
                     <div class="exam-question-text">${escapeHtml(r.q)}</div>
                     <div class="exam-options">${optionsHtml}</div>
                 </div>
             `;
         }).join('');
+
+        const validationBox = !isComplete ? `
+            <div style="background: rgba(255,51,51,0.08); border: 1px solid var(--danger); border-radius: 8px; padding: 14px; margin-bottom: 16px;">
+                <p style="color: var(--danger); font-weight: 600; margin-bottom: 8px; font-size: 0.9rem;">
+                    ⚠️ Aún faltan ${unansweredCount} pregunta${unansweredCount !== 1 ? 's' : ''} por responder
+                </p>
+                <p style="color: var(--text); font-size: 0.85rem;">
+                    Debes responder todas las preguntas antes de poder enviar el examen.
+                </p>
+            </div>
+        ` : '';
 
         app.innerHTML = `
             <div class="hero">
@@ -285,8 +302,17 @@
             </div>
             ${questionsHtml}
             <div class="sticky-submit">
-                <div class="progress-text" id="progressText">${answeredCount} / ${REACTIVOS.length} respondidas</div>
-                <button class="btn btn-primary" id="btnSubmit" onclick="submitExamen()" ${answeredCount === REACTIVOS.length ? '' : 'disabled'}>Enviar examen →</button>
+                <div class="progress-text" id="progressText" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                    <span style="color: ${isComplete ? 'var(--success)' : 'var(--danger)'}; font-weight: 600;">
+                        ${isComplete ? '✓ Todas completadas' : `${unansweredCount} sin responder`}
+                    </span>
+                    <span>${answeredCount} / ${REACTIVOS.length} respondidas</span>
+                </div>
+                ${validationBox}
+                <button class="btn btn-primary" id="btnSubmit" onclick="submitExamen()" ${isComplete ? '' : 'disabled'}
+                    style="opacity: ${isComplete ? '1' : '0.5'};">
+                    Enviar examen →
+                </button>
             </div>
         `;
     }
@@ -295,13 +321,44 @@
         examState.answers[qIndex] = optIndex;
         saveExamState();
         const answeredCount = Object.keys(examState.answers).length;
+        const unansweredCount = REACTIVOS.length - answeredCount;
+        const isComplete = answeredCount === REACTIVOS.length;
+
         document.getElementById('topBarProgress').textContent = `${answeredCount} / ${REACTIVOS.length} respondidas`;
-        document.getElementById('progressText').textContent = `${answeredCount} / ${REACTIVOS.length} respondidas`;
+
+        const progressText = document.getElementById('progressText');
+        if (progressText) {
+            progressText.innerHTML = `
+                <span style="color: ${isComplete ? 'var(--success)' : 'var(--danger)'}; font-weight: 600;">
+                    ${isComplete ? '✓ Todas completadas' : `${unansweredCount} sin responder`}
+                </span>
+                <span>${answeredCount} / ${REACTIVOS.length} respondidas</span>
+            `;
+        }
+
         const btn = document.getElementById('btnSubmit');
-        if (btn) btn.disabled = answeredCount !== REACTIVOS.length;
+        if (btn) {
+            btn.disabled = !isComplete;
+            btn.style.opacity = isComplete ? '1' : '0.5';
+        }
 
         document.querySelectorAll(`input[name="q${qIndex}"]`).forEach(input => {
             input.closest('.exam-option').classList.toggle('selected', input.checked);
+        });
+
+        // Actualizar indicador visual de la pregunta
+        const questionElements = document.querySelectorAll('.exam-question');
+        questionElements.forEach((el, idx) => {
+            const entryIdx = examState.order[idx]?.qIndex;
+            if (entryIdx !== undefined) {
+                const isAnswered = examState.answers[entryIdx] !== undefined;
+                el.style.borderLeftColor = isAnswered ? 'var(--success)' : 'var(--danger)';
+                const numDiv = el.querySelector('.exam-question-num');
+                if (numDiv) {
+                    numDiv.style.color = isAnswered ? 'var(--success)' : 'var(--danger)';
+                    numDiv.textContent = numDiv.textContent.replace(/^(✓|○)/, isAnswered ? '✓' : '○');
+                }
+            }
         });
     }
 
