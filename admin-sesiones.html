@@ -413,7 +413,10 @@
                 let mensaje = `Error del servidor (${resp.status})`;
                 try {
                     const error = JSON.parse(bodyText);
-                    mensaje = error.error || error.message || mensaje;
+                    // Mostrar ambos: el mensaje genérico Y el detalle específico
+                    // (antes solo se mostraba error.error, ocultando la causa real
+                    // que viene en error.message).
+                    mensaje = [error.error, error.message].filter(Boolean).join(' — ') || mensaje;
                 } catch (parseErr) {
                     // La respuesta no fue JSON (p.ej. un crash de la función
                     // serverless) — mostrar el texto crudo en vez de romper
