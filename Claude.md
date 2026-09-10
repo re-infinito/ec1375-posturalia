@@ -605,6 +605,20 @@ Diego compartió el documento oficial del proceso (`Proceso EC1375-paideia.pdf`)
 - Videos del proceso (contexto SEP-CONOCER, capacitación, muestra de atención) — Diego los provee cuando estén listos.
 - Registro manual en portal SEP y subida del portafolio final — procesos del equipo de Diego en el portal gubernamental, no automatizables desde el sitio.
 
+### ✅ Certificados de formación previa — captura obligatoria en el Autodiagnóstico (8 de septiembre, 2026)
+
+El acordeón de selección de especialidades (`CERTIFICACIONES_EC1375`, checkboxes por categoría) se quitó de `autodiagnostico.html` — se reemplazó por una lista donde el candidato escribe el nombre de cada certificación **tal cual aparece en su certificado** y sube el archivo (PDF o imagen, máx. 10MB) en el mismo paso "personal", junto a Nombre/CURP/domicilio. Es obligatorio: o marcan "No tengo ningún certificado o diploma de formación previa", o suben al menos uno con su nombre para poder avanzar.
+
+Los archivos se guardan en un bucket privado de Supabase Storage (`certificados-previos`, RLS por `user_id` vía el primer segmento de la ruta) — solo los metadatos (nombre escrito, ruta del archivo) viajan en el JSON que ya se sincronizaba a `candidatos_ec1375.autodiagnostico_data`. Nueva función en `auth.js`: `Auth.uploadCertificado(file, path)`.
+
+El campo oficial "Escolaridad / Certificaciones" del PDF del Autodiagnóstico se sigue llenando automático, ahora a partir de los nombres escritos por el candidato (o "Sin certificaciones previas" si marcó que no tiene ninguno) en vez de la lista fija de especialidades.
+
+`documentos-sesion.html`, `evidencias.html` y `plan-evaluacion.html` ya leían esta info como un array `especialidades` (para mostrarla en resúmenes/PDFs) — se actualizó esa única línea en cada uno para leerla desde `certificados[].nombre` en vez de la selección vieja, sin más cambios.
+
+**Pendiente que Diego haga en el dashboard de Supabase:** crear el bucket `certificados-previos` (Storage → New bucket → privado) y correr `_internal_no_publicar/02-sql/supabase_setup_v6_certificados_storage.sql` (políticas RLS).
+
+**Fuera de alcance (documentado, no urgente):** `assemble_expediente.py` no lee de este bucket todavía (sigue usando el Google Form/Drive); no hay panel para ver/descargar los archivos subidos (quedan visibles desde el dashboard de Supabase Storage); no se migran datos de candidatos que ya estén a medio wizard con la selección vieja de especialidades; migración a Cloudflare Storage queda pendiente de que esa integración esté lista (mencionada por Diego como plan futuro). El ítem "Certificados / diplomas de formación" en el checklist de `evidencias.html` se deja igual, como respaldo opcional.
+
 ### 🔮 Backlog — no urgente, pero anotado para cuando escale a más candidatos
 
 1. ~~Autenticación por candidato~~ → ✅ implementada y en producción (Fase 1+2, ver arriba).

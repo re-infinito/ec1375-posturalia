@@ -85,6 +85,21 @@ const Auth = {
         }
     },
 
+    /* Sube un certificado de formación previa al bucket privado
+       'certificados-previos' (Storage). El caller arma `path` como
+       `{user_id}/{timestamp}-{nombre-sanitizado}` para que la política RLS
+       de storage.objects (auth.uid() = primer segmento de la ruta) aplique.
+       Nunca lanza — el caller decide qué mostrar según `error`. */
+    async uploadCertificado(file, path) {
+        try {
+            const { data, error } = await supabaseClient.storage.from('certificados-previos').upload(path, file);
+            if (error) return { path: null, error };
+            return { path: data.path, error: null };
+        } catch (e) {
+            return { path: null, error: e };
+        }
+    },
+
     /* Solo pregunta sí/no por UN correo puntual — nunca expone la lista de
        quién pagó. Devuelve false ante cualquier error de red (falla cerrada:
        si no se puede confirmar, no se manda el código). */

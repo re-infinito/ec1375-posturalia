@@ -332,8 +332,9 @@
         try {
             const saved = JSON.parse(localStorage.getItem('autodiagnosticoData') || 'null');
             if (!saved || !saved.personalData || !saved.personalData.nombre) return null;
-            const especialidades = Array.isArray(saved.selectedCertificaciones) ? [...saved.selectedCertificaciones] : [];
-            if (saved.otraCertificacionText && saved.otraCertificacionText.trim()) especialidades.push(saved.otraCertificacionText.trim());
+            const especialidades = Array.isArray(saved.certificados)
+                ? saved.certificados.map(c => c.nombre).filter(n => n && n.trim())
+                : [];
             return {
                 personalData: saved.personalData, especialidades,
                 candidatoSignatureMode: saved.signatureMode || 'draw',

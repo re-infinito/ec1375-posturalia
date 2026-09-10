@@ -183,8 +183,9 @@
             const total = 142;
             const answered = Object.keys(answers).length;
             const si = Object.values(answers).filter(v => v === 'SI').length;
-            const especialidades = Array.isArray(saved.selectedCertificaciones) ? [...saved.selectedCertificaciones] : [];
-            if (saved.otraCertificacionText && saved.otraCertificacionText.trim()) especialidades.push(saved.otraCertificacionText.trim());
+            const especialidades = Array.isArray(saved.certificados)
+                ? saved.certificados.map(c => c.nombre).filter(n => n && n.trim())
+                : [];
             return { personalData: saved.personalData, especialidades, si, total, answered, completo: answered === total };
         } catch (e) { return null; }
     }
