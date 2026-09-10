@@ -345,6 +345,7 @@
         const horaFin = document.getElementById('horaFin').value;
         const capacidad = parseInt(document.getElementById('capacidad').value);
         const instructor = document.getElementById('instructor').value;
+        const googleMeetLink = document.getElementById('googleMeetLink').value.trim() || null;
         const descripcion = document.getElementById('descripcion').value;
 
         if (!fecha || !horaInicio || !horaFin || !capacidad) {
@@ -359,7 +360,7 @@
         try {
             // Crear evento en Google Calendar
             const googleResult = await crearEventoGoogleCalendar(
-                fecha, horaInicio, horaFin, instructor
+                fecha, horaInicio, horaFin, instructor, googleMeetLink
             );
 
             if (!googleResult || !googleResult.google_event_id) {
@@ -400,12 +401,12 @@
         }
     }
 
-    async function crearEventoGoogleCalendar(fecha, horaInicio, horaFin, instructor) {
+    async function crearEventoGoogleCalendar(fecha, horaInicio, horaFin, instructor, googleMeetLink) {
         try {
             const resp = await fetch('/api/crear-evento-google', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ fecha, horaInicio, horaFin, instructor })
+                body: JSON.stringify({ fecha, horaInicio, horaFin, instructor, googleMeetLink })
             });
 
             if (!resp.ok) {
@@ -511,6 +512,14 @@
                         <div class="form-group">
                             <label>Instructor</label>
                             <input type="text" id="instructor" placeholder="Nombre del instructor">
+                        </div>
+
+                        <div class="form-group">
+                            <label>Link de Google Meet</label>
+                            <input type="url" id="googleMeetLink" placeholder="https://meet.google.com/xxx-xxxx-xxx">
+                            <p style="font-size: 0.78rem; color: var(--text); margin-top: 6px;">
+                                Créalo en <a href="https://meet.google.com/new" target="_blank" rel="noopener" style="color: var(--primary-light);">meet.google.com/new</a> y pega el link aquí — Google no permite generarlo automáticamente para este calendario. Puedes dejarlo vacío y agregarlo después.
+                            </p>
                         </div>
 
                         <div class="form-group">
