@@ -296,6 +296,7 @@
                     instructor_nombre,
                     estado,
                     google_meet_link,
+                    google_event_id,
                     descripcion
                 `)
                 .order('fecha', { ascending: true });
@@ -458,6 +459,29 @@
     async function eliminarSesion(sesionId) {
         if (!confirm('¿Eliminar esta sesión?')) return;
 
+        const sesion = sesiones.find(s => s.id === sesionId);
+
+        // Borrar primero el evento de Google Calendar (si existe) para no
+        // dejarlo huérfano — si esto falla por algo que no sea "ya no
+        // existe", se avisa pero se continúa con el borrado en Supabase de
+        // todas formas: la fila de la app es lo que importa para que deje
+        // de aparecer en el panel/grilla de usuarios.
+        if (sesion && sesion.google_event_id) {
+            try {
+                const resp = await fetch('/api/eliminar-evento-google', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ eventId: sesion.google_event_id })
+                });
+                if (!resp.ok) {
+                    const bodyText = await resp.text();
+                    console.warn('No se pudo borrar el evento de Google Calendar:', bodyText);
+                }
+            } catch (e) {
+                console.warn('No se pudo borrar el evento de Google Calendar:', e);
+            }
+        }
+
         try {
             const { error } = await supabaseClient
                 .from('sesiones_alineacion')
@@ -465,7 +489,7 @@
                 .eq('id', sesionId);
 
             if (error) throw error;
-            mostrarExito('Sesión eliminada');
+            mostrarExito('Sesión eliminada (y su evento en Google Calendar)');
             await cargarSesiones();
         } catch (error) {
             mostrarError('Error: ' + error.message);
