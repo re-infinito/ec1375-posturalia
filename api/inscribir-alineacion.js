@@ -197,36 +197,50 @@ async function enviarEmailConfirmacion(inscripcion, sesion, googleMeetLink) {
     try {
         const resultado = await enviarConfirmacionInscripcion(inscripcion, sesion, googleMeetLink);
 
-        // Registrar en auditoría que fue enviado
-        await supabase.from('emails_enviados_alineacion').insert([
-            {
-                inscripcion_id: inscripcion.id,
-                tipo_email: 'confirmacion',
-                destinatario: inscripcion.usuario_email,
-                asunto: `✓ Inscripción Confirmada - Sesión de Alineación EC1375 (${sesion.fecha})`,
-                fecha_envio: new Date().toISOString(),
-                estado_envio: 'enviado',
-                email_id_resend: resultado.email_id
-            }
-        ]);
+        // Registrar en auditoría que fue enviado. En su propio try/catch:
+        // el email YA se mandó — si solo este insert falla, no debe caer
+        // en el catch de abajo y quedar registrado incorrectamente como
+        // "fallido" cuando en realidad sí llegó.
+        try {
+            await supabase.from('emails_enviados_alineacion').insert([
+                {
+                    inscripcion_id: inscripcion.id,
+                    tipo_email: 'confirmacion',
+                    destinatario: inscripcion.usuario_email,
+                    asunto: `✓ Inscripción Confirmada - Sesión de Alineación EC1375 (${sesion.fecha})`,
+                    fecha_envio: new Date().toISOString(),
+                    estado_envio: 'enviado',
+                    email_id_resend: resultado.email_id
+                }
+            ]);
+        } catch (auditError) {
+            console.error('El email sí se envió, pero falló el insert de auditoría:', auditError);
+        }
 
         console.log('✓ Email de confirmación enviado a:', inscripcion.usuario_email);
         return resultado;
     } catch (error) {
         console.error('Error enviando email:', error);
 
-        // Registrar en auditoría que falló
-        await supabase.from('emails_enviados_alineacion').insert([
-            {
-                inscripcion_id: inscripcion.id,
-                tipo_email: 'confirmacion',
-                destinatario: inscripcion.usuario_email,
-                asunto: `✓ Inscripción Confirmada - Sesión de Alineación EC1375 (${sesion.fecha})`,
-                fecha_envio: new Date().toISOString(),
-                estado_envio: 'fallido',
-                error_mensaje: error.message
-            }
-        ]);
+        // Registrar en auditoría que falló. En su propio try/catch: si este
+        // insert también falla (columna equivocada, constraint, etc.), que
+        // no se trague/reemplace el error original del envío — solo se
+        // loguea aparte y se sigue propagando el de arriba.
+        try {
+            await supabase.from('emails_enviados_alineacion').insert([
+                {
+                    inscripcion_id: inscripcion.id,
+                    tipo_email: 'confirmacion',
+                    destinatario: inscripcion.usuario_email,
+                    asunto: `✓ Inscripción Confirmada - Sesión de Alineación EC1375 (${sesion.fecha})`,
+                    fecha_envio: new Date().toISOString(),
+                    estado_envio: 'fallido',
+                    error_mensaje: error.message
+                }
+            ]);
+        } catch (auditError) {
+            console.error('Además, falló el insert de auditoría del email fallido:', auditError);
+        }
 
         throw error;
     }
