@@ -12,6 +12,7 @@ const supabase = createClient(
 
 module.exports = async (req, res) => {
     res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Cache-Control', 'no-store, max-age=0');
 
     if (req.method !== 'GET') {
         return res.status(405).json({ error: 'Method not allowed' });
