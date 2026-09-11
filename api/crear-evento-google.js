@@ -58,10 +58,17 @@ module.exports = async (req, res) => {
     try {
         const calendar = getCalendarClient();
 
-        // Convertir a datetime ISO para Google Calendar
-        // fecha es YYYY-MM-DD, horaInicio es HH:MM
-        const startDateTime = new Date(`${fecha}T${horaInicio}:00`).toISOString();
-        const endDateTime = new Date(`${fecha}T${horaFin}:00`).toISOString();
+        // fecha es YYYY-MM-DD, horaInicio/horaFin son HH:MM.
+        // OJO: no usar `new Date(...).toISOString()` aquí — Vercel corre en
+        // UTC, así que new Date("2026-09-12T14:00:00") se interpreta como
+        // 14:00 UTC, y toISOString() deja ese string marcado con "Z". Google
+        // Calendar, si dateTime ya trae offset/Z, ignora el campo `timeZone`
+        // que mandamos aparte y usa la hora tal cual como UTC — 14:00 UTC
+        // termina mostrándose como 8:00am en México (UTC-6). El fix es pasar
+        // la hora local en crudo, SIN offset, y dejar que timeZone (abajo)
+        // la ancle correctamente a America/Mexico_City.
+        const startDateTime = `${fecha}T${horaInicio}:00`;
+        const endDateTime = `${fecha}T${horaFin}:00`;
 
         // Crear evento en Google Calendar (sin conferenceData — ver nota
         // arriba). Si el admin proporcionó un Meet link manual, se incluye

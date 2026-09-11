@@ -5,7 +5,22 @@
 
 const { Resend } = require('resend');
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// El SDK de Resend lanza una excepción síncrona en el constructor si falta
+// la key ("Missing API key..."). Construirlo a nivel de módulo (como antes)
+// tumbaría, con un crash no capturado, CUALQUIER endpoint que haga
+// require('./utils/send-email') — inscribir-alineacion.js y
+// enviar-recordatorios.js entre ellos — incluso en la ruta que no manda
+// ningún email. Se construye una sola vez, perezosamente, en el primer uso.
+let resend = null;
+function getResendClient() {
+    if (!resend) {
+        if (!process.env.RESEND_API_KEY) {
+            throw new Error('RESEND_API_KEY no está configurada');
+        }
+        resend = new Resend(process.env.RESEND_API_KEY);
+    }
+    return resend;
+}
 
 const SENDER_EMAIL = 'noreply@ec1375.paideia.tech';
 const SENDER_NAME = 'Paideia Tech - EC1375';
@@ -94,7 +109,7 @@ async function enviarConfirmacionInscripcion(inscripcion, sesion, googleMeetLink
     `;
 
     try {
-        const response = await resend.emails.send({
+        const response = await getResendClient().emails.send({
             from: `${SENDER_NAME} <${SENDER_EMAIL}>`,
             to: inscripcion.usuario_email,
             subject: `✓ Inscripción Confirmada - Sesión de Alineación EC1375 (${formatearFecha(sesion.fecha)})`,
@@ -169,7 +184,7 @@ async function enviarRecordatorio24h(inscripcion, sesion, googleMeetLink) {
     `;
 
     try {
-        const response = await resend.emails.send({
+        const response = await getResendClient().emails.send({
             from: `${SENDER_NAME} <${SENDER_EMAIL}>`,
             to: inscripcion.usuario_email,
             subject: `📅 Recordatorio: Tu Sesión es Mañana a las ${sesion.hora_inicio}`,
@@ -232,7 +247,7 @@ async function enviarRecordatorio1h(inscripcion, sesion, googleMeetLink) {
     `;
 
     try {
-        const response = await resend.emails.send({
+        const response = await getResendClient().emails.send({
             from: `${SENDER_NAME} <${SENDER_EMAIL}>`,
             to: inscripcion.usuario_email,
             subject: `🔔 ¡Comienza en 1 Hora! - Sesión de Alineación EC1375`,
