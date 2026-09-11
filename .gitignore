@@ -31,3 +31,6 @@ _internal_no_publicar/
 # Credenciales de Google OAuth (nunca subir)
 client_secret*.json
 token.json
+
+# Credencial de cuenta de servicio de Google Cloud (nunca subir)
+ec1375-paideaia-98657cbdc812.json
