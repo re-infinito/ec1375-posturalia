@@ -158,12 +158,20 @@ module.exports = async (req, res) => {
             });
         }
 
-        // 6. Enviar email de confirmación (asincrónico, no bloquea la inscripción)
-        enviarEmailConfirmacion(inscripcion, sesion, googleMeetLink)
-            .catch(err => {
-                console.error('Error enviando email de confirmación:', err);
-                // Error de email no falla la inscripción, pero lo registramos
-            });
+        // 6. Enviar email de confirmación — se espera (await) antes de
+        // responder. Lanzarlo "fire-and-forget" sin await (como estaba
+        // antes) es una trampa clásica de Vercel: en cuanto se manda la
+        // respuesta HTTP, la función serverless puede congelarse/matarse
+        // de inmediato, antes de que esa promesa suelta alcance a
+        // terminar — ni siquiera su propio try/catch llegaba a correr
+        // (por eso no quedaba ninguna fila, ni de éxito ni de fallo, en
+        // emails_enviados_alineacion). Un error de email sigue sin fallar
+        // la inscripción — el catch de aquí solo evita que se propague.
+        try {
+            await enviarEmailConfirmacion(inscripcion, sesion, googleMeetLink);
+        } catch (err) {
+            console.error('Error enviando email de confirmación:', err);
+        }
 
         res.status(200).json({
             success: true,
