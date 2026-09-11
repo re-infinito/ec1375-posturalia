@@ -9,6 +9,7 @@ class SesionesAlineacionComponent {
         this.container = document.getElementById(containerId);
         this.onInscripcionExitosa = onInscripcionExitosa || (() => {});
         this.sesiones = [];
+        this.misInscripciones = [];
         this.usuarioEmail = null;
         this.usuarioNombre = null;
     }
@@ -22,7 +23,10 @@ class SesionesAlineacionComponent {
 
         this.render('cargando');
         try {
-            await this.cargarSesiones();
+            // No depender solo del email de confirmación para que el
+            // usuario vea que quedó inscrito y su link de Meet — esto se
+            // consulta en vivo cada vez que entra a la página.
+            await Promise.all([this.cargarSesiones(), this.cargarMisInscripciones()]);
             this.render('sesiones');
         } catch (error) {
             console.error('Error en init:', error);
@@ -39,6 +43,22 @@ class SesionesAlineacionComponent {
 
         const data = await resp.json();
         this.sesiones = data.sesiones || [];
+    }
+
+    /**
+     * Cargar las inscripciones confirmadas del usuario — se muestran en
+     * pantalla independientemente de si el email de confirmación llegó.
+     */
+    async cargarMisInscripciones() {
+        try {
+            const resp = await fetch(`/api/mis-inscripciones-alineacion?email=${encodeURIComponent(this.usuarioEmail)}`);
+            if (!resp.ok) { this.misInscripciones = []; return; }
+            const data = await resp.json();
+            this.misInscripciones = (data.inscripciones || []).filter(i => i.estado === 'confirmada' && i.sesion);
+        } catch (e) {
+            console.warn('No se pudieron cargar tus inscripciones:', e);
+            this.misInscripciones = [];
+        }
     }
 
     /**
@@ -78,13 +98,14 @@ class SesionesAlineacionComponent {
             }
 
             // Éxito
-            alert(`¡Inscripción confirmada! 🎉\n\nRevisa tu email para el link de Google Meet.`);
+            alert(`¡Inscripción confirmada! 🎉\n\nYa la ves aquí abajo en "Tus Sesiones Confirmadas" (también te llega un email, pero no depende de él).`);
 
             // Actualizar UI
             sesion.inscritos += 1;
             sesion.cupos_disponibles -= 1;
             sesion.llena = sesion.cupos_disponibles <= 0;
 
+            await this.cargarMisInscripciones();
             this.render('sesiones');
             this.onInscripcionExitosa(data);
         } catch (error) {
@@ -121,8 +142,11 @@ class SesionesAlineacionComponent {
      * Renderizar grilla de sesiones
      */
     renderSesiones() {
+        const misInscripcionesHtml = this.renderMisInscripcionesHtml();
+
         if (this.sesiones.length === 0) {
             this.container.innerHTML = `
+                ${misInscripcionesHtml}
                 <div style="text-align: center; padding: 40px 20px;">
                     <p>No hay sesiones disponibles en este momento.</p>
                     <p style="font-size: 0.9em; color: #888; margin-top: 12px;">
@@ -134,6 +158,7 @@ class SesionesAlineacionComponent {
         }
 
         const html = `
+            ${misInscripcionesHtml}
             <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px;">
                 ${this.sesiones.map(sesion => this.renderTarjetaSesion(sesion)).join('')}
             </div>
@@ -148,6 +173,57 @@ class SesionesAlineacionComponent {
                 btn.addEventListener('click', () => this.inscribirse(sesion.id));
             }
         });
+    }
+
+    /**
+     * Renderizar el bloque "Tus Sesiones Confirmadas" — se ve en pantalla
+     * de inmediato, sin depender de que llegue el email de confirmación.
+     */
+    renderMisInscripcionesHtml() {
+        if (this.misInscripciones.length === 0) return '';
+
+        const tarjetas = this.misInscripciones.map(insc => {
+            const s = insc.sesion;
+            const fecha = new Date(s.fecha + 'T00:00:00');
+            const fechaTexto = fecha.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' });
+            return `
+                <div style="
+                    background: rgba(0,255,136,0.08);
+                    border: 1px solid rgba(0,255,136,0.4);
+                    border-radius: 10px;
+                    padding: 16px;
+                    margin-bottom: 10px;
+                    display: flex;
+                    flex-wrap: wrap;
+                    align-items: center;
+                    justify-content: space-between;
+                    gap: 12px;
+                ">
+                    <div>
+                        <div style="color: #00FF88; font-weight: 700; font-size: 0.85rem; margin-bottom: 4px;">
+                            ✓ Inscripción confirmada
+                        </div>
+                        <div style="color: white; font-weight: 600;">
+                            ${fechaTexto} · ${s.hora_inicio} - ${s.hora_fin}
+                        </div>
+                        ${s.instructor_nombre ? `<div style="color: #888; font-size: 0.85rem; margin-top: 2px;">👨‍🏫 ${s.instructor_nombre}</div>` : ''}
+                    </div>
+                    ${s.google_meet_link
+                        ? `<a href="${s.google_meet_link}" target="_blank" rel="noopener" style="
+                            background: #0088FF; color: white; padding: 10px 18px; border-radius: 8px;
+                            text-decoration: none; font-weight: 600; white-space: nowrap;
+                        ">🎥 Unirme a Google Meet</a>`
+                        : `<span style="color: #FFD700; font-size: 0.85rem;">Link de Meet pendiente — te avisamos por WhatsApp</span>`}
+                </div>
+            `;
+        }).join('');
+
+        return `
+            <div style="margin-bottom: 20px;">
+                <h3 style="color: white; font-size: 1rem; margin-bottom: 12px;">📌 Tus Sesiones Confirmadas</h3>
+                ${tarjetas}
+            </div>
+        `;
     }
 
     /**
