@@ -148,7 +148,7 @@
         <h1>📊 KPI Dashboard — EC1375 Paideia Tech</h1>
         <div class="last-update">Última actualización: <span id="lastUpdate">cargando...</span></div>
       </div>
-      <button class="refresh-btn" id="refreshBtn" onclick="refreshData()">🔄 Actualizar</button>
+      <button class="refresh-btn" id="refreshBtn" onclick="window.refreshData && window.refreshData()">🔄 Actualizar</button>
     </div>
     <div id="content">
       <div class="loading-text">⏳ Cargando datos en vivo desde Supabase...</div>
@@ -157,21 +157,29 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
-    const SUPABASE_URL = 'https://numsuiuwrvpprhnxovmh.supabase.co';
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im51bXN1aXV3cnZwcHJobnhvdm1oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc2OTg3MDAsImV4cCI6MjEwMzI3NDcwMH0.LA_MJzLcJyVtysxsJAmWwWzKwgynNm-f6ejGEaEpG1Y';
+    (function() {
+      const SUPABASE_URL = 'https://numsuiuwrvpprhnxovmh.supabase.co';
+      const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im51bXN1aXV3cnZwcHJobnhvdm1oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc2OTg3MDAsImV4cCI6MjEwMzI3NDcwMH0.LA_MJzLcJyVtysxsJAmWwWzKwgynNm-f6ejGEaEpG1Y';
 
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    let autoRefreshInterval = null;
+      let sbClient = window.supabaseClient;
+      if (!sbClient && window.supabase) {
+        sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      }
+      let autoRefreshInterval = null;
 
-    async function loadData() {
-      try {
-        document.getElementById('refreshBtn').classList.add('loading');
+      async function loadData() {
+        try {
+          if (!sbClient) {
+            document.getElementById('content').innerHTML = '<div class="error-text">⚠️ Supabase no está disponible</div>';
+            return;
+          }
+          document.getElementById('refreshBtn').classList.add('loading');
 
-        const [precios, pagos, candidatos] = await Promise.all([
-          supabase.from('candidatos_precio').select('*'),
-          supabase.from('candidatos_fase_pagos').select('*'),
-          supabase.from('candidatos_ec1375').select('*')
-        ]);
+          const [precios, pagos, candidatos] = await Promise.all([
+            sbClient.from('candidatos_precio').select('*'),
+            sbClient.from('candidatos_fase_pagos').select('*'),
+            sbClient.from('candidatos_ec1375').select('*')
+          ]);
 
         if (precios.error || pagos.error) throw new Error('Error cargando datos');
 
@@ -344,19 +352,21 @@
       document.getElementById('content').innerHTML = html;
     }
 
-    function refreshData() {
-      loadData();
-    }
+      function refreshData() {
+        loadData();
+      }
+      window.refreshData = refreshData;
 
-    // Auto-refresh cada 30 segundos
-    window.addEventListener('load', () => {
-      loadData();
-      autoRefreshInterval = setInterval(loadData, 30000);
-    });
+      // Auto-refresh cada 30 segundos
+      window.addEventListener('load', () => {
+        loadData();
+        autoRefreshInterval = setInterval(loadData, 30000);
+      });
 
-    window.addEventListener('beforeunload', () => {
-      if (autoRefreshInterval) clearInterval(autoRefreshInterval);
-    });
+      window.addEventListener('beforeunload', () => {
+        if (autoRefreshInterval) clearInterval(autoRefreshInterval);
+      });
+    })();
   </script>
 </body>
 </html>
