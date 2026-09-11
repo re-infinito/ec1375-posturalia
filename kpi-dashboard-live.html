@@ -160,10 +160,10 @@
     const SUPABASE_URL = 'https://numsuiuwrvpprhnxovmh.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im51bXN1aXV3cnZwcHJobnhvdm1oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc2OTg3MDAsImV4cCI6MjEwMzI3NDcwMH0.LA_MJzLcJyVtysxsJAmWwWzKwgynNm-f6ejGEaEpG1Y';
 
-    let supabase = window.supabaseClient;
-    if (!supabase) {
-      supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-      window.supabaseClient = supabase;
+    let sbClient = window.supabaseClient;
+    if (!sbClient) {
+      sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      window.supabaseClient = sbClient;
     }
     let autoRefreshInterval = null;
 
@@ -172,9 +172,9 @@
         document.getElementById('refreshBtn').classList.add('loading');
 
         const [precios, pagos, candidatos] = await Promise.all([
-          supabase.from('candidatos_precio').select('*'),
-          supabase.from('candidatos_fase_pagos').select('*'),
-          supabase.from('candidatos_ec1375').select('*')
+          sbClient.from('candidatos_precio').select('*'),
+          sbClient.from('candidatos_fase_pagos').select('*'),
+          sbClient.from('candidatos_ec1375').select('*')
         ]);
 
         if (precios.error || pagos.error) throw new Error('Error cargando datos');
