@@ -106,6 +106,8 @@ ACCIÓN (botón: "SÍ, QUIERO DORMIR TRANQUILO")
 ├── autodiagnostico.html           # 142 reactivos EC1375, wizard 8 pasos
 ├── plan-evaluacion.html           # Hereda datos del Autodiagnóstico, tabla de 142 reactivos oficial
 ├── alineacion.html                # Fase 4: PPT/videos de capacitación, gateada por pago de esta fase
+├── ruta-alineacion.html           # 57 pantallas con video real (YouTube) — CTA principal de alineacion.html
+├── ruta-estudio.html              # Biblioteca de reforzamiento, 121 pantallas (self-paced)
 ├── documentos-sesion.html         # Ficha/Consentimiento/Plan Sesión/Seguimiento — gateada por pago de Evaluación
 ├── evidencias.html                # Checklist + Google Form embebido
 ├── encuesta-satisfaccion.html     # 8 preguntas oficiales, cierre del funnel
@@ -619,6 +621,20 @@ El campo oficial "Escolaridad / Certificaciones" del PDF del Autodiagnóstico se
 
 **Fuera de alcance (documentado, no urgente):** `assemble_expediente.py` no lee de este bucket todavía (sigue usando el Google Form/Drive); no hay panel para ver/descargar los archivos subidos (quedan visibles desde el dashboard de Supabase Storage); no se migran datos de candidatos que ya estén a medio wizard con la selección vieja de especialidades; migración a Cloudflare Storage queda pendiente de que esa integración esté lista (mencionada por Diego como plan futuro). El ítem "Certificados / diplomas de formación" en el checklist de `evidencias.html` se deja igual, como respaldo opcional.
 
+### ✅ `ruta-alineacion.html` — presentación de Alineación de 57 pantallas, con video real, integrada a `alineacion.html` (11 de septiembre, 2026)
+
+Diego compartió `EC1375_ALINEACION_STANDALONE.html` + `EC1375_ALINEACION.css`, generados por un pipeline externo a este repo (`v4/alineacion.py` + `v4/correcciones.py` — **esos scripts no viven en este proyecto**, son de otra sesión/entorno). Es una versión curada de 50 pantallas de la Ruta de Alineación (subconjunto "núcleo" de las 121 de `ruta-estudio.html`), con una diferencia enorme: **11 videos reales de YouTube ya embebidos** (`window.EC1375_ALINEACION.media`, id→youtubeId), a diferencia de los placeholders "Video no disponible" de `ruta-estudio.html`. Verificado en vivo: el iframe de `youtube-nocookie.com` carga y reproduce correctamente.
+
+**Lo que se hizo:** se tomó ese standalone como base (instrucción explícita de Diego) y se extendió a `ruta-alineacion.html` (raíz del proyecto, la que de verdad se sirve):
+1. **Módulo 7 · "Tu video práctico"** (pantallas 51-57, `sid` con prefijo `vp-`) — el bloque que le faltaba al standalone: qué es/no es el ejercicio, secuencia de 8 macro-etapas, qué debe verse/escucharse, documentos previos, cómo grabarlo (con specs técnicas — duración/formato/resolución/plataforma — marcadas explícitamente **"por definir"**, nunca inventadas), y checklist final. Todo grounded en `_internal_no_publicar/03-documentos-referencia/Guion_Maestro_EC1375_Video_Modelo.docx` (el guion real ya existente en el proyecto).
+2. **Ligas de compra de Amazon/MercadoLibre** agregadas a la pantalla "Los quince elementos del documento de evaluación" (`sid:v3-104`) para Baumanómetro, Oxímetro, Estadímetro, Termómetro digital, Báscula, Banco de altura y Perchero, más el tapete sanitizante y un artículo de MercadoLibre sin identificar (su verificación anti-bot bloqueó tanto el fetch normal como su API pública — queda marcado para que el equipo lo revise antes de comprar). Ligas rotuladas explícitamente como sugerencia de Paideia Tech, no parte del estándar.
+3. `total` pasó de 50 a 57 en el JSON embebido y en cada `aria-label`; las nuevas pantallas usan `"source":"interno"` (no `"oficial"`) para no falsear la trazabilidad contra el EC1375.
+4. `alineacion.html`: nueva tarjeta "🎓 Ruta de Alineación (presentación interactiva)" — con `<a href="ruta-alineacion.html">` como CTA primario, arriba de la tarjeta ya existente de "Ruta de Estudio" — dentro de la misma compuerta de pago de la fase (`is_phase_authorized(email,'alineacion')`).
+
+**Decisión de arquitectura — por qué NO se tocaron los 2 archivos que Diego compartió:** ambos traen una advertencia propia ("no editar a mano... crea una segunda fuente de verdad") porque se regeneran desde `v4/alineacion.py`. Como ese script no está en este repo, no hay forma de "hacerlo bien" regenerando — así que se dejaron intactos como referencia y se movieron a `_internal_no_publicar/03-documentos-referencia/`, y toda la extensión vive solo en la copia nueva (`ruta-alineacion.html`, en la raíz, la que se despliega). Se documentó esto mismo dentro del propio archivo (panel "Ficha técnica del paquete" → nuevo aviso ámbar) para que quien lo abra en el futuro sepa que las pantallas 51-57 no salen del pipeline real. **Si Diego regenera el paquete desde `v4/alineacion.py`, hay que volver a fusionar el Módulo 7 y las ligas de compra a mano, o portarlas a `v4/correcciones.py`.**
+
+**Fuera de alcance (no urgente):** el archivo de estilo separado (`EC1375_ALINEACION.css`) no se usa enlazado — `ruta-alineacion.html` mantiene el `<style>` inline, igual que el resto del sitio (`ruta-estudio.html`, `index.html`, etc.), consistente con "páginas estáticas sin módulos compartidos"; identificar el artículo de MercadoLibre pendiente (bloqueado por su verificación anti-bot); videos reales para el Módulo 7 (no existen, es guía en texto/checklist únicamente); reconciliar con `v4/alineacion.py` si/cuando Diego tenga acceso a regenerarlo desde este entorno.
+
 ### 🔮 Backlog — no urgente, pero anotado para cuando escale a más candidatos
 
 1. ~~Autenticación por candidato~~ → ✅ implementada y en producción (Fase 1+2, ver arriba).
@@ -641,7 +657,7 @@ El campo oficial "Escolaridad / Certificaciones" del PDF del Autodiagnóstico se
 2. **"Formato de Atención a Usuarios"** (págs. 2-3 de Humberto) y **"Verificación Interna"/"Formato Servicio a Usuarios"** (págs. 137-138): parecen documentos de admisión/auditoría interna del Centro Evaluador, no generados por el candidato — se omiten del expediente estándar salvo que la evaluadora confirme que se requieren.
 3. **Cédula de Evaluación y IEC llenos:** ambos los llena el evaluador después de revisar el video/evidencias — el script de ensamblado los inserta en blanco; falta un segundo flujo (fuera de este alcance por ahora) para que el evaluador los llene digitalmente y se regenere el expediente ya completo.
 4. **Google Calendar en `plan-evaluacion.html`:** el candidato pidió que fuera "horarios fijos recurrentes" en vez de un calendario en tiempo real tipo Calendly — **todavía no se configuró**, el placeholder `GOOGLE_CALENDAR_BOOKING_URL` sigue vacío y usa el fallback de WhatsApp.
-5. **Portada de `ruta-estudio.html` (diapositiva 1 de Alineación) todavía dice "ACADEMIA POSTURALIA":** ese texto está incrustado en la fotografía de portada (la terapeuta con el certificado), no es texto vivo — no se pudo corregir con CSS/HTML porque no hay nada que editar en el DOM. Pendiente que Diego regenere esa imagen con la marca correcta (foto nueva o edición de la actual) para reemplazarla.
+5. **Portada de `ruta-estudio.html` (diapositiva 1 de Alineación) todavía dice "ACADEMIA POSTURALIA":** ese texto está incrustado en la fotografía de portada (la terapeuta con el certificado), no es texto vivo — no se pudo corregir con CSS/HTML porque no hay nada que editar en el DOM. Pendiente que Diego regenere esa imagen con la marca correcta (foto nueva o edición de la actual) para reemplazarla. **Mismo problema en `ruta-alineacion.html`** (pantalla 1) — usa la misma fotografía base64, heredada del pipeline `v4/alineacion.py`.
 
 ---
 
