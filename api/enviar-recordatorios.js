@@ -16,6 +16,27 @@ const supabase = createClient(
     process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
+// fecha/hora_inicio en sesiones_alineacion son hora local de
+// America/Mexico_City (ver nota en crear-evento-google.js). Vercel corre en
+// UTC, así que `new Date().getHours()` / `.toISOString()` dan la hora del
+// servidor, NO la de México — comparar eso contra hora_inicio desfasa los
+// recordatorios por el offset completo de la zona (6 horas sin DST). Estas
+// dos funciones dan la fecha/hora "ahora" ya convertida a México.
+function fechaHoyEnMexico(date = new Date()) {
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Mexico_City' }).format(date);
+}
+
+function horaAhoraEnMexico(date = new Date()) {
+    const parts = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/Mexico_City',
+        hour: '2-digit', minute: '2-digit', hour12: false
+    }).formatToParts(date);
+    const get = (type) => parts.find(p => p.type === type).value;
+    let hora = get('hour');
+    if (hora === '24') hora = '00'; // quirk de ICU: medianoche a veces sale como "24"
+    return `${hora}:${get('minute')}`;
+}
+
 module.exports = async (req, res) => {
     res.setHeader('Content-Type', 'application/json');
 
@@ -57,7 +78,7 @@ async function procesarRecordatorios24h() {
     try {
         const ahora = new Date();
         const manana = new Date(ahora.getTime() + 24 * 60 * 60 * 1000);
-        const mananaFecha = manana.toISOString().split('T')[0];
+        const mananaFecha = fechaHoyEnMexico(manana);
 
         // Obtener inscripciones que necesitan recordatorio 24h
         const { data: inscripciones, error } = await supabase
@@ -150,9 +171,10 @@ async function procesarRecordatorios24h() {
 async function procesarRecordatorios1h() {
     try {
         const ahora = new Date();
-        const ahoyFecha = ahora.toISOString().split('T')[0];
-        const horaActual = ahora.getHours().toString().padStart(2, '0') + ':' +
-                          ahora.getMinutes().toString().padStart(2, '0');
+        const ahoyFecha = fechaHoyEnMexico(ahora);
+        const horaActual = horaAhoraEnMexico(ahora);
+        const [horaActualH, horaActualM] = horaActual.split(':').map(Number);
+        const minutosAhora = horaActualH * 60 + horaActualM;
 
         // Obtener sesiones que comienzan en la próxima hora
         const { data: sesiones, error: errorSesiones } = await supabase
@@ -177,12 +199,13 @@ async function procesarRecordatorios1h() {
         let enviados = 0;
 
         for (const sesion of sesiones || []) {
-            // Verificar si la sesión comienza en aprox 1 hora
+            // Verificar si la sesión comienza en aprox 1 hora. Comparación
+            // en minutos-desde-medianoche, ambos lados en hora de México
+            // (no construir Date con setHours — eso usaría la zona del
+            // servidor y volvería a introducir el desfase de 6h).
             const [horaS, minS] = sesion.hora_inicio.split(':').map(Number);
-            const horaInicio = new Date();
-            horaInicio.setHours(horaS, minS, 0);
-
-            const diffMinutos = (horaInicio - ahora) / (1000 * 60);
+            const minutosInicio = horaS * 60 + minS;
+            const diffMinutos = minutosInicio - minutosAhora;
 
             // Enviar si está entre 50 y 70 minutos en el futuro
             if (diffMinutos >= 50 && diffMinutos <= 70) {

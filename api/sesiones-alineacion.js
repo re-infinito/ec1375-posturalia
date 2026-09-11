@@ -13,6 +13,11 @@ const supabase = createClient(
 
 module.exports = async (req, res) => {
     res.setHeader('Content-Type', 'application/json');
+    // Sin esto, Vercel puede cachear la respuesta de este GET en su CDN —
+    // la primera vez que se llamó (antes de crear ninguna sesión) devolvió
+    // sesiones: [] correctamente, y esa respuesta pudo haber quedado
+    // cacheada indefinidamente aunque después sí se crearan sesiones reales.
+    res.setHeader('Cache-Control', 'no-store, max-age=0');
 
     if (req.method !== 'GET') {
         return res.status(405).json({ error: 'Method not allowed' });

@@ -1,8 +1,15 @@
 /**
  * POST /api/crear-evento-google
- * Crea un evento en Google Calendar con Google Meet automático
- * Body: { fecha, horaInicio, horaFin, instructor }
- * Retorna: { google_event_id, google_meet_link, success }
+ * Crea un evento en Google Calendar. El link de Google Meet NO se genera
+ * automáticamente: un Service Account (sin domain-wide delegation
+ * impersonando a un usuario real de Workspace) no tiene permiso para crear
+ * conferenceData — Google devuelve "Invalid conference data". Como
+ * paideia.tech@outlook.com es una cuenta personal (no Workspace), esa
+ * delegación ni siquiera es una opción disponible. En su lugar, el admin
+ * crea el Meet una vez (p.ej. meet.google.com/new) y lo pega en el
+ * formulario — se guarda tal cual como googleMeetLink.
+ * Body: { fecha, horaInicio, horaFin, instructor, googleMeetLink? }
+ * Retorna: { google_event_id, google_meet_link, event_url, success }
  */
 
 const { google } = require('googleapis');
@@ -39,7 +46,7 @@ module.exports = async (req, res) => {
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
-    const { fecha, horaInicio, horaFin, instructor } = req.body;
+    const { fecha, horaInicio, horaFin, instructor, googleMeetLink } = req.body;
 
     // Validar inputs
     if (!fecha || !horaInicio || !horaFin) {
@@ -51,15 +58,25 @@ module.exports = async (req, res) => {
     try {
         const calendar = getCalendarClient();
 
-        // Convertir a datetime ISO para Google Calendar
-        // fecha es YYYY-MM-DD, horaInicio es HH:MM
-        const startDateTime = new Date(`${fecha}T${horaInicio}:00`).toISOString();
-        const endDateTime = new Date(`${fecha}T${horaFin}:00`).toISOString();
+        // fecha es YYYY-MM-DD, horaInicio/horaFin son HH:MM.
+        // OJO: no usar `new Date(...).toISOString()` aquí — Vercel corre en
+        // UTC, así que new Date("2026-09-12T14:00:00") se interpreta como
+        // 14:00 UTC, y toISOString() deja ese string marcado con "Z". Google
+        // Calendar, si dateTime ya trae offset/Z, ignora el campo `timeZone`
+        // que mandamos aparte y usa la hora tal cual como UTC — 14:00 UTC
+        // termina mostrándose como 8:00am en México (UTC-6). El fix es pasar
+        // la hora local en crudo, SIN offset, y dejar que timeZone (abajo)
+        // la ancle correctamente a America/Mexico_City.
+        const startDateTime = `${fecha}T${horaInicio}:00`;
+        const endDateTime = `${fecha}T${horaFin}:00`;
 
-        // Crear evento en Google Calendar
+        // Crear evento en Google Calendar (sin conferenceData — ver nota
+        // arriba). Si el admin proporcionó un Meet link manual, se incluye
+        // en la descripción y en location para que sea visible en el
+        // evento también, no solo en nuestra propia BD.
         const event = {
             summary: `Sesión de Alineación EC1375${instructor ? ` - ${instructor}` : ''}`,
-            description: `Sesión de alineación (capacitación) del programa EC1375.\nInstructor: ${instructor || 'Por confirmar'}`,
+            description: `Sesión de alineación (capacitación) del programa EC1375.\nInstructor: ${instructor || 'Por confirmar'}${googleMeetLink ? `\nGoogle Meet: ${googleMeetLink}` : ''}`,
             start: {
                 dateTime: startDateTime,
                 timeZone: 'America/Mexico_City'
@@ -68,14 +85,7 @@ module.exports = async (req, res) => {
                 dateTime: endDateTime,
                 timeZone: 'America/Mexico_City'
             },
-            conferenceData: {
-                createRequest: {
-                    requestId: `ec1375-${Date.now()}`,
-                    conferenceSolutionKey: {
-                        key: 'hangoutsMeet'
-                    }
-                }
-            },
+            ...(googleMeetLink ? { location: googleMeetLink } : {}),
             transparency: 'transparent', // No bloquea el calendario
             visibility: 'public'
         };
@@ -83,29 +93,13 @@ module.exports = async (req, res) => {
         const response = await calendar.events.insert({
             calendarId: process.env.GOOGLE_CALENDAR_ID,
             requestBody: event,
-            conferenceDataVersion: 1,
             sendUpdates: 'none' // No enviar notificaciones en creación
         });
-
-        // Extraer el Google Meet link
-        let googleMeetLink = null;
-        if (response.data.conferenceData && response.data.conferenceData.entryPoints) {
-            const videoEntry = response.data.conferenceData.entryPoints
-                .find(ep => ep.entryPointType === 'video');
-            if (videoEntry) {
-                googleMeetLink = videoEntry.uri;
-            }
-        }
-
-        // Si no hay Google Meet link, usar el URL del evento
-        if (!googleMeetLink) {
-            googleMeetLink = response.data.hangoutLink || response.data.htmlLink;
-        }
 
         res.status(200).json({
             success: true,
             google_event_id: response.data.id,
-            google_meet_link: googleMeetLink,
+            google_meet_link: googleMeetLink || null,
             event_url: response.data.htmlLink,
             mensaje: 'Evento creado exitosamente en Google Calendar'
         });

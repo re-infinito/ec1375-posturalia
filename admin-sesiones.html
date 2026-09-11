@@ -214,6 +214,7 @@
     <script>
     let sesiones = [];
     let fpFecha, fpHoraInicio, fpHoraFin;
+    let sesionEditandoId = null;
 
     function initSelectoresFechaHora() {
         fpFecha = flatpickr('#fecha', {
@@ -294,7 +295,9 @@
                     capacidad_maxima,
                     instructor_nombre,
                     estado,
-                    google_meet_link
+                    google_meet_link,
+                    google_event_id,
+                    descripcion
                 `)
                 .order('fecha', { ascending: true });
 
@@ -339,12 +342,14 @@
 
     async function crearSesion(event) {
         event.preventDefault();
+        if (sesionEditandoId) return actualizarSesion(event);
 
         const fecha = document.getElementById('fecha').value;
         const horaInicio = document.getElementById('horaInicio').value;
         const horaFin = document.getElementById('horaFin').value;
         const capacidad = parseInt(document.getElementById('capacidad').value);
         const instructor = document.getElementById('instructor').value;
+        const googleMeetLink = document.getElementById('googleMeetLink').value.trim() || null;
         const descripcion = document.getElementById('descripcion').value;
 
         if (!fecha || !horaInicio || !horaFin || !capacidad) {
@@ -352,14 +357,14 @@
             return;
         }
 
-        const btn = event.target.querySelector('button');
+        const btn = event.target.querySelector('button[type="submit"]');
         btn.disabled = true;
         btn.textContent = '⏳ Creando...';
 
         try {
             // Crear evento en Google Calendar
             const googleResult = await crearEventoGoogleCalendar(
-                fecha, horaInicio, horaFin, instructor
+                fecha, horaInicio, horaFin, instructor, googleMeetLink
             );
 
             if (!googleResult || !googleResult.google_event_id) {
@@ -367,23 +372,37 @@
                 return;
             }
 
-            // Guardar en Supabase
-            const { data, error } = await supabaseClient
-                .from('sesiones_alineacion')
-                .insert([{
-                    fecha,
-                    hora_inicio: horaInicio,
-                    hora_fin: horaFin,
-                    capacidad_maxima: capacidad,
-                    instructor_nombre: instructor,
-                    descripcion,
-                    estado: 'abierta',
-                    google_event_id: googleResult.google_event_id,
-                    google_meet_link: googleResult.google_meet_link
-                }])
-                .select();
+            // Guardar en Supabase. El evento de Google Calendar ya se creó
+            // en el paso anterior — si esto falla, ese evento queda
+            // huérfano (sin fila en sesiones_alineacion). No hay rollback
+            // automático del lado de Calendar, así que el mensaje de error
+            // incluye el link directo al evento para borrarlo a mano.
+            try {
+                const { error } = await supabaseClient
+                    .from('sesiones_alineacion')
+                    .insert([{
+                        fecha,
+                        hora_inicio: horaInicio,
+                        hora_fin: horaFin,
+                        capacidad_maxima: capacidad,
+                        instructor_nombre: instructor,
+                        descripcion,
+                        estado: 'abierta',
+                        google_event_id: googleResult.google_event_id,
+                        google_meet_link: googleResult.google_meet_link
+                    }])
+                    .select();
 
-            if (error) throw error;
+                if (error) throw error;
+            } catch (dbError) {
+                const linkEvento = googleResult.event_url
+                    ? ` Borra el evento huérfano en Calendar: ${googleResult.event_url}`
+                    : '';
+                mostrarError(
+                    `El evento SÍ se creó en Google Calendar, pero no se pudo guardar en la base de datos: ${dbError.message}.${linkEvento}`
+                );
+                return;
+            }
 
             mostrarExito('Sesión creada exitosamente en Google Calendar y Supabase');
             document.getElementById('formCrearSesion').reset();
@@ -400,12 +419,12 @@
         }
     }
 
-    async function crearEventoGoogleCalendar(fecha, horaInicio, horaFin, instructor) {
+    async function crearEventoGoogleCalendar(fecha, horaInicio, horaFin, instructor, googleMeetLink) {
         try {
             const resp = await fetch('/api/crear-evento-google', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ fecha, horaInicio, horaFin, instructor })
+                body: JSON.stringify({ fecha, horaInicio, horaFin, instructor, googleMeetLink })
             });
 
             if (!resp.ok) {
@@ -413,7 +432,10 @@
                 let mensaje = `Error del servidor (${resp.status})`;
                 try {
                     const error = JSON.parse(bodyText);
-                    mensaje = error.error || error.message || mensaje;
+                    // Mostrar ambos: el mensaje genérico Y el detalle específico
+                    // (antes solo se mostraba error.error, ocultando la causa real
+                    // que viene en error.message).
+                    mensaje = [error.error, error.message].filter(Boolean).join(' — ') || mensaje;
                 } catch (parseErr) {
                     // La respuesta no fue JSON (p.ej. un crash de la función
                     // serverless) — mostrar el texto crudo en vez de romper
@@ -437,6 +459,29 @@
     async function eliminarSesion(sesionId) {
         if (!confirm('¿Eliminar esta sesión?')) return;
 
+        const sesion = sesiones.find(s => s.id === sesionId);
+
+        // Borrar primero el evento de Google Calendar (si existe) para no
+        // dejarlo huérfano — si esto falla por algo que no sea "ya no
+        // existe", se avisa pero se continúa con el borrado en Supabase de
+        // todas formas: la fila de la app es lo que importa para que deje
+        // de aparecer en el panel/grilla de usuarios.
+        if (sesion && sesion.google_event_id) {
+            try {
+                const resp = await fetch('/api/eliminar-evento-google', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ eventId: sesion.google_event_id })
+                });
+                if (!resp.ok) {
+                    const bodyText = await resp.text();
+                    console.warn('No se pudo borrar el evento de Google Calendar:', bodyText);
+                }
+            } catch (e) {
+                console.warn('No se pudo borrar el evento de Google Calendar:', e);
+            }
+        }
+
         try {
             const { error } = await supabaseClient
                 .from('sesiones_alineacion')
@@ -444,11 +489,104 @@
                 .eq('id', sesionId);
 
             if (error) throw error;
-            mostrarExito('Sesión eliminada');
+            mostrarExito('Sesión eliminada (y su evento en Google Calendar)');
             await cargarSesiones();
         } catch (error) {
             mostrarError('Error: ' + error.message);
         }
+    }
+
+    // Editar solo cambia capacidad/instructor/Meet link/descripción — no
+    // fecha/hora, porque eso movería el evento ya creado en Google Calendar
+    // y este formulario no tiene forma de actualizar un evento existente
+    // (solo de crear uno nuevo). Para cambiar fecha/hora hay que eliminar
+    // la sesión y crearla de nuevo.
+    function editarSesion(id) {
+        const sesion = sesiones.find(s => s.id === id);
+        if (!sesion) { mostrarError('No se encontró la sesión'); return; }
+
+        sesionEditandoId = id;
+        switchTab('crear', document.querySelector('.tab-btn[data-tab="crear"]'));
+
+        fpFecha.setDate(sesion.fecha, true);
+        fpHoraInicio.setDate(sesion.hora_inicio, true, 'H:i:S');
+        fpHoraFin.setDate(sesion.hora_fin, true, 'H:i:S');
+        document.getElementById('fecha').disabled = true;
+        document.getElementById('horaInicio').disabled = true;
+        document.getElementById('horaFin').disabled = true;
+        fpFecha.set('clickOpens', false);
+        fpHoraInicio.set('clickOpens', false);
+        fpHoraFin.set('clickOpens', false);
+
+        document.getElementById('capacidad').value = sesion.capacidad_maxima;
+        document.getElementById('instructor').value = sesion.instructor_nombre || '';
+        document.getElementById('googleMeetLink').value = sesion.google_meet_link || '';
+        document.getElementById('descripcion').value = sesion.descripcion || '';
+
+        document.getElementById('formCrearSesionTitulo').textContent = 'Editar Sesión';
+        document.getElementById('editandoNota').style.display = 'block';
+        document.getElementById('cancelarEdicionBtn').style.display = 'inline-block';
+        document.querySelector('#formCrearSesion button[type="submit"]').textContent = '✓ Actualizar Sesión';
+
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    async function actualizarSesion(event) {
+        const capacidad = parseInt(document.getElementById('capacidad').value);
+        const instructor = document.getElementById('instructor').value;
+        const googleMeetLink = document.getElementById('googleMeetLink').value.trim() || null;
+        const descripcion = document.getElementById('descripcion').value;
+
+        if (!capacidad) {
+            mostrarError('Completa la capacidad');
+            return;
+        }
+
+        const btn = event.target.querySelector('button[type="submit"]');
+        btn.disabled = true;
+        btn.textContent = '⏳ Actualizando...';
+
+        try {
+            const { error } = await supabaseClient
+                .from('sesiones_alineacion')
+                .update({
+                    capacidad_maxima: capacidad,
+                    instructor_nombre: instructor,
+                    google_meet_link: googleMeetLink,
+                    descripcion
+                })
+                .eq('id', sesionEditandoId);
+
+            if (error) throw error;
+
+            mostrarExito('Sesión actualizada');
+            cancelarEdicion();
+            await cargarSesiones();
+        } catch (error) {
+            mostrarError('Error actualizando: ' + error.message);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = sesionEditandoId ? '✓ Actualizar Sesión' : '✓ Crear Sesión';
+        }
+    }
+
+    function cancelarEdicion() {
+        sesionEditandoId = null;
+        document.getElementById('formCrearSesion').reset();
+        document.getElementById('capacidad').value = 30;
+        document.getElementById('fecha').disabled = false;
+        document.getElementById('horaInicio').disabled = false;
+        document.getElementById('horaFin').disabled = false;
+        fpFecha.set('clickOpens', true);
+        fpHoraInicio.set('clickOpens', true);
+        fpHoraFin.set('clickOpens', true);
+        fpFecha.clear();
+        fpHoraInicio.clear();
+        fpHoraFin.clear();
+        document.getElementById('formCrearSesionTitulo').textContent = 'Crear Nueva Sesión';
+        document.getElementById('editandoNota').style.display = 'none';
+        document.getElementById('cancelarEdicionBtn').style.display = 'none';
+        document.querySelector('#formCrearSesion button[type="submit"]').textContent = '✓ Crear Sesión';
     }
 
     function mostrarExito(msg) {
@@ -473,15 +611,18 @@
         document.getElementById('app').innerHTML = `
             <!-- TABS -->
             <div class="tabs">
-                <button class="tab-btn active" onclick="switchTab('crear')">➕ Crear Sesión</button>
-                <button class="tab-btn" onclick="switchTab('listar')">📋 Listar Sesiones</button>
-                <button class="tab-btn" onclick="switchTab('reportes')">📊 Reportes</button>
+                <button class="tab-btn active" data-tab="crear" onclick="switchTab('crear')">➕ Crear Sesión</button>
+                <button class="tab-btn" data-tab="listar" onclick="switchTab('listar')">📋 Listar Sesiones</button>
+                <button class="tab-btn" data-tab="reportes" onclick="switchTab('reportes')">📊 Reportes</button>
             </div>
 
             <!-- TAB: CREAR -->
             <div id="tab-crear" class="tab-content active">
                 <div class="card">
-                    <h2 style="margin-bottom: 20px;">Crear Nueva Sesión</h2>
+                    <h2 id="formCrearSesionTitulo" style="margin-bottom: 20px;">Crear Nueva Sesión</h2>
+                    <p id="editandoNota" style="display:none; font-size: 0.82rem; color: var(--accent); margin-top: -12px; margin-bottom: 16px;">
+                        Fecha y hora no se pueden editar aquí (moverían el evento en Google Calendar) — elimina la sesión y créala de nuevo si necesitas cambiarlas.
+                    </p>
                     <form id="formCrearSesion" onsubmit="crearSesion(event)">
                         <div class="grid-2">
                             <div class="form-group">
@@ -511,11 +652,20 @@
                         </div>
 
                         <div class="form-group">
+                            <label>Link de Google Meet</label>
+                            <input type="url" id="googleMeetLink" placeholder="https://meet.google.com/xxx-xxxx-xxx">
+                            <p style="font-size: 0.78rem; color: var(--text); margin-top: 6px;">
+                                Créalo en <a href="https://meet.google.com/new" target="_blank" rel="noopener" style="color: var(--primary-light);">meet.google.com/new</a> y pega el link aquí — Google no permite generarlo automáticamente para este calendario. Puedes dejarlo vacío y agregarlo después.
+                            </p>
+                        </div>
+
+                        <div class="form-group">
                             <label>Descripción</label>
                             <textarea id="descripcion" rows="3" placeholder="Notas adicionales para los participantes"></textarea>
                         </div>
 
                         <button type="submit" class="btn btn-primary">✓ Crear Sesión</button>
+                        <button type="button" id="cancelarEdicionBtn" class="btn" style="display:none; background: transparent; border: 1px solid rgba(255,255,255,0.2); color: var(--text);" onclick="cancelarEdicion()">Cancelar edición</button>
                     </form>
                 </div>
             </div>
@@ -541,10 +691,15 @@
         cargarSesiones();
     }
 
-    function switchTab(tab) {
-        // Actualizar botones
+    function switchTab(tab, clickedBtn) {
+        // Actualizar botones. clickedBtn se pasa explícitamente cuando se
+        // llama desde código (p.ej. editarSesion) — depender del `event`
+        // global implícito solo funciona si vino de un onclick real.
+        const btnActivo = clickedBtn
+            || (typeof event !== 'undefined' && event && event.target)
+            || document.querySelector(`.tab-btn[data-tab="${tab}"]`);
         document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-        event.target.classList.add('active');
+        if (btnActivo) btnActivo.classList.add('active');
 
         // Actualizar contenido
         document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
@@ -555,7 +710,9 @@
     window.switchTab = switchTab;
     window.crearSesion = crearSesion;
     window.eliminarSesion = eliminarSesion;
-    window.editarSesion = (id) => console.log('Editar sesión:', id);
+    window.editarSesion = editarSesion;
+    window.actualizarSesion = actualizarSesion;
+    window.cancelarEdicion = cancelarEdicion;
     </script>
 </body>
 </html>
