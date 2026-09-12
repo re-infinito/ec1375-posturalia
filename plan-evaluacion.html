@@ -592,6 +592,78 @@ const AUTODIAGNOSTICO_DATA = [
     let hasSignature = false;
     let isDrawing = false, lastX = 0, lastY = 0;
     let generated = false;
+    let documentosNextcloud = {};
+    let generatedDocsAlineacion = {};
+
+    async function subirDocumento(fase, filename, blob, nombre, curp) {
+        try {
+            const session = await Auth.getSession();
+            if (!session) return { success: false, error: 'Sin sesión activa' };
+            const fileBase64 = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result.split(',')[1]);
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+            });
+            const resp = await fetch('/api/subir-portafolio', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+                body: JSON.stringify({ email: session.user.email, fase, nombre, curp, filename, fileBase64 })
+            });
+            const data = await resp.json();
+            if (!resp.ok || !data.success) return { success: false, error: data.error || 'Error desconocido' };
+            return { success: true, path: data.path };
+        } catch (e) {
+            return { success: false, error: e.message || 'Error de red' };
+        }
+    }
+
+    function renderEstadoDoc(key, label) {
+        const val = documentosNextcloud[key];
+        if (val) {
+            return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.08);">
+                <span>${label}</span><span style="color:var(--success);font-weight:600;">✅ Subido</span>
+            </div>`;
+        }
+        return `<div style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.08);">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+                <span>${label}</span><span style="color:var(--danger);font-weight:600;">❌ No subido</span>
+            </div>
+            <div style="display:flex;gap:8px;margin-top:8px;">
+                <button class="btn btn-secondary" style="flex:1;font-size:0.8rem;" onclick="reintentarSubidaAlineacion('${key}')">🔄 Reintentar subida</button>
+                <button class="btn btn-secondary" style="flex:1;font-size:0.8rem;" onclick="descargarDocAlineacion('${key}')">⬇️ Descargar</button>
+            </div>
+        </div>`;
+    }
+
+    async function subirDocumentosPendientesAlineacion(result) {
+        const pd = result.personalData;
+        for (const key of Object.keys(generatedDocsAlineacion)) {
+            if (documentosNextcloud[key]) continue;
+            const { blob, filename } = generatedDocsAlineacion[key];
+            const uploadResult = await subirDocumento('alineacion', filename, blob, pd.nombre, pd.curp);
+            if (uploadResult.success) documentosNextcloud[key] = uploadResult.path;
+        }
+        savePlanProgress();
+    }
+
+    async function reintentarSubidaAlineacion(key) {
+        const result = loadAutodiagnosticoResult();
+        const pd = result.personalData;
+        const { blob, filename } = generatedDocsAlineacion[key];
+        const uploadResult = await subirDocumento('alineacion', filename, blob, pd.nombre, pd.curp);
+        if (uploadResult.success) { documentosNextcloud[key] = uploadResult.path; savePlanProgress(); }
+        await render();
+    }
+
+    function descargarDocAlineacion(key) {
+        const { blob, filename } = generatedDocsAlineacion[key];
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = filename;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
 
     function loadAutodiagnosticoResult() {
         try {
@@ -624,12 +696,13 @@ const AUTODIAGNOSTICO_DATA = [
                 signatureTypedName = saved.signatureTypedName || '';
                 signatureMode = saved.signatureMode || 'draw';
                 hasSignature = !!signatureDataUrl;
+                documentosNextcloud = saved.documentosNextcloud || {};
             }
         } catch (e) {}
     }
 
     function savePlanProgress() {
-        const data = { planData, signatureDataUrl, signatureTypedName, signatureMode };
+        const data = { planData, signatureDataUrl, signatureTypedName, signatureMode, documentosNextcloud };
         localStorage.setItem('planEvaluacionData', JSON.stringify(data));
         const result = loadAutodiagnosticoResult();
         if (result) Auth.syncToSupabase('plan_evaluacion_data', data, result.personalData.curp, result.personalData.nombre);
@@ -677,7 +750,7 @@ const AUTODIAGNOSTICO_DATA = [
         }
 
         if (generated) {
-            renderGeneratedState(app, result);
+            await renderGeneratedState(app, result);
             return;
         }
 
@@ -956,20 +1029,28 @@ const AUTODIAGNOSTICO_DATA = [
         updateGenerateButton();
     }
 
-    function generatePlan() {
+    async function generatePlan() {
         generated = true;
         savePlanProgress();
-        render();
+        await render();
     }
 
-    function renderGeneratedState(app, result) {
+    async function renderGeneratedState(app, result) {
+        if (!generatedDocsAlineacion.planEvaluacion) {
+            generatedDocsAlineacion = {
+                planEvaluacion: generatePDFBlob(),
+                acusePlanEvaluacion: generateAcusePlanEvaluacionPDFBlob()
+            };
+        }
+        await subirDocumentosPendientesAlineacion(result);
+
         app.innerHTML = `
             <div class="success-box">
                 <h3>✅ Tu Plan de Evaluación está listo</h3>
-                <p style="color:var(--text);margin-bottom:20px;">Descárgalo y compártelo con tu evaluador. Tu cita: <strong>${escapeHtml(planData.fechaHoraAgendada)}</strong></p>
-                <button class="btn btn-primary btn-full" onclick="generatePDF()">📄 Descargar PDF</button>
-                <button class="btn btn-secondary btn-full" onclick="generateWord()">📝 Descargar Word (.doc)</button>
-                <button class="btn btn-secondary btn-full" onclick="generateAcusePlanEvaluacionPDF()">📄 Descargar Acuse de Recibido</button>
+                <p style="color:var(--text);margin-bottom:20px;">Tu cita: <strong>${escapeHtml(planData.fechaHoraAgendada)}</strong></p>
+                ${renderEstadoDoc('planEvaluacion', '📄 Plan de Evaluación')}
+                ${renderEstadoDoc('acusePlanEvaluacion', '📄 Acuse de Recibido')}
+                <button class="btn btn-secondary btn-full" style="margin-top:14px;" onclick="generateWord()">📝 Descargar Word (.doc)</button>
                 <button class="btn btn-whatsapp btn-full" onclick="notifyWhatsApp()">📱 AVISAR AL EQUIPO POR WHATSAPP</button>
             </div>
             <div class="card" style="text-align:center;margin-top:20px;">
@@ -1000,7 +1081,7 @@ const AUTODIAGNOSTICO_DATA = [
         doc.addImage(LOGO_ICE_BASE64, 'PNG', 163, 10, 33, 11.3);
     }
 
-    function generatePDF() {
+    function generatePDFBlob() {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
         const result = loadAutodiagnosticoResult();
@@ -1087,10 +1168,10 @@ const AUTODIAGNOSTICO_DATA = [
             doc.text(signatureTypedName, 14, y + 12);
         }
 
-        doc.save(`Plan_Evaluacion_EC1375_${(pd.nombre || 'candidato').replace(/\s+/g, '_')}.pdf`);
+        return { blob: doc.output('blob'), filename: `Plan_Evaluacion_EC1375_${(pd.nombre || 'candidato').replace(/\s+/g, '_')}.pdf` };
     }
 
-    function generateAcusePlanEvaluacionPDF() {
+    function generateAcusePlanEvaluacionPDFBlob() {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
         const result = loadAutodiagnosticoResult();
@@ -1129,7 +1210,7 @@ const AUTODIAGNOSTICO_DATA = [
             doc.text(signatureTypedName, 14, y + 14);
         }
 
-        doc.save(`Acuse_Plan_Evaluacion_EC1375_${(pd.nombre || 'candidato').replace(/\s+/g, '_')}.pdf`);
+        return { blob: doc.output('blob'), filename: `Acuse_Plan_Evaluacion_EC1375_${(pd.nombre || 'candidato').replace(/\s+/g, '_')}.pdf` };
     }
 
     function generateWord() {
