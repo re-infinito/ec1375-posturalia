@@ -2,6 +2,10 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **⚠️ Addendum (12 sep, execution time):** Between plan approval and execution, a concurrent session shipped two unrelated commits (`ece96c5`, `71f2599`) that changed the codebase this plan targets:
+> - `ece96c5` relaxed `documentosFaseCompletos()` in the 5 gated files (also accepts a downloaded-not-uploaded document) and added `documentosDescargados` state to 4 document-generating files. This only touched function **bodies**, not the call sites or `render()` openings this plan edits — Tasks 4, 6-11 are unaffected as originally written.
+> - `71f2599` replaced the entire OTP-based login in `auth.js` with a password-based one (email → `is_email_authorized`/`is_admin` check → "ya tengo contraseña" / "es mi primera vez" → `signInWithPassword`/`signUp`). This directly invalidates Tasks 1 (Step 4's anchor text), 2 (guard now belongs in the new `_flushPendingSync()`, not inline in `syncToSupabase()`), 3 (target function renamed `_handleSendOtp` → `_handleContinueEmail`, no more `signInWithOtp` to assert on), and 13 (no OTP code to relay — verification now needs a password, which Claude must not type itself). Those four tasks below have been rewritten in place to match the current `auth.js`; Tasks 4-12 are unchanged from the original approved plan.
+
 **Goal:** Let only `paideia.tech@outlook.com` navigate the entire EC1375 candidate flow (Autodiagnóstico → Entrega) without paying, completing forms, or uploading documents — for internal review/QA — without granting this to any other account and without touching Supabase/SQL.
 
 **Architecture:** One new hardcoded-email check (`Auth.isFlowBypassAdmin`) added to the shared `auth.js` module, plus four small helper functions built on it (a memoized per-page session check, a placeholder-data seeder, a persistent nav bar, and a `syncToSupabase` guard). Every gate across 8 HTML pages gets a one-line `Auth._isBypassSession ||` (or equivalent) short-circuit added next to its existing check — no gate's original logic changes for anyone else.
@@ -166,12 +170,18 @@ const CANDIDATE_FLOW_BYPASS_EMAIL = 'paideia.tech@outlook.com';
 
 - [ ] **Step 4: Append the 5 new methods to the `Auth` object**
 
-Modify the end of `auth.js` (lines 340-341, the closing of `_handleVerifyAdminOtp()` and the object):
+Modify the end of `auth.js` (the closing of `_handleAdminRequestReset()` and the object — this anchor reflects the password-based admin gate shipped in commit `71f2599`, after this plan was first written):
 
 Old:
 ```js
-            Auth._renderAdminGateStep('code', 'Código incorrecto o expirado. Intenta de nuevo.');
-        }
+    async _handleAdminRequestReset() {
+        Auth._renderAdminGateStep('verifying');
+        try {
+            await supabaseClient.auth.resetPasswordForEmail(Auth._pendingAdminEmail, {
+                redirectTo: location.origin + '/restablecer-password.html'
+            });
+        } catch (e) { /* aunque falle, no se le deja al admin sin salida visible */ }
+        Auth._renderAdminGateStep('reset_sent');
     }
 };
 
@@ -179,8 +189,14 @@ window.Auth = Auth;
 ```
 New:
 ```js
-            Auth._renderAdminGateStep('code', 'Código incorrecto o expirado. Intenta de nuevo.');
-        }
+    async _handleAdminRequestReset() {
+        Auth._renderAdminGateStep('verifying');
+        try {
+            await supabaseClient.auth.resetPasswordForEmail(Auth._pendingAdminEmail, {
+                redirectTo: location.origin + '/restablecer-password.html'
+            });
+        } catch (e) { /* aunque falle, no se le deja al admin sin salida visible */ }
+        Auth._renderAdminGateStep('reset_sent');
     },
 
     /* =========================================================
@@ -290,7 +306,7 @@ EOF
 ### Task 2: `auth.js` — skip `syncToSupabase` for the bypass session
 
 **Files:**
-- Modify: `auth.js:51-52`
+- Modify: `auth.js` — inside `_flushPendingSync()` (the guard belongs there now, not inline in `syncToSupabase()` — see addendum at the top of this plan: commit `71f2599` split `syncToSupabase` into a debounce-only wrapper plus this method, which does the actual upsert and is also called directly by `flushSync()`)
 - Test: `/tmp/test-auth-bypass.js`
 
 - [ ] **Step 1: Add the failing test**
@@ -321,22 +337,22 @@ Expected: `FAILED: bypass admin session must NOT upsert` (the guard doesn't exis
 
 - [ ] **Step 3: Add the guard**
 
-Modify `auth.js` lines 51-52:
+Modify `auth.js`, inside `_flushPendingSync()`:
 
 Old:
 ```js
-            try {
-                const session = await Auth.getSession();
-                if (!session) return;
-                const row = {
+        try {
+            const session = await Auth.getSession();
+            if (!session) return;
+            const row = {
 ```
 New:
 ```js
-            try {
-                const session = await Auth.getSession();
-                if (!session) return;
-                if (await Auth.isBypassSession()) return;
-                const row = {
+        try {
+            const session = await Auth.getSession();
+            if (!session) return;
+            if (await Auth.isBypassSession()) return;
+            const row = {
 ```
 
 - [ ] **Step 4: Run the test to verify it passes**
@@ -363,43 +379,41 @@ EOF
 
 ---
 
-### Task 3: `auth.js` — let the bypass email through the OTP-send gate; clean up harness
+### Task 3: `auth.js` — let the bypass email through the email-authorization gate; clean up harness
 
 **Files:**
-- Modify: `auth.js:224`
+- Modify: `auth.js`, inside `_handleContinueEmail()` (this is the current gate — see addendum: commit `71f2599` renamed/restructured what was `_handleSendOtp()` into `_handleContinueEmail()`, which now leads to a password step instead of sending an OTP)
 - Test: `/tmp/test-auth-bypass.js` (deleted at the end of this task)
 
 - [ ] **Step 1: Add the failing test**
 
-Insert this new section into `/tmp/test-auth-bypass.js`, right before `console.log('\nALL TESTS PASSED');`:
+Insert this new section into `/tmp/test-auth-bypass.js`, right before `console.log('\nALL TESTS PASSED');`. Unlike the OTP-era version, there's no `signInWithOtp` call to assert on anymore — the gate now decides between the `'choose'` step (email accepted, offers "ya tengo contraseña" / "es mi primera vez") and the `'not_authorized'` step, so the test checks which HTML actually got rendered into the (mocked) container:
 
 ```js
-    // --- _handleSendOtp OR-check ---
+    // --- _handleContinueEmail OR-check ---
     document._byId['authEmailInput'] = { value: 'paideia.tech@outlook.com' };
     Auth._authGateContainer = { innerHTML: '' };
     mockIsEmailAuthorizedResult = false; // simulate NOT authorized in candidatos_fase_pagos
-    calls.signInWithOtp = [];
-    await Auth._handleSendOtp();
-    assert.strictEqual(calls.signInWithOtp.length, 1, 'bypass admin reaches signInWithOtp even when isEmailAuthorized is false');
+    await Auth._handleContinueEmail();
+    assert.ok(Auth._authGateContainer.innerHTML.includes('Ya tengo contraseña'), 'bypass admin reaches the choose step even when isEmailAuthorized is false');
 
     document._byId['authEmailInput'] = { value: 'random@nonauthorized.com' };
     Auth._authGateContainer = { innerHTML: '' };
     mockIsEmailAuthorizedResult = false;
-    calls.signInWithOtp = [];
-    await Auth._handleSendOtp();
-    assert.strictEqual(calls.signInWithOtp.length, 0, 'non-authorized non-admin email stays blocked');
-    console.log('✓ _handleSendOtp OR-check');
+    await Auth._handleContinueEmail();
+    assert.ok(Auth._authGateContainer.innerHTML.includes('no está autorizado'), 'non-authorized non-admin email stays blocked');
+    console.log('✓ _handleContinueEmail OR-check');
 
 ```
 
 - [ ] **Step 2: Run it to verify it fails**
 
 Run: `node /tmp/test-auth-bypass.js`
-Expected: `FAILED: bypass admin reaches signInWithOtp even when isEmailAuthorized is false` — today the gate blocks everyone not in `candidatos_fase_pagos`, admin included.
+Expected: `FAILED: bypass admin reaches the choose step even when isEmailAuthorized is false` — today the gate blocks everyone not in `candidatos_fase_pagos`, admin included.
 
 - [ ] **Step 3: Add the OR-check**
 
-Modify `auth.js` line 224:
+Modify `auth.js`, inside `_handleContinueEmail()`:
 
 Old:
 ```js
@@ -413,7 +427,7 @@ New:
 - [ ] **Step 4: Run the test to verify it passes**
 
 Run: `node /tmp/test-auth-bypass.js`
-Expected: all `✓` lines plus `✓ _handleSendOtp OR-check`, ending in `ALL TESTS PASSED`.
+Expected: all `✓` lines plus `✓ _handleContinueEmail OR-check`, ending in `ALL TESTS PASSED`.
 
 - [ ] **Step 5: Delete the scratch harness**
 
@@ -427,10 +441,10 @@ rm /tmp/test-auth-bypass.js
 cd "/Users/diegogarzamx/Desktop/Paideia Tech"
 git add auth.js
 git commit -m "$(cat <<'EOF'
-auth.js: deja pasar el envío de OTP para paideia.tech@outlook.com
+auth.js: deja pasar el gate de autorización para paideia.tech@outlook.com
 
-Última pieza de auth.js para el bypass — con esto la cuenta puede
-recibir un código real y obtener sesión aunque no esté en
+Última pieza de auth.js para el bypass — con esto la cuenta llega al
+paso de contraseña (crear/usar) aunque no esté en
 candidatos_fase_pagos. Los 8 archivos HTML que consumen estos
 helpers se conectan en las siguientes tareas.
 
@@ -975,11 +989,11 @@ If any count doesn't match, re-open that file and check the corresponding task's
 
 ---
 
-### Task 13: Deploy and live verification (interactive — needs the user)
+### Task 13: Deploy and live verification (interactive — needs the user for the password step)
 
 **Files:** none — this task pushes and verifies in the browser.
 
-This task cannot be fully automated: confirming the bypass actually works requires receiving a real OTP email at `paideia.tech@outlook.com`, which only the user can read. Do not skip straight to claiming success — get the user's confirmation of the code at Step 3 below.
+Login is password-based (see addendum at the top of this plan). Claude must never type a password into a field, even for the site's own account — so this task splits verification into what Claude can confirm directly (the authorization gate itself, via the Browser tool, no password involved) and what only the user can do (actually signing in with a password and confirming the unlocked pages). Do not skip straight to claiming success — get the user's confirmation at Step 4 below.
 
 - [ ] **Step 1: Push to trigger the Vercel deploy**
 
@@ -994,16 +1008,21 @@ Wait ~30-60 seconds for the Vercel deploy to finish (per `CLAUDE.md`'s documente
 
 - [ ] **Step 2: Regression check — a normal (non-bypass) email still gets blocked**
 
-Using the Browser tool, navigate to `https://sepconocer.paideiatech.com/recuperar.html`, enter an email that is neither the bypass account nor a real authorized candidate (e.g. `test-regression-check@example.com`), and click send code. Confirm the page shows the existing "no está autorizado todavía" message and does **not** proceed to a code-entry screen — this proves the bypass didn't accidentally weaken the gate for everyone else.
+Using the Browser tool, navigate to `https://sepconocer.paideiatech.com/recuperar.html`, enter an email that is neither the bypass account nor a real authorized candidate (e.g. `test-regression-check@example.com`), and click "Continuar". Confirm the page shows the existing "no está autorizado todavía" message and does **not** proceed to the "Ya tengo contraseña / Es mi primera vez" screen — this proves the bypass didn't accidentally weaken the gate for everyone else.
 
-- [ ] **Step 3: Verify the bypass — ask the user to relay the OTP code**
+- [ ] **Step 3: Verify the authorization gate opens for the bypass email (no password needed for this part)**
 
-Using the Browser tool, navigate to `https://sepconocer.paideiatech.com/recuperar.html`, enter `paideia.tech@outlook.com`, and click send code. Then ask the user (who has access to that inbox) for the code that arrives, enter it, and confirm:
-- The page shows "Sesión de administrador iniciada" (not the normal "recuperamos tu avance" message).
-- The 🔧 Admin bar appears fixed at the top with all 8 links.
-- Clicking each link (`alineacion.html`, `plan-evaluacion.html`, `documentos-sesion.html`, `encuesta-satisfaccion.html`, `evidencias.html`, `entrega.html`) loads that page's real content — not a "completa tu Autodiagnóstico first", "verifica tu correo", "faltan documentos por subir", or payment screen.
-- `read_console_messages` shows no new JS errors on any of the 8 pages.
+Using the Browser tool, navigate to `https://sepconocer.paideiatech.com/recuperar.html`, enter `paideia.tech@outlook.com`, and click "Continuar". Confirm the page now shows "Ya tengo contraseña" / "Es mi primera vez aquí" (not the "no está autorizado" block) — this is the concrete proof that Task 3's OR-check works in production. Stop here; do not click either password button or type anything into a password field yourself.
 
-- [ ] **Step 4: Report back to the user**
+- [ ] **Step 4: Ask the user to complete the password step and confirm the bypass**
+
+Ask the user to, from their own device:
+1. Go to `https://sepconocer.paideiatech.com/recuperar.html`, enter `paideia.tech@outlook.com`, click "Continuar", then "Es mi primera vez aquí" (or "Ya tengo contraseña" if they already set one during an earlier test) and set/enter a password of their choosing.
+2. Confirm the page shows "Sesión de administrador iniciada" (not the normal "recuperamos tu avance" message).
+3. Confirm the 🔧 Admin bar appears fixed at the top with all 8 links.
+4. Click each link (`alineacion.html`, `plan-evaluacion.html`, `documentos-sesion.html`, `encuesta-satisfaccion.html`, `evidencias.html`, `entrega.html`) and confirm each loads real content — not a "completa tu Autodiagnóstico primero", "verifica tu correo", "faltan documentos por subir", or payment screen.
+5. Report back whether all of the above matched, or what didn't.
+
+- [ ] **Step 5: Report back to the user**
 
 Summarize what was verified (regression check + full bypass walk-through), and flag anything that didn't behave as expected instead of claiming success.
