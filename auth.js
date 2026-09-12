@@ -563,15 +563,36 @@ const Auth = {
        privilegio de escritura real — ver "Nota de seguridad" en
        docs/superpowers/specs/2026-09-12-admin-flow-bypass-design.md.
     ========================================================= */
+    /* Chequeo local, PRE-sesión (todavía no hay JWT que verificar server-side)
+       — usado solo en _handleContinueEmail() para decidir si mostrar el paso
+       de contraseña sin exigir pago de "registro". No usar esto para decidir
+       si YA HAY una sesión con bypass — para eso ver isBypassSession() abajo,
+       que sí verifica server-side. */
     isFlowBypassAdmin(email) {
         return !!email && email.trim().toLowerCase() === CANDIDATE_FLOW_BYPASS_EMAIL;
     },
 
-    /* Memoiza en Auth._isBypassSession — cada página lo llama una vez y
-       reutiliza el valor en el resto de sus checks sin volver a llamarlo. */
+    /* Verifica SERVER-SIDE (RPC is_current_user_flow_bypass_admin(), que lee
+       auth.jwt()->>'email' — el claim ya verificado por PostgREST) si la
+       sesión activa es la cuenta con bypass. Deliberadamente NO compara
+       session.user.email del lado del cliente: ese valor se puede falsificar
+       escribiendo directamente en localStorage un objeto de sesión sin firma
+       válida, lo que le daría el bypass a cualquiera con una sesión real
+       (aunque fuera una cuenta recién creada sin pagar nada) con solo poner
+       Auth._isBypassSession = true en la consola del navegador. Falla
+       cerrado (como is_email_authorized/is_fase_authorized/is_admin): si la
+       función SQL todavía no existe o hay error de red, no hay bypass para
+       nadie. Memoiza en Auth._isBypassSession — cada página lo llama una vez
+       y reutiliza el valor en el resto de sus checks sin volver a llamarlo. */
     async isBypassSession() {
         const session = await Auth.getSession();
-        Auth._isBypassSession = !!session && Auth.isFlowBypassAdmin(session.user.email);
+        if (!session) { Auth._isBypassSession = false; return false; }
+        try {
+            const { data, error } = await supabaseClient.rpc('is_current_user_flow_bypass_admin');
+            Auth._isBypassSession = !error && !!data;
+        } catch (e) {
+            Auth._isBypassSession = false;
+        }
         return Auth._isBypassSession;
     },
 

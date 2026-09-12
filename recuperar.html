@@ -81,8 +81,7 @@
 
     async function handleVerified(session) {
         const container = document.getElementById('authGateContainer');
-        if (Auth.isFlowBypassAdmin(session.user.email)) {
-            Auth._isBypassSession = true;
+        if (await Auth.isBypassSession()) {
             Auth.ensureAdminPlaceholderData();
             Auth.renderAdminBar();
             container.innerHTML = `<p class="msg success">✅ Sesión de administrador iniciada. Usa la barra de arriba para navegar cualquier página del flujo.</p>`;

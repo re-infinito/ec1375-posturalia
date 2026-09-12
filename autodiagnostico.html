@@ -1025,9 +1025,9 @@
     }
 
     async function handleAuthVerified(session) {
-        if (Auth.isFlowBypassAdmin(session.user.email)) {
-            Auth._isBypassSession = true;
+        if (await Auth.isBypassSession()) {
             Auth.ensureAdminPlaceholderData();
+            loadProgress();
             Auth.renderAdminBar();
             currentStepIndex = 0;
             renderStep();
