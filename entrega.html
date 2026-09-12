@@ -178,6 +178,14 @@
         }
     }
 
+    function documentosFaseCompletos(jsonbData, requiredKeys) {
+        if (!jsonbData || !jsonbData.documentosNextcloud) return false;
+        return requiredKeys.every(key => {
+            const val = jsonbData.documentosNextcloud[key];
+            return Array.isArray(val) ? val.length > 0 : !!val;
+        });
+    }
+
     async function render() {
         const app = document.getElementById('app');
         const result = loadAutodiagnosticoResult();
@@ -201,6 +209,19 @@
                     <p style="margin-bottom:12px;"><strong style="color:var(--accent);">🔒 Debes iniciar sesión</strong></p>
                     <p style="font-size:0.9rem;color:var(--text);margin-bottom:16px;">Por favor, verifica que recibiste el correo de verificación y haz clic en el enlace para continuar con tu entrega de certificado.</p>
                     <a href="recuperar.html" class="btn btn-primary">🔐 Verificar correo y acceder</a>
+                </div>`;
+            return;
+        }
+
+        const filaCandidato = await Auth.pullMyRow();
+        const evidenciasCompletas = documentosFaseCompletos(filaCandidato && filaCandidato.evidencias_data, ['zoom', 'ine', 'curp', 'fotoDiploma']);
+        if (!evidenciasCompletas) {
+            app.innerHTML = `
+                <div class="hero"><div class="hero-icon">📤</div><h1 class="hero-title">Entrega de Certificado</h1></div>
+                <div class="blocked-box">
+                    <p style="margin-bottom:12px;"><strong style="color:var(--accent);">Faltan evidencias por subir</strong></p>
+                    <p style="font-size:0.9rem;color:var(--text);margin-bottom:16px;">Vuelve a Carga de Evidencias para completar lo que falta.</p>
+                    <a href="evidencias.html" class="btn btn-primary">📤 Ir a mis Evidencias</a>
                 </div>`;
             return;
         }
