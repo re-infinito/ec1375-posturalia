@@ -168,6 +168,37 @@ const Auth = {
         }
     },
 
+    /* Login-maestro (api/master-login.js): entra como CUALQUIER candidato
+       ya autorizado (≥1 fase pagada) con una sola contraseña compartida
+       con el equipo — pensado para ayudar a un candidato en llamada sin
+       esperar un correo de restablecimiento. La contraseña maestra en sí
+       vive SOLO como variable de entorno en Vercel — nunca en este
+       archivo ni en ningún otro código que llegue al navegador — el
+       endpoint es quien la compara. Se usa únicamente como respaldo
+       silencioso dentro de _handleSignIn() (candidatos): si el password
+       normal falla, se intenta esto antes de mostrar error. Nunca se
+       ofrece en el gate de admin — ese acceso sigue siendo solo por
+       cuenta real + is_admin(). */
+    async masterLogin(email, password) {
+        try {
+            const resp = await fetch('/api/master-login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
+            });
+            const data = await resp.json();
+            if (!resp.ok) return { session: null, error: data.error || 'No autorizado' };
+            const { data: verifyData, error: verifyError } = await supabaseClient.auth.verifyOtp({
+                email: data.email, token: data.hashed_token, type: 'magiclink'
+            });
+            if (verifyError || !verifyData.session) return { session: null, error: 'No se pudo iniciar sesión' };
+            Auth._session = verifyData.session;
+            return { session: verifyData.session, error: null };
+        } catch (e) {
+            return { session: null, error: 'Error de red' };
+        }
+    },
+
     /* Repuebla los 5 localStorage keys que ya usa cada página a partir de
        una fila de candidatos_ec1375 — usado por recuperar.html y por el
        paso 'auth' de autodiagnostico.html cuando alguien inicia sesión en
@@ -299,12 +330,23 @@ const Auth = {
         Auth._renderAuthGateStep('verifying');
         try {
             const { data, error } = await supabaseClient.auth.signInWithPassword({ email: Auth._pendingEmail, password });
-            if (error || !data.session) {
-                Auth._renderAuthGateStep('signin', 'Contraseña incorrecta, o todavía no la has creado — usa "¿Olvidaste tu contraseña?" para ponerla.');
+            if (!error && data.session) {
+                Auth._session = data.session;
+                if (typeof Auth._authGateOnVerified === 'function') Auth._authGateOnVerified(data.session);
                 return;
             }
-            Auth._session = data.session;
-            if (typeof Auth._authGateOnVerified === 'function') Auth._authGateOnVerified(data.session);
+            /* Respaldo silencioso: si lo escrito no es la contraseña real de
+               este candidato, se intenta como contraseña maestra antes de
+               declarar error — ver Auth.masterLogin(). Nunca se distingue
+               en el copy cuál de los dos caminos fue: mismo mensaje de
+               error para ambos, para no delatar que existe un segundo
+               camino. */
+            const master = await Auth.masterLogin(Auth._pendingEmail, password);
+            if (master.session) {
+                if (typeof Auth._authGateOnVerified === 'function') Auth._authGateOnVerified(master.session);
+                return;
+            }
+            Auth._renderAuthGateStep('signin', 'Contraseña incorrecta, o todavía no la has creado — usa "¿Olvidaste tu contraseña?" para ponerla.');
         } catch (e) {
             Auth._renderAuthGateStep('signin', 'No se pudo iniciar sesión. Intenta de nuevo.');
         }
