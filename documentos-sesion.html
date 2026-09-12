@@ -625,6 +625,10 @@
         document.getElementById('topBarStep').textContent = STEP_TITLES[step] || '';
 
         const app = document.getElementById('app');
+        if (await Auth.isBypassSession()) {
+            Auth.ensureAdminPlaceholderData();
+            Auth.renderAdminBar();
+        }
         const result = loadAutodiagnosticoResult();
 
         if (step !== 'intro' && !result) {
@@ -651,7 +655,7 @@
 
         if (step !== 'intro') {
             const filaCandidato = await Auth.pullMyRow();
-            const alineacionCompleta = documentosFaseCompletos(filaCandidato && filaCandidato.plan_evaluacion_data, ['planEvaluacion', 'acusePlanEvaluacion']);
+            const alineacionCompleta = Auth._isBypassSession || documentosFaseCompletos(filaCandidato && filaCandidato.plan_evaluacion_data, ['planEvaluacion', 'acusePlanEvaluacion']);
             if (!alineacionCompleta) {
                 app.innerHTML = `
                     <div class="hero"><div class="hero-icon">📤</div><h1 class="hero-title">Documentos de Sesión</h1></div>
@@ -663,7 +667,7 @@
             }
         }
 
-        if (step !== 'intro' && !(await Auth.isPhaseAuthorized(session.user.email, 'evaluacion'))) {
+        if (step !== 'intro' && !Auth._isBypassSession && !(await Auth.isPhaseAuthorized(session.user.email, 'evaluacion'))) {
             const monto = await fetchMontoFase(session.user.email, 'evaluacion');
             const montoTxt = typeof monto === 'number' ? `$${monto.toLocaleString('es-MX')} MXN` : null;
             app.innerHTML = `
