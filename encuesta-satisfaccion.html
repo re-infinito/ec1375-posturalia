@@ -112,6 +112,8 @@
     let hasSignature = false;
     let isDrawing = false, lastX = 0, lastY = 0;
     let generated = false;
+    let documentosNextcloud = {};
+    let generatedDocEncuesta = null;
 
     function loadAutodiagnosticoResult() {
         try {
@@ -131,15 +133,76 @@
                 signatureTypedName = saved.signatureTypedName || '';
                 signatureMode = saved.signatureMode || 'draw';
                 hasSignature = !!signatureDataUrl;
+                documentosNextcloud = saved.documentosNextcloud || {};
             }
         } catch (e) {}
     }
 
     function saveProgress() {
-        const data = { respuestas, comentarios, signatureDataUrl, signatureTypedName, signatureMode };
+        const data = { respuestas, comentarios, signatureDataUrl, signatureTypedName, signatureMode, documentosNextcloud };
         localStorage.setItem('encuestaSatisfaccionData', JSON.stringify(data));
         const result = loadAutodiagnosticoResult();
         if (result) Auth.syncToSupabase('encuesta_data', data, result.personalData.curp, result.personalData.nombre);
+    }
+
+    function documentosFaseCompletos(jsonbData, requiredKeys) {
+        if (!jsonbData || !jsonbData.documentosNextcloud) return false;
+        return requiredKeys.every(key => {
+            const val = jsonbData.documentosNextcloud[key];
+            return Array.isArray(val) ? val.length > 0 : !!val;
+        });
+    }
+
+    async function subirDocumento(fase, filename, blob, nombre, curp) {
+        try {
+            const session = await Auth.getSession();
+            if (!session) return { success: false, error: 'Sin sesión activa' };
+            const fileBase64 = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result.split(',')[1]);
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+            });
+            const resp = await fetch('/api/subir-portafolio', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+                body: JSON.stringify({ email: session.user.email, fase, nombre, curp, filename, fileBase64 })
+            });
+            const data = await resp.json();
+            if (!resp.ok || !data.success) return { success: false, error: data.error || 'Error desconocido' };
+            return { success: true, path: data.path };
+        } catch (e) {
+            return { success: false, error: e.message || 'Error de red' };
+        }
+    }
+
+    function renderEstadoDoc(key, label) {
+        const val = documentosNextcloud[key];
+        if (val) {
+            return `<p style="color:var(--success);font-weight:600;margin-bottom:10px;">✅ ${label} subido</p>`;
+        }
+        return `<div style="margin-bottom:14px;">
+            <p style="color:var(--danger);font-weight:600;margin-bottom:8px;">❌ ${label} no subido</p>
+            <div style="display:flex;gap:8px;">
+                <button class="btn btn-secondary" style="flex:1;font-size:0.8rem;" onclick="reintentarSubidaEncuesta('${key}')">🔄 Reintentar subida</button>
+                <button class="btn btn-secondary" style="flex:1;font-size:0.8rem;" onclick="generatePDF()">⬇️ Descargar</button>
+            </div>
+        </div>`;
+    }
+
+    async function subirDocumentoPendienteEncuesta(result) {
+        const pd = result.personalData;
+        if (documentosNextcloud.encuesta) return;
+        const { blob, filename } = generatedDocEncuesta;
+        const uploadResult = await subirDocumento('evaluacion', filename, blob, pd.nombre, pd.curp);
+        if (uploadResult.success) documentosNextcloud.encuesta = uploadResult.path;
+        saveProgress();
+    }
+
+    async function reintentarSubidaEncuesta(key) {
+        const result = loadAutodiagnosticoResult();
+        await subirDocumentoPendienteEncuesta(result);
+        renderGeneratedState(document.getElementById('app'), result);
     }
 
     function escapeHtml(str) {
@@ -182,7 +245,23 @@
             return;
         }
 
-        if (generated) { renderGeneratedState(app, result); return; }
+        const filaCandidato = await Auth.pullMyRow();
+        const sesionCompleta = documentosFaseCompletos(filaCandidato && filaCandidato.documentos_sesion_data, ['ficha', 'consentimiento', 'plan_sesion', 'plan_seguimiento']);
+        if (!sesionCompleta) {
+            app.innerHTML = `
+                <div class="hero">
+                    <div class="hero-icon">📤</div>
+                    <h1 class="hero-title">Encuesta de Satisfacción</h1>
+                    <p class="hero-subtitle">Falta un paso antes de continuar</p>
+                </div>
+                <div class="blocked-box">
+                    <p><strong>Faltan documentos de tu sesión por subir</strong><br>Vuelve a Documentos de Sesión — ahí puedes ver cuál falta, reintentar la subida, o descargarlo para enviarlo manualmente.</p>
+                    <a href="documentos-sesion.html" class="btn btn-primary">📋 Ir a mis Documentos de Sesión</a>
+                </div>`;
+            return;
+        }
+
+        if (generated) { await renderGeneratedState(app, result); return; }
 
         const hasSig = signatureMode === 'draw' ? hasSignature : (signatureTypedName && signatureTypedName.trim().length > 3);
         const allAnswered = PREGUNTAS.every((_, idx) => respuestas[idx]);
@@ -350,14 +429,25 @@
         signatureDataUrl = null; hasSignature = false; saveProgress(); updateGenerateButton();
     }
 
-    function generateEncuesta() { generated = true; saveProgress(); render(); }
+    async function generateEncuesta() { generated = true; saveProgress(); await render(); }
 
-    function renderGeneratedState(app, result) {
+    function generatePDF() {
+        const { blob, filename } = generatePDFBlob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = filename;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+
+    async function renderGeneratedState(app, result) {
+        if (!generatedDocEncuesta) generatedDocEncuesta = generatePDFBlob();
+        await subirDocumentoPendienteEncuesta(result);
+
         app.innerHTML = `
             <div class="success-box">
-                <h3>🎉 ¡Ya tienes tus 3 documentos generados!</h3>
-                <p style="color:var(--text);margin-bottom:20px;">Descarga tu Encuesta y súbela junto con tu Autodiagnóstico y Plan de Evaluación en el último paso: la Carga de Evidencias.</p>
-                <button class="btn btn-primary btn-full" onclick="generatePDF()">📄 Descargar Encuesta (PDF)</button>
+                <h3>🎉 ¡Ya tienes tu Encuesta lista!</h3>
+                ${renderEstadoDoc('encuesta', 'Encuesta de Satisfacción')}
                 <button class="btn btn-whatsapp btn-full" onclick="notifyWhatsApp()">📱 AVISAR AL EQUIPO POR WHATSAPP</button>
             </div>
             <div class="card" style="text-align:center;margin-top:20px;">
@@ -384,7 +474,7 @@
         doc.addImage(LOGO_ICE_BASE64, 'PNG', 163, 10, 33, 11.3);
     }
 
-    function generatePDF() {
+    function generatePDFBlob() {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
         const result = loadAutodiagnosticoResult();
@@ -433,7 +523,7 @@
             doc.text(signatureTypedName, 14, y + 12);
         }
 
-        doc.save(`Encuesta_Satisfaccion_EC1375_${(pd.nombre || 'candidato').replace(/\s+/g, '_')}.pdf`);
+        return { blob: doc.output('blob'), filename: `Encuesta_Satisfaccion_EC1375_${(pd.nombre || 'candidato').replace(/\s+/g, '_')}.pdf` };
     }
 
     window.addEventListener('load', () => { loadProgress(); render(); });
