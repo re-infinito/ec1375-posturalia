@@ -93,16 +93,17 @@
         const restored = Auth.restoreLocalStorageFromRow(row);
 
         if (restored.length === 0) {
-            container.innerHTML = `<p class="msg success">✅ Sesión iniciada. Aún no tienes avance guardado — empieza en el <a href="autodiagnostico.html" style="color:var(--primary);">Autodiagnóstico</a>.</p>`;
+            container.innerHTML = `
+                <p class="msg success">✅ Sesión iniciada. Aún no tienes avance guardado.</p>
+                <a href="autodiagnostico.html" class="btn btn-primary btn-full" style="text-decoration:none;margin-top:14px;">📋 Ir al Autodiagnóstico →</a>
+            `;
             return;
         }
 
         container.innerHTML = `
             <p class="msg success">✅ ¡Listo, ${escapeHtml(row.nombre || 'candidato/a')}! Recuperamos tu avance en este dispositivo.</p>
-            <p style="font-size:0.85rem;margin-top:10px;">Continúa donde quieras:</p>
-            <ul class="step-list">
-                ${restored.map(key => `<li><a href="${STEP_LINKS[key].href}">${STEP_LINKS[key].label} →</a></li>`).join('')}
-            </ul>
+            <p style="font-size:0.85rem;margin-top:14px;margin-bottom:10px;">Continúa donde quieras:</p>
+            ${restored.map(key => `<a href="${STEP_LINKS[key].href}" class="btn btn-primary btn-full" style="text-decoration:none;margin-bottom:10px;">${STEP_LINKS[key].label} →</a>`).join('')}
         `;
     }
 
