@@ -113,6 +113,7 @@
     let isDrawing = false, lastX = 0, lastY = 0;
     let generated = false;
     let documentosNextcloud = {};
+    let documentosDescargados = {};
     let generatedDocEncuesta = null;
 
     function loadAutodiagnosticoResult() {
@@ -134,22 +135,31 @@
                 signatureMode = saved.signatureMode || 'draw';
                 hasSignature = !!signatureDataUrl;
                 documentosNextcloud = saved.documentosNextcloud || {};
+                documentosDescargados = saved.documentosDescargados || {};
             }
         } catch (e) {}
     }
 
     function saveProgress() {
-        const data = { respuestas, comentarios, signatureDataUrl, signatureTypedName, signatureMode, documentosNextcloud };
+        const data = { respuestas, comentarios, signatureDataUrl, signatureTypedName, signatureMode, documentosNextcloud, documentosDescargados };
         localStorage.setItem('encuestaSatisfaccionData', JSON.stringify(data));
         const result = loadAutodiagnosticoResult();
         if (result) Auth.syncToSupabase('encuesta_data', data, result.personalData.curp, result.personalData.nombre);
     }
 
     function documentosFaseCompletos(jsonbData, requiredKeys) {
-        if (!jsonbData || !jsonbData.documentosNextcloud) return false;
+        if (!jsonbData) return false;
+        const nextcloud = jsonbData.documentosNextcloud || {};
+        const descargados = jsonbData.documentosDescargados || {};
+        /* Mientras el NAS de Nextcloud no termine de configurarse, la subida
+           automática puede fallar de forma permanente — si el candidato ya
+           descargó el documento como respaldo manual, eso también cuenta
+           como completo para no dejarlo trabado en una fase mientras se
+           resuelve la infraestructura. */
         return requiredKeys.every(key => {
-            const val = jsonbData.documentosNextcloud[key];
-            return Array.isArray(val) ? val.length > 0 : !!val;
+            const val = nextcloud[key];
+            const subido = Array.isArray(val) ? val.length > 0 : !!val;
+            return subido || !!descargados[key];
         });
     }
 
@@ -180,6 +190,15 @@
         const val = documentosNextcloud[key];
         if (val) {
             return `<p style="color:var(--success);font-weight:600;margin-bottom:10px;">✅ ${label} subido</p>`;
+        }
+        if (documentosDescargados[key]) {
+            return `<div style="margin-bottom:14px;">
+                <p style="color:var(--accent);font-weight:600;margin-bottom:4px;">📥 ${label} descargado</p>
+                <p style="font-size:0.78rem;color:rgba(255,255,255,0.5);margin-bottom:8px;">Guardado en tu dispositivo — puedes avanzar. Seguimos reintentando subirlo a tu portafolio en la nube.</p>
+                <div style="display:flex;gap:8px;">
+                    <button class="btn btn-secondary" style="flex:1;font-size:0.8rem;" onclick="reintentarSubidaEncuesta('${key}')">🔄 Reintentar subida</button>
+                </div>
+            </div>`;
         }
         return `<div style="margin-bottom:14px;">
             <p style="color:var(--danger);font-weight:600;margin-bottom:8px;">❌ ${label} no subido</p>
@@ -432,13 +451,17 @@
 
     async function generateEncuesta() { generated = true; saveProgress(); await render(); }
 
-    function generatePDF() {
+    async function generatePDF() {
         const { blob, filename } = generatePDFBlob();
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url; a.download = filename;
         document.body.appendChild(a); a.click(); document.body.removeChild(a);
         URL.revokeObjectURL(url);
+        documentosDescargados.encuesta = true;
+        saveProgress();
+        await Auth.flushSync();
+        await renderGeneratedState(document.getElementById('app'), loadAutodiagnosticoResult());
     }
 
     async function renderGeneratedState(app, result) {

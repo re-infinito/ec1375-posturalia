@@ -326,6 +326,7 @@
     let generated = false;
     let generatedPdfs = {};
     let documentosNextcloud = {};
+    let documentosDescargados = {};
 
     function todayISOSession() { return new Date().toISOString().split('T')[0]; }
 
@@ -353,22 +354,31 @@
                 sesionesSeguimiento = saved.sesionesSeguimiento || sesionesSeguimiento;
                 signatures = Object.assign(signatures, saved.signatures || {});
                 documentosNextcloud = saved.documentosNextcloud || {};
+                documentosDescargados = saved.documentosDescargados || {};
             }
         } catch (e) {}
     }
 
     function saveProgress() {
-        const data = { sessionData, sesionesSeguimiento, signatures, documentosNextcloud };
+        const data = { sessionData, sesionesSeguimiento, signatures, documentosNextcloud, documentosDescargados };
         localStorage.setItem('documentosSesionData', JSON.stringify(data));
         const result = loadAutodiagnosticoResult();
         if (result) Auth.syncToSupabase('documentos_sesion_data', data, result.personalData.curp, result.personalData.nombre);
     }
 
     function documentosFaseCompletos(jsonbData, requiredKeys) {
-        if (!jsonbData || !jsonbData.documentosNextcloud) return false;
+        if (!jsonbData) return false;
+        const nextcloud = jsonbData.documentosNextcloud || {};
+        const descargados = jsonbData.documentosDescargados || {};
+        /* Mientras el NAS de Nextcloud no termine de configurarse, la subida
+           automática puede fallar de forma permanente — si el candidato ya
+           descargó el documento como respaldo manual, eso también cuenta
+           como completo para no dejarlo trabado en una fase mientras se
+           resuelve la infraestructura. */
         return requiredKeys.every(key => {
-            const val = jsonbData.documentosNextcloud[key];
-            return Array.isArray(val) ? val.length > 0 : !!val;
+            const val = nextcloud[key];
+            const subido = Array.isArray(val) ? val.length > 0 : !!val;
+            return subido || !!descargados[key];
         });
     }
 
@@ -399,6 +409,17 @@
         const val = documentosNextcloud[key];
         if (val) {
             return `<div class="doc-download-item"><span>${label}</span><span style="color:var(--success);font-weight:600;">✅ Subido</span></div>`;
+        }
+        if (documentosDescargados[key]) {
+            return `<div class="doc-download-item" style="flex-direction:column;align-items:stretch;gap:8px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <span>${label}</span><span style="color:var(--accent);font-weight:600;">📥 Descargado</span>
+                </div>
+                <p style="font-size:0.78rem;color:rgba(255,255,255,0.5);">Guardado en tu dispositivo — puedes avanzar. Seguimos reintentando subirlo a tu portafolio en la nube.</p>
+                <div style="display:flex;gap:8px;">
+                    <button class="btn btn-secondary" style="flex:1;font-size:0.8rem;" onclick="reintentarSubidaSesion('${key}')">🔄 Reintentar subida</button>
+                </div>
+            </div>`;
         }
         return `<div class="doc-download-item" style="flex-direction:column;align-items:stretch;gap:8px;">
             <div style="display:flex;justify-content:space-between;align-items:center;">
@@ -1461,13 +1482,17 @@ const LOGO_CONOCER_BASE64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAA
         `;
     }
 
-    function downloadDoc(key) {
+    async function downloadDoc(key) {
         const { blob, filename } = generatedPdfs[key];
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url; a.download = filename;
         document.body.appendChild(a); a.click(); document.body.removeChild(a);
         URL.revokeObjectURL(url);
+        documentosDescargados[key] = true;
+        saveProgress();
+        await Auth.flushSync();
+        await renderResultado(document.getElementById('app'), loadAutodiagnosticoResult());
     }
 
     window.addEventListener('load', () => {

@@ -844,6 +844,12 @@
     let ndaIsDrawing = false;
     let ndaLastX = 0, ndaLastY = 0;
     let documentosNextcloud = {};
+    /* Respaldo mientras el NAS de Nextcloud no termina de configurarse: si
+       la subida automática falla y el candidato descarga el documento como
+       respaldo manual, se marca aquí — documentosFaseCompletos() (en la
+       siguiente página) acepta esto como suficiente para no dejarlo
+       trabado por un problema de infraestructura que no depende de él. */
+    let documentosDescargados = {};
     let generatedDocsRegistro = {};
     let autoUploadIntentado = false;
 
@@ -870,6 +876,7 @@
                 ndaSignatureMode = saved.ndaSignatureMode || 'draw';
                 ndaHasSignature = !!ndaSignatureDataUrl;
                 documentosNextcloud = saved.documentosNextcloud || {};
+                documentosDescargados = saved.documentosDescargados || {};
                 return true;
             }
         } catch (e) { console.warn('No se pudo cargar progreso previo'); }
@@ -881,7 +888,7 @@
             personalData, certificados, sinCertificadosPrevios, answers,
             signatureDataUrl, signatureTypedName, signatureMode, triptychAccepted,
             ndaAccepted, ndaSignedAt, ndaSignatureDataUrl, ndaSignatureTypedName, ndaSignatureMode,
-            documentosNextcloud
+            documentosNextcloud, documentosDescargados
         };
         localStorage.setItem('autodiagnosticoData', JSON.stringify(data));
         Auth.syncToSupabase('autodiagnostico_data', data, personalData.curp, personalData.nombre);
@@ -1698,6 +1705,17 @@
                 <span>${label}</span><span style="color:var(--success);font-weight:600;">✅ Subido</span>
             </div>`;
         }
+        if (documentosDescargados[key]) {
+            return `<div style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.08);">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <span>${label}</span><span style="color:var(--accent);font-weight:600;">📥 Descargado</span>
+                </div>
+                <p style="font-size:0.78rem;color:rgba(255,255,255,0.5);margin-top:4px;">Guardado en tu dispositivo — puedes avanzar. Seguimos reintentando subirlo a tu portafolio en la nube.</p>
+                <div style="display:flex;gap:8px;margin-top:8px;">
+                    <button class="btn btn-secondary" style="flex:1;font-size:0.8rem;" onclick="reintentarSubidaRegistro('${key}')">🔄 Reintentar subida</button>
+                </div>
+            </div>`;
+        }
         return `<div style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.08);">
             <div style="display:flex;justify-content:space-between;align-items:center;">
                 <span>${label}</span><span style="color:var(--danger);font-weight:600;">❌ No subido</span>
@@ -1729,13 +1747,17 @@
         await renderResultado(document.getElementById('app'));
     }
 
-    function descargarDocRegistro(key) {
+    async function descargarDocRegistro(key) {
         const { blob, filename } = generatedDocsRegistro[key];
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url; a.download = filename;
         document.body.appendChild(a); a.click(); document.body.removeChild(a);
         URL.revokeObjectURL(url);
+        documentosDescargados[key] = true;
+        saveProgress();
+        await Auth.flushSync();
+        await renderResultado(document.getElementById('app'));
     }
 
     function generateAcuseNdaPDFBlob() {

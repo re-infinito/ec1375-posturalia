@@ -179,10 +179,18 @@
     }
 
     function documentosFaseCompletos(jsonbData, requiredKeys) {
-        if (!jsonbData || !jsonbData.documentosNextcloud) return false;
+        if (!jsonbData) return false;
+        const nextcloud = jsonbData.documentosNextcloud || {};
+        const descargados = jsonbData.documentosDescargados || {};
+        /* Mientras el NAS de Nextcloud no termine de configurarse, la subida
+           automática puede fallar de forma permanente — si el candidato ya
+           descargó el documento como respaldo manual, eso también cuenta
+           como completo para no dejarlo trabado en una fase mientras se
+           resuelve la infraestructura. */
         return requiredKeys.every(key => {
-            const val = jsonbData.documentosNextcloud[key];
-            return Array.isArray(val) ? val.length > 0 : !!val;
+            const val = nextcloud[key];
+            const subido = Array.isArray(val) ? val.length > 0 : !!val;
+            return subido || !!descargados[key];
         });
     }
 

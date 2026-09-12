@@ -603,6 +603,7 @@ const AUTODIAGNOSTICO_DATA = [
     let isDrawing = false, lastX = 0, lastY = 0;
     let generated = false;
     let documentosNextcloud = {};
+    let documentosDescargados = {};
     let generatedDocsAlineacion = {};
 
     async function subirDocumento(fase, filename, blob, nombre, curp) {
@@ -633,6 +634,17 @@ const AUTODIAGNOSTICO_DATA = [
         if (val) {
             return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.08);">
                 <span>${label}</span><span style="color:var(--success);font-weight:600;">✅ Subido</span>
+            </div>`;
+        }
+        if (documentosDescargados[key]) {
+            return `<div style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.08);">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <span>${label}</span><span style="color:var(--accent);font-weight:600;">📥 Descargado</span>
+                </div>
+                <p style="font-size:0.78rem;color:rgba(255,255,255,0.5);margin-top:4px;">Guardado en tu dispositivo — puedes avanzar. Seguimos reintentando subirlo a tu portafolio en la nube.</p>
+                <div style="display:flex;gap:8px;margin-top:8px;">
+                    <button class="btn btn-secondary" style="flex:1;font-size:0.8rem;" onclick="reintentarSubidaAlineacion('${key}')">🔄 Reintentar subida</button>
+                </div>
             </div>`;
         }
         return `<div style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.08);">
@@ -667,13 +679,17 @@ const AUTODIAGNOSTICO_DATA = [
         await render();
     }
 
-    function descargarDocAlineacion(key) {
+    async function descargarDocAlineacion(key) {
         const { blob, filename } = generatedDocsAlineacion[key];
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url; a.download = filename;
         document.body.appendChild(a); a.click(); document.body.removeChild(a);
         URL.revokeObjectURL(url);
+        documentosDescargados[key] = true;
+        savePlanProgress();
+        await Auth.flushSync();
+        await render();
     }
 
     function loadAutodiagnosticoResult() {
@@ -708,12 +724,13 @@ const AUTODIAGNOSTICO_DATA = [
                 signatureMode = saved.signatureMode || 'draw';
                 hasSignature = !!signatureDataUrl;
                 documentosNextcloud = saved.documentosNextcloud || {};
+                documentosDescargados = saved.documentosDescargados || {};
             }
         } catch (e) {}
     }
 
     function savePlanProgress() {
-        const data = { planData, signatureDataUrl, signatureTypedName, signatureMode, documentosNextcloud };
+        const data = { planData, signatureDataUrl, signatureTypedName, signatureMode, documentosNextcloud, documentosDescargados };
         localStorage.setItem('planEvaluacionData', JSON.stringify(data));
         const result = loadAutodiagnosticoResult();
         if (result) Auth.syncToSupabase('plan_evaluacion_data', data, result.personalData.curp, result.personalData.nombre);
