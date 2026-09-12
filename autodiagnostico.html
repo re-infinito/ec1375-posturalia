@@ -1029,7 +1029,7 @@
             Auth.ensureAdminPlaceholderData();
             loadProgress();
             Auth.renderAdminBar();
-            currentStepIndex = 0;
+            currentStepIndex = STEPS.indexOf('resultado');
             renderStep();
             return;
         }
@@ -2159,6 +2159,14 @@
        INIT
     ========================================================= */
     window.addEventListener('load', async () => {
+        if (await Auth.isBypassSession()) {
+            Auth.ensureAdminPlaceholderData();
+            loadProgress();
+            Auth.renderAdminBar();
+            currentStepIndex = STEPS.indexOf('resultado');
+            renderStep();
+            return;
+        }
         const hadLocalProgress = loadProgress();
         const session = await Auth.getSession();
         if (!session && hadLocalProgress) {
