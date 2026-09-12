@@ -296,6 +296,10 @@
 
     async function render() {
         const app = document.getElementById('app');
+        if (await Auth.isBypassSession()) {
+            Auth.ensureAdminPlaceholderData();
+            Auth.renderAdminBar();
+        }
         const result = loadAutodiagnosticoResult();
 
         if (!result || !result.completo) {
@@ -328,7 +332,7 @@
         }
 
         const filaCandidato = await Auth.pullMyRow();
-        const encuestaCompleta = documentosFaseCompletos(filaCandidato && filaCandidato.encuesta_data, ['encuesta']);
+        const encuestaCompleta = Auth._isBypassSession || documentosFaseCompletos(filaCandidato && filaCandidato.encuesta_data, ['encuesta']);
         if (!encuestaCompleta) {
             app.innerHTML = `
                 <div class="hero">
