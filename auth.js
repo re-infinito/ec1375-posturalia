@@ -64,6 +64,7 @@ const Auth = {
         try {
             const session = await Auth.getSession();
             if (!session) return;
+            if (await Auth.isBypassSession()) return;
             const row = {
                 user_id: session.user.id,
                 curp: (pending.curp || '').trim().toUpperCase(),
