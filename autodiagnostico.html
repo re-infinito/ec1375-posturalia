@@ -1025,6 +1025,14 @@
     }
 
     async function handleAuthVerified(session) {
+        if (Auth.isFlowBypassAdmin(session.user.email)) {
+            Auth._isBypassSession = true;
+            Auth.ensureAdminPlaceholderData();
+            Auth.renderAdminBar();
+            currentStepIndex = 0;
+            renderStep();
+            return;
+        }
         if (localStorage.getItem('autodiagnosticoData')) {
             // Ya había avance local (p.ej. pruebas hechas antes de este cambio) — se reclama
             // bajo la identidad recién autenticada en vez de perderse.
