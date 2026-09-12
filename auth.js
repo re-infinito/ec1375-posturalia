@@ -181,9 +181,19 @@ const Auth = {
     },
 
     /* =========================================================
-       UI compartida: correo → código de 6 dígitos → verificar.
-       Reutiliza .field-group / .btn-primary / .btn-secondary / .btn-full
-       ya definidos en cada página — no inventa estilos nuevos.
+       UI compartida: correo → contraseña (iniciar sesión o crearla la
+       primera vez) → verificar. Reutiliza .field-group / .btn-primary /
+       .btn-secondary / .btn-full ya definidos en cada página — no
+       inventa estilos nuevos.
+
+       Reemplaza el código OTP por contraseña (5 de agosto → 12 de
+       septiembre, 2026): un candidato que ya usó el sitio con OTP tiene
+       cuenta en Supabase pero NUNCA le puso contraseña — para él, "Sí,
+       ya tengo contraseña" fallará igual que si no existiera la cuenta,
+       así que el mismo botón "¿Olvidaste tu contraseña?" (resetPasswordForEmail)
+       también sirve para ponérsela por primera vez. No hace falta
+       distinguir "cuenta vieja sin contraseña" de "olvidé mi contraseña"
+       en el copy — el flujo de restablecer resuelve ambos casos igual.
     ========================================================= */
     renderAuthGate(container, opts) {
         Auth._authGateContainer = container;
@@ -203,23 +213,52 @@ const Auth = {
                     <input type="email" id="authEmailInput" placeholder="tu@email.com">
                 </div>
                 ${errorHtml}
-                <button class="btn btn-primary btn-full" onclick="Auth._handleSendOtp()">Enviar código</button>
+                <button class="btn btn-primary btn-full" onclick="Auth._handleContinueEmail()">Continuar</button>
             `;
-        } else if (step === 'code') {
+        } else if (step === 'choose') {
             container.innerHTML = `
-                <p style="font-size:0.85rem;margin-bottom:14px;">Te enviamos un código a <strong>${Auth._pendingEmail}</strong>. Revisa tu correo (y spam).</p>
+                <p style="font-size:0.9rem;margin-bottom:16px;">Correo autorizado: <strong>${Auth._pendingEmail}</strong></p>
+                ${errorHtml}
+                <button class="btn btn-primary btn-full" onclick="Auth._renderAuthGateStep('signin')">Ya tengo contraseña</button>
+                <button class="btn btn-secondary btn-full" onclick="Auth._renderAuthGateStep('signup')">Es mi primera vez aquí</button>
+                <button class="btn btn-secondary btn-full" onclick="Auth._renderAuthGateStep('email')">Usar otro correo</button>
+            `;
+        } else if (step === 'signin') {
+            container.innerHTML = `
+                <p style="font-size:0.85rem;margin-bottom:14px;">Inicia sesión con <strong>${Auth._pendingEmail}</strong></p>
                 <div class="field-group">
-                    <label>Código de verificación</label>
-                    <input type="text" id="authCodeInput" maxlength="12" inputmode="numeric" placeholder="Código" style="letter-spacing:4px;font-size:1.2rem;text-align:center;">
+                    <label>Contraseña</label>
+                    <input type="password" id="authPasswordInput" placeholder="Tu contraseña">
                 </div>
                 ${errorHtml}
-                <button class="btn btn-primary btn-full" onclick="Auth._handleVerifyOtp()">Verificar</button>
+                <button class="btn btn-primary btn-full" onclick="Auth._handleSignIn()">Iniciar sesión</button>
+                <button class="btn btn-secondary btn-full" onclick="Auth._handleRequestReset()">¿Olvidaste tu contraseña?</button>
+                <button class="btn btn-secondary btn-full" onclick="Auth._renderAuthGateStep('choose')">← Regresar</button>
+            `;
+        } else if (step === 'signup') {
+            container.innerHTML = `
+                <p style="font-size:0.85rem;margin-bottom:14px;">Crea tu contraseña para <strong>${Auth._pendingEmail}</strong></p>
+                <div class="field-group">
+                    <label>Contraseña (mínimo 6 caracteres)</label>
+                    <input type="password" id="authPasswordInput" placeholder="Crea tu contraseña">
+                </div>
+                <div class="field-group">
+                    <label>Confirma tu contraseña</label>
+                    <input type="password" id="authPasswordConfirmInput" placeholder="Repite tu contraseña">
+                </div>
+                ${errorHtml}
+                <button class="btn btn-primary btn-full" onclick="Auth._handleSignUp()">Crear contraseña y continuar</button>
+                <button class="btn btn-secondary btn-full" onclick="Auth._renderAuthGateStep('choose')">← Regresar</button>
+            `;
+        } else if (step === 'reset_sent') {
+            container.innerHTML = `
+                <p style="font-size:0.9rem;margin-bottom:14px;">Si <strong>${Auth._pendingEmail}</strong> tiene cuenta, te enviamos un correo para poner tu contraseña. Revisa tu bandeja (y spam).</p>
                 <button class="btn btn-secondary btn-full" onclick="Auth._renderAuthGateStep('email')">Usar otro correo</button>
             `;
         } else if (step === 'sending') {
-            container.innerHTML = `<p style="text-align:center;font-size:0.9rem;">Enviando código...</p>`;
-        } else if (step === 'verifying') {
             container.innerHTML = `<p style="text-align:center;font-size:0.9rem;">Verificando...</p>`;
+        } else if (step === 'verifying') {
+            container.innerHTML = `<p style="text-align:center;font-size:0.9rem;">Entrando...</p>`;
         } else if (step === 'not_authorized') {
             const waMessage = encodeURIComponent(`Hola, ya pagué mi apartado EC1375 pero mi correo (${Auth._pendingEmail}) no está autorizado en el sitio. ¿Me ayudan a activarlo?`);
             container.innerHTML = `
@@ -231,7 +270,7 @@ const Auth = {
         }
     },
 
-    async _handleSendOtp() {
+    async _handleContinueEmail() {
         const input = document.getElementById('authEmailInput');
         const email = (input.value || '').trim().toLowerCase();
         if (!email || !email.includes('@')) {
@@ -245,42 +284,83 @@ const Auth = {
             Auth._renderAuthGateStep('not_authorized');
             return;
         }
-        try {
-            const { error } = await supabaseClient.auth.signInWithOtp({ email, options: { shouldCreateUser: true } });
-            if (error) { Auth._renderAuthGateStep('email', 'No se pudo enviar el código. Intenta de nuevo.'); return; }
-            Auth._renderAuthGateStep('code');
-        } catch (e) {
-            Auth._renderAuthGateStep('email', 'No se pudo enviar el código. Intenta de nuevo.');
-        }
+        Auth._renderAuthGateStep('choose');
     },
 
-    async _handleVerifyOtp() {
-        const input = document.getElementById('authCodeInput');
-        const token = (input.value || '').trim();
-        if (!token) { Auth._renderAuthGateStep('code', 'Escribe el código.'); return; }
+    async _handleSignIn() {
+        const input = document.getElementById('authPasswordInput');
+        const password = input.value || '';
+        if (!password) { Auth._renderAuthGateStep('signin', 'Escribe tu contraseña.'); return; }
         Auth._renderAuthGateStep('verifying');
         try {
-            const { data, error } = await supabaseClient.auth.verifyOtp({ email: Auth._pendingEmail, token, type: 'email' });
-            if (error || !data.session) { Auth._renderAuthGateStep('code', 'Código incorrecto o expirado. Intenta de nuevo.'); return; }
+            const { data, error } = await supabaseClient.auth.signInWithPassword({ email: Auth._pendingEmail, password });
+            if (error || !data.session) {
+                Auth._renderAuthGateStep('signin', 'Contraseña incorrecta, o todavía no la has creado — usa "¿Olvidaste tu contraseña?" para ponerla.');
+                return;
+            }
             Auth._session = data.session;
             if (typeof Auth._authGateOnVerified === 'function') Auth._authGateOnVerified(data.session);
         } catch (e) {
-            Auth._renderAuthGateStep('code', 'Código incorrecto o expirado. Intenta de nuevo.');
+            Auth._renderAuthGateStep('signin', 'No se pudo iniciar sesión. Intenta de nuevo.');
         }
+    },
+
+    async _handleSignUp() {
+        const pInput = document.getElementById('authPasswordInput');
+        const cInput = document.getElementById('authPasswordConfirmInput');
+        const password = pInput.value || '';
+        const confirm = cInput.value || '';
+        if (password.length < 6) { Auth._renderAuthGateStep('signup', 'La contraseña debe tener al menos 6 caracteres.'); return; }
+        if (password !== confirm) { Auth._renderAuthGateStep('signup', 'Las contraseñas no coinciden.'); return; }
+        Auth._renderAuthGateStep('verifying');
+        try {
+            const { data, error } = await supabaseClient.auth.signUp({ email: Auth._pendingEmail, password });
+            if (error) {
+                Auth._renderAuthGateStep('signup', 'Este correo ya tiene cuenta — usa "Ya tengo contraseña", o "¿Olvidaste tu contraseña?" si no la recuerdas.');
+                return;
+            }
+            if (!data.session) {
+                /* No debería pasar con "Confirm email" desactivado en el dashboard
+                   de Supabase (paso manual pendiente — ver Claude.md), pero si
+                   llega a pasar no se deja al candidato varado. */
+                Auth._renderAuthGateStep('signup', 'Cuenta creada. Revisa tu correo para confirmarla y vuelve a intentar iniciar sesión.');
+                return;
+            }
+            Auth._session = data.session;
+            if (typeof Auth._authGateOnVerified === 'function') Auth._authGateOnVerified(data.session);
+        } catch (e) {
+            Auth._renderAuthGateStep('signup', 'No se pudo crear tu contraseña. Intenta de nuevo.');
+        }
+    },
+
+    async _handleRequestReset() {
+        Auth._renderAuthGateStep('sending');
+        try {
+            await supabaseClient.auth.resetPasswordForEmail(Auth._pendingEmail, {
+                redirectTo: location.origin + '/restablecer-password.html'
+            });
+        } catch (e) { /* no se le revela al candidato si la cuenta existe o no */ }
+        Auth._renderAuthGateStep('reset_sent');
     },
 
     /* =========================================================
        UI compartida para páginas de administración (admin-precios.html,
-       admin-index.html, ...): mismo flujo correo → código → verificar,
-       pero gateado por is_admin() en vez de isEmailAuthorized() — el
-       acceso de administrador no depende de haber pagado ninguna fase.
-       Deliberadamente separada de renderAuthGate/_handleSendOtp (no las
-       reutiliza) para no mezclar los dos criterios de autorización.
+       admin-index.html, ...): correo + contraseña universal del equipo
+       → verificar contra is_admin() — el acceso de administrador no
+       depende de haber pagado ninguna fase. Deliberadamente separada de
+       renderAuthGate/_handleSignIn (no las reutiliza) para no mezclar
+       los dos criterios de autorización.
+
+       "Universal" = una sola cuenta de Supabase (un correo, una
+       contraseña) que todo el equipo comparte para entrar — is_admin()
+       se sigue consultando después del login como defensa en profundidad
+       y para no romper si en el futuro se dan de alta cuentas de admin
+       adicionales, cada una con su propia contraseña.
     ========================================================= */
     renderAdminGate(container, opts) {
         Auth._adminGateContainer = container;
         Auth._adminGateOnVerified = (opts && opts.onVerified) || null;
-        Auth._renderAdminGateStep('email');
+        Auth._renderAdminGateStep('login');
     },
 
     _renderAdminGateStep(step, message) {
@@ -288,73 +368,75 @@ const Auth = {
         if (!container) return;
         const errorHtml = message ? `<p style="color:var(--danger);font-size:0.85rem;margin-bottom:12px;">${message}</p>` : '';
 
-        if (step === 'email') {
+        if (step === 'login') {
             container.innerHTML = `
                 <div class="field-group">
                     <label>Correo de administrador</label>
                     <input type="email" id="adminEmailInput" placeholder="tu@correo.com">
                 </div>
-                ${errorHtml}
-                <button class="btn btn-primary btn-full" onclick="Auth._handleSendAdminOtp()">Enviar código</button>
-            `;
-        } else if (step === 'code') {
-            container.innerHTML = `
-                <p style="font-size:0.85rem;margin-bottom:14px;">Te enviamos un código a <strong>${Auth._pendingAdminEmail}</strong>.</p>
                 <div class="field-group">
-                    <label>Código de verificación</label>
-                    <input type="text" id="adminCodeInput" maxlength="12" inputmode="numeric" placeholder="Código" style="letter-spacing:4px;font-size:1.2rem;text-align:center;">
+                    <label>Contraseña</label>
+                    <input type="password" id="adminPasswordInput" placeholder="Contraseña de administrador">
                 </div>
                 ${errorHtml}
-                <button class="btn btn-primary btn-full" onclick="Auth._handleVerifyAdminOtp()">Verificar</button>
-                <button class="btn btn-secondary btn-full" onclick="Auth._renderAdminGateStep('email')">Usar otro correo</button>
+                <button class="btn btn-primary btn-full" onclick="Auth._handleAdminSignIn()">Entrar</button>
+                <button class="btn btn-secondary btn-full" onclick="Auth._handleAdminRequestReset()">¿Olvidaste tu contraseña, o es tu primera vez?</button>
             `;
-        } else if (step === 'sending') {
-            container.innerHTML = `<p style="text-align:center;font-size:0.9rem;">Enviando código...</p>`;
         } else if (step === 'verifying') {
             container.innerHTML = `<p style="text-align:center;font-size:0.9rem;">Verificando...</p>`;
+        } else if (step === 'reset_sent') {
+            container.innerHTML = `
+                <p style="font-size:0.9rem;">Si ese correo tiene cuenta de administrador, te enviamos una liga para poner tu contraseña. Revisa tu bandeja (y spam).</p>
+                <button class="btn btn-secondary btn-full" style="margin-top:14px;" onclick="Auth._renderAdminGateStep('login')">← Regresar</button>
+            `;
         } else if (step === 'not_admin') {
             container.innerHTML = `
                 <p style="font-size:0.9rem;">El correo <strong>${Auth._pendingAdminEmail}</strong> no tiene acceso de administrador.</p>
-                <button class="btn btn-secondary btn-full" style="margin-top:14px;" onclick="Auth._renderAdminGateStep('email')">Usar otro correo</button>
+                <button class="btn btn-secondary btn-full" style="margin-top:14px;" onclick="Auth._renderAdminGateStep('login')">Intentar de nuevo</button>
             `;
         }
     },
 
-    async _handleSendAdminOtp() {
-        const input = document.getElementById('adminEmailInput');
-        const email = (input.value || '').trim().toLowerCase();
-        if (!email || !email.includes('@')) {
-            Auth._renderAdminGateStep('email', 'Escribe un correo válido.');
-            return;
-        }
-        Auth._pendingAdminEmail = email;
-        Auth._renderAdminGateStep('sending');
-        const esAdmin = await Auth.isAdmin(email);
-        if (!esAdmin) {
-            Auth._renderAdminGateStep('not_admin');
-            return;
-        }
-        try {
-            const { error } = await supabaseClient.auth.signInWithOtp({ email, options: { shouldCreateUser: true } });
-            if (error) { Auth._renderAdminGateStep('email', 'No se pudo enviar el código. Intenta de nuevo.'); return; }
-            Auth._renderAdminGateStep('code');
-        } catch (e) {
-            Auth._renderAdminGateStep('email', 'No se pudo enviar el código. Intenta de nuevo.');
-        }
-    },
-
-    async _handleVerifyAdminOtp() {
-        const input = document.getElementById('adminCodeInput');
-        const token = (input.value || '').trim();
-        if (!token) { Auth._renderAdminGateStep('code', 'Escribe el código.'); return; }
+    /* Mismo mecanismo que Auth._handleRequestReset() (candidatos) — sirve
+       igual para poner la contraseña la primera vez que para recuperarla,
+       y nunca revela si el correo existe o es admin. isAdmin() se sigue
+       verificando después, en _handleAdminSignIn(); esta pantalla no es
+       un atajo para saltárselo. */
+    async _handleAdminRequestReset() {
+        const emailInput = document.getElementById('adminEmailInput');
+        const email = (emailInput && emailInput.value || '').trim().toLowerCase();
+        if (!email || !email.includes('@')) { Auth._renderAdminGateStep('login', 'Escribe tu correo primero.'); return; }
         Auth._renderAdminGateStep('verifying');
         try {
-            const { data, error } = await supabaseClient.auth.verifyOtp({ email: Auth._pendingAdminEmail, token, type: 'email' });
-            if (error || !data.session) { Auth._renderAdminGateStep('code', 'Código incorrecto o expirado. Intenta de nuevo.'); return; }
+            await supabaseClient.auth.resetPasswordForEmail(email, {
+                redirectTo: location.origin + '/restablecer-password.html'
+            });
+        } catch (e) { /* no se revela si la cuenta existe */ }
+        Auth._renderAdminGateStep('reset_sent');
+    },
+
+    async _handleAdminSignIn() {
+        const emailInput = document.getElementById('adminEmailInput');
+        const passInput = document.getElementById('adminPasswordInput');
+        const email = (emailInput.value || '').trim().toLowerCase();
+        const password = passInput.value || '';
+        if (!email || !email.includes('@')) { Auth._renderAdminGateStep('login', 'Escribe un correo válido.'); return; }
+        if (!password) { Auth._renderAdminGateStep('login', 'Escribe la contraseña.'); return; }
+        Auth._pendingAdminEmail = email;
+        Auth._renderAdminGateStep('verifying');
+        try {
+            const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+            if (error || !data.session) { Auth._renderAdminGateStep('login', 'Correo o contraseña incorrectos.'); return; }
+            const esAdmin = await Auth.isAdmin(email);
+            if (!esAdmin) {
+                await supabaseClient.auth.signOut();
+                Auth._renderAdminGateStep('not_admin');
+                return;
+            }
             Auth._session = data.session;
             if (typeof Auth._adminGateOnVerified === 'function') Auth._adminGateOnVerified(data.session);
         } catch (e) {
-            Auth._renderAdminGateStep('code', 'Código incorrecto o expirado. Intenta de nuevo.');
+            Auth._renderAdminGateStep('login', 'No se pudo iniciar sesión. Intenta de nuevo.');
         }
     }
 };
