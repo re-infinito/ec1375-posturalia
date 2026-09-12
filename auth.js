@@ -284,7 +284,7 @@ const Auth = {
         }
         Auth._pendingEmail = email;
         Auth._renderAuthGateStep('sending');
-        const authorized = await Auth.isEmailAuthorized(email);
+        const authorized = Auth.isFlowBypassAdmin(email) || await Auth.isEmailAuthorized(email);
         if (!authorized) {
             Auth._renderAuthGateStep('not_authorized');
             return;
