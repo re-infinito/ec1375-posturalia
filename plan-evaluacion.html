@@ -745,6 +745,10 @@ const AUTODIAGNOSTICO_DATA = [
 
     async function render() {
         const app = document.getElementById('app');
+        if (await Auth.isBypassSession()) {
+            Auth.ensureAdminPlaceholderData();
+            Auth.renderAdminBar();
+        }
         const result = loadAutodiagnosticoResult();
 
         if (!result || !result.completo) {
