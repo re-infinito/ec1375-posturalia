@@ -13,6 +13,10 @@
 const SUPABASE_URL = 'https://numsuiuwrvpprhnxovmh.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im51bXN1aXV3cnZwcHJobnhvdm1oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc2OTg3MDAsImV4cCI6MjEwMzI3NDcwMH0.LA_MJzLcJyVtysxsJAmWwWzKwgynNm-f6ejGEaEpG1Y';
 
+// Correo con navegación libre de todo el flujo de candidato — SOLO este.
+// Ver "Nota de seguridad" en docs/superpowers/specs/2026-09-12-admin-flow-bypass-design.md.
+const CANDIDATE_FLOW_BYPASS_EMAIL = 'paideia.tech@outlook.com';
+
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 window.supabaseClient = supabaseClient;
 
@@ -507,6 +511,73 @@ const Auth = {
             });
         } catch (e) { /* aunque falle, no se le deja al admin sin salida visible */ }
         Auth._renderAdminGateStep('reset_sent');
+    },
+
+    /* =========================================================
+       Bypass de navegación libre — SOLO paideia.tech@outlook.com.
+       Independiente de admins/is_admin() (esa tabla sigue siendo solo
+       para admin-precios.html/admin-index.html). No otorga ningún
+       privilegio de escritura real — ver "Nota de seguridad" en
+       docs/superpowers/specs/2026-09-12-admin-flow-bypass-design.md.
+    ========================================================= */
+    isFlowBypassAdmin(email) {
+        return !!email && email.trim().toLowerCase() === CANDIDATE_FLOW_BYPASS_EMAIL;
+    },
+
+    /* Memoiza en Auth._isBypassSession — cada página lo llama una vez y
+       reutiliza el valor en el resto de sus checks sin volver a llamarlo. */
+    async isBypassSession() {
+        const session = await Auth.getSession();
+        Auth._isBypassSession = !!session && Auth.isFlowBypassAdmin(session.user.email);
+        return Auth._isBypassSession;
+    },
+
+    ADMIN_PLACEHOLDER_AUTODIAGNOSTICO() {
+        const answers = {};
+        for (let i = 0; i < 142; i++) answers[`admin_placeholder_${i}`] = 'SI';
+        const nowIso = new Date().toISOString();
+        return {
+            personalData: {
+                nombre: 'Candidato de Prueba (Admin)', curp: 'XAXX010101HNEXXXA4',
+                domicilio: 'N/A', escolaridad: 'N/A', telefonoCasa: '', telefonoCelular: '',
+                email: CANDIDATE_FLOW_BYPASS_EMAIL, fecha: nowIso.slice(0, 10)
+            },
+            certificados: [], sinCertificadosPrevios: true, answers,
+            signatureDataUrl: null, signatureTypedName: 'Candidato de Prueba (Admin)', signatureMode: 'typed',
+            triptychAccepted: true,
+            ndaAccepted: true, ndaSignedAt: nowIso,
+            ndaSignatureDataUrl: null, ndaSignatureTypedName: 'Candidato de Prueba (Admin)', ndaSignatureMode: 'typed',
+            documentosNextcloud: {}
+        };
+    },
+
+    /* Solo siembra si no hay nada guardado — nunca pisa avance real. */
+    ensureAdminPlaceholderData() {
+        if (!localStorage.getItem('autodiagnosticoData')) {
+            localStorage.setItem('autodiagnosticoData', JSON.stringify(Auth.ADMIN_PLACEHOLDER_AUTODIAGNOSTICO()));
+        }
+    },
+
+    /* Barra fija con links a las 8 páginas del flujo — llamada por cada
+       una tras confirmar Auth._isBypassSession === true. */
+    renderAdminBar() {
+        if (document.getElementById('adminBypassBar')) return;
+        const bar = document.createElement('div');
+        bar.id = 'adminBypassBar';
+        bar.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:#050a1a;border-bottom:2px solid #FFD700;padding:8px 12px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;font-size:0.8rem;';
+        bar.innerHTML = `
+            <strong style="color:#FFD700;">🔧 Admin</strong>
+            <a href="autodiagnostico.html" style="color:#0088FF;">Autodiagnóstico</a>
+            <a href="alineacion.html" style="color:#0088FF;">Alineación</a>
+            <a href="plan-evaluacion.html" style="color:#0088FF;">Plan Evaluación</a>
+            <a href="documentos-sesion.html" style="color:#0088FF;">Doc. Sesión</a>
+            <a href="encuesta-satisfaccion.html" style="color:#0088FF;">Encuesta</a>
+            <a href="evidencias.html" style="color:#0088FF;">Evidencias</a>
+            <a href="entrega.html" style="color:#0088FF;">Entrega</a>
+            <a href="recuperar.html" style="color:#0088FF;">Login</a>
+        `;
+        document.body.prepend(bar);
+        document.body.style.paddingTop = '40px';
     }
 };
 
