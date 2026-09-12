@@ -843,6 +843,9 @@
     let ndaHasSignature = false;
     let ndaIsDrawing = false;
     let ndaLastX = 0, ndaLastY = 0;
+    let documentosNextcloud = {};
+    let generatedDocsRegistro = {};
+    let autoUploadIntentado = false;
 
     /* =========================================================
        PERSISTENCE
@@ -866,6 +869,7 @@
                 ndaSignatureTypedName = saved.ndaSignatureTypedName || '';
                 ndaSignatureMode = saved.ndaSignatureMode || 'draw';
                 ndaHasSignature = !!ndaSignatureDataUrl;
+                documentosNextcloud = saved.documentosNextcloud || {};
                 return true;
             }
         } catch (e) { console.warn('No se pudo cargar progreso previo'); }
@@ -876,7 +880,8 @@
         const data = {
             personalData, certificados, sinCertificadosPrevios, answers,
             signatureDataUrl, signatureTypedName, signatureMode, triptychAccepted,
-            ndaAccepted, ndaSignedAt, ndaSignatureDataUrl, ndaSignatureTypedName, ndaSignatureMode
+            ndaAccepted, ndaSignedAt, ndaSignatureDataUrl, ndaSignatureTypedName, ndaSignatureMode,
+            documentosNextcloud
         };
         localStorage.setItem('autodiagnosticoData', JSON.stringify(data));
         Auth.syncToSupabase('autodiagnostico_data', data, personalData.curp, personalData.nombre);
@@ -910,7 +915,7 @@
     /* =========================================================
        RENDER
     ========================================================= */
-    function renderStep() {
+    async function renderStep() {
         const app = document.getElementById('app');
         const step = STEPS[currentStepIndex];
         const navBar = document.getElementById('navBar');
@@ -950,7 +955,7 @@
         } else if (step === 'resultado') {
             navBar.style.display = 'none';
             topBarStep.textContent = 'Resultado';
-            app.innerHTML = renderResultado();
+            await renderResultado(app);
         }
 
         updateProgressBar();
@@ -1655,7 +1660,76 @@
         updateNavButtons();
     }
 
-    function generateAcuseNdaPDF() {
+    async function subirDocumento(fase, filename, blob, nombre, curp) {
+        try {
+            const session = await Auth.getSession();
+            if (!session) return { success: false, error: 'Sin sesión activa' };
+            const fileBase64 = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result.split(',')[1]);
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+            });
+            const resp = await fetch('/api/subir-portafolio', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+                body: JSON.stringify({ email: session.user.email, fase, nombre, curp, filename, fileBase64 })
+            });
+            const data = await resp.json();
+            if (!resp.ok || !data.success) return { success: false, error: data.error || 'Error desconocido' };
+            return { success: true, path: data.path };
+        } catch (e) {
+            return { success: false, error: e.message || 'Error de red' };
+        }
+    }
+
+    function renderEstadoDoc(key, label) {
+        const val = documentosNextcloud[key];
+        if (val) {
+            return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.08);">
+                <span>${label}</span><span style="color:var(--success);font-weight:600;">✅ Subido</span>
+            </div>`;
+        }
+        return `<div style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.08);">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+                <span>${label}</span><span style="color:var(--danger);font-weight:600;">❌ No subido</span>
+            </div>
+            <div style="display:flex;gap:8px;margin-top:8px;">
+                <button class="btn btn-secondary" style="flex:1;font-size:0.8rem;" onclick="reintentarSubidaRegistro('${key}')">🔄 Reintentar subida</button>
+                <button class="btn btn-secondary" style="flex:1;font-size:0.8rem;" onclick="descargarDocRegistro('${key}')">⬇️ Descargar</button>
+            </div>
+        </div>`;
+    }
+
+    async function subirDocumentosPendientesRegistro() {
+        const pd = personalData;
+        for (const key of Object.keys(generatedDocsRegistro)) {
+            if (documentosNextcloud[key]) continue;
+            const { blob, filename } = generatedDocsRegistro[key];
+            const result = await subirDocumento('registro', filename, blob, pd.nombre, pd.curp);
+            if (result.success) documentosNextcloud[key] = result.path;
+        }
+        saveProgress();
+    }
+
+    async function reintentarSubidaRegistro(key) {
+        const pd = personalData;
+        const { blob, filename } = generatedDocsRegistro[key];
+        const result = await subirDocumento('registro', filename, blob, pd.nombre, pd.curp);
+        if (result.success) { documentosNextcloud[key] = result.path; saveProgress(); }
+        await renderResultado(document.getElementById('app'));
+    }
+
+    function descargarDocRegistro(key) {
+        const { blob, filename } = generatedDocsRegistro[key];
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = filename;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+
+    function generateAcuseNdaPDFBlob() {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
         const pd = personalData;
@@ -1698,15 +1772,26 @@
             doc.text(ndaSignatureTypedName, 14, y + 14);
         }
 
-        doc.save(`Acuerdo_Confidencialidad_EC1375_${(pd.nombre || 'candidato').replace(/\s+/g, '_')}.pdf`);
+        return { blob: doc.output('blob'), filename: `Acuerdo_Confidencialidad_EC1375_${(pd.nombre || 'candidato').replace(/\s+/g, '_')}.pdf` };
     }
 
-    function renderResultado() {
+    async function renderResultado(app) {
         const score = calculateScore();
         const isReady = score.percentage >= 90;
-        const quiz = JSON.parse(localStorage.getItem('quizResponses') || '{}');
 
-        return `
+        if (!generatedDocsRegistro.autodiagnostico) {
+            generatedDocsRegistro = {
+                autodiagnostico: generatePDFBlob(),
+                acuseTriptico: generateAcuseTripticoPDFBlob(),
+                acuseNda: generateAcuseNdaPDFBlob()
+            };
+        }
+        if (!autoUploadIntentado) {
+            autoUploadIntentado = true;
+            await subirDocumentosPendientesRegistro();
+        }
+
+        app.innerHTML = `
             <div class="resultado-hero">
                 <div class="score-circle ${isReady ? 'high' : 'low'}">
                     <div class="score-percent">${score.percentage}%</div>
@@ -1722,24 +1807,17 @@
             </div>
 
             <div class="card">
-                <h2>📥 Descarga tu documento</h2>
-                <p style="margin-bottom: 16px; color: var(--text); font-size: 0.9rem;">Genera tu Autodiagnóstico EC1375 completo, con tus 142 respuestas, listo para entregar a tu evaluador.</p>
-                <div class="download-buttons">
-                    <button class="btn btn-primary btn-full" onclick="generatePDF()">📄 Descargar PDF</button>
-                    <button class="btn btn-secondary btn-full" onclick="generateWord()">📝 Descargar Word (.doc)</button>
-                </div>
+                <h2>📥 Tus documentos de Registro</h2>
+                <p style="margin-bottom: 16px; color: var(--text); font-size: 0.9rem;">Se suben automáticamente a tu portafolio. Aquí puedes ver su estado, o descargarlos como respaldo.</p>
+                ${renderEstadoDoc('autodiagnostico', '📄 Autodiagnóstico EC1375')}
+                ${renderEstadoDoc('acuseTriptico', '📄 Acuse de Recibido — Tríptico')}
+                ${renderEstadoDoc('acuseNda', '🔒 Acuerdo de Confidencialidad (NDA)')}
             </div>
 
             <div class="card">
-                <h2>📄 Acuse de Recibido — Tríptico</h2>
-                <p style="margin-bottom: 16px; color: var(--text); font-size: 0.9rem;">Confirma que recibiste el Tríptico de Derechos y Obligaciones del Usuario (ya lo aceptaste al firmar arriba — no necesitas hacer nada más).</p>
-                <button class="btn btn-secondary btn-full" onclick="generateAcuseTripticoPDF()">📄 Descargar Acuse de Tríptico</button>
-            </div>
-
-            <div class="card">
-                <h2>🔒 Acuerdo de Confidencialidad (NDA)</h2>
-                <p style="margin-bottom: 16px; color: var(--text); font-size: 0.9rem;">Ya lo aceptaste y firmaste antes de empezar tus reactivos — aquí puedes descargar tu copia.</p>
-                <button class="btn btn-secondary btn-full" onclick="generateAcuseNdaPDF()">🔒 Descargar Acuerdo de Confidencialidad</button>
+                <h2>📝 Versión Word (.doc)</h2>
+                <p style="margin-bottom: 16px; color: var(--text); font-size: 0.9rem;">Versión editable de tu Autodiagnóstico — es solo un respaldo local, no se sube automáticamente.</p>
+                <button class="btn btn-secondary btn-full" onclick="generateWord()">📝 Descargar Word (.doc)</button>
             </div>
 
             <div class="card">
@@ -1908,7 +1986,7 @@
         doc.addImage(LOGO_ICE_BASE64, 'PNG', 163, 10, 33, 11.3);
     }
 
-    function generatePDF() {
+    function generatePDFBlob() {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
         const pd = personalData;
@@ -2006,13 +2084,13 @@
         }
 
         const filename = `Autodiagnostico_EC1375_${(pd.nombre || 'candidato').replace(/\s+/g, '_')}.pdf`;
-        doc.save(filename);
+        return { blob: doc.output('blob'), filename };
     }
 
     /* =========================================================
        ACUSE DE RECIBIDO — TRÍPTICO
     ========================================================= */
-    function generateAcuseTripticoPDF() {
+    function generateAcuseTripticoPDFBlob() {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
         const pd = personalData;
@@ -2050,7 +2128,7 @@
             doc.text(signatureTypedName, 14, y + 14);
         }
 
-        doc.save(`Acuse_Triptico_EC1375_${(pd.nombre || 'candidato').replace(/\s+/g, '_')}.pdf`);
+        return { blob: doc.output('blob'), filename: `Acuse_Triptico_EC1375_${(pd.nombre || 'candidato').replace(/\s+/g, '_')}.pdf` };
     }
 
     /* =========================================================
