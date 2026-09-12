@@ -9,7 +9,7 @@
  */
 
 const { createClient } = require('@supabase/supabase-js');
-const { enviarRecordatorio24h, enviarRecordatorio1h } = require('./utils/send-email');
+const { enviarRecordatorio24h, enviarRecordatorio1h } = require('../lib/send-email');
 
 const supabase = createClient(
     process.env.SUPABASE_URL,

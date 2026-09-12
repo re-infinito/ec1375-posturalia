@@ -7,7 +7,7 @@
 
 const { createClient } = require('@supabase/supabase-js');
 const { google } = require('googleapis');
-const { enviarConfirmacionInscripcion } = require('./utils/send-email');
+const { enviarConfirmacionInscripcion } = require('../lib/send-email');
 
 const supabase = createClient(
     process.env.SUPABASE_URL,
