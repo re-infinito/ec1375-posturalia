@@ -630,6 +630,25 @@ const Auth = {
         localStorage.setItem('autodiagnosticoData', JSON.stringify(Auth.ADMIN_PLACEHOLDER_AUTODIAGNOSTICO()));
     },
 
+    /* Limpia SOLO el progreso propio de cada página downstream (Plan de
+       Evaluación, Documentos de Sesión, Encuesta, Evidencias) — deja
+       autodiagnosticoData intacto (con el placeholder) para no perder el
+       "prerequisito" que abre esas páginas. Deliberadamente NO se llama
+       automáticamente en cada render (a diferencia de
+       ensureAdminPlaceholderData) — si lo hiciera, borraría lo que el
+       admin acaba de capturar en la página actual en cuanto esta
+       volviera a renderizar (ej. al avanzar un paso). Se dispara solo a
+       mano, vía el botón "🔄 Reset" de la barra — pensado para demos en
+       vivo, mostrar una página vacía y llenarla desde cero cuantas veces
+       haga falta. */
+    resetAdminDownstreamProgress() {
+        localStorage.removeItem('planEvaluacionData');
+        localStorage.removeItem('documentosSesionData');
+        localStorage.removeItem('encuestaSatisfaccionData');
+        localStorage.removeItem('evidenciasData');
+        location.reload();
+    },
+
     /* Barra fija con links a las 8 páginas del flujo — llamada por cada
        una tras confirmar Auth._isBypassSession === true. */
     renderAdminBar() {
@@ -648,6 +667,7 @@ const Auth = {
             <a href="evidencias.html" target="_blank" style="${linkStyle}">Evidencias</a>
             <a href="entrega.html" target="_blank" style="${linkStyle}">Entrega</a>
             <a href="recuperar.html" target="_blank" style="${linkStyle};background:transparent;border:1px solid #0088FF;">Login</a>
+            <button onclick="Auth.resetAdminDownstreamProgress()" style="${linkStyle};background:transparent;border:1px solid #FF3333;color:#FF3333;cursor:pointer;font-family:inherit;">🔄 Reset</button>
         `;
         document.body.prepend(bar);
         document.body.style.paddingTop = '40px';
