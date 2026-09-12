@@ -565,17 +565,18 @@ const Auth = {
         if (document.getElementById('adminBypassBar')) return;
         const bar = document.createElement('div');
         bar.id = 'adminBypassBar';
-        bar.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:#050a1a;border-bottom:2px solid #FFD700;padding:8px 12px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;font-size:0.8rem;';
+        bar.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:#050a1a;border-bottom:2px solid #FFD700;padding:8px 12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;font-size:0.8rem;';
+        const linkStyle = 'color:#fff;background:#0088FF;padding:6px 12px;border-radius:6px;text-decoration:none;font-weight:600;white-space:nowrap;';
         bar.innerHTML = `
-            <strong style="color:#FFD700;">🔧 Admin</strong>
-            <a href="autodiagnostico.html" style="color:#0088FF;">Autodiagnóstico</a>
-            <a href="alineacion.html" style="color:#0088FF;">Alineación</a>
-            <a href="plan-evaluacion.html" style="color:#0088FF;">Plan Evaluación</a>
-            <a href="documentos-sesion.html" style="color:#0088FF;">Doc. Sesión</a>
-            <a href="encuesta-satisfaccion.html" style="color:#0088FF;">Encuesta</a>
-            <a href="evidencias.html" style="color:#0088FF;">Evidencias</a>
-            <a href="entrega.html" style="color:#0088FF;">Entrega</a>
-            <a href="recuperar.html" style="color:#0088FF;">Login</a>
+            <strong style="color:#FFD700;margin-right:4px;">🔧 Admin</strong>
+            <a href="autodiagnostico.html" target="_blank" style="${linkStyle}">Autodiagnóstico</a>
+            <a href="alineacion.html" target="_blank" style="${linkStyle}">Alineación</a>
+            <a href="plan-evaluacion.html" target="_blank" style="${linkStyle}">Plan Evaluación</a>
+            <a href="documentos-sesion.html" target="_blank" style="${linkStyle}">Doc. Sesión</a>
+            <a href="encuesta-satisfaccion.html" target="_blank" style="${linkStyle}">Encuesta</a>
+            <a href="evidencias.html" target="_blank" style="${linkStyle}">Evidencias</a>
+            <a href="entrega.html" target="_blank" style="${linkStyle}">Entrega</a>
+            <a href="recuperar.html" target="_blank" style="${linkStyle};background:transparent;border:1px solid #0088FF;">Login</a>
         `;
         document.body.prepend(bar);
         document.body.style.paddingTop = '40px';
