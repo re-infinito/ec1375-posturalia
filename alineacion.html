@@ -245,6 +245,10 @@
 
     async function render() {
         const app = document.getElementById('app');
+        if (await Auth.isBypassSession()) {
+            Auth.ensureAdminPlaceholderData();
+            Auth.renderAdminBar();
+        }
         const result = loadAutodiagnosticoResult();
 
         if (!result || !result.completo) {
@@ -291,7 +295,7 @@
         }
 
         const filaCandidato = await Auth.pullMyRow();
-        const registroCompleto = documentosFaseCompletos(filaCandidato && filaCandidato.autodiagnostico_data, ['autodiagnostico', 'acuseTriptico', 'acuseNda']);
+        const registroCompleto = Auth._isBypassSession || documentosFaseCompletos(filaCandidato && filaCandidato.autodiagnostico_data, ['autodiagnostico', 'acuseTriptico', 'acuseNda']);
         if (!registroCompleto) {
             app.innerHTML = `
                 <div class="hero">
@@ -307,7 +311,7 @@
         }
 
         const email = session.user.email;
-        const autorizado = await Auth.isPhaseAuthorized(email, 'alineacion');
+        const autorizado = Auth._isBypassSession || await Auth.isPhaseAuthorized(email, 'alineacion');
 
         if (!autorizado) {
             const monto = await fetchMontoFase(email, 'alineacion');
