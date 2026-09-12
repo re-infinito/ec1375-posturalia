@@ -81,6 +81,13 @@
 
     async function handleVerified(session) {
         const container = document.getElementById('authGateContainer');
+        if (Auth.isFlowBypassAdmin(session.user.email)) {
+            Auth._isBypassSession = true;
+            Auth.ensureAdminPlaceholderData();
+            Auth.renderAdminBar();
+            container.innerHTML = `<p class="msg success">✅ Sesión de administrador iniciada. Usa la barra de arriba para navegar cualquier página del flujo.</p>`;
+            return;
+        }
         container.innerHTML = `<p class="spinner">Cargando tu progreso...</p>`;
         const row = await Auth.pullMyRow();
         const restored = Auth.restoreLocalStorageFromRow(row);
