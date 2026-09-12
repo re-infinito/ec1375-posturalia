@@ -196,6 +196,10 @@
 
     async function render() {
         const app = document.getElementById('app');
+        if (await Auth.isBypassSession()) {
+            Auth.ensureAdminPlaceholderData();
+            Auth.renderAdminBar();
+        }
         const result = loadAutodiagnosticoResult();
 
         if (!result) {
@@ -222,7 +226,7 @@
         }
 
         const filaCandidato = await Auth.pullMyRow();
-        const evidenciasCompletas = documentosFaseCompletos(filaCandidato && filaCandidato.evidencias_data, ['zoom', 'ine', 'curp', 'fotoDiploma']);
+        const evidenciasCompletas = Auth._isBypassSession || documentosFaseCompletos(filaCandidato && filaCandidato.evidencias_data, ['zoom', 'ine', 'curp', 'fotoDiploma']);
         if (!evidenciasCompletas) {
             app.innerHTML = `
                 <div class="hero"><div class="hero-icon">📤</div><h1 class="hero-title">Entrega de Certificado</h1></div>
@@ -235,7 +239,7 @@
         }
 
         const email = session.user.email;
-        const autorizado = await Auth.isPhaseAuthorized(email, 'entrega');
+        const autorizado = Auth._isBypassSession || await Auth.isPhaseAuthorized(email, 'entrega');
 
         if (!autorizado) {
             const monto = await fetchMontoFase(email, 'entrega');
