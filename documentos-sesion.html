@@ -325,6 +325,7 @@
     let drawingState = { isDrawing: false, lastX: 0, lastY: 0 };
     let generated = false;
     let generatedPdfs = {};
+    let documentosNextcloud = {};
 
     function todayISOSession() { return new Date().toISOString().split('T')[0]; }
 
@@ -351,15 +352,83 @@
                 sessionData = Object.assign(sessionData, saved.sessionData || {});
                 sesionesSeguimiento = saved.sesionesSeguimiento || sesionesSeguimiento;
                 signatures = Object.assign(signatures, saved.signatures || {});
+                documentosNextcloud = saved.documentosNextcloud || {};
             }
         } catch (e) {}
     }
 
     function saveProgress() {
-        const data = { sessionData, sesionesSeguimiento, signatures };
+        const data = { sessionData, sesionesSeguimiento, signatures, documentosNextcloud };
         localStorage.setItem('documentosSesionData', JSON.stringify(data));
         const result = loadAutodiagnosticoResult();
         if (result) Auth.syncToSupabase('documentos_sesion_data', data, result.personalData.curp, result.personalData.nombre);
+    }
+
+    function documentosFaseCompletos(jsonbData, requiredKeys) {
+        if (!jsonbData || !jsonbData.documentosNextcloud) return false;
+        return requiredKeys.every(key => {
+            const val = jsonbData.documentosNextcloud[key];
+            return Array.isArray(val) ? val.length > 0 : !!val;
+        });
+    }
+
+    async function subirDocumento(fase, filename, blob, nombre, curp) {
+        try {
+            const session = await Auth.getSession();
+            if (!session) return { success: false, error: 'Sin sesión activa' };
+            const fileBase64 = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result.split(',')[1]);
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+            });
+            const resp = await fetch('/api/subir-portafolio', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+                body: JSON.stringify({ email: session.user.email, fase, nombre, curp, filename, fileBase64 })
+            });
+            const data = await resp.json();
+            if (!resp.ok || !data.success) return { success: false, error: data.error || 'Error desconocido' };
+            return { success: true, path: data.path };
+        } catch (e) {
+            return { success: false, error: e.message || 'Error de red' };
+        }
+    }
+
+    function renderEstadoDoc(key, label) {
+        const val = documentosNextcloud[key];
+        if (val) {
+            return `<div class="doc-download-item"><span>${label}</span><span style="color:var(--success);font-weight:600;">✅ Subido</span></div>`;
+        }
+        return `<div class="doc-download-item" style="flex-direction:column;align-items:stretch;gap:8px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+                <span>${label}</span><span style="color:var(--danger);font-weight:600;">❌ No subido</span>
+            </div>
+            <div style="display:flex;gap:8px;">
+                <button class="btn btn-secondary" style="flex:1;font-size:0.8rem;" onclick="reintentarSubidaSesion('${key}')">🔄 Reintentar subida</button>
+                <button class="btn btn-secondary" style="flex:1;font-size:0.8rem;" onclick="downloadDoc('${key}')">⬇️ Descargar</button>
+            </div>
+        </div>`;
+    }
+
+    async function subirDocumentosPendientesSesion(result) {
+        const pd = result.personalData;
+        for (const key of Object.keys(generatedPdfs)) {
+            if (documentosNextcloud[key]) continue;
+            const { blob, filename } = generatedPdfs[key];
+            const uploadResult = await subirDocumento('evaluacion', filename, blob, pd.nombre, pd.curp);
+            if (uploadResult.success) documentosNextcloud[key] = uploadResult.path;
+        }
+        saveProgress();
+    }
+
+    async function reintentarSubidaSesion(key) {
+        const result = loadAutodiagnosticoResult();
+        const pd = result.personalData;
+        const { blob, filename } = generatedPdfs[key];
+        const uploadResult = await subirDocumento('evaluacion', filename, blob, pd.nombre, pd.curp);
+        if (uploadResult.success) { documentosNextcloud[key] = uploadResult.path; saveProgress(); }
+        await renderResultado(document.getElementById('app'), result);
     }
 
     function escapeHtml(str) {
@@ -558,6 +627,20 @@
             return;
         }
 
+        if (step !== 'intro') {
+            const filaCandidato = await Auth.pullMyRow();
+            const alineacionCompleta = documentosFaseCompletos(filaCandidato && filaCandidato.plan_evaluacion_data, ['planEvaluacion', 'acusePlanEvaluacion']);
+            if (!alineacionCompleta) {
+                app.innerHTML = `
+                    <div class="hero"><div class="hero-icon">📤</div><h1 class="hero-title">Documentos de Sesión</h1></div>
+                    <div class="blocked-box">
+                        <p style="margin-bottom:18px;"><strong>Faltan documentos de tu Alineación por subir</strong><br>Vuelve a tu Plan de Evaluación — ahí puedes ver cuál falta, reintentar la subida, o descargarlo para enviarlo manualmente.</p>
+                        <a href="plan-evaluacion.html" class="btn btn-primary">📅 Ir a mi Plan de Evaluación</a>
+                    </div>`;
+                return;
+            }
+        }
+
         if (step !== 'intro' && !(await Auth.isPhaseAuthorized(session.user.email, 'evaluacion'))) {
             const monto = await fetchMontoFase(session.user.email, 'evaluacion');
             const montoTxt = typeof monto === 'number' ? `$${monto.toLocaleString('es-MX')} MXN` : null;
@@ -598,7 +681,7 @@
             app.innerHTML = renderMedioContacto(); attachMedioContactoListeners(); attachNav(); applyChecklistState(); return;
         }
         if (step === 'cierre') { app.innerHTML = renderCierre(); setTimeout(() => initSignatureCanvas('usuarioSeguimiento'), 50); attachNav(); applyChecklistState(); return; }
-        if (step === 'resultado') { renderResultado(app, result); return; }
+        if (step === 'resultado') { await renderResultado(app, result); return; }
     }
 
     function renderIntro() {
@@ -1345,14 +1428,16 @@ const LOGO_CONOCER_BASE64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAA
         return { blob, filename: `Plan_Seguimiento_${(result.personalData.nombre || 'candidato').replace(/\s+/g, '_')}.pdf` };
     }
 
-    function renderResultado(app, result) {
-        generatedPdfs = {
-            ficha: generateFichaPDF(result),
-            consentimiento: generateConsentimientoPDF(result),
-            plan_sesion: generatePlanSesionPDF(result),
-            plan_seguimiento: generatePlanSeguimientoPDF(result)
-        };
-        saveProgress();
+    async function renderResultado(app, result) {
+        if (!generatedPdfs.ficha) {
+            generatedPdfs = {
+                ficha: generateFichaPDF(result),
+                consentimiento: generateConsentimientoPDF(result),
+                plan_sesion: generatePlanSesionPDF(result),
+                plan_seguimiento: generatePlanSeguimientoPDF(result)
+            };
+        }
+        await subirDocumentosPendientesSesion(result);
 
         const docs = [
             { key: 'ficha', label: '📋 Ficha de Registro de Atención' },
@@ -1364,13 +1449,8 @@ const LOGO_CONOCER_BASE64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAA
         app.innerHTML = `
             <div class="success-box">
                 <h3 style="color:var(--success);margin-bottom:10px;">✅ Tus 4 documentos están listos</h3>
-                <p style="color:var(--text);margin-bottom:20px;">Descarga cada uno y súbelo a la pregunta correspondiente en el formulario de Evidencias.</p>
-                ${docs.map(d => `
-                    <div class="doc-download-item">
-                        <span>${d.label}</span>
-                        <button class="btn btn-primary" onclick="downloadDoc('${d.key}')">Descargar</button>
-                    </div>
-                `).join('')}
+                <p style="color:var(--text);margin-bottom:20px;">Se suben automáticamente a tu portafolio.</p>
+                ${docs.map(d => renderEstadoDoc(d.key, d.label)).join('')}
             </div>
             <div class="card" style="text-align:center;margin-top:20px;">
                 <a href="encuesta-satisfaccion.html" class="btn btn-primary btn-full" style="display:block;text-decoration:none;margin-bottom:14px;">📝 Siguiente: Encuesta de Satisfacción →</a>
