@@ -635,6 +635,25 @@ Diego compartió `EC1375_ALINEACION_STANDALONE.html` + `EC1375_ALINEACION.css`, 
 
 **Fuera de alcance (no urgente):** el archivo de estilo separado (`EC1375_ALINEACION.css`) no se usa enlazado — `ruta-alineacion.html` mantiene el `<style>` inline, igual que el resto del sitio (`ruta-estudio.html`, `index.html`, etc.), consistente con "páginas estáticas sin módulos compartidos"; identificar el artículo de MercadoLibre pendiente (bloqueado por su verificación anti-bot); videos reales para el Módulo 7 (no existen, es guía en texto/checklist únicamente); reconciliar con `v4/alineacion.py` si/cuando Diego tenga acceso a regenerarlo desde este entorno.
 
+### ✅ Almacenamiento automático en Nextcloud — reemplaza descarga/re-subida manual (12 de septiembre, 2026)
+
+Humberto (evaluador, con su propio servidor) instaló Nextcloud en un TrueNAS SCALE, expuesto vía Cloudflare Tunnel (sin puertos abiertos), con una cuenta de servicio de solo-WebDAV. Se construyó `api/subir-portafolio.js`, endpoint serverless que sube archivos vía WebDAV a `Portafolios/{Nombre_CURP}/{01-Registro|02-Alineacion|03-Evaluacion|04-Entrega}/`, verificando el `access_token` real de la sesión de Supabase antes de aceptar la subida (evita que un candidato sobreescriba la carpeta de otro).
+
+Los ~9 PDFs que el sitio genera (Autodiagnóstico, Acuse NDA, Acuse Tríptico en `autodiagnostico.html`; Plan de Evaluación y su Acuse en `plan-evaluacion.html`; los 4 de `documentos-sesion.html`; Encuesta en `encuesta-satisfaccion.html`) ya no se descargan directo — se generan y se suben automáticamente, con estado por documento (✅ Subido / ❌ No subido + reintento manual + descarga de respaldo). El Google Form de `evidencias.html` se retiró — se reemplazó por `<input type="file">` nativos para lo único que el sitio no genera: capturas de Zoom, INE, CURP, foto de diploma, certificados (opcional).
+
+**"Filtro" entre fases (bloqueo duro):** cada página gateada agrega una verificación más a su cadena de gates existente — no se puede avanzar a la siguiente fase hasta que los documentos de la fase anterior estén confirmados en Nextcloud: `alineacion.html` (exige Registro), `documentos-sesion.html` (exige Alineación), `encuesta-satisfaccion.html` (exige Documentos de Sesión), `evidencias.html` (exige Encuesta), `entrega.html` (exige Evidencias). El estado vive en el mismo JSONB que cada página ya sincronizaba (`documentosNextcloud: {clave: ruta}`), sin necesitar ninguna migración de esquema ni función RPC nueva — RLS ya permite a cada candidato leer su propia fila.
+
+**Variables de entorno en Vercel** (ya configuradas en Production y Preview): `NEXTCLOUD_URL`, `NEXTCLOUD_USERNAME`, `NEXTCLOUD_APP_PASSWORD`.
+
+**⚠️ Pendiente que Diego/Humberto confirmen:** `NEXTCLOUD_URL` se guardó como `https://nextcloud.paideiatech.net/login` — probablemente la URL de la pantalla de login del navegador, no el endpoint WebDAV real. El código la normaliza defensivamente, pero hay que confirmar la URL base correcta antes de dar por probada la integración con el Nextcloud real.
+
+**Fuera de alcance (documentado, no urgente):**
+- `assemble_expediente.py` (Python, hoy lee de Google Forms/Drive) — sigue igual; migrarlo a leer de este Nextcloud es un proyecto aparte.
+- El bucket de Supabase Storage `certificados-previos` (certificados de formación previa) — se queda como está, ya era automático.
+- Panel de administración con override manual si Nextcloud cae por horas — si hace falta, Diego edita el JSONB directo desde el Table Editor de Supabase, mismo mecanismo que ya usa para pagos manuales.
+
+Spec completo: `docs/superpowers/specs/2026-09-12-nextcloud-portafolio-storage-design.md`. Plan de implementación: `docs/superpowers/plans/2026-09-12-nextcloud-portafolio-storage.md`.
+
 ### 🔮 Backlog — no urgente, pero anotado para cuando escale a más candidatos
 
 1. ~~Autenticación por candidato~~ → ✅ implementada y en producción (Fase 1+2, ver arriba).
