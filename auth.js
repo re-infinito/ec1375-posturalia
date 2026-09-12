@@ -590,15 +590,23 @@ const Auth = {
             triptychAccepted: true,
             ndaAccepted: true, ndaSignedAt: nowIso,
             ndaSignatureDataUrl: null, ndaSignatureTypedName: 'Candidato de Prueba (Admin)', ndaSignatureMode: 'typed',
-            documentosNextcloud: {}
+            documentosNextcloud: {}, documentosDescargados: {}
         };
     },
 
-    /* Solo siembra si no hay nada guardado — nunca pisa avance real. */
+    /* Siembra SIEMPRE que la sesión sea de bypass — nunca condicionado a
+       "si no hay nada guardado". Ese chequeo original asumía que cualquier
+       dato ya presente en localStorage pertenecía a la sesión actual, pero
+       localStorage es del origen/navegador, no de la cuenta: en un
+       navegador que antes se usó para un candidato real (incluido un
+       autodiagnóstico de prueba de Diego), esos datos reales seguían ahí
+       y nunca se reemplazaban por el placeholder — el bypass terminaba
+       mostrando nombre/resultado/documentos de otra persona en vez del
+       "Candidato de Prueba (Admin)". Como esta función solo se llama tras
+       confirmar Auth._isBypassSession === true, sobrescribir siempre aquí
+       nunca pone en riesgo el progreso de un candidato real. */
     ensureAdminPlaceholderData() {
-        if (!localStorage.getItem('autodiagnosticoData')) {
-            localStorage.setItem('autodiagnosticoData', JSON.stringify(Auth.ADMIN_PLACEHOLDER_AUTODIAGNOSTICO()));
-        }
+        localStorage.setItem('autodiagnosticoData', JSON.stringify(Auth.ADMIN_PLACEHOLDER_AUTODIAGNOSTICO()));
     },
 
     /* Barra fija con links a las 8 páginas del flujo — llamada por cada
