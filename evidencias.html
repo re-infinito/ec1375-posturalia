@@ -149,25 +149,17 @@
     /* =========================================================
        CONFIG — pega aquí la URL de embed de tu Google Form
     ========================================================= */
-    const GOOGLE_FORM_EMBED_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSeI6K5YkxBnw_-ER8lHQNXk11AiujztXiyFnTHV2S0eJc0qxw/viewform?embedded=true';
-
     const EVIDENCIAS_REQUERIDAS = [
-        { icon: '📸', titulo: 'Capturas de tu sesión Zoom', desc: 'Fotos/capturas de pantalla que muestren tu sesión en vivo con el usuario. Se anexan directamente a tu expediente.', required: true },
+        { icon: '📸', titulo: 'Capturas de tu sesión Zoom', desc: 'Fotos/capturas de pantalla que muestren tu sesión en vivo con el usuario. Se suben directo a tu portafolio con el botón de abajo.', required: true },
         { icon: '🔗', titulo: 'Liga al video completo (YouTube u otra plataforma)', desc: 'Sube tu grabación completa a YouTube (puede ser \"oculto/no listado\") u otra plataforma, y pega la liga en el campo de abajo. Tu evaluador la revisa para calificar el Instrumento de Evaluación.', required: true, isLink: true },
-        { icon: '📋', titulo: 'Ficha de Registro de Atención', desc: 'PDF generado en "Documentos de Sesión" (ya no es una foto — llénalo digitalmente con la firma del usuario).', required: true },
-        { icon: '📝', titulo: 'Carta de Consentimiento Informado', desc: 'PDF generado en "Documentos de Sesión", con la firma digital del usuario.', required: true },
-        { icon: '📅', titulo: 'Plan de Sesión', desc: 'PDF generado en "Documentos de Sesión" — condiciones, número de sesiones y objetivos.', required: true },
-        { icon: '📆', titulo: 'Plan de Seguimiento', desc: 'PDF generado en "Documentos de Sesión" — contacto y sesiones programadas, con firma del usuario.', required: true },
         { icon: '🪪', titulo: 'Identificación oficial (INE/Pasaporte)', desc: 'Copia legible de tu identificación vigente, frente y reverso.', required: true },
         { icon: '📄', titulo: 'Comprobante CURP', desc: 'Constancia o copia de tu CURP.', required: true },
         { icon: '📸', titulo: 'Foto para tu diploma', desc: 'De frente, fondo blanco, sin texturas, formal y nítida (JPG, BMP o PNG). Mujeres: frente y orejas descubiertas, sin maquillaje ni aretes, blusa clara y lisa. Hombres: orejas descubiertas, pelo corto, sin barba/bigote, camisa clara y lisa. Sin retoques. No mayor a 2 meses de antigüedad.', required: true },
-        { icon: '🎓', titulo: 'Certificados / diplomas de formación', desc: 'Respaldo de las especialidades que marcaste en tu Autodiagnóstico.', required: false },
-        { icon: '📑', titulo: 'Tus 3 PDFs generados (Autodiagnóstico, Plan de Evaluación, Encuesta)', desc: 'Descarga los PDFs que ya generaste en pasos anteriores y súbelos aquí también — se integran directamente a tu expediente final.', required: true },
-        { icon: '✅', titulo: 'Acuse de Recibido — Tríptico', desc: 'Descárgalo desde la pantalla de resultado de tu Autodiagnóstico (botón "Descargar Acuse de Tríptico").', required: true },
-        { icon: '✅', titulo: 'Acuse de Recibido — Plan de Evaluación', desc: 'Descárgalo desde la pantalla final de tu Plan de Evaluación (botón "Descargar Acuse de Recibido").', required: true }
+        { icon: '🎓', titulo: 'Certificados / diplomas de formación', desc: 'Respaldo adicional de tus especialidades (opcional — ya capturaste lo principal en tu Autodiagnóstico).', required: false }
     ];
 
     let planData = { evidenciasConfirmadas: false, notas: '', videoLink: '' };
+    let documentosNextcloud = {};
     let signatureMode = 'draw';
     let signatureDataUrl = null;
     let signatureTypedName = '';
@@ -206,15 +198,85 @@
                 signatureTypedName = saved.signatureTypedName || '';
                 signatureMode = saved.signatureMode || 'draw';
                 hasSignature = !!signatureDataUrl;
+                documentosNextcloud = saved.documentosNextcloud || {};
             }
         } catch (e) {}
     }
 
     function saveProgress() {
-        const data = { planData, signatureDataUrl, signatureTypedName, signatureMode };
+        const data = { planData, signatureDataUrl, signatureTypedName, signatureMode, documentosNextcloud };
         localStorage.setItem('evidenciasData', JSON.stringify(data));
         const result = loadAutodiagnosticoResult();
         if (result) Auth.syncToSupabase('evidencias_data', data, result.personalData.curp, result.personalData.nombre);
+    }
+
+    function documentosFaseCompletos(jsonbData, requiredKeys) {
+        if (!jsonbData || !jsonbData.documentosNextcloud) return false;
+        return requiredKeys.every(key => {
+            const val = jsonbData.documentosNextcloud[key];
+            return Array.isArray(val) ? val.length > 0 : !!val;
+        });
+    }
+
+    async function subirDocumento(fase, filename, blob, nombre, curp) {
+        try {
+            const session = await Auth.getSession();
+            if (!session) return { success: false, error: 'Sin sesión activa' };
+            const fileBase64 = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result.split(',')[1]);
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+            });
+            const resp = await fetch('/api/subir-portafolio', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+                body: JSON.stringify({ email: session.user.email, fase, nombre, curp, filename, fileBase64 })
+            });
+            const data = await resp.json();
+            if (!resp.ok || !data.success) return { success: false, error: data.error || 'Error desconocido' };
+            return { success: true, path: data.path };
+        } catch (e) {
+            return { success: false, error: e.message || 'Error de red' };
+        }
+    }
+
+    function renderEstadoArchivo(key) {
+        const val = documentosNextcloud[key];
+        const count = Array.isArray(val) ? val.length : (val ? 1 : 0);
+        if (count === 0) return '';
+        return `<p style="color:var(--success);font-size:0.8rem;margin-top:6px;">✅ ${count} archivo${count > 1 ? 's' : ''} subido${count > 1 ? 's' : ''}</p>`;
+    }
+
+    async function handleFileUpload(key, fileList, esMultiple) {
+        const files = Array.from(fileList);
+        if (files.length === 0) return;
+        const result = loadAutodiagnosticoResult();
+        const pd = result.personalData;
+        const estadoId = 'estado' + key.charAt(0).toUpperCase() + key.slice(1);
+        const estadoEl = document.getElementById(estadoId);
+        if (estadoEl) estadoEl.innerHTML = '<p style="color:var(--text);font-size:0.8rem;">⏳ Subiendo...</p>';
+
+        if (esMultiple) {
+            if (!Array.isArray(documentosNextcloud[key])) documentosNextcloud[key] = [];
+            for (const file of files) {
+                const uniqueName = `${Date.now()}_${file.name}`;
+                const uploadResult = await subirDocumento('evaluacion', uniqueName, file, pd.nombre, pd.curp);
+                if (uploadResult.success) documentosNextcloud[key].push(uploadResult.path);
+            }
+        } else {
+            const file = files[0];
+            const uploadResult = await subirDocumento('evaluacion', file.name, file, pd.nombre, pd.curp);
+            if (uploadResult.success) {
+                documentosNextcloud[key] = uploadResult.path;
+            } else if (estadoEl) {
+                estadoEl.innerHTML = `<p style="color:var(--danger);font-size:0.8rem;">❌ ${escapeHtml(uploadResult.error || 'No se pudo subir')}</p>`;
+                return;
+            }
+        }
+        saveProgress();
+        if (estadoEl) estadoEl.innerHTML = renderEstadoArchivo(key);
+        updateGenerateButton();
     }
 
     function escapeHtml(str) {
@@ -257,6 +319,22 @@
             return;
         }
 
+        const filaCandidato = await Auth.pullMyRow();
+        const encuestaCompleta = documentosFaseCompletos(filaCandidato && filaCandidato.encuesta_data, ['encuesta']);
+        if (!encuestaCompleta) {
+            app.innerHTML = `
+                <div class="hero">
+                    <div class="hero-icon">📤</div>
+                    <h1 class="hero-title">Carga de Evidencias</h1>
+                    <p class="hero-subtitle">Falta un paso antes de continuar</p>
+                </div>
+                <div class="blocked-box">
+                    <p><strong>Falta tu Encuesta de Satisfacción por subir</strong><br>Vuelve a la Encuesta — ahí puedes reintentar la subida o descargarla para enviarla manualmente.</p>
+                    <a href="encuesta-satisfaccion.html" class="btn btn-primary">📝 Ir a mi Encuesta</a>
+                </div>`;
+            return;
+        }
+
         if (generated) { renderGeneratedState(app, result); return; }
 
         const plan = loadPlanEvaluacionInfo();
@@ -277,7 +355,7 @@
 
             <div class="card">
                 <h2>✅ Evidencias Requeridas</h2>
-                <p class="desc">Prepara estos archivos antes de subirlos en el formulario de abajo. ¿Aún no tienes la Ficha de Registro, Carta de Consentimiento, Plan de Sesión o Plan de Seguimiento? <a href="documentos-sesion.html" style="color:var(--primary);font-weight:600;">Llénalos digitalmente aquí →</a></p>
+                <p class="desc">Prepara estos archivos antes de subirlos en el formulario de abajo.</p>
                 ${EVIDENCIAS_REQUERIDAS.map(e => `
                     <div class="evidence-item">
                         <div class="evidence-icon">${e.icon}</div>
@@ -292,17 +370,33 @@
             </div>
 
             <div class="card">
-                <h2>📤 Formulario de Carga</h2>
-                <p class="desc">Sube tus archivos directamente aquí. Necesitas iniciar sesión con una cuenta de Google para subir archivos (requisito de Google Forms).</p>
-                ${GOOGLE_FORM_EMBED_URL ? `
-                    <iframe id="evidenceFrame" src="${GOOGLE_FORM_EMBED_URL}">Cargando…</iframe>
-                ` : `
-                    <div class="form-cta-box">
-                        <p style="color:var(--text-bright);font-weight:600;margin-bottom:10px;">El formulario de carga se está configurando</p>
-                        <p class="desc" style="margin-bottom:16px;">Mientras tanto, envía tus archivos directamente por WhatsApp:</p>
-                        <button class="btn btn-whatsapp" onclick="requestUploadViaWhatsApp()">📱 ENVIAR EVIDENCIAS POR WHATSAPP</button>
-                    </div>
-                `}
+                <h2>📤 Sube tus archivos</h2>
+                <p class="desc">Se guardan automáticamente en tu portafolio en cuanto los seleccionas.</p>
+                <div class="field-group">
+                    <label>📸 Capturas de tu sesión Zoom (puedes subir varias)</label>
+                    <input type="file" id="f_zoom" accept="image/*" multiple onchange="handleFileUpload('zoom', this.files, true)">
+                    <div id="estadoZoom">${renderEstadoArchivo('zoom')}</div>
+                </div>
+                <div class="field-group">
+                    <label>🪪 Identificación oficial (INE/Pasaporte)</label>
+                    <input type="file" id="f_ine" accept="image/*,application/pdf" onchange="handleFileUpload('ine', this.files, false)">
+                    <div id="estadoIne">${renderEstadoArchivo('ine')}</div>
+                </div>
+                <div class="field-group">
+                    <label>📄 Comprobante CURP</label>
+                    <input type="file" id="f_curp" accept="image/*,application/pdf" onchange="handleFileUpload('curp', this.files, false)">
+                    <div id="estadoCurp">${renderEstadoArchivo('curp')}</div>
+                </div>
+                <div class="field-group">
+                    <label>📸 Foto para tu diploma</label>
+                    <input type="file" id="f_fotoDiploma" accept="image/*" onchange="handleFileUpload('fotoDiploma', this.files, false)">
+                    <div id="estadoFotoDiploma">${renderEstadoArchivo('fotoDiploma')}</div>
+                </div>
+                <div class="field-group">
+                    <label>🎓 Certificados / diplomas de formación (opcional)</label>
+                    <input type="file" id="f_certificados" accept="image/*,application/pdf" multiple onchange="handleFileUpload('certificados', this.files, true)">
+                    <div id="estadoCertificados">${renderEstadoArchivo('certificados')}</div>
+                </div>
             </div>
 
             <div class="card">
@@ -357,6 +451,10 @@
         const hasVideoLink = planData.videoLink && planData.videoLink.trim().length > 5;
         const missing = [];
         if (!hasVideoLink) missing.push('liga a tu video de sesión');
+        if (!(Array.isArray(documentosNextcloud.zoom) && documentosNextcloud.zoom.length > 0)) missing.push('subir al menos una captura de tu sesión Zoom');
+        if (!documentosNextcloud.ine) missing.push('subir tu identificación oficial (INE)');
+        if (!documentosNextcloud.curp) missing.push('subir tu comprobante CURP');
+        if (!documentosNextcloud.fotoDiploma) missing.push('subir tu foto para el diploma');
         if (!planData.evidenciasConfirmadas) missing.push('marcar la casilla de confirmación');
         if (!hasSig) missing.push('proporcionar tu firma');
 
