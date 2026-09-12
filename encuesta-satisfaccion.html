@@ -234,6 +234,10 @@
 
     async function render() {
         const app = document.getElementById('app');
+        if (await Auth.isBypassSession()) {
+            Auth.ensureAdminPlaceholderData();
+            Auth.renderAdminBar();
+        }
         const result = loadAutodiagnosticoResult();
 
         if (!result) {
@@ -266,7 +270,7 @@
         }
 
         const filaCandidato = await Auth.pullMyRow();
-        const sesionCompleta = documentosFaseCompletos(filaCandidato && filaCandidato.documentos_sesion_data, ['ficha', 'consentimiento', 'plan_sesion', 'plan_seguimiento']);
+        const sesionCompleta = Auth._isBypassSession || documentosFaseCompletos(filaCandidato && filaCandidato.documentos_sesion_data, ['ficha', 'consentimiento', 'plan_sesion', 'plan_seguimiento']);
         if (!sesionCompleta) {
             app.innerHTML = `
                 <div class="hero">
