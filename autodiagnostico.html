@@ -1073,8 +1073,7 @@
         const isNombreComplete = personalData.nombre?.trim().length > 0;
         const isCurpComplete = personalData.curp?.trim().length > 0;
         const isDomicilioComplete = personalData.domicilio?.trim().length > 0;
-        const isEscolaridadComplete = sinCertificadosPrevios ||
-            (certificados.length > 0 && certificados.every(c => c.nombre && c.nombre.trim() && c.path));
+        const isEscolaridadComplete = sinCertificadosPrevios || certificadosCompletos();
         const isTelefonoComplete = personalData.telefonoCelular?.trim().length > 0;
         const isEmailComplete = personalData.email?.trim().length > 0;
         const isFechaComplete = personalData.fecha?.trim().length > 0;
@@ -1279,6 +1278,15 @@
             ? 'Sin certificaciones previas'
             : certificados.filter(c => c.nombre && c.nombre.trim()).map(c => c.nombre.trim()).join(', ');
         saveProgress();
+    }
+
+    // Ignora filas totalmente vacías (las agrega "+ Agregar otro certificado"
+    // y quedan sin tocar) — antes un .every() sobre TODAS las filas hacía que
+    // una fila vacía sobrante bloqueara el avance aunque ya hubiera un
+    // certificado completo y subido.
+    function certificadosCompletos() {
+        const noVacias = certificados.filter(c => (c.nombre && c.nombre.trim()) || c.path);
+        return noVacias.length > 0 && noVacias.every(c => c.nombre && c.nombre.trim() && c.path);
     }
 
     function rerenderCertificadosSection() {
@@ -1710,13 +1718,14 @@
             if (result.success) documentosNextcloud[key] = result.path;
         }
         saveProgress();
+        await Auth.flushSync();
     }
 
     async function reintentarSubidaRegistro(key) {
         const pd = personalData;
         const { blob, filename } = generatedDocsRegistro[key];
         const result = await subirDocumento('registro', filename, blob, pd.nombre, pd.curp);
-        if (result.success) { documentosNextcloud[key] = result.path; saveProgress(); }
+        if (result.success) { documentosNextcloud[key] = result.path; saveProgress(); await Auth.flushSync(); }
         await renderResultado(document.getElementById('app'));
     }
 
@@ -1815,28 +1824,15 @@
             </div>
 
             <div class="card">
-                <h2>📝 Versión Word (.doc)</h2>
-                <p style="margin-bottom: 16px; color: var(--text); font-size: 0.9rem;">Versión editable de tu Autodiagnóstico — es solo un respaldo local, no se sube automáticamente.</p>
-                <button class="btn btn-secondary btn-full" onclick="generateWord()">📝 Descargar Word (.doc)</button>
+                <h2>🎯 Siguiente Paso: Reforzamiento</h2>
+                <p style="margin-bottom: 16px; color: var(--text); font-size: 0.9rem;">Refuerza los temas donde marcaste "No" arriba, a tu ritmo — se enfoca automáticamente en tus brechas.</p>
+                <a href="reforzamiento.html" class="btn btn-primary btn-full" style="display:block; text-decoration:none;">🎯 IR A MI REFORZAMIENTO</a>
             </div>
 
             <div class="card">
-                <h2>📱 Envía tu resultado al equipo</h2>
-                <p style="margin-bottom: 12px; color: var(--text); font-size: 0.9rem;">Se abrirá WhatsApp con tu resumen. Adjunta el PDF que descargaste en el chat.</p>
-                <button class="btn btn-whatsapp btn-full" onclick="sendWhatsAppSummary()">📱 ENVIAR RESULTADO POR WHATSAPP</button>
-                <p class="whatsapp-note">Recuerda adjuntar tu PDF descargado en el chat de WhatsApp</p>
-            </div>
-
-            <div class="card">
-                <h2>📚 Ruta de Estudio</h2>
-                <p style="margin-bottom: 16px; color: var(--text); font-size: 0.9rem;">Curso interactivo, a tu ritmo, del EC1375 completo — se enfoca automáticamente en los reactivos que marcaste como "No" arriba.</p>
-                <a href="ruta-estudio.html" class="btn btn-secondary btn-full" style="display:block; text-decoration:none;">📚 IR A MI RUTA DE ESTUDIO</a>
-            </div>
-
-            <div class="card">
-                <h2>🎓 Siguiente Paso</h2>
-                <p style="margin-bottom: 16px; color: var(--text); font-size: 0.9rem;">Continúa con tu Alineación (Capacitación) — material y video de preparación antes de tu evaluación práctica.</p>
-                <a href="alineacion.html" class="btn btn-primary btn-full" style="display:block; text-decoration:none;">🎓 IR A MI ALINEACIÓN</a>
+                <h2>🎓 Después del Reforzamiento</h2>
+                <p style="margin-bottom: 16px; color: var(--text); font-size: 0.9rem;">Sigue con tu Alineación (Capacitación) — material y video de preparación antes de tu evaluación práctica.</p>
+                <a href="alineacion.html" class="btn btn-secondary btn-full" style="display:block; text-decoration:none;">🎓 Ir a mi Alineación</a>
             </div>
 
             <div class="card" style="text-align:center;">
@@ -1855,8 +1851,7 @@
             if (!personalData.nombre?.trim()) missing.push('Nombre completo');
             if (!personalData.curp?.trim()) missing.push('CURP');
             if (!personalData.domicilio?.trim()) missing.push('Domicilio');
-            const certificadosOk = sinCertificadosPrevios ||
-                (certificados.length > 0 && certificados.every(c => c.nombre && c.nombre.trim() && c.path));
+            const certificadosOk = sinCertificadosPrevios || certificadosCompletos();
             if (!certificadosOk) missing.push('Subir tus certificados de formación previa (o marcar que no tienes ninguno)');
             if (!personalData.telefonoCelular?.trim()) missing.push('Teléfono celular');
             if (!personalData.email?.trim()) missing.push('Correo electrónico');
@@ -1885,8 +1880,7 @@
             return Auth.hasSession();
         }
         if (step === 'personal') {
-            const certificadosOk = sinCertificadosPrevios ||
-                (certificados.length > 0 && certificados.every(c => c.nombre && c.nombre.trim() && c.path));
+            const certificadosOk = sinCertificadosPrevios || certificadosCompletos();
             return personalData.nombre && personalData.curp && personalData.domicilio &&
                    personalData.escolaridad && personalData.telefonoCelular && personalData.email &&
                    personalData.fecha && certificadosOk;
@@ -2129,92 +2123,6 @@
         }
 
         return { blob: doc.output('blob'), filename: `Acuse_Triptico_EC1375_${(pd.nombre || 'candidato').replace(/\s+/g, '_')}.pdf` };
-    }
-
-    /* =========================================================
-       WORD (.doc) GENERATION
-    ========================================================= */
-    function generateWord() {
-        const pd = personalData;
-        const score = calculateScore();
-
-        let bodyHtml = `
-            <h1 style="text-align:center;font-size:18pt;">AUTODIAGNÓSTICO EC1375</h1>
-            <p style="text-align:center;font-size:10pt;">Prestación de servicios auxiliares en la contribución tradicional y complementaria de la recuperación de las condiciones físicas y socioemocionales de las personas.</p>
-            <table border="1" cellpadding="6" style="width:100%;border-collapse:collapse;font-size:10pt;margin-top:14px;">
-                <tr><td><strong>Nombre completo</strong></td><td>${escapeHtml(pd.nombre)}</td></tr>
-                <tr><td><strong>CURP</strong></td><td>${escapeHtml(pd.curp)}</td></tr>
-                <tr><td><strong>Domicilio</strong></td><td>${escapeHtml(pd.domicilio)}</td></tr>
-                <tr><td><strong>Último grado de estudios</strong></td><td>${escapeHtml(pd.escolaridad)}</td></tr>
-                <tr><td><strong>Teléfono</strong></td><td>${escapeHtml(pd.telefonoCelular || pd.telefonoCasa)}</td></tr>
-                <tr><td><strong>Correo electrónico</strong></td><td>${escapeHtml(pd.email)}</td></tr>
-                <tr><td><strong>Fecha de aplicación</strong></td><td>${escapeHtml(pd.fecha)}</td></tr>
-            </table>
-        `;
-
-        AUTODIAGNOSTICO_DATA.forEach(elemento => {
-            bodyHtml += `<h2 style="background:#0088FF;color:#fff;padding:6px;font-size:12pt;margin-top:20px;">ELEMENTO ${elemento.elemento} DE 4</h2>`;
-            bodyHtml += `<p style="font-style:italic;font-size:9pt;">${escapeHtml(elemento.titulo)}</p>`;
-
-            elemento.categorias.forEach((categoria, cIdx) => {
-                bodyHtml += `<table border="1" cellpadding="5" style="width:100%;border-collapse:collapse;font-size:9pt;margin-bottom:8px;">
-                    <tr style="background:#0f1428;color:#fff;"><th style="width:75%;text-align:left;">${categoria.tipo}</th><th>SI</th><th>NO</th></tr>`;
-                categoria.grupos.forEach((grupo, gIdx) => {
-                    bodyHtml += `<tr style="background:#ebebeb;"><td colspan="3"><strong>${escapeHtml(grupo.titulo)}</strong></td></tr>`;
-                    grupo.items.forEach((item, iIdx) => {
-                        const id = `e${elemento.elemento}_c${cIdx}_g${gIdx}_i${iIdx}`;
-                        const answer = answers[id];
-                        bodyHtml += `<tr><td>${escapeHtml(item)}</td><td style="text-align:center;">${answer === 'SI' ? 'X' : ''}</td><td style="text-align:center;">${answer === 'NO' ? 'X' : ''}</td></tr>`;
-                    });
-                });
-                bodyHtml += `</table>`;
-            });
-        });
-
-        bodyHtml += `
-            <h2 style="margin-top:20px;font-size:12pt;">RESULTADO DEL AUTODIAGNÓSTICO</h2>
-            <p>Respuestas afirmativas (SI): <strong>${score.si} de ${score.total}</strong></p>
-            <p>Respuestas negativas (NO): <strong>${score.no} de ${score.total}</strong></p>
-            <p>Porcentaje obtenido: <strong>${score.percentage}%</strong></p>
-            <p>Recomendación: <strong>${score.percentage >= 90 ? 'PROCEDE A EVALUARSE' : 'SE SUGIERE ASESORARSE PREVIAMENTE'}</strong></p>
-            <p style="margin-top:20px;">Firma del candidato/a: ${signatureMode === 'type' && signatureTypedName ? `<em>${escapeHtml(signatureTypedName)}</em>` : (signatureDataUrl ? `<br><img src="${signatureDataUrl}" style="width:180px;">` : '____________________')}</p>
-        `;
-
-        const preHtml = "<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Autodiagnóstico EC1375</title></head><body>";
-        const postHtml = "</body></html>";
-        const fullHtml = preHtml + bodyHtml + postHtml;
-
-        const blob = new Blob(['﻿', fullHtml], { type: 'application/msword' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `Autodiagnostico_EC1375_${(pd.nombre || 'candidato').replace(/\s+/g, '_')}.doc`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-    }
-
-    /* =========================================================
-       WHATSAPP SUMMARY
-    ========================================================= */
-    function sendWhatsAppSummary() {
-        const pd = personalData;
-        const score = calculateScore();
-        const quiz = JSON.parse(localStorage.getItem('quizResponses') || '{}');
-        const specialty = quiz.specialty || 'terapia';
-        const resultado = score.percentage >= 90 ? 'LISTO PARA EVALUARSE ✅' : 'NECESITA ASESORÍA PREVIA 📚';
-
-        const message = encodeURIComponent(
-            `Hola, terminé mi Autodiagnóstico EC1375.\n\n` +
-            `Nombre: ${pd.nombre}\n` +
-            `Especialidad: ${specialty}\n` +
-            `Resultado: ${score.si}/${score.total} reactivos (${score.percentage}%)\n` +
-            `Recomendación: ${resultado}\n\n` +
-            `Adjunto mi PDF con las respuestas completas.`
-        );
-
-        window.open(`https://wa.me/528115026729?text=${message}`, '_blank');
     }
 
     /* =========================================================

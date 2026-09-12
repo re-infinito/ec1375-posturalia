@@ -43,28 +43,47 @@ const Auth = {
 
     /* Debounced, best-effort upsert — nunca bloquea ni lanza al candidato:
        si no hay sesión o falla la red, se ignora en silencio (localStorage
-       ya se escribió antes de llamar a esto, siempre). */
+       ya se escribió antes de llamar a esto, siempre). Guarda el último
+       payload en _pendingSync para que flushSync() pueda forzar el envío
+       inmediato (ver abajo). */
     syncToSupabase(column, data, curp, nombre) {
         clearTimeout(Auth._syncTimer);
-        Auth._syncTimer = setTimeout(async () => {
-            try {
-                const session = await Auth.getSession();
-                if (!session) return;
-                const row = {
-                    user_id: session.user.id,
-                    curp: (curp || '').trim().toUpperCase(),
-                    [column]: data,
-                    updated_at: new Date().toISOString()
-                };
-                if (nombre) row.nombre = nombre;
-                const { error } = await supabaseClient
-                    .from('candidatos_ec1375')
-                    .upsert(row, { onConflict: 'user_id' });
-                if (error) console.warn('Supabase sync falló (progreso local sigue intacto):', error);
-            } catch (e) {
-                console.warn('Supabase sync falló (progreso local sigue intacto):', e);
-            }
-        }, 800);
+        Auth._pendingSync = { column, data, curp, nombre };
+        Auth._syncTimer = setTimeout(() => { Auth._flushPendingSync(); }, 800);
+    },
+
+    async _flushPendingSync() {
+        clearTimeout(Auth._syncTimer);
+        const pending = Auth._pendingSync;
+        if (!pending) return;
+        Auth._pendingSync = null;
+        try {
+            const session = await Auth.getSession();
+            if (!session) return;
+            const row = {
+                user_id: session.user.id,
+                curp: (pending.curp || '').trim().toUpperCase(),
+                [pending.column]: pending.data,
+                updated_at: new Date().toISOString()
+            };
+            if (pending.nombre) row.nombre = pending.nombre;
+            const { error } = await supabaseClient
+                .from('candidatos_ec1375')
+                .upsert(row, { onConflict: 'user_id' });
+            if (error) console.warn('Supabase sync falló (progreso local sigue intacto):', error);
+        } catch (e) {
+            console.warn('Supabase sync falló (progreso local sigue intacto):', e);
+        }
+    },
+
+    /* Fuerza el envío inmediato de cualquier sync pendiente, sin esperar
+       los 800ms del debounce. Usar antes de dejar que el candidato navegue
+       a la siguiente página cuando lo que se acaba de guardar (ej. el
+       estado de subida a Nextcloud) debe estar en Supabase ANTES de que
+       esa siguiente página lo lea — si no, el debounce puede perderse
+       porque la pestaña se descarga antes de que el timeout dispare. */
+    async flushSync() {
+        await Auth._flushPendingSync();
     },
 
     /* Lee la fila del candidato autenticado (RLS ya la limita a la propia). */

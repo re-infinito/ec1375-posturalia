@@ -4338,6 +4338,12 @@ window.EC1375.version='4.4';
     } catch (e) { return null; }
   }
 
+  /* boot=remedial|library|practice — arranca directo en esa vista, sin
+     pestañas, para las páginas nuevas reforzamiento.html/biblioteca.html/
+     practica.html (ver abajo). null = comportamiento de dashboard de
+     siempre, por si algún link viejo apunta aquí sin parámetro. */
+  var boot = new URLSearchParams(location.search).get('boot');
+
   var result = loadAutodiagnosticoResult();
   if (!result || !result.completo) {
     blockedScreen('📋', 'Primero completa tu Autodiagnóstico',
@@ -4397,7 +4403,60 @@ window.EC1375.version='4.4';
     asistida: 'evaluacion', 'asistida-empezar': 'evaluacion' };
   var FASE_DESTINO = { alineacion: 'alineacion.html', evaluacion: 'documentos-sesion.html' };
 
+  /* La Biblioteca (boot=library) vive dentro de la fase Alineación, y la
+     Práctica (boot=practice) se movió al final del proceso — después de
+     Documentos de Sesión — así que exige la fase Evaluación ya pagada. */
+  if (boot === 'library' && !fasePagada.alineacion) {
+    blockedScreen('🔒', 'Primero completa tu pago de Alineación',
+      'La biblioteca es material de estudio de la fase de Alineación.',
+      'alineacion.html', '🎓 Ir a mi Alineación');
+    return;
+  }
+  if (boot === 'practice' && !fasePagada.evaluacion) {
+    blockedScreen('🔒', 'Primero completa tus Documentos de Sesión',
+      'La Práctica final se habilita después de tu Evaluación (Documentos de Sesión y video).',
+      'documentos-sesion.html', '📋 Ir a mis Documentos de Sesión');
+    return;
+  }
+
   window.EC1375_CANDIDATE_STATE = priorState || { answeredYes: answeredYes, answeredNo: answeredNo };
+  /* boot=practice: la Alineación real que el candidato ya hizo vivió en
+     ruta-alineacion.html (fuera de este motor), así que S.alignment.completed
+     —que el motor calcula sobre SU PROPIA ruta interna de diapositivas—
+     nunca se vuelve true por sí solo y bloquearía gate('practice') para
+     siempre. Se precargan como "vistas" las mismas diapositivas 'core' que
+     esa compuerta exige, para que el candidato no tenga que recorrer dos
+     veces el mismo contenido de alineación. El resto de las compuertas del
+     motor (incluida `d.approved`, el visto bueno del Reforzamiento) se
+     mantienen intactas — NO se apagan, para no abrir un salto desde el
+     stepper/nav hacia secciones que sí requieren su propio candado. */
+  if (boot === 'practice' && window.EC1375_DATA && window.EC1375_DATA.slides) {
+    var coreSids = window.EC1375_DATA.slides
+      .filter(function(m){ return m.core; })
+      .map(function(m){ return m.sid; });
+    /* alineacionCompleta() (dentro del motor) exige TANTO completedSlides
+       como que cada video 'required' asociado a una diapositiva core esté
+       en S.media.completed — si solo se precargan las diapositivas, el
+       gate sigue bloqueado por los videos que nunca se "vieron" en este
+       motor. Se replica aquí la misma consulta que hace mediosObligatorios()
+       (D.mediaBySid + EC1375_MEDIA[id].required), ambos ya globales antes
+       de que el motor arranque. */
+    var mediaBySid = window.EC1375_DATA.mediaBySid || {};
+    var MEDIA_MAP = window.EC1375_MEDIA || {};
+    var requiredVideoIds = [];
+    coreSids.forEach(function(sid){
+      (mediaBySid[sid] || []).forEach(function(id){
+        var m = MEDIA_MAP[id];
+        if (m && m.required && requiredVideoIds.indexOf(id) < 0) requiredVideoIds.push(id);
+      });
+    });
+    var st = window.EC1375_CANDIDATE_STATE;
+    st.alignment = Object.assign({}, st.alignment, {
+      started: true, completed: true,
+      completedSlides: coreSids, requiredSlides: coreSids
+    });
+    st.media = Object.assign({}, st.media, { completed: requiredVideoIds });
+  }
   window.EC1375Bridge = {
     load: function(){ return window.EC1375_CANDIDATE_STATE; },
     save: function(state){
@@ -4413,7 +4472,57 @@ window.EC1375.version='4.4';
     document.body.appendChild(s);
     engineTag.remove();
   }
+  /* Las compuertas internas del motor (gate()) se dejan encendidas incluso
+     en modo boot — son lo único que protege contra un candidato que le da
+     clic al stepper o a un botón interno (data-go="centro"/"final"/etc.)
+     para saltar a una sección que no le toca todavía. Lo único que se
+     resolvió arriba fue la ÚNICA condición que ya no puede cumplirse sola
+     con el nuevo orden (S.alignment.completed de boot=practice); todo lo
+     demás sigue exactamente como el motor lo exige. */
   window.EC1375.configure({ mode: 'integrated', returnTarget: 'alineacion.html' });
+
+  if (boot) {
+    /* boot=remedial arranca en la pantalla de resultado del autodiagnóstico
+       (enterDiagnostic → pintaDx, que internamente decide 'intro' o
+       'resultado' según S.diagnostic.approved) y NO directo en el slideshow
+       remedial (EC1375.open('remedial')) — ese slideshow no incluye el
+       botón de visto bueno, que vive únicamente en la pantalla de
+       resultado. Sin pasar por ahí, S.diagnostic.approved nunca se vuelve
+       true y bloquea Alineación/Práctica más adelante para siempre. Desde
+       el resultado, el candidato ve su lista de brechas y entra al
+       slideshow por su cuenta (o directo con el botón "Empezar"/"Continuar
+       donde iba" si su autodiagnóstico original no estaba
+       completo, aunque en este punto del flujo real siempre lo está). */
+    var openResult = boot === 'remedial'
+      ? window.EC1375.enterDiagnostic()
+      : window.EC1375.open(boot);
+    /* Si el motor bloqueó la vista (ej. boot=practice sin haber dado el
+       visto bueno en Reforzamiento todavía), NO dejar la pantalla a medias
+       con el fallback del motor (que muestra el Autodiagnóstico, confuso
+       en esta URL) ni con el botón "Siguiente" habilitado como si sí se
+       pudiera avanzar — se reemplaza toda la página con un blockedScreen
+       claro que manda al paso que de verdad falta. */
+    if (openResult && openResult.blocked) {
+      var REMEDIO = {
+        vobo_required: { icon:'✋', title:'Primero da tu visto bueno',
+          msg:'Antes de tu Práctica necesitas revisar el resultado de tu Autodiagnóstico y dar tu visto bueno en Reforzamiento.',
+          href:'reforzamiento.html', label:'🎯 Ir a mi Reforzamiento' },
+        alignment_required: { icon:'🎓', title:'Primero termina tu Alineación',
+          msg:'Este paso requiere que hayas completado tu Alineación.',
+          href:'alineacion.html', label:'🎓 Ir a mi Alineación' },
+        diagnostic_required: { icon:'📋', title:'Primero completa tu Autodiagnóstico',
+          msg:'Este paso usa tus respuestas del Autodiagnóstico.',
+          href:'autodiagnostico.html', label:'📋 Ir a mi Autodiagnóstico' }
+      };
+      var r = REMEDIO[openResult.reason] || { icon:'🔒', title:'Todavía no puedes entrar aquí',
+        msg:'Completa el paso anterior primero.', href:'alineacion.html', label:'Volver' };
+      blockedScreen(r.icon, r.title, r.msg, r.href, r.label);
+      return;
+    }
+    var hideNav = document.createElement('style');
+    hideNav.textContent = 'nav.rutas{display:none!important}#stepper{display:none!important}';
+    document.head.appendChild(hideNav);
+  }
 
   /* Captura (no burbuja) para adelantarse siempre al listener de clics del
      motor, sin importar el orden de registro — así se bloquea el salto de
@@ -4421,7 +4530,18 @@ window.EC1375.version='4.4';
   document.addEventListener('click', function(e){
     var t = e.target.closest('[data-go]');
     if (!t) return;
-    var fase = FASE_REQUERIDA[t.getAttribute('data-go')];
+    var go = t.getAttribute('data-go');
+    /* boot=practice ya no usa la Evaluación final interna del motor — ese
+       lugar lo ocupa examen-conocimientos.html (37 reactivos, página
+       aparte) — así que el botón "Ir a la evaluación" que pinta el motor
+       al terminar la Práctica se redirige ahí en vez de abrir su propia
+       vista final. */
+    if (boot === 'practice' && go === 'final') {
+      e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
+      Auth.flushSync().then(function(){ window.location.href = 'examen-conocimientos.html'; });
+      return;
+    }
+    var fase = FASE_REQUERIDA[go];
     if (fase && !fasePagada[fase]) {
       e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
       window.location.href = FASE_DESTINO[fase];
@@ -4436,9 +4556,36 @@ window.EC1375.version='4.4';
   if (actions) {
     var exitLink = document.createElement('a');
     exitLink.className = 'tbtn';
-    exitLink.href = 'alineacion.html';
+    exitLink.href = boot === 'practice' ? 'documentos-sesion.html' : 'alineacion.html';
     exitLink.innerHTML = '<span class="lbl">← Volver</span>';
     actions.insertBefore(exitLink, actions.firstChild);
+
+    /* Siguiente lleva href normal (funciona sin JS / clic derecho para
+       abrir en pestaña nueva), pero el click real espera flushSync() antes
+       de navegar — si no, el vobo/progreso que se acaba de guardar puede
+       perderse en el debounce de 800ms si el candidato navega de inmediato
+       (el mismo bug que ya se corrigió para los documentos subidos). */
+    if (boot === 'remedial' || boot === 'library') {
+      var nextLink = document.createElement('a');
+      nextLink.className = 'tbtn';
+      nextLink.href = 'alineacion.html';
+      nextLink.innerHTML = '<span class="lbl">Siguiente: Alineación →</span>';
+      nextLink.addEventListener('click', function(e){
+        e.preventDefault();
+        Auth.flushSync().then(function(){ window.location.href = 'alineacion.html'; });
+      });
+      actions.appendChild(nextLink);
+    } else if (boot === 'practice') {
+      var nextLink2 = document.createElement('a');
+      nextLink2.className = 'tbtn';
+      nextLink2.href = 'examen-conocimientos.html';
+      nextLink2.innerHTML = '<span class="lbl">Siguiente: Examen →</span>';
+      nextLink2.addEventListener('click', function(e){
+        e.preventDefault();
+        Auth.flushSync().then(function(){ window.location.href = 'examen-conocimientos.html'; });
+      });
+      actions.appendChild(nextLink2);
+    }
   }
 })();
 </script>

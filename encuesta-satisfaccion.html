@@ -197,6 +197,7 @@
         const uploadResult = await subirDocumento('evaluacion', filename, blob, pd.nombre, pd.curp);
         if (uploadResult.success) documentosNextcloud.encuesta = uploadResult.path;
         saveProgress();
+        await Auth.flushSync();
     }
 
     async function reintentarSubidaEncuesta(key) {

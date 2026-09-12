@@ -420,6 +420,7 @@
             if (uploadResult.success) documentosNextcloud[key] = uploadResult.path;
         }
         saveProgress();
+        await Auth.flushSync();
     }
 
     async function reintentarSubidaSesion(key) {
@@ -427,7 +428,7 @@
         const pd = result.personalData;
         const { blob, filename } = generatedPdfs[key];
         const uploadResult = await subirDocumento('evaluacion', filename, blob, pd.nombre, pd.curp);
-        if (uploadResult.success) { documentosNextcloud[key] = uploadResult.path; saveProgress(); }
+        if (uploadResult.success) { documentosNextcloud[key] = uploadResult.path; saveProgress(); await Auth.flushSync(); }
         await renderResultado(document.getElementById('app'), result);
     }
 
@@ -651,6 +652,7 @@
                     ${montoTxt ? `<div class="monto">${montoTxt}</div>` : ''}
                     <button id="btnPagarEvaluacion" class="btn btn-primary btn-full" style="margin-top:16px;" onclick="pagarFaseEvaluacion()">💳 Pagar Evaluación</button>
                     <p style="font-size:0.8rem;color:rgba(255,255,255,0.5);">¿Dudas? <a href="https://wa.me/528115026729" style="color:var(--primary);" target="_blank">Escríbenos por WhatsApp</a></p>
+                    <p style="font-size:0.75rem;color:rgba(255,255,255,0.45);margin-top:10px;">⚠️ Una vez realizado cualquier pago o anticipo, no aplican reembolsos — salvo que la causa sea responsabilidad del Centro Evaluador.</p>
                 </div>
                 ${renderTransferenciaCard(monto)}`;
             return;
@@ -1453,7 +1455,7 @@ const LOGO_CONOCER_BASE64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAA
                 ${docs.map(d => renderEstadoDoc(d.key, d.label)).join('')}
             </div>
             <div class="card" style="text-align:center;margin-top:20px;">
-                <a href="encuesta-satisfaccion.html" class="btn btn-primary btn-full" style="display:block;text-decoration:none;margin-bottom:14px;">📝 Siguiente: Encuesta de Satisfacción →</a>
+                <a href="practica.html" class="btn btn-primary btn-full" style="display:block;text-decoration:none;margin-bottom:14px;">🎯 Siguiente: Práctica →</a>
                 <a href="plan-evaluacion.html" style="color:var(--primary);text-decoration:none;font-size:0.9rem;">← Volver a mi Plan de Evaluación</a>
             </div>
         `;
