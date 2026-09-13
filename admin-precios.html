@@ -301,7 +301,6 @@
         const filasOriginales = candidatos.concat(emailsConPagoSinPrecio.map(email => ({ email, _sinPrecio: true })));
         const filas = aplicarFiltros(filasOriginales);
         const stats = calcularEstadisticas(filasOriginales);
-        console.log('Stats:', stats, 'Filas originales:', filasOriginales.length);
         const rowsHtml = filas.map(c => {
             const prefix = `row_${btoa(c.email).replace(/=/g, '')}`;
             const fasesOrigen = pagosPorEmail[c.email] || {};
@@ -374,12 +373,9 @@
             </div>
             <div class="card">
                 <h2>💰 Candidatos (${filas.length})</h2>
-                <div style="background:rgba(0,136,255,0.08);padding:10px;border-radius:6px;margin-bottom:12px;font-size:0.7rem;">
-                    ✅ Activos: ${stats.activos} | ❌ Desistieron: ${stats.desistieron} | 🔄 Cambio lote: ${stats.cambioLote} | 💰 Proyectado: $${stats.proyectado.toLocaleString('es-MX')} | 💸 Realizado: $${stats.realizado.toLocaleString('es-MX')}
-                </div>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
                     <input type="text" id="filtroBusqueda" placeholder="🔍 Buscar nombre/email..." style="padding:7px;background:var(--dark);border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:var(--text-bright);font-size:0.75rem;" oninput="filtroBusqueda = this.value.toLowerCase(); renderPanel()">
-                    <select id="filtroEstado" style="padding:7px;background:var(--dark);border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:var(--text-bright);font-size:0.75rem;" onchange="filtroEstado = this.value; renderPanel()"><option value="">🎯 Todos</option><option value="activo">Activo</option><option value="desistió">Desistió</option><option value="cambio_lote">Cambio lote</option></select>
+                    <select id="filtroEstado" style="padding:7px;background:var(--dark);border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:var(--text-bright);font-size:0.75rem;" onchange="filtroEstado = this.value; renderPanel()"><option value="">🎯 Todos</option><option value="activo">✅ Activo</option><option value="desistió">❌ Desistió</option><option value="cambio_lote">🔄 Cambio lote</option></select>
                 </div>
 
                 <p style="font-size:0.78rem;color:rgba(255,255,255,0.45);margin-bottom:14px;">💳 = pagada por Mercado Pago · ✋ = liberada a mano · clic en una fase para liberarla o revocarla · el nombre se llena solo en cuanto el candidato hace su Autodiagnóstico</p>
