@@ -4541,6 +4541,19 @@ window.EC1375.version='4.4';
       Auth.flushSync().then(function(){ window.location.href = 'examen-conocimientos.html'; });
       return;
     }
+    /* "Ir a mi alineación" (stepper y pantalla de resultado del
+       Reforzamiento) abre la Alineación PROPIA del motor — 45 pantallas
+       internas con la marca vieja, contenido que ruta-alineacion.html (57
+       pantallas, videos reales, marca actual) ya sustituyó. Se redirige
+       SIEMPRE a alineacion.html, sin importar si la fase ya está pagada
+       (el chequeo de abajo solo bloquea cuando falta pagar) — un solo
+       acceso a la Alineación en todo el sitio, en vez de dos rutas
+       duplicadas con contenido distinto. */
+    if (go === 'ali') {
+      e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
+      Auth.flushSync().then(function(){ window.location.href = 'alineacion.html'; });
+      return;
+    }
     var fase = FASE_REQUERIDA[go];
     if (fase && !fasePagada[fase]) {
       e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
@@ -4559,6 +4572,20 @@ window.EC1375.version='4.4';
     exitLink.href = boot === 'practice' ? 'documentos-sesion.html' : 'alineacion.html';
     exitLink.innerHTML = '<span class="lbl">← Volver</span>';
     actions.insertBefore(exitLink, actions.firstChild);
+
+    /* La Biblioteca (este motor, 121 pantallas) es para buscar/consultar
+       un tema puntual — no tiene los videos reales ni el Módulo 7 "Tu
+       video práctico" que sí tiene ruta-alineacion.html (57 pantallas).
+       Se agrega una liga directa y visible desde el arranque de la
+       Biblioteca para que profundizar en el contenido completo con
+       video no dependa de adivinar que existe otra página. */
+    if (boot === 'library') {
+      var fullLink = document.createElement('a');
+      fullLink.className = 'tbtn';
+      fullLink.href = 'ruta-alineacion.html';
+      fullLink.innerHTML = '<span class="lbl">🎓 Ruta de Alineación completa (con video)</span>';
+      actions.insertBefore(fullLink, exitLink.nextSibling);
+    }
 
     /* Siguiente lleva href normal (funciona sin JS / clic derecho para
        abrir en pestaña nueva), pero el click real espera flushSync() antes
