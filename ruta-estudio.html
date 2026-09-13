@@ -4468,7 +4468,28 @@ window.EC1375.version='4.4';
   var engineTag = document.getElementById('ec1375-engine');
   if (engineTag) {
     var s = document.createElement('script');
-    s.textContent = engineTag.textContent;
+    var engineSrc = engineTag.textContent;
+    /* Expone irReforzamiento() (privada al motor) como
+       EC1375.enterReinforcement() — es la única función del motor que de
+       verdad decide 'intro' vs 'resultado' al entrar a Reforzamiento según
+       si el Autodiagnóstico original (S.diagnosticOriginal.completed) ya
+       está completo. enterDiagnostic() (la única alternativa pública) usa
+       irDx(), que deja dxModo en su valor por default ('intro') sin
+       revisar diagnosticOriginal.completed en absoluto — por eso boot=
+       remedial mandaba al candidato a "volver a llenar" su autodiagnóstico
+       aunque ya estuviera 100% contestado (142/142) y cerrado con llave.
+       No se toca el <script type="text/plain"> fuente (se regenera
+       externamente, ver comentario de arriba) — solo se parchea el string
+       ya en memoria, justo antes de inyectarlo. Si el ancla no aparece
+       (motor regenerado con otro texto), el replace no hace nada y
+       enterReinforcement queda undefined — el llamador de abajo cae de
+       vuelta a enterDiagnostic() en vez de tronar. */
+    var anchorEnterDx = 'enterDiagnostic:function(){ irDx(); return {ok:true}; },';
+    if (engineSrc.indexOf(anchorEnterDx) !== -1) {
+      engineSrc = engineSrc.replace(anchorEnterDx,
+        anchorEnterDx + ' enterReinforcement:function(){ return irReforzamiento(); },');
+    }
+    s.textContent = engineSrc;
     document.body.appendChild(s);
     engineTag.remove();
   }
@@ -4494,7 +4515,7 @@ window.EC1375.version='4.4';
        donde iba" si su autodiagnóstico original no estaba
        completo, aunque en este punto del flujo real siempre lo está). */
     var openResult = boot === 'remedial'
-      ? window.EC1375.enterDiagnostic()
+      ? (window.EC1375.enterReinforcement ? window.EC1375.enterReinforcement() : window.EC1375.enterDiagnostic())
       : window.EC1375.open(boot);
     /* Si el motor bloqueó la vista (ej. boot=practice sin haber dado el
        visto bueno en Reforzamiento todavía), NO dejar la pantalla a medias
