@@ -6,6 +6,7 @@
     <title>Iniciar sesión - EC1375 Paideia Tech</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="auth.js"></script>
+    <script src="flow-status.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         :root {
@@ -59,14 +60,6 @@
     <div class="container" id="app"></div>
 
     <script>
-    const STEP_LINKS = {
-        autodiagnosticoData: { label: '📋 Autodiagnóstico', href: 'autodiagnostico.html' },
-        planEvaluacionData: { label: '📅 Plan de Evaluación', href: 'plan-evaluacion.html' },
-        documentosSesionData: { label: '📋 Documentos de Sesión', href: 'documentos-sesion.html' },
-        encuestaSatisfaccionData: { label: '📝 Encuesta de Satisfacción', href: 'encuesta-satisfaccion.html' },
-        evidenciasData: { label: '📤 Evidencias', href: 'evidencias.html' }
-    };
-
     function render() {
         document.getElementById('app').innerHTML = `
             <div class="hero">
@@ -84,26 +77,40 @@
         if (await Auth.isBypassSession()) {
             Auth.ensureAdminPlaceholderData();
             Auth.renderAdminBar();
-            container.innerHTML = `<p class="msg success">✅ Sesión de administrador iniciada. Usa la barra de arriba para navegar cualquier página del flujo.</p>`;
-            return;
         }
         container.innerHTML = `<p class="spinner">Cargando tu progreso...</p>`;
         const row = await Auth.pullMyRow();
-        const restored = Auth.restoreLocalStorageFromRow(row);
-
-        if (restored.length === 0) {
-            container.innerHTML = `
-                <p class="msg success">✅ Sesión iniciada. Aún no tienes avance guardado.</p>
-                <a href="autodiagnostico.html" class="btn btn-primary btn-full" style="text-decoration:none;margin-top:14px;">📋 Ir al Autodiagnóstico →</a>
-            `;
-            return;
-        }
+        const nombre = row && row.nombre ? row.nombre : 'candidato/a';
+        const steps = await FlowStatus.getSteps();
 
         container.innerHTML = `
-            <p class="msg success">✅ ¡Listo, ${escapeHtml(row.nombre || 'candidato/a')}! Recuperamos tu avance en este dispositivo.</p>
-            <p style="font-size:0.85rem;margin-top:14px;margin-bottom:10px;">Continúa donde quieras:</p>
-            ${restored.map(key => `<a href="${STEP_LINKS[key].href}" class="btn btn-primary btn-full" style="text-decoration:none;margin-bottom:10px;">${STEP_LINKS[key].label} →</a>`).join('')}
+            <p class="msg success">✅ ¡Hola, ${escapeHtml(nombre)}! Así va tu proceso:</p>
+            <div style="margin-top:16px;">
+                ${steps.map(renderDashboardStep).join('')}
+            </div>
         `;
+    }
+
+    function renderDashboardStep(step) {
+        if (step.done) {
+            return `<div style="display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.08);">
+                <span style="color:var(--success);font-size:1.2rem;">✓</span>
+                <a href="${step.href}" style="color:var(--text-bright);text-decoration:none;flex:1;">${step.label}</a>
+            </div>`;
+        }
+        if (step.locked) {
+            const msg = step.reason === 'esperando_evaluador'
+                ? 'Esperando el resultado de tu evaluador'
+                : 'Completa el paso anterior primero';
+            return `<div style="display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.08);opacity:0.5;">
+                <span style="font-size:1.2rem;">🔒</span>
+                <span style="flex:1;">${step.label} — <em style="font-size:0.85rem;">${msg}</em></span>
+            </div>`;
+        }
+        return `<div style="display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.08);">
+            <span style="color:var(--primary);font-size:1.2rem;">▶</span>
+            <a href="${step.href}" class="btn btn-primary" style="text-decoration:none;flex:1;text-align:left;padding:10px 14px;">${step.label} →</a>
+        </div>`;
     }
 
     function escapeHtml(str) {
