@@ -1142,6 +1142,8 @@ const AUTODIAGNOSTICO_DATA = [
             theme: 'plain',
             styles: { fontSize: 9, cellPadding: 1.5 },
             body: [
+                ['Evaluadora:', ''],
+                ['Centro de Evaluación:', ''],
                 ['Candidato/a:', pd.nombre || ''],
                 ['Especialidad:', pd.escolaridad || ''],
                 ['Resultado del Diagnóstico:', `${result.si}/${result.total} (${result.percentage}%)`],
@@ -1190,7 +1192,26 @@ const AUTODIAGNOSTICO_DATA = [
         y = doc.lastAutoTable.finalY + 10;
         if (y > 250) { doc.addPage(); addOfficialLogos(doc); y = 30; }
 
-        if (y > 240) { doc.addPage(); y = 15; }
+        if (y > 220) { doc.addPage(); addOfficialLogos(doc); y = 30; }
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'bold');
+        doc.text('Criterios para obtener juicio de competente', 14, y);
+        y += 7;
+        doc.setFontSize(8.5);
+        [
+            ['Primer criterio:', 'La suma total del peso relativo a los reactivos del IEC que se aplique sea igual o mayor al mínimo establecido por el estándar de competencia.'],
+            ['Segundo criterio:', 'Existe al menos un reactivo cumplido para cada criterio de evaluación, aplica para reactivos de producto y desempeño.']
+        ].forEach(([label, texto]) => {
+            doc.setFont(undefined, 'bold');
+            doc.text(label, 14, y);
+            doc.setFont(undefined, 'normal');
+            const lines = doc.splitTextToSize(texto, 150);
+            doc.text(lines, 45, y);
+            y += lines.length * 4 + 4;
+        });
+        y += 6;
+
+        if (y > 240) { doc.addPage(); addOfficialLogos(doc); y = 30; }
         doc.setFontSize(9);
         doc.setFont(undefined, 'italic');
         const acuerdoText = doc.splitTextToSize(
@@ -1198,16 +1219,19 @@ const AUTODIAGNOSTICO_DATA = [
             180
         );
         doc.text(acuerdoText, 14, y);
-        y += acuerdoText.length * 4 + 10;
+        y += acuerdoText.length * 4 + 14;
 
+        if (y > 260) { doc.addPage(); addOfficialLogos(doc); y = 30; }
         doc.setFont(undefined, 'normal');
-        doc.text('Firma del candidato/a:', 14, y);
+        doc.setFontSize(9);
+        doc.text('Nombre y firma de la Evaluadora:', 14, y);
+        doc.text('Nombre y firma del candidato/a:', 110, y);
         if (signatureMode === 'draw' && signatureDataUrl) {
-            doc.addImage(signatureDataUrl, 'PNG', 14, y + 3, 55, 20);
+            doc.addImage(signatureDataUrl, 'PNG', 110, y + 3, 55, 20);
         } else if (signatureTypedName) {
             doc.setFont(undefined, 'italic');
             doc.setFontSize(13);
-            doc.text(signatureTypedName, 14, y + 12);
+            doc.text(signatureTypedName, 110, y + 14);
         }
 
         return { blob: doc.output('blob'), filename: `Plan_Evaluacion_EC1375_${(pd.nombre || 'candidato').replace(/\s+/g, '_')}.pdf` };
