@@ -372,31 +372,13 @@
                 </div>
             </div>
             <div class="card">
-                <h2>💰 Candidatos (${filas.length}${emailsConPagoSinPrecio.length ? `, ${emailsConPagoSinPrecio.length} sin precio capturado` : ''})</h2>
-
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;font-size:0.75rem;padding:12px;background:rgba(255,255,255,0.04);border-radius:8px;">
-                    <div>✅ Activos: <strong style="color:var(--success)">${stats.activos}</strong></div>
-                    <div>❌ Desistieron: <strong style="color:#ff6666">${stats.desistieron}</strong></div>
-                    <div>🔄 Cambio de lote: <strong style="color:var(--accent)">${stats.cambioLote}</strong></div>
-                    <div>💰 Proyectado: <strong style="color:var(--accent)">$${stats.proyectado.toLocaleString('es-MX')}</strong></div>
-                    <div>💸 Realizado: <strong style="color:var(--success)">$${stats.realizado.toLocaleString('es-MX')}</strong></div>
-                    <div>% Completado: <strong>${stats.proyectado > 0 ? Math.round((stats.realizado / stats.proyectado) * 100) : 0}%</strong></div>
+                <h2>💰 Candidatos (${filas.length})</h2>
+                <div style="background:rgba(0,136,255,0.08);padding:10px;border-radius:6px;margin-bottom:12px;font-size:0.7rem;">
+                    ✅ Activos: ${stats.activos} | ❌ Desistieron: ${stats.desistieron} | 🔄 Cambio lote: ${stats.cambioLote} | 💰 Proyectado: $${stats.proyectado.toLocaleString('es-MX')} | 💸 Realizado: $${stats.realizado.toLocaleString('es-MX')}
                 </div>
-
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
-                    <div class="field-group" style="margin:0;">
-                        <label>🔍 Buscar por nombre/email</label>
-                        <input type="text" id="filtroBusqueda" placeholder="Escribe nombre o email..." style="width:100%;padding:8px 10px;background:var(--dark);border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:var(--text-bright);font-size:0.8rem;" oninput="filtroBusqueda = this.value.toLowerCase(); renderPanel()">
-                    </div>
-                    <div class="field-group" style="margin:0;">
-                        <label>🎯 Filtrar por estado</label>
-                        <select id="filtroEstado" style="width:100%;padding:8px 10px;background:var(--dark);border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:var(--text-bright);font-size:0.8rem;" onchange="filtroEstado = this.value; renderPanel()">
-                            <option value="">Todos</option>
-                            <option value="activo">Activo</option>
-                            <option value="desistió">Desistió</option>
-                            <option value="cambio_lote">Cambio de lote</option>
-                        </select>
-                    </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+                    <input type="text" id="filtroBusqueda" placeholder="🔍 Buscar nombre/email..." style="padding:7px;background:var(--dark);border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:var(--text-bright);font-size:0.75rem;" oninput="filtroBusqueda = this.value.toLowerCase(); renderPanel()">
+                    <select id="filtroEstado" style="padding:7px;background:var(--dark);border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:var(--text-bright);font-size:0.75rem;" onchange="filtroEstado = this.value; renderPanel()"><option value="">🎯 Todos</option><option value="activo">Activo</option><option value="desistió">Desistió</option><option value="cambio_lote">Cambio lote</option></select>
                 </div>
 
                 <p style="font-size:0.78rem;color:rgba(255,255,255,0.45);margin-bottom:14px;">💳 = pagada por Mercado Pago · ✋ = liberada a mano · clic en una fase para liberarla o revocarla · el nombre se llena solo en cuanto el candidato hace su Autodiagnóstico</p>
