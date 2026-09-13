@@ -131,6 +131,24 @@
         .section-checkpoint label { color: var(--accent) !important; font-weight: 700; }
         .section-checkpoint.checked { background: rgba(0,255,136,0.08); border-color: var(--success); }
         .section-checkpoint.checked label { color: var(--success) !important; }
+        .video-ejemplo {
+            margin-top: 14px; border-radius: 10px; overflow: hidden;
+            background: var(--dark); border: 1px solid rgba(255,255,255,0.12);
+        }
+        .video-ejemplo .ph {
+            aspect-ratio: 9 / 16; max-height: 360px; margin: 0 auto;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: 6px; cursor: pointer;
+            background: linear-gradient(135deg, rgba(0,136,255,0.18), rgba(5,10,26,0.6));
+        }
+        .video-ejemplo .ph .ic { font-size: 2.2rem; color: var(--primary-light); }
+        .video-ejemplo .ph .nm { font-size: 0.85rem; color: var(--text-bright); font-weight: 700; }
+        .video-ejemplo .ph .ins { font-size: 0.75rem; color: var(--text); }
+        .video-ejemplo iframe { width: 100%; aspect-ratio: 9 / 16; max-height: 360px; display: block; border: 0; }
+        .video-proximamente {
+            margin-top: 14px; padding: 10px 12px; border-radius: 8px; font-size: 0.8rem;
+            color: var(--text); background: rgba(255,215,0,0.06); border: 1px dashed rgba(255,215,0,0.35);
+        }
         .checklist-progress {
             font-size: 0.85rem; color: var(--text-bright); font-weight: 700; margin-bottom: 12px;
             display: flex; justify-content: space-between; align-items: center;
@@ -195,7 +213,7 @@
             { t: 'accion', x: 'Conducirlo a recepción/antesala y ofrecer un lugar cómodo previamente sanitizado.' },
             { t: 'dialogo', x: 'Puede tomar asiento aquí, por favor. El lugar ha sido previamente sanitizado.' }
         ]},
-        { num: 3, titulo: 'Explicación inicial y documentación', checkpoint: true, items: [
+        { num: 3, titulo: 'Explicación inicial y documentación', checkpoint: true, videoId: 't61G8ZLFCg0', items: [
             { t: 'dialogo', x: 'Antes de comenzar quiero explicarle cómo vamos a llevar a cabo su atención.' },
             { t: 'dialogo', x: 'Los servicios auxiliares tradicionales y complementarios tienen como objetivo contribuir a la recuperación de las condiciones físicas y socioemocionales de las personas.' },
             { t: 'dialogo', x: 'La información que usted nos proporcione será manejada bajo principios de discreción y confidencialidad. Sus datos personales están protegidos conforme a la Ley Federal de Protección de Datos Personales en Posesión de Particulares.' },
@@ -205,14 +223,14 @@
             { t: 'usuario', x: 'No.' },
             { t: 'dialogo', x: 'Perfecto. Si durante el proceso surge cualquier duda, puede comentármela.' }
         ]},
-        { num: 4, titulo: 'Aviso de privacidad e identificación', checkpoint: true, items: [
+        { num: 4, titulo: 'Aviso de privacidad e identificación', checkpoint: true, videoId: 'XDW3qepYdh0', items: [
             { t: 'accion', x: 'Presentar/comentar el Aviso de Privacidad.' },
             { t: 'dialogo', x: 'Este es nuestro Aviso de Privacidad. Una vez que ha sido informado sobre el manejo de sus datos personales, necesito su firma de enterado, por favor.' },
             { t: 'accion', x: 'Recabar firma.' },
             { t: 'dialogo', x: 'Ahora necesito corroborar su nombre completo con una identificación oficial vigente, por favor.' },
             { t: 'accion', x: 'Revisar identificación y corroborar nombre.' }
         ]},
-        { num: 5, titulo: 'Ficha de registro', checkpoint: true, items: [
+        { num: 5, titulo: 'Ficha de registro', checkpoint: true, videoId: 'rqGN-Oj1BX8', items: [
             { t: 'dialogo', x: 'Vamos a completar su ficha de registro. Le voy a solicitar algunos datos y antecedentes necesarios para su atención.' },
             { t: 'accion', x: 'Recabar la información de manera verbal y presencial.' },
             { t: 'lista', x: [
@@ -239,7 +257,7 @@
             { t: 'dialogo', x: 'Quiero señalarle también que los servicios tradicionales y complementarios que ofrecemos no cubren ni sustituyen las indicaciones de su médico tratante o profesional de la salud.' },
             { t: 'dialogo', x: 'Muchas gracias por proporcionarme esta información.' }
         ]},
-        { num: 6, titulo: 'Peso y estatura', checkpoint: true, items: [
+        { num: 6, titulo: 'Peso y estatura', checkpoint: true, videoId: 'Y5l-PH13JwI', items: [
             { t: 'nota', x: 'El EC1375 incluye báscula y estadímetro dentro del equipo mínimo y exige peso y estatura en la documentación, aunque no describe un protocolo específico de medición.' },
             { t: 'dialogo', x: 'Ahora voy a registrar su peso y estatura como parte de sus datos.' },
             { t: 'accion', x: 'Utilizar la báscula y registrar el peso.' },
@@ -254,18 +272,18 @@
             { t: 'dialogo', x: 'Tenemos una saturación de oxígeno de [VALOR REAL] y un pulso de [VALOR REAL].' },
             { t: 'accion', x: 'Registrar SpO2 y pulso en la ficha.' }
         ]},
-        { num: 8, titulo: 'Observación postural', checkpoint: true, items: [
+        { num: 8, titulo: 'Observación postural', checkpoint: true, videoId: 'VIKH79hevtM', items: [
             { t: 'dialogo', x: 'Ahora realizaré una observación visual de su postura. Le voy a pedir que permanezca en la posición que le indique mientras observo diferentes segmentos de su cuerpo.' },
             { t: 'accion', x: 'Revisar visualmente cabeza, cuello, tórax, extremidades y pelvis.' },
             { t: 'accion', x: 'Registrar los hallazgos en la ficha.' },
             { t: 'nota', x: 'Importante: En esta parte el criterio solicita observación visual y registro; no es necesario inventar un diagnóstico.' }
         ]},
-        { num: 9, titulo: 'Frecuencia respiratoria', checkpoint: true, items: [
+        { num: 9, titulo: 'Frecuencia respiratoria', checkpoint: true, videoId: 'f_dgGd37OYs', items: [
             { t: 'dialogo', x: 'Ahora voy a registrar su frecuencia respiratoria. Por favor permanezca sentado y en reposo.' },
             { t: 'accion', x: 'Contar las elevaciones del tórax y abdomen durante un minuto completo.' },
             { t: 'accion', x: 'Registrar el resultado.' }
         ]},
-        { num: 10, titulo: 'Presión arterial', checkpoint: true, items: [
+        { num: 10, titulo: 'Presión arterial', checkpoint: true, videoId: '_kPfRcTwUb4', items: [
             { t: 'dialogo', x: 'A continuación voy a verificar su presión arterial con el monitor de presión arterial de brazo.' },
             { t: 'dialogo', x: 'Le voy a colocar el brazalete y le pediré que adopte la posición indicada para realizar correctamente la medición.' },
             { t: 'accion', x: 'Colocar el brazalete y posicionar al usuario conforme a las indicaciones del fabricante.' },
@@ -279,7 +297,7 @@
             { t: 'dialogo', x: 'Con la información que hemos recabado podemos continuar con la atención programada.' },
             { t: 'dialogo', x: 'Es importante mencionar que su participación y compromiso con las indicaciones forman parte del proceso para buscar un resultado satisfactorio.' }
         ]},
-        { num: 12, titulo: 'Explicación de la terapia manual', checkpoint: true, items: [
+        { num: 12, titulo: 'Explicación de la terapia manual', checkpoint: true, videoId: 'hhNzKTpmBOk', items: [
             { t: 'dialogo', x: 'De acuerdo con los hallazgos que encontramos durante la inspección y exploración, el procedimiento que se ha designado para esta sesión consiste en [DESCRIBIR ATENCIÓN].' },
             { t: 'dialogo', x: 'Esta atención busca [OBJETIVO DE LA SESIÓN].' },
             { t: 'dialogo', x: 'Entre sus bondades, beneficios o ventajas se encuentran [DESCRIBIR], dentro del alcance propio de este servicio.' },
@@ -287,7 +305,7 @@
             { t: 'dialogo', x: 'Para realizar la atención se recomienda utilizar [VESTIMENTA RECOMENDADA].' },
             { t: 'dialogo', x: '¿Tiene alguna duda o comentario sobre el procedimiento que vamos a realizar?' }
         ]},
-        { num: 13, titulo: 'Consentimiento informado', checkpoint: true, items: [
+        { num: 13, titulo: 'Consentimiento informado', checkpoint: true, videoId: 'EzvJ8QqFqhI', items: [
             { t: 'accion', x: 'Presentar el consentimiento antes de iniciar la atención.' },
             { t: 'dialogo', x: 'Antes de comenzar necesito presentarle el documento de consentimiento informado y aceptación del servicio.' },
             { t: 'dialogo', x: 'En este documento se describe la atención que vamos a realizar, las técnicas que se aplicarán, las zonas del cuerpo que podrán ser abordadas, las posibles reacciones físicas, las condiciones de preparación, las limitantes del servicio, el número y duración de las sesiones y los objetivos que buscamos alcanzar.' },
@@ -298,7 +316,7 @@
             { t: 'accion', x: 'Preparar al usuario conforme a la técnica indicada y realizar la terapia manual programada.' },
             { t: 'nota', x: 'Importante: El EC1375 no especifica una técnica particular de terapia manual ni prescribe maniobras quiroprácticas concretas. La técnica demostrada debe corresponder a lo previamente explicado y consentido.' }
         ]},
-        { num: 15, titulo: 'Finalización de la atención', checkpoint: true, items: [
+        { num: 15, titulo: 'Finalización de la atención', checkpoint: true, videoId: 'E768cqhjuq4', items: [
             { t: 'dialogo', x: 'Hemos finalizado la atención.' },
             { t: 'dialogo', x: 'Puede permanecer unos momentos sobre la mesa antes de incorporarse.' },
             { t: 'dialogo', x: '¿Cómo se siente después de la atención que recibió?' },
@@ -325,12 +343,12 @@
             { t: 'dialogo', x: 'Si posteriormente tiene alguna duda, inquietud o necesita consultar información respecto al servicio recibido, podremos atenderla.' },
             { t: 'dialogo', x: '¿Quedó alguna duda pendiente que no hayamos resuelto?' }
         ]},
-        { num: 18, titulo: 'Medio de contacto', checkpoint: true, items: [
+        { num: 18, titulo: 'Medio de contacto', checkpoint: true, videoId: 'NtVUe1TXmOE', items: [
             { t: 'dialogo', x: 'Para darle seguimiento, ¿cuál es el medio de contacto que le resulta más conveniente: teléfono, celular, correo electrónico o alguna plataforma digital?' },
             { t: 'accion', x: 'Registrar el medio de contacto.' },
             { t: 'dialogo', x: 'Le proporciono también los datos de nuestro Centro de Atención Tradicional y Complementaria y nuestro medio de atención telefónica para cualquier duda relacionada con su servicio.' }
         ]},
-        { num: 19, titulo: 'Cierre y despedida', checkpoint: true, items: [
+        { num: 19, titulo: 'Cierre y despedida', checkpoint: true, videoId: 'leWzUXd-R34', items: [
             { t: 'subtitulo', x: 'Verificar el Plan de Seguimiento' },
             { t: 'lista', x: ['Fechas y horarios.', 'Medio de contacto.', 'Número de sesiones, frecuencia y duración.', 'Plan de sesión.', 'Nombre y firma/huella del usuario y de quien otorga el servicio.'] },
             { t: 'subtitulo', x: 'Verificar el Plan de Sesión' },
@@ -384,6 +402,32 @@
             </div>`;
     }
 
+    /* Video de ejemplo por sección — mismo patrón de "toca para reproducir"
+       de ruta-alineacion.html (embed de youtube-nocookie al hacer clic, sin
+       cargar el iframe de entrada). Los videos son Shorts verticales de
+       https://www.youtube.com/playlist?list=PLOZTSHcCf2OI (cuenta de
+       YouTube de Paideia Tech) — se suben por sección según se van
+       grabando, así que no todas tienen video todavía. */
+    function renderVideoEjemplo(s) {
+        if (s.videoId) {
+            return `
+                <div class="video-ejemplo" id="video-${s.num}">
+                    <div class="ph" onclick="playVideoEjemplo(${s.num}, '${s.videoId}')">
+                        <div class="ic">▶</div>
+                        <div class="nm">Ejemplo de esta sección</div>
+                        <div class="ins">Toca para reproducir</div>
+                    </div>
+                </div>`;
+        }
+        return `<div class="video-proximamente">🎬 Video de ejemplo — próximamente, se está subiendo a la cuenta de YouTube de Paideia Tech.</div>`;
+    }
+
+    function playVideoEjemplo(num, videoId) {
+        const box = document.getElementById(`video-${num}`);
+        if (!box) return;
+        box.innerHTML = `<iframe src="https://www.youtube-nocookie.com/embed/${videoId}?rel=0&modestbranding=1&playsinline=1&autoplay=1" title="Ejemplo de la sección ${num}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen loading="lazy"></iframe>`;
+    }
+
     function renderItem(item) {
         if (item.t === 'accion') return `<div class="item-accion"><span class="tag">ACCIÓN</span><span>${escapeHtml(item.x)}</span></div>`;
         if (item.t === 'dialogo') return `<div class="item-dialogo">"${escapeHtml(item.x)}"</div>`;
@@ -401,7 +445,7 @@
             <div class="guion-section" id="seccion-${s.num}">
                 <h3><span class="num-badge">${s.num}</span> ${escapeHtml(s.titulo)}</h3>
                 ${s.items.map(renderItem).join('')}
-                ${s.checkpoint ? checkboxRow(`checkpoint-${s.num}`, '🎬 Video de esta sección grabado', 'section-checkpoint') : ''}
+                ${s.checkpoint ? renderVideoEjemplo(s) + checkboxRow(`checkpoint-${s.num}`, '🎬 Video de esta sección grabado', 'section-checkpoint') : ''}
             </div>
         `).join('');
 
