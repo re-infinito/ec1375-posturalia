@@ -197,12 +197,18 @@
             montos[`monto_${fase}`] = el.value === '' ? null : Number(el.value);
         });
         const total = FASES.reduce((sum, fase) => sum + (montos[`monto_${fase}`] || 0), 0);
+        const estadoEl = document.getElementById(`${prefix}_estado`);
+        const loteEl = document.getElementById(`${prefix}_lote`);
+        const motivoEl = document.getElementById(`${prefix}_motivo`);
         const statusEl = document.getElementById(`${prefix}_status`);
         // El input de nombre manual solo existe en el DOM cuando ese
         // candidato no tiene todavía un nombre "real" auto-cruzado.
         const nombreEl = document.getElementById(`${prefix}_nombre`);
         const row = { email, total_acordado: total, ...montos, updated_at: new Date().toISOString() };
         if (nombreEl) row.nombre = nombreEl.value.trim() || null;
+        if (estadoEl) row.estado = estadoEl.value || 'activo';
+        if (loteEl) row.lote = Number(loteEl.value) || 1;
+        if (motivoEl && motivoEl.value.trim()) row.motivo_cambio = motivoEl.value.trim();
         try {
             const { error } = await supabaseClient
                 .from('candidatos_precio')
@@ -219,13 +225,15 @@
         const email = (document.getElementById('newEmail').value || '').trim().toLowerCase();
         if (!email || !email.includes('@')) { alert('Escribe un correo válido.'); return; }
         const nombre = (document.getElementById('newNombre').value || '').trim();
+        const estado = (document.getElementById('newEstado').value || 'activo');
+        const lote = Number(document.getElementById('newLote').value || 1);
         const montos = {};
         FASES.forEach(fase => { montos[`monto_${fase}`] = Number(document.getElementById(`newMonto_${fase}`).value || 0); });
         const total = FASES.reduce((sum, fase) => sum + montos[`monto_${fase}`], 0);
         try {
             const { error } = await supabaseClient
                 .from('candidatos_precio')
-                .upsert({ email, nombre: nombre || null, total_acordado: total, ...montos }, { onConflict: 'email' });
+                .upsert({ email, nombre: nombre || null, total_acordado: total, estado, lote, ...montos }, { onConflict: 'email' });
             if (error) throw error;
             await cargarDatos();
             renderPanel();
@@ -265,12 +273,28 @@
                 ? `<div class="nombre-cell">${escapeHtml(nombreAuto)}<div class="email-sub">${escapeHtml(c.email)}</div></div>`
                 : `<div class="nombre-cell"><div class="email-sub" style="margin-top:0;">${escapeHtml(c.email)}</div>
                      <input type="text" id="${prefix}_nombre" placeholder="Nombre (aún sin Autodiagnóstico)" value="${escapeHtml(c.nombre || '')}"></div>`;
+            const estadoActual = c.estado || 'activo';
+            const loteActual = c.lote || 1;
+            const motivoActual = c.motivo_cambio || '';
             return `
                 <tr>
                     <td>${nombreCell}${c._sinPrecio ? '<div style="color:var(--accent);font-weight:400;font-size:0.68rem;margin-top:4px;">Sin precio capturado — guarda montos para agregarlo a Precios</div>' : ''}</td>
                     ${montoInputs}
                     <td class="total-cell" id="${prefix}_total">$${Number(c.total_acordado || 0).toLocaleString('es-MX')}</td>
                     <td><div class="badges">${badges}</div></td>
+                    <td>
+                        <select id="${prefix}_estado" style="width:110px;padding:7px 8px;background:var(--dark);border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:var(--text-bright);font-size:0.85rem;">
+                            <option value="activo" ${estadoActual === 'activo' ? 'selected' : ''}>Activo</option>
+                            <option value="desistió" ${estadoActual === 'desistió' ? 'selected' : ''}>Desistió</option>
+                            <option value="cambio_lote" ${estadoActual === 'cambio_lote' ? 'selected' : ''}>Cambio de lote</option>
+                        </select>
+                    </td>
+                    <td>
+                        <input type="number" id="${prefix}_lote" min="1" max="10" value="${loteActual}" style="width:60px;padding:7px 8px;background:var(--dark);border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:var(--text-bright);font-size:0.85rem;">
+                    </td>
+                    <td>
+                        <input type="text" id="${prefix}_motivo" placeholder="Motivo (opt.)" value="${escapeHtml(motivoActual)}" style="width:120px;padding:7px 8px;background:var(--dark);border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:var(--text-bright);font-size:0.85rem;">
+                    </td>
                     <td>
                         <button class="btn btn-primary btn-small" onclick="guardarFila('${c.email}')">Guardar</button>
                         <span class="row-status" id="${prefix}_status"></span>
@@ -289,6 +313,12 @@
                     <div class="field-group"><label>Correo</label><input type="email" id="newEmail" placeholder="correo@ejemplo.com"></div>
                     <div class="field-group"><label>Nombre</label><input type="text" id="newNombre" placeholder="Nombre completo"></div>
                     ${addFormFields}
+                    <div class="field-group"><label>Estado</label><select id="newEstado" style="width:100%;padding:11px 13px;background:var(--dark);border:1px solid rgba(255,255,255,0.15);border-radius:8px;color:var(--text-bright);font-size:0.9rem;">
+                        <option value="activo">Activo</option>
+                        <option value="desistió">Desistió</option>
+                        <option value="cambio_lote">Cambio de lote</option>
+                    </select></div>
+                    <div class="field-group"><label>Lote</label><input type="number" id="newLote" placeholder="1" value="1" min="1" max="10"></div>
                     <button class="btn btn-primary" onclick="agregarCandidato()">Agregar</button>
                 </div>
             </div>
@@ -297,8 +327,8 @@
                 <p style="font-size:0.78rem;color:rgba(255,255,255,0.45);margin-bottom:14px;">💳 = pagada por Mercado Pago · ✋ = liberada a mano · clic en una fase para liberarla o revocarla · el nombre se llena solo en cuanto el candidato hace su Autodiagnóstico</p>
                 <div class="table-wrap">
                     <table>
-                        <thead><tr><th>Nombre / Correo</th>${FASES.map(f => `<th>${FASE_LABEL[f]}</th>`).join('')}<th>Total</th><th>Fases pagadas</th><th></th></tr></thead>
-                        <tbody>${rowsHtml || '<tr><td colspan="8" style="text-align:center;color:rgba(255,255,255,0.4);padding:20px;">Sin candidatos todavía.</td></tr>'}</tbody>
+                        <thead><tr><th>Nombre / Correo</th>${FASES.map(f => `<th>${FASE_LABEL[f]}</th>`).join('')}<th>Total</th><th>Fases pagadas</th><th>Estado</th><th>Lote</th><th>Motivo</th><th></th></tr></thead>
+                        <tbody>${rowsHtml || '<tr><td colspan="12" style="text-align:center;color:rgba(255,255,255,0.4);padding:20px;">Sin candidatos todavía.</td></tr>'}</tbody>
                     </table>
                 </div>
             </div>

@@ -30,14 +30,17 @@ export default async function handler(req, res) {
       pagosPorEmail[p.email][p.fase] = true;
     });
 
+    // Filtrar solo candidatos activos (excluir desistidos y cambio_lote)
+    const candidatosActivos = preciosData.filter(p => p.estado === 'activo' || !p.estado);
+
     // Calcular KPIs
-    const totalInscritos = preciosData.length;
-    const completados = preciosData.filter(p => pagosPorEmail[p.email]?.entrega).length;
+    const totalInscritos = candidatosActivos.length;
+    const completados = candidatosActivos.filter(p => pagosPorEmail[p.email]?.entrega).length;
     const enProgreso = totalInscritos - completados;
 
-    // Ingresos por fase
+    // Ingresos por fase (solo candidatos activos)
     const ingresosPorFase = { registro: 0, alineacion: 0, evaluacion: 0, entrega: 0 };
-    preciosData.forEach(p => {
+    candidatosActivos.forEach(p => {
       const email = p.email;
       const pagos = pagosPorEmail[email] || {};
       if (pagos.registro && p.monto_registro) ingresosPorFase.registro += p.monto_registro;
@@ -47,14 +50,14 @@ export default async function handler(req, res) {
     });
 
     const ingresosTotales = Object.values(ingresosPorFase).reduce((a, b) => a + b, 0);
-    const proyectado = preciosData.reduce((sum, p) => sum + (p.total_acordado || 0), 0);
+    const proyectado = candidatosActivos.reduce((sum, p) => sum + (p.total_acordado || 0), 0);
 
-    // Candidatos por fase
+    // Candidatos por fase (solo activos)
     const porFase = {
-      registro: preciosData.filter(p => pagosPorEmail[p.email]?.registro).length,
-      alineacion: preciosData.filter(p => pagosPorEmail[p.email]?.alineacion).length,
-      evaluacion: preciosData.filter(p => pagosPorEmail[p.email]?.evaluacion).length,
-      entrega: preciosData.filter(p => pagosPorEmail[p.email]?.entrega).length
+      registro: candidatosActivos.filter(p => pagosPorEmail[p.email]?.registro).length,
+      alineacion: candidatosActivos.filter(p => pagosPorEmail[p.email]?.alineacion).length,
+      evaluacion: candidatosActivos.filter(p => pagosPorEmail[p.email]?.evaluacion).length,
+      entrega: candidatosActivos.filter(p => pagosPorEmail[p.email]?.entrega).length
     };
 
     return res.status(200).json({
