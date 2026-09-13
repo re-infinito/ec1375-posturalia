@@ -659,6 +659,7 @@ const AUTODIAGNOSTICO_DATA = [
     }
 
     async function subirDocumentosPendientesAlineacion(result) {
+        if (Auth._isBypassSession) return;
         const pd = result.personalData;
         for (const key of Object.keys(generatedDocsAlineacion)) {
             if (documentosNextcloud[key]) continue;

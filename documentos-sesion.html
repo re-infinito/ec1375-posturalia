@@ -433,6 +433,7 @@
     }
 
     async function subirDocumentosPendientesSesion(result) {
+        if (Auth._isBypassSession) return;
         const pd = result.personalData;
         for (const key of Object.keys(generatedPdfs)) {
             if (documentosNextcloud[key]) continue;

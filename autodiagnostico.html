@@ -1736,6 +1736,7 @@
     }
 
     async function subirDocumentosPendientesRegistro() {
+        if (Auth._isBypassSession) return;
         const pd = personalData;
         for (const key of Object.keys(generatedDocsRegistro)) {
             if (documentosNextcloud[key]) continue;
