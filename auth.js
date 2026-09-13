@@ -124,6 +124,19 @@ const Auth = {
         }
     },
 
+    /* Igual que uploadCertificado() pero al bucket privado 'fotos-candidato'
+       — la foto oficial que exige la Ficha de Registro (RENAP/CONOCER).
+       Mismo esquema de ruta y política RLS (primer segmento = user_id). */
+    async uploadFotoCandidato(file, path) {
+        try {
+            const { data, error } = await supabaseClient.storage.from('fotos-candidato').upload(path, file, { upsert: true });
+            if (error) return { path: null, error };
+            return { path: data.path, error: null };
+        } catch (e) {
+            return { path: null, error: e };
+        }
+    },
+
     /* Solo pregunta sí/no por UN correo puntual — nunca expone la lista de
        quién pagó. Devuelve false ante cualquier error de red (falla cerrada:
        si no se puede confirmar, no se manda el código). */
