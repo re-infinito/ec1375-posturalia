@@ -50,15 +50,15 @@
         .btn-primary:hover { background: var(--primary-light); }
         .btn-primary:disabled { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.3); cursor: not-allowed; }
         .btn-secondary { background: transparent; border: 1.5px solid var(--primary); color: var(--primary); }
-        .btn-small { padding: 5px 9px; font-size: 0.7rem; }
+        .btn-small { padding: 4px 8px; font-size: 0.65rem; }
         .btn-full { width: 100%; }
 
-        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-        th { text-align: left; color: var(--primary-light); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.4px; padding: 8px 6px; border-bottom: 1px solid rgba(255,255,255,0.1); }
-        td { padding: 8px 6px; border-bottom: 1px solid rgba(255,255,255,0.06); vertical-align: middle; }
-        td input { width: 70px; padding: 5px 6px; background: var(--dark); border: 1px solid rgba(255,255,255,0.15); border-radius: 5px; color: var(--text-bright); font-size: 0.75rem; }
-        td input[type="number"] { width: 55px; }
-        td select { font-size: 0.75rem; padding: 5px 6px; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.75rem; }
+        th { text-align: left; color: var(--primary-light); font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.2px; padding: 4px 3px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        td { padding: 4px 3px; border-bottom: 1px solid rgba(255,255,255,0.06); vertical-align: middle; }
+        td input { width: 52px; padding: 4px 4px; background: var(--dark); border: 1px solid rgba(255,255,255,0.15); border-radius: 4px; color: var(--text-bright); font-size: 0.7rem; }
+        td input[type="number"] { width: 48px; }
+        td select { font-size: 0.7rem; padding: 4px 4px; }
         .email-cell { color: var(--text-bright); font-weight: 600; white-space: nowrap; }
         .total-cell { color: var(--accent); font-weight: 700; white-space: nowrap; }
         .badges { display: flex; gap: 2px; flex-wrap: wrap; }
@@ -288,17 +288,17 @@
                     <td class="total-cell" id="${prefix}_total">$${Number(c.total_acordado || 0).toLocaleString('es-MX')}</td>
                     <td><div class="badges">${badges}</div></td>
                     <td>
-                        <select id="${prefix}_estado" style="width:85px;padding:5px 4px;background:var(--dark);border:1px solid rgba(255,255,255,0.15);border-radius:5px;color:var(--text-bright);font-size:0.75rem;">
+                        <select id="${prefix}_estado" style="width:70px;padding:4px 3px;background:var(--dark);border:1px solid rgba(255,255,255,0.15);border-radius:4px;color:var(--text-bright);font-size:0.7rem;">
                             <option value="activo" ${estadoActual === 'activo' ? 'selected' : ''}>Activo</option>
                             <option value="desistió" ${estadoActual === 'desistió' ? 'selected' : ''}>Desistió</option>
                             <option value="cambio_lote" ${estadoActual === 'cambio_lote' ? 'selected' : ''}>Cambio</option>
                         </select>
                     </td>
                     <td>
-                        <input type="number" id="${prefix}_lote" min="1" max="10" value="${loteActual}" style="width:45px;padding:5px 4px;background:var(--dark);border:1px solid rgba(255,255,255,0.15);border-radius:5px;color:var(--text-bright);font-size:0.75rem;">
+                        <input type="number" id="${prefix}_lote" min="1" max="10" value="${loteActual}" style="width:40px;padding:4px 3px;background:var(--dark);border:1px solid rgba(255,255,255,0.15);border-radius:4px;color:var(--text-bright);font-size:0.7rem;">
                     </td>
                     <td>
-                        <input type="text" id="${prefix}_motivo" placeholder="Motivo" value="${escapeHtml(motivoActual)}" style="width:80px;padding:5px 4px;background:var(--dark);border:1px solid rgba(255,255,255,0.15);border-radius:5px;color:var(--text-bright);font-size:0.75rem;">
+                        <input type="text" id="${prefix}_motivo" placeholder="Motivo" value="${escapeHtml(motivoActual)}" style="width:65px;padding:4px 3px;background:var(--dark);border:1px solid rgba(255,255,255,0.15);border-radius:4px;color:var(--text-bright);font-size:0.7rem;">
                     </td>
                     <td>
                         <button class="btn btn-primary btn-small" onclick="guardarFila('${c.email}')">Guardar</button>
