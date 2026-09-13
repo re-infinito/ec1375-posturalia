@@ -8,6 +8,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="auth.js"></script>
+    <script src="flow-status.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -480,10 +481,13 @@
                 <button class="btn btn-whatsapp btn-full" onclick="notifyWhatsApp()">📱 AVISAR AL EQUIPO POR WHATSAPP</button>
             </div>
             <div class="card" style="text-align:center;margin-top:20px;">
-                <a href="evidencias.html" class="btn btn-primary btn-full" style="display:block;text-decoration:none;margin-bottom:14px;">📤 Siguiente: Sube tus Evidencias →</a>
                 <a href="documentos-sesion.html" style="color:var(--primary);text-decoration:none;font-size:0.9rem;">← Volver a mis Documentos de Sesión</a>
             </div>
+            <div id="flowNextStepCta"></div>
         `;
+        const flowSteps = await FlowStatus.getSteps();
+        FlowStatus.renderProgressBar(flowSteps, 'encuesta');
+        FlowStatus.renderNextStepCTA(flowSteps, 'encuesta', document.getElementById('flowNextStepCta'));
     }
 
     function notifyWhatsApp() {
