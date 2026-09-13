@@ -824,9 +824,16 @@
     let currentStepIndex = 0; // 0=intro, 1=personal, 2-5=elementos 1-4, 6=firma, 7=resultado
     const STEPS = ['intro', 'auth', 'personal', 'nda', 'e1', 'e2', 'e3', 'e4', 'firma', 'resultado'];
 
-    let personalData = { nombre: '', curp: '', domicilio: '', escolaridad: '', telefonoCasa: '', telefonoCelular: '', email: '', fecha: todayISO() };
+    let personalData = { nombre: '', curp: '', domicilio: '', escolaridad: '', telefonoCasa: '', telefonoCelular: '', email: '', fecha: todayISO(), renapAutorizado: false };
     let certificados = []; // [{ nombre, path, fileName, size, uploadedAt, uploading, error }]
     let sinCertificadosPrevios = false;
+    /* Foto oficial del candidato — la exige la Ficha de Registro (formato
+       CONOCER/RENAP, ver generateFichaRegistroPDFBlob()). previewDataUrl es
+       una copia YA REDUCIDA (ver downscaleImageToDataUrl) que se guarda en
+       el estado sincronizado para poder generar el PDF sin volver a
+       descargar el archivo original de Storage; path apunta al archivo
+       completo subido a 'fotos-candidato', solo como respaldo. */
+    let fotoCandidato = { path: null, fileName: null, previewDataUrl: null, uploading: false, error: null };
     let answers = {};
     let signatureMode = 'draw'; // 'draw' | 'type'
     let signatureDataUrl = null;
@@ -863,6 +870,7 @@
                 personalData = Object.assign(personalData, saved.personalData || {});
                 certificados = saved.certificados || [];
                 sinCertificadosPrevios = saved.sinCertificadosPrevios || false;
+                fotoCandidato = Object.assign(fotoCandidato, saved.fotoCandidato || {}, { uploading: false });
                 answers = saved.answers || {};
                 signatureDataUrl = saved.signatureDataUrl || null;
                 signatureTypedName = saved.signatureTypedName || '';
@@ -885,7 +893,7 @@
 
     function saveProgress() {
         const data = {
-            personalData, certificados, sinCertificadosPrevios, answers,
+            personalData, certificados, sinCertificadosPrevios, fotoCandidato, answers,
             signatureDataUrl, signatureTypedName, signatureMode, triptychAccepted,
             ndaAccepted, ndaSignedAt, ndaSignatureDataUrl, ndaSignatureTypedName, ndaSignatureMode,
             documentosNextcloud, documentosDescargados
@@ -1069,6 +1077,7 @@
         personalData = { nombre: '', curp: '', domicilio: '', escolaridad: '', telefonoCasa: '', telefonoCelular: '', email: '', fecha: todayISO() };
         certificados = [];
         sinCertificadosPrevios = false;
+        fotoCandidato = { path: null, fileName: null, previewDataUrl: null, uploading: false, error: null };
         answers = {};
         signatureMode = 'draw';
         signatureDataUrl = null;
@@ -1089,6 +1098,7 @@
         const isCurpComplete = personalData.curp?.trim().length > 0;
         const isDomicilioComplete = personalData.domicilio?.trim().length > 0;
         const isEscolaridadComplete = sinCertificadosPrevios || certificadosCompletos();
+        const isFotoComplete = !!fotoCandidato.previewDataUrl;
         const isTelefonoComplete = personalData.telefonoCelular?.trim().length > 0;
         const isEmailComplete = personalData.email?.trim().length > 0;
         const isFechaComplete = personalData.fecha?.trim().length > 0;
@@ -1136,6 +1146,23 @@
                     <div id="certificadosSectionContainer">${renderCertificadosSection()}</div>
                 </div>
                 <div class="field-group">
+                    <label style="display: flex; justify-content: space-between;">
+                        <span>Foto para tu Ficha de Registro <span style="color:var(--danger);">*</span></span>
+                        <span style="font-size: 0.75rem; color: ${isFotoComplete ? 'var(--success)' : 'rgba(255,255,255,0.4)'};">
+                            ${isFotoComplete ? '✓ Completado' : '○ Pendiente'}
+                        </span>
+                    </label>
+                    <p class="field-hint" style="margin-top:-2px;margin-bottom:10px;">Tu evaluador la exige para tu Ficha de Registro oficial (CONOCER). De frente, fondo blanco, sin texturas, formal y nítida (JPG, BMP o PNG). Mujeres: frente y orejas descubiertas, sin maquillaje ni aretes, blusa clara y lisa. Hombres: orejas descubiertas, pelo corto, sin barba/bigote, camisa clara y lisa. Sin retoques. No mayor a 2 meses de antigüedad.</p>
+                    <div id="fotoCandidatoSectionContainer">${renderFotoCandidatoSection()}</div>
+                </div>
+                <div class="field-group">
+                    <label class="cert-sin-toggle">
+                        <input type="checkbox" id="f_renapAutorizado" ${personalData.renapAutorizado ? 'checked' : ''} onchange="handleRenapChange(this.checked)">
+                        <span>Autorizo la publicación de mis datos en el RENAP (Registro Nacional de Personas con Competencias Certificadas)</span>
+                    </label>
+                    <p class="field-hint" style="margin-top:6px;">Es voluntario — permite que empresas u organizaciones que buscan tu especialidad certificada te encuentren. Puedes marcar "No" y seguir con tu proceso normalmente.</p>
+                </div>
+                <div class="field-group">
                     <label>Teléfono de casa</label>
                     <input type="tel" id="f_telefonoCasa" value="${escapeHtml(personalData.telefonoCasa)}" placeholder="Opcional">
                 </div>
@@ -1173,6 +1200,11 @@
             </div>
             <div id="validationStatus"></div>
         `;
+    }
+
+    function handleRenapChange(checked) {
+        personalData.renapAutorizado = checked;
+        saveProgress();
     }
 
     function attachPersonalFormListeners() {
@@ -1307,6 +1339,113 @@
     function rerenderCertificadosSection() {
         const container = document.getElementById('certificadosSectionContainer');
         if (container) container.innerHTML = renderCertificadosSection();
+        updateNavButtons();
+    }
+
+    /* =========================================================
+       FOTO DEL CANDIDATO — para la Ficha de Registro (RENAP/CONOCER)
+    ========================================================= */
+    const FOTO_MAX_BYTES = 10 * 1024 * 1024; // 10MB del archivo original
+    const FOTO_ACCEPT_TYPES = ['image/jpeg', 'image/png', 'image/bmp'];
+    const FOTO_PREVIEW_MAX_WIDTH = 500; // px — mantiene el estado sincronizado liviano
+
+    function renderFotoCandidatoSection() {
+        const f = fotoCandidato;
+        let statusHtml = '';
+        if (f.uploading) statusHtml = `<p class="cert-row-status cert-row-status-pending">Subiendo...</p>`;
+        else if (f.error) statusHtml = `<p class="cert-row-status cert-row-status-error">⚠ ${escapeHtml(f.error)}</p>`;
+        else if (f.previewDataUrl) statusHtml = `<p class="cert-row-status cert-row-status-ok">✓ ${escapeHtml(f.fileName || 'Foto subida')}</p>`;
+        return `
+            <div class="cert-row">
+                <input type="file" accept="image/jpeg,image/png,image/bmp" onchange="handleFotoCandidatoChange(this)">
+                ${statusHtml}
+            </div>
+            ${f.previewDataUrl ? `<img src="${f.previewDataUrl}" alt="Vista previa" style="max-width:140px;border-radius:8px;margin-top:8px;display:block;">` : ''}
+        `;
+    }
+
+    /* Reduce la imagen a un JPEG de ancho máximo FOTO_PREVIEW_MAX_WIDTH antes
+       de guardarla como data URL en el estado — una foto de cámara sin
+       reducir (varios MB) infla localStorage/la fila de Supabase mucho más
+       de lo que jsPDF necesita para imprimirla en un recuadro pequeño. */
+    function downscaleImageToDataUrl(file, maxWidth) {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            const reader = new FileReader();
+            reader.onerror = () => reject(new Error('No se pudo leer el archivo'));
+            reader.onload = () => {
+                img.onerror = () => reject(new Error('Archivo de imagen inválido'));
+                img.onload = () => {
+                    const scale = Math.min(1, maxWidth / img.width);
+                    const canvas = document.createElement('canvas');
+                    canvas.width = Math.round(img.width * scale);
+                    canvas.height = Math.round(img.height * scale);
+                    const ctx = canvas.getContext('2d');
+                    ctx.fillStyle = '#fff';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    resolve(canvas.toDataURL('image/jpeg', 0.85));
+                };
+                img.src = reader.result;
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+
+    async function handleFotoCandidatoChange(inputEl) {
+        const file = inputEl.files[0];
+        if (!file) return;
+        if (!FOTO_ACCEPT_TYPES.includes(file.type)) {
+            fotoCandidato.error = 'Tipo de archivo no permitido. Usa JPG, PNG o BMP.';
+            rerenderFotoCandidatoSection();
+            return;
+        }
+        if (file.size > FOTO_MAX_BYTES) {
+            fotoCandidato.error = 'El archivo pesa más de 10MB.';
+            rerenderFotoCandidatoSection();
+            return;
+        }
+        fotoCandidato.uploading = true;
+        fotoCandidato.error = null;
+        rerenderFotoCandidatoSection();
+
+        try {
+            fotoCandidato.previewDataUrl = await downscaleImageToDataUrl(file, FOTO_PREVIEW_MAX_WIDTH);
+        } catch (e) {
+            fotoCandidato.uploading = false;
+            fotoCandidato.error = 'No se pudo procesar la imagen. Intenta con otro archivo.';
+            rerenderFotoCandidatoSection();
+            return;
+        }
+
+        const session = await Auth.getSession();
+        if (!session) {
+            fotoCandidato.uploading = false;
+            fotoCandidato.error = 'Tu sesión expiró. Vuelve a iniciar sesión.';
+            rerenderFotoCandidatoSection();
+            return;
+        }
+        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+        const path = `${session.user.id}/${Date.now()}-${safeName}`;
+        const { path: savedPath, error } = await Auth.uploadFotoCandidato(file, path);
+        fotoCandidato.uploading = false;
+        fotoCandidato.fileName = file.name;
+        if (error) {
+            /* La copia reducida (previewDataUrl) ya quedó lista para el PDF
+               aunque el respaldo en Storage falle — no bloquear al
+               candidato por una falla de red al subir el respaldo. */
+            console.warn('No se pudo respaldar la foto en Storage:', error);
+            fotoCandidato.path = null;
+        } else {
+            fotoCandidato.path = savedPath;
+        }
+        saveProgress();
+        rerenderFotoCandidatoSection();
+    }
+
+    function rerenderFotoCandidatoSection() {
+        const container = document.getElementById('fotoCandidatoSectionContainer');
+        if (container) container.innerHTML = renderFotoCandidatoSection();
         updateNavButtons();
     }
 
@@ -1769,6 +1908,125 @@
         await renderResultado(document.getElementById('app'));
     }
 
+    /* CURP mexicana: posición 11 = sexo (H/M), posiciones 5-10 = AAMMDD de
+       nacimiento. No hay un separador de siglo en la propia CURP — se usa
+       la convención común (año de 2 dígitos > "30" implica 19XX, si no
+       20XX) que es correcta para candidatos adultos hoy. Devuelve null si
+       el formato no calza, para no imprimir basura en el PDF. */
+    function parseCurpFields(curp) {
+        const c = (curp || '').trim().toUpperCase();
+        if (!/^[A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z0-9]{2}$/.test(c)) return null;
+        const aa = c.slice(4, 6), mm = c.slice(6, 8), dd = c.slice(8, 10);
+        const siglo = parseInt(aa, 10) > 30 ? '19' : '20';
+        return {
+            fechaNacimiento: `${dd}/${mm}/${siglo}${aa}`,
+            genero: c[10] === 'H' ? 'Masculino' : 'Femenino'
+        };
+    }
+
+    /* Ficha de Registro oficial — formato de autorización RENAP que exige
+       CONOCER (ver docs/comparación contra el expediente de referencia).
+       renapAutorizado usa el mismo patrón sí/no de la fuente oficial:
+       "SI ( ) NO ( )" — ambas respuestas son válidas y completas (el
+       RENAP es voluntario), así que no bloquea el avance del wizard. */
+    function generateFichaRegistroPDFBlob() {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        const pd = personalData;
+        const curpInfo = parseCurpFields(pd.curp);
+
+        addOfficialLogos(doc);
+        doc.setFontSize(13);
+        doc.setFont(undefined, 'bold');
+        doc.text('Ficha de Registro', 105, 24, { align: 'center' });
+
+        doc.autoTable({
+            startY: 34, theme: 'plain', styles: { fontSize: 8.5, cellPadding: 1.5 },
+            tableWidth: 'wrap',
+            columnStyles: { 0: { fontStyle: 'bold', cellWidth: 28 }, 1: { cellWidth: 150 } },
+            margin: { left: 14, right: 14 },
+            body: [
+                ['Estándar de:', 'EC1375 - Prestación de servicios auxiliares en la contribución tradicional y complementaria de la recuperación de las condiciones físicas y socioemocionales de las personas'],
+                ['Fecha:', pd.fecha || todayISO()]
+            ]
+        });
+        let y = doc.lastAutoTable.finalY + 8;
+
+        doc.setFont(undefined, 'bold');
+        doc.setFontSize(10);
+        doc.text('DATOS PERSONALES:', 14, y);
+        y += 6;
+
+        doc.setFont(undefined, 'normal');
+        doc.setFontSize(8.5);
+        const renapTexto = 'El Consejo Nacional de Normalización y Certificación de Competencias Laborales (CONOCER) solicita al candidato la autorización para la publicación de los datos personales a fin de dar cumplimiento a lo dispuesto en el capítulo séptimo de las Reglas Generales y criterios para la integración del Sistema Nacional de Competencias, referente al "Registro Nacional de Personas Con Competencias Certificadas" (RENAP), por medio del cual las personas con competencias certificadas pueden voluntariamente dar a conocer sus datos personales, para facilitar su localización, en caso de que organizaciones sindicales, empresas, sector académico, sector social o público, o alguna otra institución pública o privada, requieran conocer sus competencias certificadas en determinada función individual.';
+        const renapLines = doc.splitTextToSize(renapTexto, 182);
+        doc.text(renapLines, 14, y);
+        y += renapLines.length * 4 + 8;
+
+        doc.setFont(undefined, 'bold');
+        doc.text(`SI ( ${pd.renapAutorizado ? 'X' : ' '} )    NO ( ${pd.renapAutorizado ? ' ' : 'X'} )`, 14, y);
+        y += 10;
+
+        if (fotoCandidato.previewDataUrl) {
+            try { doc.addImage(fotoCandidato.previewDataUrl, 'JPEG', 150, y, 35, 45); } catch (e) { /* formato inesperado, se omite sin romper el PDF */ }
+        }
+
+        doc.autoTable({
+            startY: y, theme: 'plain', styles: { fontSize: 8.5, cellPadding: 1.5 },
+            tableWidth: 'wrap',
+            columnStyles: { 0: { fontStyle: 'bold', cellWidth: 35 }, 1: { cellWidth: 100 } },
+            margin: { left: 14, right: 14 },
+            body: [
+                ['Nombre:', pd.nombre || ''],
+                ['CURP:', pd.curp || ''],
+                ['Género:', curpInfo ? curpInfo.genero : ''],
+                ['Fecha de nacimiento:', curpInfo ? curpInfo.fechaNacimiento : ''],
+                ['Nacionalidad:', 'México']
+            ]
+        });
+        y = doc.lastAutoTable.finalY + 6;
+
+        doc.setFont(undefined, 'bold');
+        doc.text('Domicilio Particular', 14, y);
+        y += 5;
+        doc.setFont(undefined, 'normal');
+        const domicilioLines = doc.splitTextToSize(pd.domicilio || '', 182);
+        doc.text(domicilioLines, 14, y);
+        y += domicilioLines.length * 4 + 4;
+
+        doc.autoTable({
+            startY: y, theme: 'plain', styles: { fontSize: 8.5, cellPadding: 1.5 },
+            tableWidth: 'wrap',
+            columnStyles: { 0: { fontStyle: 'bold', cellWidth: 28 }, 1: { cellWidth: 62 }, 2: { fontStyle: 'bold', cellWidth: 28 }, 3: { cellWidth: 62 } },
+            margin: { left: 14, right: 14 },
+            body: [
+                ['E-mail:', pd.email || '', 'Celular:', pd.telefonoCelular || ''],
+                ['', '', 'Teléfono:', pd.telefonoCasa || '']
+            ]
+        });
+        y = doc.lastAutoTable.finalY + 10;
+
+        if (y > 240) { doc.addPage(); addOfficialLogos(doc); y = 30; }
+        doc.setFontSize(7.5);
+        const avisoTexto = 'Los datos personales recabados serán protegidos y serán incorporados y tratados en el Sistema de datos personales RENAP con fundamento en las reglas generales y criterios para integración y operación del Sistema Nacional de Competencias y cuya finalidad es integrar una base de datos con información sobre las personas que han obtenido uno o más Certificados de Competencia, con base en Estándares de Competencia inscritos en el Registro Nacional de Estándares de Competencia. Esta ficha se llena en cumplimiento a lo dispuesto en la normatividad vigente de CONOCER.';
+        const avisoLines = doc.splitTextToSize(avisoTexto, 182);
+        doc.text(avisoLines, 14, y);
+        y += avisoLines.length * 3.6 + 10;
+
+        doc.setFontSize(9);
+        doc.text('Firma:', 14, y);
+        if (signatureMode === 'draw' && signatureDataUrl) {
+            doc.addImage(signatureDataUrl, 'PNG', 14, y + 3, 55, 20);
+        } else if (signatureTypedName) {
+            doc.setFont(undefined, 'italic');
+            doc.setFontSize(13);
+            doc.text(signatureTypedName, 14, y + 14);
+        }
+
+        return { blob: doc.output('blob'), filename: `Ficha_Registro_EC1375_${(pd.nombre || 'candidato').replace(/\s+/g, '_')}.pdf` };
+    }
+
     function generateAcuseNdaPDFBlob() {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
@@ -1822,6 +2080,7 @@
         if (!generatedDocsRegistro.autodiagnostico) {
             generatedDocsRegistro = {
                 autodiagnostico: generatePDFBlob(),
+                fichaRegistro: generateFichaRegistroPDFBlob(),
                 acuseTriptico: generateAcuseTripticoPDFBlob(),
                 acuseNda: generateAcuseNdaPDFBlob()
             };
@@ -1850,6 +2109,7 @@
                 <h2>📥 Tus documentos de Registro</h2>
                 <p style="margin-bottom: 16px; color: var(--text); font-size: 0.9rem;">Se suben automáticamente a tu portafolio. Aquí puedes ver su estado, o descargarlos como respaldo.</p>
                 ${renderEstadoDoc('autodiagnostico', '📄 Autodiagnóstico EC1375')}
+                ${renderEstadoDoc('fichaRegistro', '🪪 Ficha de Registro')}
                 ${renderEstadoDoc('acuseTriptico', '📄 Acuse de Recibido — Tríptico')}
                 ${renderEstadoDoc('acuseNda', '🔒 Acuerdo de Confidencialidad (NDA)')}
             </div>
@@ -1884,6 +2144,7 @@
             if (!personalData.domicilio?.trim()) missing.push('Domicilio');
             const certificadosOk = sinCertificadosPrevios || certificadosCompletos();
             if (!certificadosOk) missing.push('Subir tus certificados de formación previa (o marcar que no tienes ninguno)');
+            if (!fotoCandidato.previewDataUrl) missing.push('Subir tu foto para la Ficha de Registro');
             if (!personalData.telefonoCelular?.trim()) missing.push('Teléfono celular');
             if (!personalData.email?.trim()) missing.push('Correo electrónico');
             if (!personalData.fecha?.trim()) missing.push('Fecha de nacimiento');
@@ -1914,7 +2175,7 @@
             const certificadosOk = sinCertificadosPrevios || certificadosCompletos();
             return personalData.nombre && personalData.curp && personalData.domicilio &&
                    personalData.escolaridad && personalData.telefonoCelular && personalData.email &&
-                   personalData.fecha && certificadosOk;
+                   personalData.fecha && certificadosOk && !!fotoCandidato.previewDataUrl;
         }
         if (step === 'nda') {
             const hasSig = ndaSignatureMode === 'draw' ? ndaHasSignature : (ndaSignatureTypedName && ndaSignatureTypedName.trim().length > 3);
@@ -2011,11 +2272,288 @@
         doc.addImage(LOGO_ICE_BASE64, 'PNG', 163, 10, 33, 11.3);
     }
 
+    const ESTANDAR_NOMBRE_CORTO = 'Prestación de servicios auxiliares en la contribución tradicional y complementaria de la recuperación de las condiciones físicas y socioemocionales de las personas.';
+    const DIAGNOSTICO_MINUTOS_MAXIMOS = 30;
+
+    /* Desglose SI/NO/TOTAL por Elemento × categoría (Desempeños/Productos/
+       Conocimientos/Actitudes) — la tabla "VALORACIÓN" oficial que exige el
+       instrumento, replicada del expediente de referencia. */
+    function computeValoracion() {
+        return AUTODIAGNOSTICO_DATA.map(elemento => {
+            const categorias = elemento.categorias.map((cat, cIdx) => {
+                let si = 0, no = 0, total = 0;
+                cat.grupos.forEach((grupo, gIdx) => {
+                    grupo.items.forEach((item, iIdx) => {
+                        total++;
+                        const id = `e${elemento.elemento}_c${cIdx}_g${gIdx}_i${iIdx}`;
+                        if (answers[id] === 'SI') si++;
+                        else if (answers[id] === 'NO') no++;
+                    });
+                });
+                return { tipo: cat.tipo, si, no, total };
+            });
+            return { elemento: elemento.elemento, titulo: elemento.titulo, categorias };
+        });
+    }
+
+    function drawPortadaAutodiagnostico(doc) {
+        addOfficialLogos(doc);
+        doc.setFontSize(24);
+        doc.setFont(undefined, 'normal');
+        doc.setTextColor(20, 48, 79);
+        doc.text('AUTODIAGNÓSTICO', 105, 80, { align: 'center' });
+        doc.setFontSize(20);
+        doc.setFont(undefined, 'bold');
+        doc.text('EC1375', 105, 95, { align: 'center' });
+        doc.setFontSize(13);
+        doc.setFont(undefined, 'normal');
+        const subLines = doc.splitTextToSize(ESTANDAR_NOMBRE_CORTO, 150);
+        doc.text(subLines, 105, 115, { align: 'center' });
+        doc.setDrawColor(20, 48, 79);
+        doc.line(30, 200, 180, 200);
+        doc.line(30, 204, 180, 204);
+        doc.setFontSize(9);
+        doc.setFont(undefined, 'bolditalic');
+        doc.setTextColor(150, 20, 20);
+        const tagline = doc.splitTextToSize('Un Sistema Nacional de Competencias de las Personas para Desarrollar el Potencial Productivo, Educativo y el Progreso Social del Capital Humano de México.', 150);
+        doc.text(tagline, 105, 220, { align: 'center' });
+        doc.setTextColor(0, 0, 0);
+    }
+
+    function drawIndicePresentacionAutodiagnostico(doc) {
+        addOfficialLogos(doc);
+        doc.setFontSize(12);
+        doc.setFont(undefined, 'bold');
+        doc.text('ÍNDICE', 105, 20, { align: 'center' });
+        doc.setFontSize(9);
+        doc.setFont(undefined, 'normal');
+        let y = 30;
+        [['PRESENTACIÓN', '01'], ['DATOS PERSONALES', '02'], ['PROPÓSITO DEL DIAGNÓSTICO', '03'],
+         ['APLICACIÓN DEL DIAGNÓSTICO', '04'], ['VALORACIÓN', '05']].forEach(([label, num]) => {
+            doc.setFont(undefined, 'bold');
+            doc.text(label, 14, y);
+            doc.setFont(undefined, 'normal');
+            doc.text(num, 196, y, { align: 'right' });
+            y += 6;
+        });
+        y += 6;
+
+        doc.setFillColor(0, 0, 0);
+        doc.setTextColor(255, 255, 255);
+        doc.rect(14, y, 182, 6, 'F');
+        doc.setFont(undefined, 'bold');
+        doc.text('PRESENTACIÓN', 105, y + 4.3, { align: 'center' });
+        y += 11;
+        doc.setTextColor(0, 0, 0);
+        doc.setFont(undefined, 'normal');
+        const presentacion = `El presente Diagnóstico se realiza con base en el Estándar de competencia EC1375 - ${ESTANDAR_NOMBRE_CORTO}`;
+        const pLines = doc.splitTextToSize(presentacion, 182);
+        doc.text(pLines, 14, y);
+        y += pLines.length * 4.2 + 4;
+        doc.text('Los criterios que se diagnostican para evaluar la competencia del candidato son:', 14, y);
+        y += 6;
+
+        AUTODIAGNOSTICO_DATA.forEach(elemento => {
+            doc.setFillColor(210, 210, 210);
+            doc.rect(14, y, 182, 5, 'F');
+            doc.setFont(undefined, 'bold');
+            doc.setFontSize(8);
+            doc.text(`Elemento ${elemento.elemento} de 4`, 105, y + 3.6, { align: 'center' });
+            y += 7;
+            doc.setFont(undefined, 'normal');
+            const tLines = doc.splitTextToSize(elemento.titulo, 182);
+            doc.text(tLines, 14, y);
+            y += tLines.length * 4 + 2;
+            const tipos = [...new Set(elemento.categorias.map(c => c.tipo))];
+            tipos.forEach(t => { doc.text(`•  ${t}`, 18, y); y += 4; });
+            y += 2;
+        });
+    }
+
+    function drawPropositoInstrucciones(doc) {
+        addOfficialLogos(doc);
+        let y = 20;
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'bold');
+        doc.text('PROPÓSITO DEL DIAGNÓSTICO', 105, y, { align: 'center' }); y += 6;
+        doc.setFont(undefined, 'normal');
+        doc.setFontSize(8.5);
+        const proposito = 'Servir como referente para la evaluación y certificación de las personas que prestan servicios de apoyo en la recuperación tradicional y complementaria de las condiciones físicas y socioemocionales de las personas, preparando el espacio de atención, disponiendo e introduciendo al usuario que recibirá los servicios y dando seguimiento a su atención.';
+        const propLines = doc.splitTextToSize(proposito, 182);
+        doc.text(propLines, 14, y); y += propLines.length * 4 + 8;
+
+        doc.setFont(undefined, 'bold');
+        doc.text('IMPORTANTE', 105, y, { align: 'center' }); y += 6;
+        doc.setFont(undefined, 'normal');
+        const importante = 'El Diagnóstico de competencia laboral es un documento personal, particular y confidencial del candidato a evaluación y certificación, sus resultados sólo se darán a conocer de manera personal. Con esta información el candidato decidirá si ingresa a los procesos de evaluación y certificación de la competencia laboral o asiste a un taller de capacitación final.';
+        const impLines = doc.splitTextToSize(importante, 182);
+        doc.text(impLines, 14, y); y += impLines.length * 4 + 8;
+
+        doc.setFont(undefined, 'bold');
+        doc.text('INSTRUCCIONES', 14, y); y += 6;
+        doc.setFont(undefined, 'normal');
+        const instrucciones = [
+            'Lea cuidadosamente cada uno de los apartados del Diagnóstico tomando en cuenta las actividades que usted sabe hacer, bajo qué condiciones las ha realizado, cómo las ha demostrado y qué conocimientos tiene de su actividad.',
+            'Lea cuidadosamente la pregunta de las actividades que se enuncian y marque con una "X" en la columna SI cuando considere que sabe hacer o ha hecho el desempeño, producto, actitud/hábito/valor o tiene el conocimiento y/o pueda mostrar las evidencias correspondientes y en la columna NO en caso contrario.',
+            'Una vez que haya leído todo el Diagnóstico, revise sus respuestas las veces que considere necesario.',
+            `Tiempo máximo para elaborar el diagnóstico: ${DIAGNOSTICO_MINUTOS_MAXIMOS} minutos.`
+        ];
+        instrucciones.forEach((texto, idx) => {
+            const lines = doc.splitTextToSize(`${idx + 1}) ${texto}`, 178);
+            doc.text(lines, 18, y);
+            y += lines.length * 4 + 2;
+        });
+    }
+
+    function drawDatosPersonalesAutodiagnostico(doc) {
+        const pd = personalData;
+        addOfficialLogos(doc);
+        doc.setFillColor(0, 0, 0);
+        doc.setTextColor(255, 255, 255);
+        doc.setFont(undefined, 'bold');
+        doc.setFontSize(10);
+        doc.rect(14, 20, 182, 7, 'F');
+        doc.text('Datos personales', 105, 25, { align: 'center' });
+        doc.setTextColor(0, 0, 0);
+        doc.autoTable({
+            startY: 27,
+            styles: { fontSize: 9, cellPadding: 3 },
+            tableWidth: 'wrap',
+            columnStyles: { 0: { fontStyle: 'bold', fillColor: [230, 230, 230], cellWidth: 55 }, 1: { cellWidth: 127 } },
+            body: [
+                ['Nombre Completo', pd.nombre || ''],
+                ['Curp', pd.curp || ''],
+                ['Domicilio', pd.domicilio || ''],
+                ['Último grado de estudios', pd.escolaridad || ''],
+                ['Teléfono de casa', pd.telefonoCasa || ''],
+                ['Teléfono de celular', pd.telefonoCelular || ''],
+                ['Correo electrónico', pd.email || ''],
+                ['Fecha de aplicación', pd.fecha || '']
+            ]
+        });
+        let y = doc.lastAutoTable.finalY + 4;
+        doc.setFont(undefined, 'bold');
+        doc.setFontSize(9);
+        doc.text('Firma', 14, y);
+        if (signatureMode === 'draw' && signatureDataUrl) {
+            doc.addImage(signatureDataUrl, 'PNG', 40, y - 6, 45, 16);
+        } else if (signatureTypedName) {
+            doc.setFont(undefined, 'italic');
+            doc.setFontSize(12);
+            doc.text(signatureTypedName, 40, y);
+        }
+    }
+
+    /* Tabla VALORACIÓN oficial: Total/SI/NO/TOTAL por categoría de cada
+       Elemento, instrucciones de cálculo con los números reales del
+       candidato, conclusión Evaluarse/Asesorarse (mismo umbral de 90% que
+       ya usa calculateScore()) y el bloque de Resultado/Decisión. */
+    function drawValoracion(doc, score) {
+        addOfficialLogos(doc);
+        let y = 20;
+        doc.setFillColor(0, 0, 0);
+        doc.setTextColor(255, 255, 255);
+        doc.setFont(undefined, 'bold');
+        doc.setFontSize(10);
+        doc.rect(14, y, 182, 6, 'F');
+        doc.text('VALORACIÓN', 105, y + 4.3, { align: 'center' });
+        y += 9;
+        doc.setTextColor(0, 0, 0);
+
+        computeValoracion().forEach(elemento => {
+            if (y > 250) { doc.addPage(); addOfficialLogos(doc); y = 20; }
+            doc.setFillColor(0, 0, 0);
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(8);
+            doc.setFont(undefined, 'bold');
+            const tituloLines = doc.splitTextToSize(`Elemento ${elemento.elemento} de 4: ${elemento.titulo}`, 178);
+            doc.rect(14, y, 182, tituloLines.length * 4 + 3, 'F');
+            doc.text(tituloLines, 105, y + 3.8, { align: 'center' });
+            y += tituloLines.length * 4 + 5;
+            doc.setTextColor(0, 0, 0);
+
+            doc.autoTable({
+                startY: y,
+                head: [['', 'TOTAL', 'SI', 'NO', 'TOTAL']],
+                body: elemento.categorias.map(c => [c.tipo, String(c.total), String(c.si), String(c.no), String(c.total)]),
+                styles: { fontSize: 8, cellPadding: 1.8, halign: 'center' },
+                columnStyles: { 0: { halign: 'left', cellWidth: 82 } },
+                headStyles: { fillColor: [230, 230, 230], textColor: [0, 0, 0], fontStyle: 'bold' },
+                margin: { left: 14, right: 14 }
+            });
+            y = doc.lastAutoTable.finalY + 5;
+        });
+
+        if (y > 200) { doc.addPage(); addOfficialLogos(doc); y = 20; }
+        doc.setFillColor(0, 0, 0);
+        doc.setTextColor(255, 255, 255);
+        doc.setFont(undefined, 'bold');
+        doc.setFontSize(9);
+        doc.rect(14, y, 182, 6, 'F');
+        doc.text('Instrucciones para aplicar la valoración', 105, y + 4.3, { align: 'center' });
+        y += 10;
+        doc.setTextColor(0, 0, 0);
+        doc.setFont(undefined, 'normal');
+        doc.setFontSize(8.5);
+        [
+            [`1. Cuente el número de respuestas afirmativas (Sí) que obtuvo y anótelas:`, String(score.si)],
+            [`2. Cuente el número de respuestas negativas (No) que obtuvo y anótelas:`, String(score.no)],
+            [`3. Verifique que la suma de las respuestas afirmativas (SI) y negativas (NO) sea igual al total de reactivos (${score.total}):`, String(score.si + score.no)],
+            [`4. Divida las respuestas afirmativas que obtuvo entre el total de respuestas y multiplique por 100 para que su resultado sea en porcentaje:`, `${score.percentage}%`]
+        ].forEach(([texto, valor]) => {
+            const lines = doc.splitTextToSize(texto, 150);
+            doc.text(lines, 14, y);
+            doc.setFont(undefined, 'bold');
+            doc.text(valor, 190, y, { align: 'right' });
+            doc.setFont(undefined, 'normal');
+            y += lines.length * 4 + 3;
+        });
+        y += 4;
+
+        const esEvaluarse = score.percentage >= 90;
+        doc.setFillColor(0, 0, 0);
+        doc.setTextColor(255, 255, 255);
+        doc.rect(14, y, 40, 16, 'F');
+        doc.setFont(undefined, 'bold');
+        doc.setFontSize(8.5);
+        doc.text('Conclusión', 34, y + 9, { align: 'center' });
+        doc.setTextColor(0, 0, 0);
+        doc.setFont(undefined, 'normal');
+        doc.setFontSize(7.5);
+        const conclusionLines = doc.splitTextToSize(
+            'Si cumplió un porcentaje igual o mayor a 90% de los reactivos cumplidos se le recomienda EVALUARSE. Si resulta menor al 90% se le sugiere ASESORARSE con su Centro Evaluador o Evaluador Independiente.',
+            140
+        );
+        doc.text(conclusionLines, 58, y + 4);
+        y += Math.max(16, conclusionLines.length * 3.6) + 8;
+
+        doc.autoTable({
+            startY: y,
+            head: [['Resultado', 'Decisión del Candidato/a']],
+            body: [[
+                `Respuestas correctas: ${score.si}/${score.total}\nSugerencia: ${esEvaluarse ? 'Evaluarse' : 'Asesorarse'}`,
+                `Decisión: ${esEvaluarse ? 'Evaluarme' : 'Asesorarme'}`
+            ]],
+            styles: { fontSize: 8.5, cellPadding: 3, valign: 'top' },
+            headStyles: { fillColor: [230, 230, 230], textColor: [0, 0, 0] },
+            margin: { left: 14, right: 14 }
+        });
+    }
+
     function generatePDFBlob() {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
         const pd = personalData;
         const score = calculateScore();
+
+        drawPortadaAutodiagnostico(doc);
+        doc.addPage();
+        drawIndicePresentacionAutodiagnostico(doc);
+        doc.addPage();
+        drawDatosPersonalesAutodiagnostico(doc);
+        doc.addPage();
+        drawPropositoInstrucciones(doc);
+        doc.addPage();
 
         addOfficialLogos(doc);
         doc.setFontSize(15);
@@ -2026,22 +2564,7 @@
         doc.text('Prestación de servicios auxiliares en la contribución tradicional y complementaria de la', 105, 33, { align: 'center' });
         doc.text('recuperación de las condiciones físicas y socioemocionales de las personas.', 105, 38, { align: 'center' });
 
-        doc.autoTable({
-            startY: 44,
-            theme: 'plain',
-            styles: { fontSize: 9, cellPadding: 1.5 },
-            body: [
-                ['Nombre completo:', pd.nombre || ''],
-                ['CURP:', pd.curp || ''],
-                ['Domicilio:', pd.domicilio || ''],
-                ['Último grado de estudios:', pd.escolaridad || ''],
-                ['Teléfono:', pd.telefonoCelular || (pd.telefonoCasa || '')],
-                ['Correo electrónico:', pd.email || ''],
-                ['Fecha de aplicación:', pd.fecha || '']
-            ]
-        });
-
-        let y = doc.lastAutoTable.finalY + 6;
+        let y = 46;
 
         AUTODIAGNOSTICO_DATA.forEach(elemento => {
             if (y > 260) { doc.addPage(); y = 15; }
@@ -2084,19 +2607,10 @@
             });
         });
 
-        if (y > 240) { doc.addPage(); y = 15; }
-        doc.setFontSize(12);
-        doc.setFont(undefined, 'bold');
-        doc.text('RESULTADO DEL AUTODIAGNÓSTICO', 14, y); y += 8;
-        doc.setFontSize(10);
-        doc.setFont(undefined, 'normal');
-        doc.text(`Respuestas afirmativas (SI): ${score.si} de ${score.total}`, 14, y); y += 6;
-        doc.text(`Respuestas negativas (NO): ${score.no} de ${score.total}`, 14, y); y += 6;
-        doc.text(`Porcentaje obtenido: ${score.percentage}%`, 14, y); y += 6;
-        doc.setFont(undefined, 'bold');
-        doc.text(`Recomendación: ${score.percentage >= 90 ? 'PROCEDE A EVALUARSE' : 'SE SUGIERE ASESORARSE PREVIAMENTE'}`, 14, y);
-        y += 12;
-
+        doc.addPage();
+        drawValoracion(doc, score);
+        y = doc.lastAutoTable ? doc.lastAutoTable.finalY + 14 : 100;
+        if (y > 260) { doc.addPage(); addOfficialLogos(doc); y = 20; }
         doc.setFont(undefined, 'normal');
         doc.setFontSize(9);
         doc.text('Firma del candidato/a:', 14, y);
