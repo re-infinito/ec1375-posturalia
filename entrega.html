@@ -6,6 +6,7 @@
     <title>Entrega de Certificado - Paideia Tech</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="auth.js"></script>
+    <script src="flow-status.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -283,6 +284,8 @@
                 </div>
                 <a href="https://wa.me/528115026729?text=${encodeURIComponent('Hola, ya pagué la Entrega de mi certificado. ¿Cómo va el proceso?')}" target="_blank" class="btn btn-primary btn-full" style="margin-top:16px;">📱 Preguntar estatus por WhatsApp</a>
             </div>`;
+        const flowSteps = await FlowStatus.getSteps();
+        FlowStatus.renderProgressBar(flowSteps, 'entrega');
     }
 
     window.addEventListener('load', () => {
