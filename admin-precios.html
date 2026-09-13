@@ -131,17 +131,22 @@
     }
 
     function calcularEstadisticas(filas) {
-        const activos = filas.filter(c => (c.estado || 'activo') === 'activo');
-        const desistieron = filas.filter(c => c.estado === 'desistió');
-        const cambioLote = filas.filter(c => c.estado === 'cambio_lote');
-        const proyectado = activos.reduce((sum, c) => sum + (c.total_acordado || 0), 0);
-        const realizado = activos.reduce((sum, c) => {
-            const pagos = pagosPorEmail[c.email] || {};
-            let total = 0;
-            FASES.forEach(f => { if (pagos[f]) total += c[`monto_${f}`] || 0; });
-            return sum + total;
-        }, 0);
-        return { activos: activos.length, desistieron: desistieron.length, cambioLote: cambioLote.length, proyectado, realizado };
+        try {
+            const activos = filas.filter(c => (c.estado || 'activo') === 'activo');
+            const desistieron = filas.filter(c => c.estado === 'desistió');
+            const cambioLote = filas.filter(c => c.estado === 'cambio_lote');
+            const proyectado = activos.reduce((sum, c) => sum + (c.total_acordado || 0), 0);
+            const realizado = activos.reduce((sum, c) => {
+                const pagos = pagosPorEmail[c.email] || {};
+                let total = 0;
+                FASES.forEach(f => { if (pagos[f]) total += (c[`monto_${f}`] || 0); });
+                return sum + total;
+            }, 0);
+            return { activos: activos.length, desistieron: desistieron.length, cambioLote: cambioLote.length, proyectado, realizado };
+        } catch (e) {
+            console.error('Error calculando estadísticas:', e);
+            return { activos: 0, desistieron: 0, cambioLote: 0, proyectado: 0, realizado: 0 };
+        }
     }
 
     function renderGateShell() {
