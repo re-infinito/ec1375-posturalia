@@ -310,7 +310,7 @@
         fisiologicos: '', socioemocionales: '', heredofamiliares: '', deportivos: '', consumoSustancias: '',
         presionArterial: '', pulso: '', temperatura: '', oxigenacion: '', peso: '', estatura: '',
         observacionPostural: '', frecuenciaRespiratoria: '', sintomasNecesidades: '',
-        tecnicaAplicar: '', expedienteNo: '', fechaConsentimiento: todayISOSession(),
+        tecnicaAplicar: '', otraTecnica: '', expedienteNo: '', fechaConsentimiento: todayISOSession(),
         condicionesPreparacion: '', numeroSesionesPlan: '', duracionSesionPlan: '', objetivosEfectos: '',
         telefonoMovilSeguimiento: '', telefonoFijoSeguimiento: '', correoSeguimiento: '', medioContacto: '',
         notaEvolucion: '', pronostico: '', recomendaciones: ''
@@ -889,19 +889,25 @@
 
     function renderTerapiaExplicacion(result) {
         const s = sessionData;
-        const especialidadesOptions = (result.especialidades || []).map(e => `<option value="${escapeHtml(e)}">${escapeHtml(e)}</option>`).join('');
+        const especialidadesOptions = (result.especialidades || []).map(e => `<option value="${escapeHtml(e)}" ${s.tecnicaAplicar === e ? 'selected' : ''}>${escapeHtml(e)}</option>`).join('');
+        const esOtra = s.tecnicaAplicar === 'Otra';
         return `
             <div class="hero"><div class="hero-icon">💬</div><h1 class="hero-title">Explicación de la Terapia</h1></div>
             ${renderGuionPanel('terapia_explicacion')}
             <div class="card">
                 <div class="field-group">
                     <label>Técnica a aplicar *</label>
-                    <select id="f_tecnicaAplicar">
+                    <select id="f_tecnicaAplicar" onchange="handleTecnicaAplicarChange(this.value)">
                         <option value="">Selecciona...</option>
                         ${especialidadesOptions}
-                        <option value="Otra">Otra</option>
+                        <option value="Otra" ${esOtra ? 'selected' : ''}>Otra (especificar)</option>
                     </select>
                 </div>
+                ${esOtra ? `
+                <div class="field-group">
+                    <label>Especifica la técnica *</label>
+                    <input type="text" id="f_otraTecnica" value="${escapeHtml(s.otraTecnica)}" placeholder="Ej. Reflexología podal">
+                </div>` : ''}
             </div>
         `;
     }
@@ -1154,7 +1160,14 @@
     function attachFrecRespListeners() { bindFields(['frecuenciaRespiratoria']); }
     function attachPresionListeners() { bindFields(['presionArterial']); }
     function attachVerificarListeners() { bindFields(['sintomasNecesidades']); }
-    function attachTerapiaExplicacionListeners() { bindFields(['tecnicaAplicar']); }
+    function tecnicaEfectiva(s) { return s.tecnicaAplicar === 'Otra' ? (s.otraTecnica || '') : (s.tecnicaAplicar || ''); }
+    function attachTerapiaExplicacionListeners() { bindFields(['otraTecnica']); }
+    function handleTecnicaAplicarChange(value) {
+        sessionData.tecnicaAplicar = value;
+        if (value !== 'Otra') sessionData.otraTecnica = '';
+        saveProgress();
+        renderStep();
+    }
     function attachConsentimientoListeners() { bindFields(['expedienteNo', 'fechaConsentimiento']); }
     function attachPlanSesionListeners() { bindFields(['condicionesPreparacion', 'numeroSesionesPlan', 'duracionSesionPlan', 'objetivosEfectos']); }
     function attachPlanSeguimientoListeners() { bindFields(['notaEvolucion', 'pronostico', 'recomendaciones']); }
@@ -1167,7 +1180,7 @@
         if (step === 'prep') return isPrepComplete();
         if (step === 'ficha') return !!sessionData.usuarioNombre;
         if (step === 'verificar') return hasSignature('usuarioFicha');
-        if (step === 'terapia_explicacion') return !!sessionData.tecnicaAplicar;
+        if (step === 'terapia_explicacion') return sessionData.tecnicaAplicar === 'Otra' ? !!sessionData.otraTecnica.trim() : !!sessionData.tecnicaAplicar;
         if (step === 'consentimiento') return hasSignature('usuarioConsentimiento');
         if (step === 'plan_sesion') return !!sessionData.objetivosEfectos;
         if (step === 'cierre') return hasSignature('usuarioSeguimiento');
@@ -1360,7 +1373,7 @@ const LOGO_CONOCER_BASE64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAA
             startY: 42, theme: 'plain', styles: { fontSize: 9, cellPadding: 1.5 },
             body: [
                 ['Nombre del usuario:', s.usuarioNombre || ''],
-                ['Técnica a aplicar:', s.tecnicaAplicar || ''],
+                ['Técnica a aplicar:', tecnicaEfectiva(s)],
                 ['Expediente No.:', s.expedienteNo || ''],
                 ['Fecha:', s.fechaConsentimiento || '']
             ]

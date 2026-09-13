@@ -586,7 +586,8 @@ const AUTODIAGNOSTICO_DATA = [
         { label: 'Oxímetro', url: 'https://a.co/d/04TDvFyw', titulo: 'FARMADAR Oxímetro de Pulso para el Dedo' },
         { label: 'Termómetro digital', url: 'https://a.co/d/047Vs24M', titulo: 'Termómetro Digital de Frente Infrarrojo sin Contacto' },
         { label: 'Perchero', url: 'https://a.co/d/02NwyvdJ', titulo: 'Perchero de Pared Acero Inoxidable' },
-        { label: 'Báscula y estadímetro', url: 'https://a.co/d/0fuXbj9f', titulo: 'RENPHO Báscula Digital Corporal y Muscular con App' },
+        { label: 'Báscula', url: 'https://a.co/d/0fuXbj9f', titulo: 'RENPHO Báscula Digital Corporal y Muscular con App' },
+        { label: 'Estadímetro', url: 'https://www.amazon.com.mx/dp/B0H5PJWD59', titulo: 'Estadímetro Portátil 70-210cm, Medidor de Estatura' },
         { label: 'Áreas de recepción y atención' }
     ];
 
@@ -1151,7 +1152,7 @@ const AUTODIAGNOSTICO_DATA = [
                 const instrumento = INSTRUMENTO_POR_TIPO[cat.tipo] || '';
                 cat.grupos.forEach(grupo => {
                     const desc = grupo.titulo + '\n' + grupo.items.map(it => '• ' + it).join('\n');
-                    criteriosRows.push([String(seq), desc, instrumento, '']);
+                    criteriosRows.push([String(seq), desc, instrumento, planData.fechaHoraAgendada || '']);
                     seq++;
                 });
             });
