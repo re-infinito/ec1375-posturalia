@@ -301,6 +301,7 @@
         const filasOriginales = candidatos.concat(emailsConPagoSinPrecio.map(email => ({ email, _sinPrecio: true })));
         const filas = aplicarFiltros(filasOriginales);
         const stats = calcularEstadisticas(filasOriginales);
+        console.log('Stats:', stats, 'Filas originales:', filasOriginales.length);
         const rowsHtml = filas.map(c => {
             const prefix = `row_${btoa(c.email).replace(/=/g, '')}`;
             const fasesOrigen = pagosPorEmail[c.email] || {};
