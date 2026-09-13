@@ -3,6 +3,7 @@
 <head>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="auth.js"></script>
+<script src="flow-status.js"></script>
 
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -4343,6 +4344,10 @@ window.EC1375.version='4.4';
      practica.html (ver abajo). null = comportamiento de dashboard de
      siempre, por si algún link viejo apunta aquí sin parámetro. */
   var boot = new URLSearchParams(location.search).get('boot');
+  if (!boot) {
+    location.replace('recuperar.html');
+    return;
+  }
 
   var result = loadAutodiagnosticoResult();
   if (!result || !result.completo) {
@@ -4543,6 +4548,12 @@ window.EC1375.version='4.4';
     var hideNav = document.createElement('style');
     hideNav.textContent = 'nav.rutas{display:none!important}#stepper{display:none!important}';
     document.head.appendChild(hideNav);
+
+    if (boot === 'remedial' || boot === 'practice') {
+      var flowStepId = boot === 'remedial' ? 'reforzamiento' : 'practica';
+      var flowSteps = await FlowStatus.getSteps();
+      FlowStatus.renderProgressBar(flowSteps, flowStepId);
+    }
   }
 
   /* Captura (no burbuja) para adelantarse siempre al listener de clics del
