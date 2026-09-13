@@ -50,26 +50,31 @@
         .btn-primary:hover { background: var(--primary-light); }
         .btn-primary:disabled { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.3); cursor: not-allowed; }
         .btn-secondary { background: transparent; border: 1.5px solid var(--primary); color: var(--primary); }
-        .btn-small { padding: 8px 14px; font-size: 0.8rem; }
+        .btn-small { padding: 5px 9px; font-size: 0.7rem; }
         .btn-full { width: 100%; }
 
         table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
         th { text-align: left; color: var(--primary-light); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.4px; padding: 8px 6px; border-bottom: 1px solid rgba(255,255,255,0.1); }
         td { padding: 8px 6px; border-bottom: 1px solid rgba(255,255,255,0.06); vertical-align: middle; }
-        td input { width: 90px; padding: 7px 8px; background: var(--dark); border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; color: var(--text-bright); font-size: 0.85rem; }
+        td input { width: 70px; padding: 5px 6px; background: var(--dark); border: 1px solid rgba(255,255,255,0.15); border-radius: 5px; color: var(--text-bright); font-size: 0.75rem; }
+        td input[type="number"] { width: 55px; }
+        td select { font-size: 0.75rem; padding: 5px 6px; }
         .email-cell { color: var(--text-bright); font-weight: 600; white-space: nowrap; }
         .total-cell { color: var(--accent); font-weight: 700; white-space: nowrap; }
-        .badges { display: flex; gap: 4px; flex-wrap: wrap; }
-        .badge { font-size: 0.68rem; padding: 3px 7px; border-radius: 5px; font-weight: 700; white-space: nowrap; border: none; cursor: pointer; font-family: inherit; }
+        .badges { display: flex; gap: 2px; flex-wrap: wrap; }
+        .badge { font-size: 0.6rem; padding: 2px 5px; border-radius: 4px; font-weight: 700; white-space: nowrap; border: none; cursor: pointer; font-family: inherit; }
         .badge.on-mp { background: rgba(0,255,136,0.15); color: var(--success); }
         .badge.on-manual { background: rgba(255,215,0,0.15); color: var(--accent); }
         .badge.off { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.35); }
         .badge:hover { filter: brightness(1.3); }
         .badge:disabled { cursor: wait; opacity: 0.6; }
-        .row-status { font-size: 0.75rem; margin-left: 8px; }
+        .row-status { font-size: 0.7rem; margin-left: 4px; }
         .row-status.ok { color: var(--success); }
         .row-status.err { color: var(--danger); }
-        .table-wrap { overflow-x: auto; }
+        .table-wrap { overflow-x: auto; width: 100%; }
+        table { font-size: 0.8rem; }
+        th { padding: 6px 4px; font-size: 0.65rem; }
+        td { padding: 6px 4px; }
 
         .add-form { display: grid; grid-template-columns: 1.6fr 1.6fr repeat(4, 1fr) auto; gap: 8px; align-items: end; }
         @media (max-width: 800px) { .add-form { grid-template-columns: 1fr 1fr; } }
@@ -283,17 +288,17 @@
                     <td class="total-cell" id="${prefix}_total">$${Number(c.total_acordado || 0).toLocaleString('es-MX')}</td>
                     <td><div class="badges">${badges}</div></td>
                     <td>
-                        <select id="${prefix}_estado" style="width:110px;padding:7px 8px;background:var(--dark);border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:var(--text-bright);font-size:0.85rem;">
+                        <select id="${prefix}_estado" style="width:85px;padding:5px 4px;background:var(--dark);border:1px solid rgba(255,255,255,0.15);border-radius:5px;color:var(--text-bright);font-size:0.75rem;">
                             <option value="activo" ${estadoActual === 'activo' ? 'selected' : ''}>Activo</option>
                             <option value="desistió" ${estadoActual === 'desistió' ? 'selected' : ''}>Desistió</option>
-                            <option value="cambio_lote" ${estadoActual === 'cambio_lote' ? 'selected' : ''}>Cambio de lote</option>
+                            <option value="cambio_lote" ${estadoActual === 'cambio_lote' ? 'selected' : ''}>Cambio</option>
                         </select>
                     </td>
                     <td>
-                        <input type="number" id="${prefix}_lote" min="1" max="10" value="${loteActual}" style="width:60px;padding:7px 8px;background:var(--dark);border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:var(--text-bright);font-size:0.85rem;">
+                        <input type="number" id="${prefix}_lote" min="1" max="10" value="${loteActual}" style="width:45px;padding:5px 4px;background:var(--dark);border:1px solid rgba(255,255,255,0.15);border-radius:5px;color:var(--text-bright);font-size:0.75rem;">
                     </td>
                     <td>
-                        <input type="text" id="${prefix}_motivo" placeholder="Motivo (opt.)" value="${escapeHtml(motivoActual)}" style="width:120px;padding:7px 8px;background:var(--dark);border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:var(--text-bright);font-size:0.85rem;">
+                        <input type="text" id="${prefix}_motivo" placeholder="Motivo" value="${escapeHtml(motivoActual)}" style="width:80px;padding:5px 4px;background:var(--dark);border:1px solid rgba(255,255,255,0.15);border-radius:5px;color:var(--text-bright);font-size:0.75rem;">
                     </td>
                     <td>
                         <button class="btn btn-primary btn-small" onclick="guardarFila('${c.email}')">Guardar</button>
