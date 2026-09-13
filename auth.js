@@ -673,13 +673,18 @@ const Auth = {
         bar.innerHTML = `
             <strong style="color:#FFD700;margin-right:4px;">🔧 Admin</strong>
             <a href="autodiagnostico.html" target="_blank" style="${linkStyle}">Autodiagnóstico</a>
+            <a href="reforzamiento.html" target="_blank" style="${linkStyle}">Reforzamiento</a>
             <a href="alineacion.html" target="_blank" style="${linkStyle}">Alineación</a>
+            <a href="biblioteca.html" target="_blank" style="${linkStyle};background:transparent;border:1px solid #0088FF;">Biblioteca</a>
             <a href="plan-evaluacion.html" target="_blank" style="${linkStyle}">Plan Evaluación</a>
+            <a href="guion-maestro.html" target="_blank" style="${linkStyle};background:transparent;border:1px solid #0088FF;">Guion Maestro</a>
             <a href="documentos-sesion.html" target="_blank" style="${linkStyle}">Doc. Sesión</a>
+            <a href="practica.html" target="_blank" style="${linkStyle}">Práctica</a>
+            <a href="examen-conocimientos.html" target="_blank" style="${linkStyle}">Examen</a>
             <a href="encuesta-satisfaccion.html" target="_blank" style="${linkStyle}">Encuesta</a>
             <a href="evidencias.html" target="_blank" style="${linkStyle}">Evidencias</a>
             <a href="entrega.html" target="_blank" style="${linkStyle}">Entrega</a>
-            <a href="recuperar.html" target="_blank" style="${linkStyle};background:transparent;border:1px solid #0088FF;">Login</a>
+            <a href="recuperar.html" target="_blank" style="${linkStyle};background:transparent;border:1px solid #0088FF;">Dashboard</a>
             <button onclick="Auth.resetAdminDownstreamProgress()" style="${linkStyle};background:transparent;border:1px solid #FF3333;color:#FF3333;cursor:pointer;font-family:inherit;">🔄 Reset</button>
         `;
         document.body.prepend(bar);
