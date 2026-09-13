@@ -96,16 +96,52 @@
     <script>
     const FASES = ['registro', 'alineacion', 'evaluacion', 'entrega'];
     const FASE_LABEL = { registro: 'Registro', alineacion: 'Alineación', evaluacion: 'Evaluación', entrega: 'Entrega' };
+    const ESTADO_COLOR = { activo: '#1a4d2e', desistió: '#5a1a1a', cambio_lote: '#4a3a0a' }; // RGB más oscuro para fondo
 
     let candidatos = []; // filas de candidatos_precio
     let pagosPorEmail = {}; // { email: Set(fases autorizadas) }
     let nombresAutoPorEmail = {}; // { email: nombre } — real, cruzado desde candidatos_ec1375 (ya hizo su Autodiagnóstico)
+    let filtroEstado = ''; // '' = todos, 'activo', 'desistió', 'cambio_lote'
+    let filtroBusqueda = ''; // búsqueda por email/nombre
 
     function escapeHtml(str) {
         if (!str) return '';
         const div = document.createElement('div');
         div.textContent = str;
         return div.innerHTML;
+    }
+
+    function aplicarFiltros(filas) {
+        return filas.filter(c => {
+            const estado = c.estado || 'activo';
+            const nombre = (nombresAutoPorEmail[c.email] || c.nombre || c.email).toLowerCase();
+            const email = (c.email || '').toLowerCase();
+
+            // Filtro de estado
+            if (filtroEstado && estado !== filtroEstado) return false;
+
+            // Filtro de búsqueda
+            if (filtroBusqueda) {
+                const busqueda = filtroBusqueda.toLowerCase();
+                if (!nombre.includes(busqueda) && !email.includes(busqueda)) return false;
+            }
+
+            return true;
+        });
+    }
+
+    function calcularEstadisticas(filas) {
+        const activos = filas.filter(c => (c.estado || 'activo') === 'activo');
+        const desistieron = filas.filter(c => c.estado === 'desistió');
+        const cambioLote = filas.filter(c => c.estado === 'cambio_lote');
+        const proyectado = activos.reduce((sum, c) => sum + (c.total_acordado || 0), 0);
+        const realizado = activos.reduce((sum, c) => {
+            const pagos = pagosPorEmail[c.email] || {};
+            let total = 0;
+            FASES.forEach(f => { if (pagos[f]) total += c[`monto_${f}`] || 0; });
+            return sum + total;
+        }, 0);
+        return { activos: activos.length, desistieron: desistieron.length, cambioLote: cambioLote.length, proyectado, realizado };
     }
 
     function renderGateShell() {
@@ -257,7 +293,9 @@
         const emailsConPagoSinPrecio = Object.keys(pagosPorEmail)
             .filter(email => !candidatos.some(c => c.email === email))
             .sort();
-        const filas = candidatos.concat(emailsConPagoSinPrecio.map(email => ({ email, _sinPrecio: true })));
+        const filasOriginales = candidatos.concat(emailsConPagoSinPrecio.map(email => ({ email, _sinPrecio: true })));
+        const filas = aplicarFiltros(filasOriginales);
+        const stats = calcularEstadisticas(filasOriginales);
         const rowsHtml = filas.map(c => {
             const prefix = `row_${btoa(c.email).replace(/=/g, '')}`;
             const fasesOrigen = pagosPorEmail[c.email] || {};
@@ -281,8 +319,9 @@
             const estadoActual = c.estado || 'activo';
             const loteActual = c.lote || 1;
             const motivoActual = c.motivo_cambio || '';
+            const bgColor = ESTADO_COLOR[estadoActual] || ESTADO_COLOR.activo;
             return `
-                <tr>
+                <tr style="background-color:${bgColor}">
                     <td>${nombreCell}${c._sinPrecio ? '<div style="color:var(--accent);font-weight:400;font-size:0.68rem;margin-top:4px;">Sin precio capturado — guarda montos para agregarlo a Precios</div>' : ''}</td>
                     ${montoInputs}
                     <td class="total-cell" id="${prefix}_total">$${Number(c.total_acordado || 0).toLocaleString('es-MX')}</td>
@@ -329,6 +368,32 @@
             </div>
             <div class="card">
                 <h2>💰 Candidatos (${filas.length}${emailsConPagoSinPrecio.length ? `, ${emailsConPagoSinPrecio.length} sin precio capturado` : ''})</h2>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;font-size:0.75rem;padding:12px;background:rgba(255,255,255,0.04);border-radius:8px;">
+                    <div>✅ Activos: <strong style="color:var(--success)">${stats.activos}</strong></div>
+                    <div>❌ Desistieron: <strong style="color:#ff6666">${stats.desistieron}</strong></div>
+                    <div>🔄 Cambio de lote: <strong style="color:var(--accent)">${stats.cambioLote}</strong></div>
+                    <div>💰 Proyectado: <strong style="color:var(--accent)">$${stats.proyectado.toLocaleString('es-MX')}</strong></div>
+                    <div>💸 Realizado: <strong style="color:var(--success)">$${stats.realizado.toLocaleString('es-MX')}</strong></div>
+                    <div>% Completado: <strong>${stats.proyectado > 0 ? Math.round((stats.realizado / stats.proyectado) * 100) : 0}%</strong></div>
+                </div>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
+                    <div class="field-group" style="margin:0;">
+                        <label>🔍 Buscar por nombre/email</label>
+                        <input type="text" id="filtroBusqueda" placeholder="Escribe nombre o email..." style="width:100%;padding:8px 10px;background:var(--dark);border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:var(--text-bright);font-size:0.8rem;" oninput="filtroBusqueda = this.value.toLowerCase(); renderPanel()">
+                    </div>
+                    <div class="field-group" style="margin:0;">
+                        <label>🎯 Filtrar por estado</label>
+                        <select id="filtroEstado" style="width:100%;padding:8px 10px;background:var(--dark);border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:var(--text-bright);font-size:0.8rem;" onchange="filtroEstado = this.value; renderPanel()">
+                            <option value="">Todos</option>
+                            <option value="activo">Activo</option>
+                            <option value="desistió">Desistió</option>
+                            <option value="cambio_lote">Cambio de lote</option>
+                        </select>
+                    </div>
+                </div>
+
                 <p style="font-size:0.78rem;color:rgba(255,255,255,0.45);margin-bottom:14px;">💳 = pagada por Mercado Pago · ✋ = liberada a mano · clic en una fase para liberarla o revocarla · el nombre se llena solo en cuanto el candidato hace su Autodiagnóstico</p>
                 <div class="table-wrap">
                     <table>
