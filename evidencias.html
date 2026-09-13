@@ -147,8 +147,16 @@
 
     <script>
     /* =========================================================
-       CONFIG — pega aquí la URL de embed de tu Google Form
+       CONFIG
     ========================================================= */
+    /* Ruta alterna si falla la subida automática a Nextcloud (ver
+       handleFileUpload/renderEstadoArchivo abajo) — el mismo Google Form
+       "Evidencia EC1375" que se usaba antes de la migración a Nextcloud.
+       Sigue vivo y con las preguntas de carga de archivo ya configuradas;
+       se deja como respaldo permanente, no solo mientras se arregla
+       Nextcloud — cualquier falla futura del NAS cae aquí en vez de
+       bloquear al candidato en este paso. */
+    const EVIDENCIAS_FORM_FALLBACK_URL = 'https://forms.gle/NsPV3UbrJ36jN8Nh6';
     const EVIDENCIAS_REQUERIDAS = [
         { icon: '📸', titulo: 'Capturas de tu sesión Zoom', desc: 'Fotos/capturas de pantalla que muestren tu sesión en vivo con el usuario. Se suben directo a tu portafolio con el botón de abajo.', required: true },
         { icon: '🔗', titulo: 'Liga al video completo (YouTube u otra plataforma)', desc: 'Sube tu grabación completa a YouTube (puede ser \"oculto/no listado\") u otra plataforma, y pega la liga en el campo de abajo. Tu evaluador la revisa para calificar el Instrumento de Evaluación.', required: true, isLink: true },
@@ -249,11 +257,44 @@
         }
     }
 
+    /* Sentinel guardado en documentosNextcloud[key] cuando el candidato
+       confirma que ya envió ese archivo por la ruta alterna (Form) en vez
+       de la subida automática — nunca es una ruta real de Nextcloud, así
+       que el equipo lo distingue fácil al revisar manualmente. */
+    const FORM_FALLBACK_MARK = 'MANUAL_FORM_FALLBACK';
+
+    function esFallbackManual(val) {
+        return Array.isArray(val) ? val.includes(FORM_FALLBACK_MARK) : val === FORM_FALLBACK_MARK;
+    }
+
     function renderEstadoArchivo(key) {
         const val = documentosNextcloud[key];
-        const count = Array.isArray(val) ? val.length : (val ? 1 : 0);
+        if (esFallbackManual(val)) {
+            return `<p style="color:var(--accent);font-size:0.8rem;margin-top:6px;">📝 Marcado como enviado por formulario — pendiente de que tu equipo lo verifique</p>`;
+        }
+        const count = Array.isArray(val) ? val.filter(v => v !== FORM_FALLBACK_MARK).length : (val ? 1 : 0);
         if (count === 0) return '';
         return `<p style="color:var(--success);font-size:0.8rem;margin-top:6px;">✅ ${count} archivo${count > 1 ? 's' : ''} subido${count > 1 ? 's' : ''}</p>`;
+    }
+
+    /* Ruta alterna si Nextcloud falla (ver EVIDENCIAS_FORM_FALLBACK_URL) —
+       abre el Form en pestaña nueva y marca el campo con FORM_FALLBACK_MARK
+       para no dejar al candidato bloqueado por una falla de infraestructura
+       que él no puede resolver. El equipo revisa manualmente lo marcado así
+       y lo reemplaza por la ruta real cuando lo recupere del Form/Drive. */
+    function usarRutaAlterna(key, esMultiple) {
+        window.open(EVIDENCIAS_FORM_FALLBACK_URL, '_blank');
+        if (esMultiple) {
+            if (!Array.isArray(documentosNextcloud[key])) documentosNextcloud[key] = [];
+            if (!documentosNextcloud[key].includes(FORM_FALLBACK_MARK)) documentosNextcloud[key].push(FORM_FALLBACK_MARK);
+        } else {
+            documentosNextcloud[key] = FORM_FALLBACK_MARK;
+        }
+        saveProgress();
+        const estadoId = 'estado' + key.charAt(0).toUpperCase() + key.slice(1);
+        const estadoEl = document.getElementById(estadoId);
+        if (estadoEl) estadoEl.innerHTML = renderEstadoArchivo(key);
+        updateGenerateButton();
     }
 
     async function handleFileUpload(key, fileList, esMultiple) {
@@ -265,24 +306,34 @@
         const estadoEl = document.getElementById(estadoId);
         if (estadoEl) estadoEl.innerHTML = '<p style="color:var(--text);font-size:0.8rem;">⏳ Subiendo...</p>';
 
+        let huboError = false, ultimoError = '';
         if (esMultiple) {
             if (!Array.isArray(documentosNextcloud[key])) documentosNextcloud[key] = [];
             for (const file of files) {
                 const uniqueName = `${Date.now()}_${file.name}`;
                 const uploadResult = await subirDocumento('evaluacion', uniqueName, file, pd.nombre, pd.curp);
                 if (uploadResult.success) documentosNextcloud[key].push(uploadResult.path);
+                else { huboError = true; ultimoError = uploadResult.error || 'No se pudo subir'; }
             }
         } else {
             const file = files[0];
             const uploadResult = await subirDocumento('evaluacion', file.name, file, pd.nombre, pd.curp);
             if (uploadResult.success) {
                 documentosNextcloud[key] = uploadResult.path;
-            } else if (estadoEl) {
-                estadoEl.innerHTML = `<p style="color:var(--danger);font-size:0.8rem;">❌ ${escapeHtml(uploadResult.error || 'No se pudo subir')}</p>`;
-                return;
+            } else {
+                huboError = true; ultimoError = uploadResult.error || 'No se pudo subir';
             }
         }
         saveProgress();
+        if (huboError && estadoEl) {
+            estadoEl.innerHTML = `
+                <div style="background:rgba(255,51,51,0.08);border:1px solid var(--danger);border-radius:8px;padding:10px;margin-top:6px;">
+                    <p style="color:var(--danger);font-size:0.8rem;margin-bottom:8px;">❌ ${escapeHtml(ultimoError)}</p>
+                    <p style="font-size:0.78rem;color:var(--text);margin-bottom:8px;">Mientras arreglamos el almacenamiento automático, súbelo por esta vía alterna:</p>
+                    <button type="button" class="btn btn-secondary" style="font-size:0.8rem;padding:8px 12px;" onclick="usarRutaAlterna('${key}', ${esMultiple})">🔗 Subir por formulario alterno</button>
+                </div>`;
+            return;
+        }
         if (estadoEl) estadoEl.innerHTML = renderEstadoArchivo(key);
         updateGenerateButton();
     }
