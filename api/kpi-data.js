@@ -32,15 +32,19 @@ export default async function handler(req, res) {
 
     // Filtrar solo candidatos activos (excluir desistidos y cambio_lote)
     const candidatosActivos = preciosData.filter(p => p.estado === 'activo' || !p.estado);
+    // "administrador" no cuenta en NADA (cuentas de prueba/equipo). Para
+    // ingresos YA cobrados, se incluye también a quien desistió o cambió de
+    // lote — si pagó una fase, ese dinero ya entró y debe contarse.
+    const candidatosParaIngresos = preciosData.filter(p => p.estado !== 'administrador');
 
     // Calcular KPIs
     const totalInscritos = candidatosActivos.length;
     const completados = candidatosActivos.filter(p => pagosPorEmail[p.email]?.entrega).length;
     const enProgreso = totalInscritos - completados;
 
-    // Ingresos por fase (solo candidatos activos)
+    // Ingresos por fase (activos + desistidos + cambio_lote, dinero real cobrado)
     const ingresosPorFase = { registro: 0, alineacion: 0, evaluacion: 0, entrega: 0 };
-    candidatosActivos.forEach(p => {
+    candidatosParaIngresos.forEach(p => {
       const email = p.email;
       const pagos = pagosPorEmail[email] || {};
       if (pagos.registro && p.monto_registro) ingresosPorFase.registro += p.monto_registro;

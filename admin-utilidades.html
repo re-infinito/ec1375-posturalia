@@ -131,9 +131,12 @@
         });
     }
 
+    // "administrador" no cuenta en NADA. Para ingresos YA cobrados sí se
+    // incluye a quien desistió o cambió de lote — si pagó una fase, ese
+    // dinero ya entró y debe repartirse igual.
     function calcularIngresosTotales(lote) {
-        const activosEnLote = candidatos.filter(c => (c.estado || 'activo') === 'activo' && (c.lote || 1) === lote);
-        return activosEnLote.reduce((sum, c) => {
+        const paraIngresos = candidatos.filter(c => c.estado !== 'administrador' && (c.lote || 1) === lote);
+        return paraIngresos.reduce((sum, c) => {
             const pagos = pagosPorEmail[c.email] || new Set();
             let total = 0;
             ['registro', 'alineacion', 'evaluacion', 'entrega'].forEach(f => {
@@ -235,13 +238,14 @@
 
     function renderPanel() {
         const app = document.getElementById('app');
-        const lotesUnicos = [...new Set(candidatos.map(c => c.lote || 1))].sort((a, b) => a - b);
+        const visibles = candidatos.filter(c => c.estado !== 'administrador');
+        const lotesUnicos = [...new Set(visibles.map(c => c.lote || 1))].sort((a, b) => a - b);
         const config = obtenerConfiguracion(loteActivo);
         const reparto = calcularReparto(loteActivo);
 
         const loteBotonesHtml = lotesUnicos.map(lote => `
             <button class="lote-btn ${lote === loteActivo ? 'active' : ''}" onclick="loteActivo=${lote};renderPanel()">
-                Lote ${lote} (${candidatos.filter(c => c.lote === lote).length})
+                Lote ${lote} (${visibles.filter(c => (c.lote || 1) === lote).length})
             </button>
         `).join('') + `<button class="lote-btn" onclick="agregarLote()">+ Nuevo</button>`;
 
@@ -256,7 +260,7 @@
                 <div style="font-size:2rem;font-weight:700;color:var(--success);margin:20px 0;">
                     $${reparto.total.toLocaleString('es-MX')} MXN
                 </div>
-                <p style="font-size:0.85rem;color:var(--text);">De candidatos en estado Activo con pagos realizados</p>
+                <p style="font-size:0.85rem;color:var(--text);">Incluye pagos de candidatos activos, desistidos y cambio de lote (dinero ya cobrado) · excluye cuentas de Administrador</p>
             </div>
 
             <div class="card">

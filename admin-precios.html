@@ -81,6 +81,15 @@
         .nombre-cell { color: var(--text-bright); font-weight: 600; }
         .nombre-cell .email-sub { font-size: 0.72rem; color: rgba(255,255,255,0.4); font-weight: 400; margin-top: 2px; }
         .nombre-cell input { width: 100%; margin-top: 4px; padding: 6px 8px; background: var(--dark); border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; color: var(--text-bright); font-size: 0.78rem; font-family: inherit; }
+
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
+        .stat-card { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 12px 14px; }
+        .stat-card .n { font-size: 1.35rem; font-weight: 700; color: var(--text-bright); }
+        .stat-card .l { font-size: 0.68rem; color: rgba(255,255,255,0.5); text-transform: uppercase; margin-top: 2px; }
+        .stat-card.ok .n { color: var(--success); }
+        .stat-card.bad .n { color: var(--danger); }
+        .stat-card.warn .n { color: var(--accent); }
+        .stat-card.muted .n { color: rgba(255,255,255,0.4); }
     </style>
 </head>
 <body>
@@ -96,7 +105,7 @@
     <script>
     const FASES = ['registro', 'alineacion', 'evaluacion', 'entrega'];
     const FASE_LABEL = { registro: 'Registro', alineacion: 'Alineación', evaluacion: 'Evaluación', entrega: 'Entrega' };
-    const ESTADO_COLOR = { activo: '#1a4d2e', desistió: '#5a1a1a', cambio_lote: '#4a3a0a' }; // RGB más oscuro para fondo
+    const ESTADO_COLOR = { activo: '#1a4d2e', desistió: '#5a1a1a', cambio_lote: '#4a3a0a', administrador: '#2a2a4a' }; // RGB más oscuro para fondo
 
     let candidatos = []; // filas de candidatos_precio
     let pagosPorEmail = {}; // { email: Set(fases autorizadas) }
@@ -132,20 +141,29 @@
 
     function calcularEstadisticas(filas) {
         try {
-            const activos = filas.filter(c => (c.estado || 'activo') === 'activo');
-            const desistieron = filas.filter(c => c.estado === 'desistió');
-            const cambioLote = filas.filter(c => c.estado === 'cambio_lote');
+            // "administrador" no cuenta en NADA (ni inscritos, ni ingresos, ni proyectado).
+            const visibles = filas.filter(c => c.estado !== 'administrador');
+            const administrador = filas.filter(c => c.estado === 'administrador');
+            const activos = visibles.filter(c => (c.estado || 'activo') === 'activo');
+            const desistieron = visibles.filter(c => c.estado === 'desistió');
+            const cambioLote = visibles.filter(c => c.estado === 'cambio_lote');
+            // Proyectado: solo lo que se espera cobrar de candidatos activos.
             const proyectado = activos.reduce((sum, c) => sum + (c.total_acordado || 0), 0);
-            const realizado = activos.reduce((sum, c) => {
+            // Realizado: dinero YA cobrado, sin importar si después desistió o
+            // cambió de lote — si pagó, ese ingreso ya ocurrió y cuenta.
+            const realizado = visibles.reduce((sum, c) => {
                 const pagos = pagosPorEmail[c.email] || {};
                 let total = 0;
                 FASES.forEach(f => { if (pagos[f]) total += (c[`monto_${f}`] || 0); });
                 return sum + total;
             }, 0);
-            return { activos: activos.length, desistieron: desistieron.length, cambioLote: cambioLote.length, proyectado, realizado };
+            return {
+                activos: activos.length, desistieron: desistieron.length, cambioLote: cambioLote.length,
+                administrador: administrador.length, proyectado, realizado
+            };
         } catch (e) {
             console.error('Error calculando estadísticas:', e);
-            return { activos: 0, desistieron: 0, cambioLote: 0, proyectado: 0, realizado: 0 };
+            return { activos: 0, desistieron: 0, cambioLote: 0, administrador: 0, proyectado: 0, realizado: 0 };
         }
     }
 
@@ -336,6 +354,7 @@
                             <option value="activo" ${estadoActual === 'activo' ? 'selected' : ''}>Activo</option>
                             <option value="desistió" ${estadoActual === 'desistió' ? 'selected' : ''}>Desistió</option>
                             <option value="cambio_lote" ${estadoActual === 'cambio_lote' ? 'selected' : ''}>Cambio</option>
+                            <option value="administrador" ${estadoActual === 'administrador' ? 'selected' : ''}>Admin</option>
                         </select>
                     </td>
                     <td>
@@ -357,6 +376,20 @@
 
         app.innerHTML = `
             <div class="card">
+                <h2>📊 Estadísticas</h2>
+                <div class="stats-grid">
+                    <div class="stat-card ok"><div class="n">${stats.activos}</div><div class="l">Activos</div></div>
+                    <div class="stat-card bad"><div class="n">${stats.desistieron}</div><div class="l">Desistieron</div></div>
+                    <div class="stat-card warn"><div class="n">${stats.cambioLote}</div><div class="l">Cambio de lote</div></div>
+                    <div class="stat-card muted"><div class="n">${stats.administrador}</div><div class="l">Administrador</div></div>
+                    <div class="stat-card"><div class="n">$${stats.proyectado.toLocaleString('es-MX')}</div><div class="l">Proyectado</div></div>
+                    <div class="stat-card ok"><div class="n">$${stats.realizado.toLocaleString('es-MX')}</div><div class="l">Realizado</div></div>
+                </div>
+                <p style="font-size:0.72rem;color:rgba(255,255,255,0.4);margin-top:10px;">
+                    "Realizado" incluye pagos de candidatos que ya desistieron o cambiaron de lote (el dinero ya se cobró) · "Proyectado" solo considera activos · "Administrador" no se contempla en ninguna suma.
+                </p>
+            </div>
+            <div class="card">
                 <h2>➕ Agregar candidato</h2>
                 <div class="add-form">
                     <div class="field-group"><label>Correo</label><input type="email" id="newEmail" placeholder="correo@ejemplo.com"></div>
@@ -366,6 +399,7 @@
                         <option value="activo">Activo</option>
                         <option value="desistió">Desistió</option>
                         <option value="cambio_lote">Cambio de lote</option>
+                        <option value="administrador">Administrador</option>
                     </select></div>
                     <div class="field-group"><label>Lote</label><input type="number" id="newLote" placeholder="1" value="1" min="1" max="10"></div>
                     <button class="btn btn-primary" onclick="agregarCandidato()">Agregar</button>
@@ -375,7 +409,7 @@
                 <h2>💰 Candidatos (${filas.length})</h2>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
                     <input type="text" id="filtroBusqueda" placeholder="🔍 Buscar nombre/email..." style="padding:7px;background:var(--dark);border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:var(--text-bright);font-size:0.75rem;" oninput="filtroBusqueda = this.value.toLowerCase(); renderPanel()">
-                    <select id="filtroEstado" style="padding:7px;background:var(--dark);border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:var(--text-bright);font-size:0.75rem;" onchange="filtroEstado = this.value; renderPanel()"><option value="">🎯 Todos</option><option value="activo">✅ Activo</option><option value="desistió">❌ Desistió</option><option value="cambio_lote">🔄 Cambio lote</option></select>
+                    <select id="filtroEstado" style="padding:7px;background:var(--dark);border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:var(--text-bright);font-size:0.75rem;" onchange="filtroEstado = this.value; renderPanel()"><option value="">🎯 Todos</option><option value="activo">✅ Activo</option><option value="desistió">❌ Desistió</option><option value="cambio_lote">🔄 Cambio lote</option><option value="administrador">👤 Administrador</option></select>
                 </div>
 
                 <p style="font-size:0.78rem;color:rgba(255,255,255,0.45);margin-bottom:14px;">💳 = pagada por Mercado Pago · ✋ = liberada a mano · clic en una fase para liberarla o revocarla · el nombre se llena solo en cuanto el candidato hace su Autodiagnóstico</p>

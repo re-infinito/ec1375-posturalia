@@ -184,20 +184,30 @@
         }, 0);
     }
 
+    // "administrador" no cuenta en NADA (cuentas de prueba/equipo) — se excluye
+    // por completo antes de calcular cualquier suma, conteo o gráfica.
+    function candidatosVisibles() {
+        return candidatos.filter(c => c.estado !== 'administrador');
+    }
+
     function calcularKPIs() {
-        const activos = candidatos.filter(c => (c.estado || 'activo') === 'activo');
-        const desistieron = candidatos.filter(c => c.estado === 'desistió');
-        const cambioLote = candidatos.filter(c => c.estado === 'cambio_lote');
+        const visibles = candidatosVisibles();
+        const activos = visibles.filter(c => (c.estado || 'activo') === 'activo');
+        const desistieron = visibles.filter(c => c.estado === 'desistió');
+        const cambioLote = visibles.filter(c => c.estado === 'cambio_lote');
         const fases = ['registro', 'alineacion', 'evaluacion', 'entrega'];
 
+        // Conteos de fase: solo el pipeline activo actual.
         const porFase = {};
         fases.forEach(f => {
             porFase[f] = activos.filter(c => (pagosPorEmail[c.email] || new Set()).has(f)).length;
         });
 
+        // Ingresos: dinero YA cobrado. Incluye a quien desistió o cambió de
+        // lote — si pagó una fase, ese ingreso ya ocurrió y debe contarse.
         const ingresosPorFase = {};
         fases.forEach(f => {
-            ingresosPorFase[f] = activos.reduce((sum, c) => {
+            ingresosPorFase[f] = visibles.reduce((sum, c) => {
                 const pagos = pagosPorEmail[c.email] || new Set();
                 return pagos.has(f) ? sum + (c[`monto_${f}`] || 0) : sum;
             }, 0);
@@ -206,6 +216,7 @@
         const totalInscritos = activos.length;
         const completados = porFase.entrega;
         const ingresosTotales = Object.values(ingresosPorFase).reduce((a, b) => a + b, 0);
+        // Proyectado: solo lo que se espera cobrar de candidatos activos.
         const proyectado = activos.reduce((sum, c) => sum + (c.total_acordado || 0), 0);
 
         const conv = {
@@ -218,7 +229,8 @@
         return {
             totalInscritos, completados, porFase, ingresosPorFase, ingresosTotales, proyectado, conv,
             desistieron: desistieron.length, cambioLote: cambioLote.length,
-            totalRegistrados: candidatos.length
+            totalRegistrados: visibles.length,
+            administrador: candidatos.length - visibles.length
         };
     }
 
@@ -323,15 +335,18 @@
     }
 
     function renderUtilidadesPorLote() {
-        const lotesUnicos = [...new Set(candidatos.map(c => c.lote || 1))].sort((a, b) => a - b);
+        const visibles = candidatosVisibles();
+        const lotesUnicos = [...new Set(visibles.map(c => c.lote || 1))].sort((a, b) => a - b);
 
         if (lotesUnicos.length === 0) {
             return `<div class="empty-note">No hay candidatos registrados todavía.</div>`;
         }
 
         return lotesUnicos.map(lote => {
-            const activosLote = candidatos.filter(c => (c.estado || 'activo') === 'activo' && (c.lote || 1) === lote);
-            const ingresos = ingresosDe(activosLote);
+            // Ingresos reales del lote: activos + desistidos + cambio_lote
+            // (dinero ya cobrado, sin importar el estado actual).
+            const paraIngresosLote = visibles.filter(c => (c.lote || 1) === lote);
+            const ingresos = ingresosDe(paraIngresosLote);
             const config = obtenerConfigLote(lote);
 
             const chris = config.incluir_chris ? Math.round((ingresos * config.porcentaje_chris) / 100) : 0;
@@ -370,18 +385,21 @@
     }
 
     function renderDesglosePorLote() {
-        const lotesUnicos = [...new Set(candidatos.map(c => c.lote || 1))].sort((a, b) => a - b);
+        const visibles = candidatosVisibles();
+        const lotesUnicos = [...new Set(visibles.map(c => c.lote || 1))].sort((a, b) => a - b);
 
         if (lotesUnicos.length === 0) {
             return `<div class="empty-note">No hay candidatos registrados todavía.</div>`;
         }
 
         return `<div class="lote-grid">${lotesUnicos.map(lote => {
-            const enLote = candidatos.filter(c => (c.lote || 1) === lote);
+            const enLote = visibles.filter(c => (c.lote || 1) === lote);
             const activos = enLote.filter(c => (c.estado || 'activo') === 'activo');
             const desistieron = enLote.filter(c => c.estado === 'desistió');
             const cambioLote = enLote.filter(c => c.estado === 'cambio_lote');
-            const ingresos = ingresosDe(activos);
+            // Ingresos: todo el lote (dinero ya cobrado, incluso de quien desistió).
+            const ingresos = ingresosDe(enLote);
+            // Proyectado: solo lo esperado de los activos del lote.
             const proyectado = activos.reduce((sum, c) => sum + (c.total_acordado || 0), 0);
 
             return `
@@ -436,7 +454,7 @@
 
             <div class="card">
                 <h2>🔴 Estado de Candidatos</h2>
-                <div class="subtitle">Del total de ${kpis.totalRegistrados} registrados históricamente</div>
+                <div class="subtitle">Del total de ${kpis.totalRegistrados} registrados históricamente${kpis.administrador > 0 ? ` · ${kpis.administrador} cuenta(s) de administrador excluida(s) de todas las sumas` : ''}</div>
                 ${renderDonutEstado(kpis)}
             </div>
 
