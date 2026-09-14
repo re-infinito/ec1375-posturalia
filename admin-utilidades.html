@@ -20,7 +20,7 @@
             color: var(--text); line-height: 1.6; min-height: 100vh; padding-bottom: 60px;
         }
 
-        .container { max-width: 1100px; margin: 0 auto; padding: 24px 20px; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 24px 20px; }
         .top-bar {
             position: sticky; top: 0; background: var(--dark); border-bottom: 1px solid var(--dark-light);
             padding: 16px 20px; z-index: 100; display: flex; justify-content: space-between; align-items: center;
@@ -35,11 +35,14 @@
         .field-group label { display: block; font-size: 0.82rem; color: var(--text); margin-bottom: 5px; font-weight: 600; }
         .field-group input, .field-group select { width: 100%; padding: 10px 12px; background: var(--dark); border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; color: var(--text-bright); font-size: 0.9rem; }
 
+        .checkbox-group { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+        .checkbox-group input[type="checkbox"] { width: 20px; height: 20px; cursor: pointer; }
+        .checkbox-group label { margin: 0; font-size: 0.9rem; }
+
         .btn { padding: 10px 18px; border-radius: 8px; font-weight: 700; font-size: 0.85rem; border: none; cursor: pointer; }
         .btn-primary { background: var(--primary); color: white; }
         .btn-primary:hover { background: var(--primary-light); }
-        .btn-secondary { background: transparent; border: 1px solid var(--primary); color: var(--primary); }
-        .btn-small { padding: 8px 12px; font-size: 0.75rem; }
+        .btn-primary:disabled { background: rgba(0,136,255,0.3); cursor: not-allowed; }
 
         .lote-selector { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; margin-bottom: 20px; }
         .lote-btn { padding: 12px; border-radius: 8px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: var(--text); cursor: pointer; font-weight: 600; transition: all 0.2s; }
@@ -55,17 +58,13 @@
         .reparto-input-group input { flex: 1; }
         .reparto-percent { font-size: 0.85rem; color: var(--accent); font-weight: 700; }
 
-        .tabla { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-top: 16px; }
-        .tabla th { text-align: left; color: var(--primary-light); font-size: 0.72rem; text-transform: uppercase; padding: 10px; border-bottom: 1px solid rgba(255,255,255,0.1); background: rgba(0,136,255,0.05); }
-        .tabla td { padding: 12px 10px; border-bottom: 1px solid rgba(255,255,255,0.06); }
-
         .resumen { background: rgba(0,255,136,0.08); border: 1px solid rgba(0,255,136,0.2); border-radius: 8px; padding: 16px; }
         .resumen-row { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 20px; padding: 10px 0; border-bottom: 1px solid rgba(0,255,136,0.1); }
         .resumen-row:last-child { border-bottom: none; }
         .resumen-valor { font-size: 1.1rem; font-weight: 700; color: var(--success); }
 
         .error { color: var(--danger); font-size: 0.85rem; margin-top: 4px; }
-        .success { color: var(--success); font-size: 0.85rem; }
+        .loading { text-align: center; padding: 40px; color: var(--text); }
     </style>
 </head>
 <body>
@@ -86,14 +85,6 @@
     let loteActivo = 1;
     let configuracionLotes = {};
 
-    // Configuración por defecto para cada lote
-    const configDefault = {
-        chris: 50,
-        fernando: 16.67,
-        lot: 16.67,
-        diego: 16.67
-    };
-
     function renderGateShell() {
         const app = document.getElementById('app');
         app.innerHTML = `
@@ -113,22 +104,31 @@
     }
 
     async function cargarDatos() {
-        const [precios, pagos] = await Promise.all([
+        const [precios, pagos, config] = await Promise.all([
             supabaseClient.from('candidatos_precio').select('*'),
-            supabaseClient.from('candidatos_fase_pagos').select('email,fase')
+            supabaseClient.from('candidatos_fase_pagos').select('email,fase'),
+            supabaseClient.from('reparto_utilidades').select('*')
         ]);
+
         candidatos = precios.data || [];
         pagosPorEmail = {};
         (pagos.data || []).forEach(row => {
             if (!pagosPorEmail[row.email]) pagosPorEmail[row.email] = new Set();
-            pagosPorEmail[row.email].add(row.fecha);
+            pagosPorEmail[row.email].add(row.fase);
         });
 
-        // Cargar configuraciones guardadas
-        const config = localStorage.getItem('config_lotes');
-        if (config) {
-            configuracionLotes = JSON.parse(config);
-        }
+        // Cargar configuraciones desde Supabase
+        configuracionLotes = {};
+        (config.data || []).forEach(row => {
+            configuracionLotes[`lote_${row.lote}`] = {
+                incluir_chris: row.incluir_chris,
+                porcentaje_chris: row.porcentaje_chris,
+                porcentaje_fernando: row.porcentaje_fernando,
+                porcentaje_lot: row.porcentaje_lot,
+                porcentaje_diego: row.porcentaje_diego,
+                notas: row.notas
+            };
+        });
     }
 
     function calcularIngresosTotales(lote) {
@@ -144,7 +144,18 @@
     }
 
     function obtenerConfiguracion(lote) {
-        return configuracionLotes[`lote_${lote}`] || { ...configDefault };
+        const config = configuracionLotes[`lote_${lote}`];
+        if (config) return config;
+
+        // Default si no existe
+        return {
+            incluir_chris: true,
+            porcentaje_chris: 50,
+            porcentaje_fernando: 16.67,
+            porcentaje_lot: 16.67,
+            porcentaje_diego: 16.67,
+            notas: ''
+        };
     }
 
     function calcularReparto(lote) {
@@ -152,34 +163,74 @@
         const ingresos = calcularIngresosTotales(lote);
 
         return {
-            chris: Math.round((ingresos * config.chris) / 100),
-            fernando: Math.round((ingresos * config.fernando) / 100),
-            lot: Math.round((ingresos * config.lot) / 100),
-            diego: Math.round((ingresos * config.diego) / 100),
+            chris: config.incluir_chris ? Math.round((ingresos * config.porcentaje_chris) / 100) : 0,
+            fernando: Math.round((ingresos * config.porcentaje_fernando) / 100),
+            lot: Math.round((ingresos * config.porcentaje_lot) / 100),
+            diego: Math.round((ingresos * config.porcentaje_diego) / 100),
             total: ingresos
         };
     }
 
-    function guardarConfiguracion(lote) {
+    async function guardarConfiguracion(lote) {
         const config = {
-            chris: parseFloat(document.getElementById('perc_chris').value) || 0,
-            fernando: parseFloat(document.getElementById('perc_fernando').value) || 0,
-            lot: parseFloat(document.getElementById('perc_lot').value) || 0,
-            diego: parseFloat(document.getElementById('perc_diego').value) || 0
+            incluir_chris: document.getElementById('incluir_chris').checked,
+            porcentaje_chris: parseFloat(document.getElementById('perc_chris').value) || 0,
+            porcentaje_fernando: parseFloat(document.getElementById('perc_fernando').value) || 0,
+            porcentaje_lot: parseFloat(document.getElementById('perc_lot').value) || 0,
+            porcentaje_diego: parseFloat(document.getElementById('perc_diego').value) || 0,
+            notas: document.getElementById('notas').value || ''
         };
 
-        const total = Object.values(config).reduce((a, b) => a + b, 0);
+        const total = config.porcentaje_chris + config.porcentaje_fernando + config.porcentaje_lot + config.porcentaje_diego;
 
         if (Math.abs(total - 100) > 0.01) {
             alert(`Error: El total debe ser 100%. Actual: ${total.toFixed(2)}%`);
             return;
         }
 
-        configuracionLotes[`lote_${lote}`] = config;
-        localStorage.setItem('config_lotes', JSON.stringify(configuracionLotes));
+        const { error } = await supabaseClient
+            .from('reparto_utilidades')
+            .upsert({ lote, ...config }, { onConflict: 'lote' });
 
+        if (error) {
+            alert(`Error al guardar: ${error.message}`);
+            return;
+        }
+
+        configuracionLotes[`lote_${lote}`] = config;
         renderPanel();
-        alert(`✅ Configuración del Lote ${lote} guardada`);
+        alert(`✅ Configuración del Lote ${lote} guardada en Supabase`);
+    }
+
+    function actualizarRepartoPreview() {
+        const config = {
+            incluir_chris: document.getElementById('incluir_chris').checked,
+            porcentaje_chris: parseFloat(document.getElementById('perc_chris').value) || 0,
+            porcentaje_fernando: parseFloat(document.getElementById('perc_fernando').value) || 0,
+            porcentaje_lot: parseFloat(document.getElementById('perc_lot').value) || 0,
+            porcentaje_diego: parseFloat(document.getElementById('perc_diego').value) || 0
+        };
+
+        // Mostrar/ocultar Chris según checkbox
+        document.getElementById('reparto_chris').style.display = config.incluir_chris ? 'block' : 'none';
+        document.getElementById('perc_chris').disabled = !config.incluir_chris;
+
+        // Actualizar preview del resumen
+        const ingresos = calcularIngresosTotales(loteActivo);
+        const chris = config.incluir_chris ? Math.round((ingresos * config.porcentaje_chris) / 100) : 0;
+        const fernando = Math.round((ingresos * config.porcentaje_fernando) / 100);
+        const lot = Math.round((ingresos * config.porcentaje_lot) / 100);
+        const diego = Math.round((ingresos * config.porcentaje_diego) / 100);
+
+        document.getElementById('resumen_chris_row').style.display = config.incluir_chris ? 'grid' : 'none';
+        document.getElementById('resumen_chris_monto').textContent = `$${chris.toLocaleString('es-MX')}`;
+        document.getElementById('resumen_fernando_monto').textContent = `$${fernando.toLocaleString('es-MX')}`;
+        document.getElementById('resumen_lot_monto').textContent = `$${lot.toLocaleString('es-MX')}`;
+        document.getElementById('resumen_diego_monto').textContent = `$${diego.toLocaleString('es-MX')}`;
+
+        const total = config.porcentaje_chris + config.porcentaje_fernando + config.porcentaje_lot + config.porcentaje_diego;
+        document.getElementById('total_porcentaje').textContent = total.toFixed(2);
+        document.getElementById('error_total').style.display = Math.abs(total - 100) > 0.01 ? 'block' : 'none';
     }
 
     function renderPanel() {
@@ -210,13 +261,25 @@
 
             <div class="card">
                 <h2>⚙️ Configurar Reparto — Lote ${loteActivo}</h2>
+
+                <div class="field-group">
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="incluir_chris" ${config.incluir_chris ? 'checked' : ''} onchange="actualizarRepartoPreview()">
+                        <label for="incluir_chris">✅ <strong>Christherapy</strong> participa en este lote</label>
+                    </div>
+                    <p style="font-size:0.75rem;color:var(--text);margin-top:8px;">
+                        ✓ Con Chris: 50% Chris + 50% para 3 socios (16.67% c/u)<br>
+                        ✗ Sin Chris: 100% para 3 socios (33.33% c/u)
+                    </p>
+                </div>
+
                 <div class="reparto-grid">
-                    <div class="reparto-card">
+                    <div class="reparto-card" id="reparto_chris" ${config.incluir_chris ? 'style=""' : 'style="display:none;"'}>
                         <div class="reparto-title">👤 Christherapy (Colaborador)</div>
                         <div class="reparto-item">
                             <div class="reparto-label">Porcentaje</div>
                             <div class="reparto-input-group">
-                                <input type="number" id="perc_chris" value="${config.chris}" min="0" max="100" step="0.01" style="flex:1;">
+                                <input type="number" id="perc_chris" value="${config.porcentaje_chris}" min="0" max="100" step="0.01" ${!config.incluir_chris ? 'disabled' : ''} onchange="actualizarRepartoPreview()">
                                 <span class="reparto-percent">%</span>
                             </div>
                         </div>
@@ -227,7 +290,7 @@
                         <div class="reparto-item">
                             <div class="reparto-label">Porcentaje</div>
                             <div class="reparto-input-group">
-                                <input type="number" id="perc_fernando" value="${config.fernando}" min="0" max="100" step="0.01" style="flex:1;">
+                                <input type="number" id="perc_fernando" value="${config.porcentaje_fernando}" min="0" max="100" step="0.01" onchange="actualizarRepartoPreview()">
                                 <span class="reparto-percent">%</span>
                             </div>
                         </div>
@@ -238,7 +301,7 @@
                         <div class="reparto-item">
                             <div class="reparto-label">Porcentaje</div>
                             <div class="reparto-input-group">
-                                <input type="number" id="perc_lot" value="${config.lot}" min="0" max="100" step="0.01" style="flex:1;">
+                                <input type="number" id="perc_lot" value="${config.porcentaje_lot}" min="0" max="100" step="0.01" onchange="actualizarRepartoPreview()">
                                 <span class="reparto-percent">%</span>
                             </div>
                         </div>
@@ -249,43 +312,50 @@
                         <div class="reparto-item">
                             <div class="reparto-label">Porcentaje</div>
                             <div class="reparto-input-group">
-                                <input type="number" id="perc_diego" value="${config.diego}" min="0" max="100" step="0.01" style="flex:1;">
+                                <input type="number" id="perc_diego" value="${config.porcentaje_diego}" min="0" max="100" step="0.01" onchange="actualizarRepartoPreview()">
                                 <span class="reparto-percent">%</span>
                             </div>
                         </div>
                     </div>
+                </div>
+
+                <div class="field-group" style="margin-top:16px;">
+                    <label for="notas">Notas (opcional)</label>
+                    <input type="text" id="notas" placeholder="Ej: Cambio temporal, configuración especial..." value="${config.notas || ''}">
                 </div>
             </div>
 
             <div class="card">
                 <div class="resumen">
                     <div style="font-size:0.9rem;font-weight:700;color:var(--text-bright);margin-bottom:16px;">📊 Resumen del Reparto — Lote ${loteActivo}</div>
-                    <div class="resumen-row">
+                    <div class="resumen-row" id="resumen_chris_row" ${config.incluir_chris ? 'style=""' : 'style="display:none;"'}>
                         <div><strong>Christherapy</strong></div>
-                        <div style="text-align:right;"><strong>${config.chris.toFixed(2)}%</strong></div>
-                        <div class="resumen-valor">$${reparto.chris.toLocaleString('es-MX')}</div>
+                        <div style="text-align:right;"><strong>${config.porcentaje_chris.toFixed(2)}%</strong></div>
+                        <div class="resumen-valor" id="resumen_chris_monto">$${reparto.chris.toLocaleString('es-MX')}</div>
                     </div>
                     <div class="resumen-row">
                         <div><strong>Fernando</strong></div>
-                        <div style="text-align:right;"><strong>${config.fernando.toFixed(2)}%</strong></div>
-                        <div class="resumen-valor">$${reparto.fernando.toLocaleString('es-MX')}</div>
+                        <div style="text-align:right;"><strong>${config.porcentaje_fernando.toFixed(2)}%</strong></div>
+                        <div class="resumen-valor" id="resumen_fernando_monto">$${reparto.fernando.toLocaleString('es-MX')}</div>
                     </div>
                     <div class="resumen-row">
                         <div><strong>Lot</strong></div>
-                        <div style="text-align:right;"><strong>${config.lot.toFixed(2)}%</strong></div>
-                        <div class="resumen-valor">$${reparto.lot.toLocaleString('es-MX')}</div>
+                        <div style="text-align:right;"><strong>${config.porcentaje_lot.toFixed(2)}%</strong></div>
+                        <div class="resumen-valor" id="resumen_lot_monto">$${reparto.lot.toLocaleString('es-MX')}</div>
                     </div>
                     <div class="resumen-row">
                         <div><strong>Diego</strong></div>
-                        <div style="text-align:right;"><strong>${config.diego.toFixed(2)}%</strong></div>
-                        <div class="resumen-valor">$${reparto.diego.toLocaleString('es-MX')}</div>
+                        <div style="text-align:right;"><strong>${config.porcentaje_diego.toFixed(2)}%</strong></div>
+                        <div class="resumen-valor" id="resumen_diego_monto">$${reparto.diego.toLocaleString('es-MX')}</div>
                     </div>
                     <div class="resumen-row" style="border-bottom:none;border-top:1px solid rgba(0,255,136,0.2);padding-top:12px;margin-top:12px;">
                         <div><strong>TOTAL</strong></div>
-                        <div style="text-align:right;"><strong>${(config.chris + config.fernando + config.lot + config.diego).toFixed(2)}%</strong></div>
+                        <div style="text-align:right;"><strong id="total_porcentaje">${(config.porcentaje_chris + config.porcentaje_fernando + config.porcentaje_lot + config.porcentaje_diego).toFixed(2)}%</strong></div>
                         <div class="resumen-valor">$${reparto.total.toLocaleString('es-MX')}</div>
                     </div>
-                    ${Math.abs((config.chris + config.fernando + config.lot + config.diego) - 100) > 0.01 ? `<div class="error" style="margin-top:12px;">⚠️ El total debe ser 100%</div>` : ''}
+                    <div class="error" id="error_total" ${Math.abs((config.porcentaje_chris + config.porcentaje_fernando + config.porcentaje_lot + config.porcentaje_diego) - 100) > 0.01 ? 'style=""' : 'style="display:none;"'}>
+                        ⚠️ El total debe ser 100%
+                    </div>
                 </div>
                 <button class="btn btn-primary" style="width:100%;margin-top:16px;" onclick="guardarConfiguracion(${loteActivo})">💾 Guardar Configuración Lote ${loteActivo}</button>
             </div>
@@ -303,7 +373,7 @@
 
     async function boot() {
         const app = document.getElementById('app');
-        app.innerHTML = `<div style="padding:40px;text-align:center;">Cargando datos...</div>`;
+        app.innerHTML = `<div class="loading">Cargando datos...</div>`;
 
         await cargarDatos();
         renderPanel();
@@ -314,7 +384,10 @@
             const session = await Auth.getSession();
             if (session) {
                 const esAdmin = await Auth.isAdmin(session.user.email);
-                if (esAdmin) { boot(); return; }
+                if (esAdmin) {
+                    boot();
+                    return;
+                }
                 await Auth.signOut();
             }
             renderGateShell();
