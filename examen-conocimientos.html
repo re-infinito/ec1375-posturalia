@@ -96,23 +96,27 @@
 
     <script>
     /* =========================================================
-       Banco de reactivos. Contenido y respuestas actualizados contra
+       Banco de reactivos. TODO el contenido viene exclusivamente de
        "EC-1375-reactivos - actualizado.docx" (14 sep 2026) — se
-       preservan además las preguntas de Escala de Daniels 0-5 del
-       banco anterior (ya verificadas contra CUESTIONARIO EC.1375.pdf)
-       porque el docx solo trae esa sub-sección como "relacionar
-       columnas" con las llaves truncadas/no convertibles 1:1. Tres
-       reactivos de "relacionar columnas" del docx se omitieron por
-       inconsistencias del documento original (ejes del cuerpo,
-       cuadrantes abdominales, escala de Daniels) — sus temas ya
-       quedan cubiertos por reactivos de opción múltiple equivalentes.
+       descartó por completo el banco anterior (37 reactivos
+       parafraseados de otra fuente). 4 reactivos de "relacionar
+       columnas" del propio docx no eran convertibles 1:1 y se
+       omitieron sin sustituto: la pregunta 2 de Técnicas de Atención
+       (el original trae una lista de números corrupta, "error de
+       formato" según la nota del propio documento), ejes del cuerpo
+       (opciones idénticas a los blancos, sin texto que las
+       diferencie) y cuadrantes abdominales #10 (etiqueta duplicada y
+       9 respuestas para 9 blancos pero con conteo inconsistente). Las
+       preguntas de Desinfección/Sanitización y Escala de Daniels sí
+       eran "relacionar columnas" pero con texto de opción completo y
+       una correspondencia 1:1 verificable con las respuestas del
+       documento, así que se reconstruyeron como opción múltiple.
     ========================================================= */
     const PASSING_PERCENT = 97.64;
 
     const REACTIVOS = [
         // Técnicas de Atención Tradicional y Complementaria
         { tema: 'Técnicas de Atención Tradicional y Complementaria', q: 'Es la técnica que consiste en colocar balines o semillas de mostaza en el pabellón auricular para estimular puntos reflejos con fines terapéuticos:', opciones: ['Masaje Zapoteca', 'Iridología', 'Auriculoterapia', 'Flores de Bach', 'Audioterapia'], correcta: 2 },
-        { tema: 'Técnicas de Atención Tradicional y Complementaria', q: 'Incorpora con fines terapéuticos, estéticos o deportivos manipulaciones como Effleurage, Tapotement y Petrissage:', opciones: ['Quiropraxia', 'Masoterapia', 'Osteopatía', 'Reflexología'], correcta: 1 },
         { tema: 'Técnicas de Atención Tradicional y Complementaria', q: 'Proviene del náhuatl "temaz" (sudor) y "calli" (casa) y es utilizado con fines terapéuticos y espirituales:', opciones: ['Masaje Zapoteca', 'Reiki', 'Auriculoterapia', 'Temazcal'], correcta: 3 },
         { tema: 'Técnicas de Atención Tradicional y Complementaria', q: 'Su implementación tiene que ver con preparaciones herbarias que contienen como principios activos partes de plantas, materiales vegetales o combinaciones de estos:', opciones: ['Medicina complementaria', 'Medicamentos herbarios', 'Herbolaria', 'Medicina naturista', 'Naturopatía'], correcta: 2 },
         // Desinfección y Sanitización
@@ -154,18 +158,12 @@
         { tema: 'Higiene de Columna', q: '¿Verdadero o falso? La manipulación de carga correcta al estar sentado es: espalda recta pegada al respaldo, pies apoyados en el suelo, rodillas ligeramente más altas que las caderas, cabeza recta mirando al frente, y en periodos largos (más de 50 min) pararse y caminar 5 minutos.', opciones: ['Verdadero', 'Falso'], correcta: 0 },
         // Pruebas Funcionales de Daniels
         { tema: 'Pruebas Funcionales de Daniels', q: '¿En qué posiciones se pueden realizar las pruebas funcionales de Daniels?', opciones: ['Paciente sentado en una silla cómoda a la altura de la cadera del terapeuta', 'En cualquier posición donde el músculo agonista necesite vencer la gravedad', 'Paciente en cualquier posición donde el músculo antagonista realice el trabajo de carga'], correcta: 1 },
-        { tema: 'Pruebas Funcionales de Daniels', q: '¿Cuál es el objetivo principal de las pruebas funcionales de Daniels?', opciones: ['Evaluar la movilidad articular', 'Medir la fuerza muscular de manera manual', 'Analizar la postura corporal', 'Determinar la resistencia cardiovascular'], correcta: 1 },
-        { tema: 'Pruebas Funcionales de Daniels', q: '¿Cuál es el método de evaluación utilizado en las pruebas de Daniels?', opciones: ['Dinamometría', 'Evaluación manual de la fuerza muscular', 'Electromiografía', 'Prueba de esfuerzo'], correcta: 1 },
-        { tema: 'Pruebas Funcionales de Daniels', q: '¿Cuántos niveles de fuerza muscular considera la escala de Daniels?', opciones: ['6', '5', '10', '3'], correcta: 0 },
-        { tema: 'Pruebas Funcionales de Daniels', q: '¿Qué calificación se asigna cuando un músculo es incapaz de generar movimiento, incluso sin gravedad?', opciones: ['0 (Ausencia de contracción)', '1 (Contracción sin movimiento)', '2 (Movimiento sin vencer la gravedad)', '3 (Movimiento que vence la gravedad)'], correcta: 0 },
-        { tema: 'Pruebas Funcionales de Daniels', q: '¿Qué nivel de la escala se otorga cuando hay contracción muscular visible, pero no hay movimiento?', opciones: ['0', '1', '2', '3'], correcta: 1 },
-        { tema: 'Pruebas Funcionales de Daniels', q: 'Si un paciente puede realizar un movimiento completo contra la gravedad pero sin resistencia, ¿qué puntaje recibe?', opciones: ['2', '3', '4', '5'], correcta: 1 },
-        { tema: 'Pruebas Funcionales de Daniels', q: '¿Qué nivel de fuerza se asigna si el paciente puede realizar el movimiento completo contra la gravedad y con resistencia moderada?', opciones: ['2', '3', '4', '5'], correcta: 2 },
-        { tema: 'Pruebas Funcionales de Daniels', q: '¿Cuál es la calificación máxima en la escala de Daniels y qué indica?', opciones: ['5 - Fuerza normal, vence la gravedad y la resistencia máxima', '4 - Movimiento con resistencia moderada', '3 - Movimiento contra la gravedad sin resistencia', '2 - Movimiento con la gravedad eliminada'], correcta: 0 },
-        { tema: 'Pruebas Funcionales de Daniels', q: '¿En qué tipo de pacientes se aplican comúnmente las pruebas de Daniels?', opciones: ['Pacientes con enfermedades pulmonares', 'Pacientes con lesiones neuromusculares o rehabilitación', 'Personas con hipertensión arterial', 'Deportistas de alto rendimiento'], correcta: 1 },
-        { tema: 'Pruebas Funcionales de Daniels', q: 'Si un paciente solo puede realizar un movimiento sin vencer la gravedad, ¿qué nivel de fuerza tiene?', opciones: ['0', '1', '2', '3'], correcta: 2 },
-        { tema: 'Pruebas Funcionales de Daniels', q: 'Un fisioterapeuta aplica la prueba a un paciente con hemiparesia y observa que puede realizar el movimiento contra la gravedad pero sin resistencia. ¿Qué calificación se asigna?', opciones: ['3', '2', '4', '5'], correcta: 0 },
-        { tema: 'Pruebas Funcionales de Daniels', q: 'En un paciente con lesión medular, se detecta que algunos músculos tienen contracción visible pero no producen movimiento. ¿Qué nivel de la escala corresponde?', opciones: ['1', '2', '3', '4'], correcta: 0 }
+        { tema: 'Pruebas Funcionales de Daniels', q: 'En la escala de Daniels, ¿qué número corresponde a "Movimiento con resistencia parcial"?', opciones: ['0', '1', '2', '3', '4', '5'], correcta: 4 },
+        { tema: 'Pruebas Funcionales de Daniels', q: 'En la escala de Daniels, ¿qué número corresponde a "Movimiento con resistencia máxima"?', opciones: ['0', '1', '2', '3', '4', '5'], correcta: 5 },
+        { tema: 'Pruebas Funcionales de Daniels', q: 'En la escala de Daniels, ¿qué número corresponde a "Movimiento que no vence la gravedad"?', opciones: ['0', '1', '2', '3', '4', '5'], correcta: 2 },
+        { tema: 'Pruebas Funcionales de Daniels', q: 'En la escala de Daniels, ¿qué número corresponde a "Ausencia de contracción"?', opciones: ['0', '1', '2', '3', '4', '5'], correcta: 0 },
+        { tema: 'Pruebas Funcionales de Daniels', q: 'En la escala de Daniels, ¿qué número corresponde a "Movimiento completo que vence la gravedad"?', opciones: ['0', '1', '2', '3', '4', '5'], correcta: 3 },
+        { tema: 'Pruebas Funcionales de Daniels', q: 'En la escala de Daniels, ¿qué número corresponde a "Contracción sin movimiento"?', opciones: ['0', '1', '2', '3', '4', '5'], correcta: 1 }
     ];
 
     let examState = null; // { order: [{qIndex, optionOrder: [0,1,2,3] shuffled}], answers: {}, submitted, score, fecha }
