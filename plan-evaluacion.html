@@ -584,8 +584,10 @@ const AUTODIAGNOSTICO_DATA = [
 
     let planData = {
         lugarDesarrollo: 'Instalaciones del Centro Evaluador',
-        fechaHoraAgendada: '',
+        fechaEvaluacion: '',
+        horarioDesarrollo: '',
         lugarResultados: 'Instalaciones del Centro Evaluador / Videollamada',
+        horarioResultados: '',
         acuerdoAceptado: false
     };
     let signatureMode = 'draw';
@@ -736,6 +738,16 @@ const AUTODIAGNOSTICO_DATA = [
         return div.innerHTML;
     }
 
+    /* planData.fechaEvaluacion viene de un <input type="date"> (ISO
+       YYYY-MM-DD) — se muestra siempre en formato DD-MM-YYYY en los
+       documentos oficiales, igual que el resto del sitio. */
+    function formatFechaDDMMYYYY(iso) {
+        if (!iso) return '';
+        const [yyyy, mm, dd] = iso.split('-');
+        if (!yyyy || !mm || !dd) return iso;
+        return `${dd}-${mm}-${yyyy}`;
+    }
+
     async function render() {
         const app = document.getElementById('app');
         if (await Auth.isBypassSession()) {
@@ -851,21 +863,29 @@ const AUTODIAGNOSTICO_DATA = [
                 `}
                 <div class="field-group" style="margin-top:16px;">
                     <label style="display: flex; justify-content: space-between; align-items: center;">
-                        <span>Fecha y hora que agendaste <span style="color:var(--danger);">*</span></span>
-                        <span style="font-size: 0.75rem; color: ${planData.fechaHoraAgendada && planData.fechaHoraAgendada.trim().length > 0 ? 'var(--success)' : 'rgba(255,255,255,0.4)'};">
-                            ${planData.fechaHoraAgendada && planData.fechaHoraAgendada.trim().length > 0 ? '✓ Completado' : '○ Pendiente'}
+                        <span>Fecha de tu evaluación <span style="color:var(--danger);">*</span></span>
+                        <span style="font-size: 0.75rem; color: ${planData.fechaEvaluacion ? 'var(--success)' : 'rgba(255,255,255,0.4)'};">
+                            ${planData.fechaEvaluacion ? '✓ Completado' : '○ Pendiente'}
                         </span>
                     </label>
-                    <input type="text" id="f_fechaHoraAgendada" value="${escapeHtml(planData.fechaHoraAgendada)}" placeholder="Ej. Martes 12 de agosto, 10:00 am" style="border-color: ${planData.fechaHoraAgendada && planData.fechaHoraAgendada.trim().length > 0 ? 'var(--success)' : 'var(--danger)'}; border-width: 2px;">
-                    <p style="font-size:0.78rem;color:rgba(255,255,255,0.4);margin-top:4px;">📌 Escribe la fecha después de agendar por WhatsApp o Google Calendar</p>
+                    <input type="date" id="f_fechaEvaluacion" value="${escapeHtml(planData.fechaEvaluacion)}" style="border-color: ${planData.fechaEvaluacion ? 'var(--success)' : 'var(--danger)'}; border-width: 2px;">
+                    <p style="font-size:0.78rem;color:rgba(255,255,255,0.4);margin-top:4px;">📌 La fecha que agendaste por WhatsApp o Google Calendar</p>
                 </div>
                 <div class="field-group">
                     <label>Lugar para el desarrollo de la evaluación</label>
                     <input type="text" id="f_lugarDesarrollo" value="${escapeHtml(planData.lugarDesarrollo)}">
                 </div>
                 <div class="field-group">
+                    <label>Horario del desarrollo de la evaluación</label>
+                    <input type="text" id="f_horarioDesarrollo" value="${escapeHtml(planData.horarioDesarrollo)}" placeholder="Ej. 9:00 am">
+                </div>
+                <div class="field-group">
                     <label>Lugar de presentación de resultados</label>
                     <input type="text" id="f_lugarResultados" value="${escapeHtml(planData.lugarResultados)}">
+                </div>
+                <div class="field-group">
+                    <label>Horario de presentación de resultados</label>
+                    <input type="text" id="f_horarioResultados" value="${escapeHtml(planData.horarioResultados)}" placeholder="Ej. 2:00 pm">
                 </div>
             </div>
 
@@ -920,7 +940,7 @@ const AUTODIAGNOSTICO_DATA = [
     }
 
     function attachFieldListeners() {
-        ['fechaHoraAgendada', 'lugarDesarrollo', 'lugarResultados'].forEach(field => {
+        ['fechaEvaluacion', 'lugarDesarrollo', 'horarioDesarrollo', 'lugarResultados', 'horarioResultados'].forEach(field => {
             const el = document.getElementById('f_' + field);
             if (el) {
                 // Remove existing listeners by replacing with a new element to avoid duplicates
@@ -957,7 +977,7 @@ const AUTODIAGNOSTICO_DATA = [
 
     function getValidationStatus() {
         const hasSig = signatureMode === 'draw' ? hasSignature : (signatureTypedName && signatureTypedName.trim().length > 0);
-        const fechaCompleta = planData.fechaHoraAgendada && planData.fechaHoraAgendada.trim().length > 0;
+        const fechaCompleta = !!planData.fechaEvaluacion;
 
         return {
             acuerdo: planData.acuerdoAceptado,
@@ -973,7 +993,7 @@ const AUTODIAGNOSTICO_DATA = [
 
         if (!status.acuerdo) missing.push('✓ Marcar el checkbox de acuerdo');
         if (!status.firma) missing.push('✓ Proporcionar una firma (dibujada o escrita)');
-        if (!status.fecha) missing.push('✓ Completar la fecha y hora de evaluación');
+        if (!status.fecha) missing.push('✓ Completar la fecha de tu evaluación');
 
         return missing;
     }
@@ -1088,7 +1108,7 @@ const AUTODIAGNOSTICO_DATA = [
         app.innerHTML = `
             <div class="success-box">
                 <h3>✅ Tu Plan de Evaluación está listo</h3>
-                <p style="color:var(--text);margin-bottom:20px;">Tu cita: <strong>${escapeHtml(planData.fechaHoraAgendada)}</strong></p>
+                <p style="color:var(--text);margin-bottom:20px;">Tu cita: <strong>${escapeHtml(formatFechaDDMMYYYY(planData.fechaEvaluacion))}${planData.horarioDesarrollo ? ', ' + escapeHtml(planData.horarioDesarrollo) : ''}</strong></p>
                 ${renderEstadoDoc('planEvaluacion', '📄 Plan de Evaluación')}
                 ${renderEstadoDoc('acusePlanEvaluacion', '📄 Acuse de Recibido')}
             </div>
@@ -1181,7 +1201,7 @@ const AUTODIAGNOSTICO_DATA = [
                 cat.grupos.forEach((grupo, gIdx) => {
                     let desc = (gIdx === 0 ? cat.tipo + '\n' : '') + `${gIdx + 1}.${grupo.titulo}`;
                     if (grupo.items.length) desc += '\n' + grupo.items.map(it => '• ' + it).join('\n');
-                    criteriosRows.push([String(seq), desc, instrumento, planData.fechaHoraAgendada || '']);
+                    criteriosRows.push([String(seq), desc, instrumento, formatFechaDDMMYYYY(planData.fechaEvaluacion)]);
                     if (cat.tipo === 'DESEMPEÑOS' && gIdx === 0) firstDesempenoRowIdx = criteriosRows.length - 1;
                     seq++;
                 });
@@ -1199,7 +1219,7 @@ const AUTODIAGNOSTICO_DATA = [
             body: criteriosRows,
             styles: { fontSize: 7.5, cellPadding: 2.5, valign: 'top' },
             tableWidth: 'wrap',
-            columnStyles: { 0: { cellWidth: 12 }, 1: { cellWidth: 120 }, 2: { cellWidth: 32 }, 3: { cellWidth: 18 } },
+            columnStyles: { 0: { cellWidth: 12 }, 1: { cellWidth: 116 }, 2: { cellWidth: 32 }, 3: { cellWidth: 22 } },
             headStyles: { fillColor: [0, 136, 255] },
             margin: { top: 24 },
             didDrawPage: () => addOfficialLogos(doc)
@@ -1262,7 +1282,7 @@ const AUTODIAGNOSTICO_DATA = [
             theme: 'grid',
             styles: { fontSize: 8.5, cellPadding: 2, halign: 'center' },
             head: [[{ content: 'Acuerdo para el desarrollo de la evaluación', colSpan: 3 }]],
-            body: [['Lugar', 'Fecha', 'Horario'], [planData.lugarDesarrollo, planData.fechaHoraAgendada, '']],
+            body: [['Lugar', 'Fecha', 'Horario'], [planData.lugarDesarrollo, formatFechaDDMMYYYY(planData.fechaEvaluacion), planData.horarioDesarrollo]],
             headStyles: { fillColor: [230, 230, 230], textColor: 0 },
             didParseCell: data => { if (data.row.index === 0) { data.cell.styles.fillColor = [230, 230, 230]; data.cell.styles.fontStyle = 'bold'; } }
         });
@@ -1272,7 +1292,7 @@ const AUTODIAGNOSTICO_DATA = [
             theme: 'grid',
             styles: { fontSize: 8.5, cellPadding: 2, halign: 'center' },
             head: [[{ content: 'Acuerdo para la presentación de los resultados de la evaluación', colSpan: 3 }]],
-            body: [['Lugar', 'Fecha', 'Horario'], [planData.lugarResultados, planData.fechaHoraAgendada, '']],
+            body: [['Lugar', 'Fecha', 'Horario'], [planData.lugarResultados, formatFechaDDMMYYYY(planData.fechaEvaluacion), planData.horarioResultados]],
             headStyles: { fillColor: [230, 230, 230], textColor: 0 },
             didParseCell: data => { if (data.row.index === 0) { data.cell.styles.fillColor = [230, 230, 230]; data.cell.styles.fontStyle = 'bold'; } }
         });
@@ -1344,7 +1364,7 @@ const AUTODIAGNOSTICO_DATA = [
                 ['Estándar de Competencia:', 'EC1375 - Prestación de servicios auxiliares en la contribución'],
                 ['', 'tradicional y complementaria de la recuperación de las condiciones'],
                 ['', 'físicas y socioemocionales de las personas.'],
-                ['Fecha:', planData.fechaHoraAgendada || new Date().toLocaleDateString('es-MX')]
+                ['Fecha:', formatFechaDDMMYYYY(planData.fechaEvaluacion) || new Date().toLocaleDateString('es-MX')]
             ]
         });
         let y = doc.lastAutoTable.finalY + 20;
