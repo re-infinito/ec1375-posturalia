@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin — KPIs EC1375 - Paideia Tech</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="auth.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --dark: #050a1a; --dark-light: #0f1428; --primary: #0088FF; --primary-light: #00CCFF;
+            --accent: #FFD700; --text: #D0D0D0; --text-bright: #FFFFFF; --danger: #FF3333; --success: #00FF88;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, var(--dark) 0%, #0a1530 100%);
+            color: var(--text); line-height: 1.6; min-height: 100vh; padding-bottom: 60px;
+        }
+
+        .container { max-width: 1200px; margin: 0 auto; padding: 24px 20px; }
+        .top-bar {
+            position: sticky; top: 0; background: var(--dark); border-bottom: 1px solid var(--dark-light);
+            padding: 16px 20px; z-index: 100; display: flex; justify-content: space-between; align-items: center;
+        }
+        .top-bar-inner { font-size: 0.95rem; color: var(--text-bright); font-weight: 700; }
+        .top-bar a { color: var(--primary); font-size: 0.82rem; text-decoration: none; margin-left: 20px; }
+
+        .card { background: var(--dark-light); border-radius: 12px; padding: 22px; margin-bottom: 20px; }
+        .card h2 { font-size: 1.1rem; color: var(--text-bright); margin-bottom: 16px; }
+        .card h3 { font-size: 0.9rem; color: var(--primary-light); margin-top: 16px; margin-bottom: 12px; text-transform: uppercase; }
+
+        .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 20px; }
+        .kpi-card {
+            background: rgba(0,136,255,0.08); border: 1px solid rgba(0,136,255,0.2); border-radius: 8px;
+            padding: 16px; text-align: center;
+        }
+        .kpi-value { font-size: 2rem; font-weight: 700; color: var(--primary-light); }
+        .kpi-label { font-size: 0.8rem; color: var(--text); margin-top: 6px; text-transform: uppercase; }
+        .kpi-change { font-size: 0.75rem; color: var(--success); margin-top: 4px; }
+
+        .metric-row { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 12px; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.06); }
+        .metric-row:last-child { border-bottom: none; }
+        .metric-label { font-size: 0.85rem; color: var(--text); }
+        .metric-value { font-size: 0.9rem; color: var(--text-bright); font-weight: 600; }
+
+        .chart-container { width: 100%; height: 300px; background: rgba(255,255,255,0.02); border-radius: 8px; padding: 20px; margin-bottom: 20px; }
+        .loading { text-align: center; padding: 40px; color: var(--text); }
+
+        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-top: 12px; }
+        th { text-align: left; color: var(--primary-light); font-size: 0.72rem; text-transform: uppercase; padding: 8px 6px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        td { padding: 8px 6px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+    </style>
+</head>
+<body>
+    <div class="top-bar">
+        <div class="top-bar-inner">📊 Admin — KPIs EC1375</div>
+        <div style="display:flex;gap:16px;">
+            <a href="admin-index.html">🗂️ Índice</a>
+            <a href="admin-precios.html">💰 Precios</a>
+            <a href="admin-utilidades.html">💵 Utilidades</a>
+            <a href="#" id="logoutLink" onclick="handleLogout()" style="display:none;">Cerrar sesión</a>
+        </div>
+    </div>
+    <div class="container" id="app"></div>
+
+    <script>
+    let candidatos = [];
+    let pagosPorEmail = {};
+
+    function renderGateShell() {
+        const app = document.getElementById('app');
+        app.innerHTML = `
+            <div style="max-width:420px;margin:0 auto;padding:40px 20px;">
+                <div style="text-align:center;margin-bottom:30px;">
+                    <div style="font-size:3rem;margin-bottom:14px;">📊</div>
+                    <h1 style="font-size:1.5rem;font-weight:700;color:var(--text-bright);margin-bottom:8px;">Panel de KPIs</h1>
+                </div>
+                <div class="card" id="adminGateContainer"></div>
+            </div>`;
+        Auth.renderAdminGate(document.getElementById('adminGateContainer'), { onVerified: boot });
+    }
+
+    async function handleLogout() {
+        await Auth.signOut();
+        window.location.reload();
+    }
+
+    async function cargarDatos() {
+        const [precios, pagos] = await Promise.all([
+            supabaseClient.from('candidatos_precio').select('*'),
+            supabaseClient.from('candidatos_fase_pagos').select('email,fase')
+        ]);
+        candidatos = precios.data || [];
+        pagosPorEmail = {};
+        (pagos.data || []).forEach(row => {
+            if (!pagosPorEmail[row.email]) pagosPorEmail[row.email] = new Set();
+            pagosPorEmail[row.email].add(row.fase);
+        });
+    }
+
+    function calcularKPIs() {
+        const activos = candidatos.filter(c => (c.estado || 'activo') === 'activo');
+        const fases = ['registro', 'alineacion', 'evaluacion', 'entrega'];
+
+        // Conteos por fase
+        const porFase = {};
+        fases.forEach(f => {
+            porFase[f] = activos.filter(c => {
+                const pagos = pagosPorEmail[c.email] || new Set();
+                return pagos.has(f);
+            }).length;
+        });
+
+        // Ingresos por fase
+        const ingresosPorFase = {};
+        fases.forEach(f => {
+            ingresosPorFase[f] = activos.reduce((sum, c) => {
+                const pagos = pagosPorEmail[c.email] || new Set();
+                return pagos.has(f) ? sum + (c[`monto_${f}`] || 0) : sum;
+            }, 0);
+        });
+
+        const totalInscritos = activos.length;
+        const completados = porFase.entrega;
+        const ingresosTotales = Object.values(ingresosPorFase).reduce((a, b) => a + b, 0);
+        const proyectado = activos.reduce((sum, c) => sum + (c.total_acordado || 0), 0);
+
+        // Conversiones
+        const conv = {
+            registro: totalInscritos > 0 ? Math.round((porFase.registro / totalInscritos) * 100) : 0,
+            alineacion: porFase.registro > 0 ? Math.round((porFase.alineacion / porFase.registro) * 100) : 0,
+            evaluacion: porFase.alineacion > 0 ? Math.round((porFase.evaluacion / porFase.alineacion) * 100) : 0,
+            entrega: porFase.evaluacion > 0 ? Math.round((porFase.entrega / porFase.evaluacion) * 100) : 0,
+        };
+
+        return { totalInscritos, completados, porFase, ingresosPorFase, ingresosTotales, proyectado, conv };
+    }
+
+    function renderPanel() {
+        const app = document.getElementById('app');
+        const kpis = calcularKPIs();
+
+        const html = `
+            <div class="card">
+                <h2>📈 KPIs Generales</h2>
+                <div class="kpi-grid">
+                    <div class="kpi-card">
+                        <div class="kpi-value">${kpis.totalInscritos}</div>
+                        <div class="kpi-label">Total Inscritos</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-value">${kpis.completados}</div>
+                        <div class="kpi-label">Completados</div>
+                        <div class="kpi-change">${kpis.totalInscritos > 0 ? Math.round((kpis.completados / kpis.totalInscritos) * 100) : 0}%</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-value">$${kpis.ingresosTotales.toLocaleString('es-MX')}</div>
+                        <div class="kpi-label">Ingresos Realizados</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-value">$${kpis.proyectado.toLocaleString('es-MX')}</div>
+                        <div class="kpi-label">Proyectado</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>🔀 Conversión por Fase</h2>
+                <div class="metric-row">
+                    <div><div class="metric-label">Fase</div></div>
+                    <div><div class="metric-label">Candidatos</div></div>
+                    <div><div class="metric-label">Ingresos</div></div>
+                    <div><div class="metric-label">Conversión</div></div>
+                </div>
+                <div class="metric-row">
+                    <div><div class="metric-label">Registro</div></div>
+                    <div><div class="metric-value">${kpis.porFase.registro}</div></div>
+                    <div><div class="metric-value">$${kpis.ingresosPorFase.registro.toLocaleString('es-MX')}</div></div>
+                    <div><div class="metric-value">${kpis.conv.registro}%</div></div>
+                </div>
+                <div class="metric-row">
+                    <div><div class="metric-label">Alineación</div></div>
+                    <div><div class="metric-value">${kpis.porFase.alineacion}</div></div>
+                    <div><div class="metric-value">$${kpis.ingresosPorFase.alineacion.toLocaleString('es-MX')}</div></div>
+                    <div><div class="metric-value">${kpis.conv.alineacion}%</div></div>
+                </div>
+                <div class="metric-row">
+                    <div><div class="metric-label">Evaluación</div></div>
+                    <div><div class="metric-value">${kpis.porFase.evaluacion}</div></div>
+                    <div><div class="metric-value">$${kpis.ingresosPorFase.evaluacion.toLocaleString('es-MX')}</div></div>
+                    <div><div class="metric-value">${kpis.conv.evaluacion}%</div></div>
+                </div>
+                <div class="metric-row">
+                    <div><div class="metric-label">Entrega</div></div>
+                    <div><div class="metric-value">${kpis.porFase.entrega}</div></div>
+                    <div><div class="metric-value">$${kpis.ingresosPorFase.entrega.toLocaleString('es-MX')}</div></div>
+                    <div><div class="metric-value">${kpis.conv.entrega}%</div></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>💡 Análisis Rápido</h2>
+                <p style="font-size:0.9rem;margin-bottom:12px;">
+                    Tasa de finalización: <strong>${kpis.totalInscritos > 0 ? Math.round((kpis.completados / kpis.totalInscritos) * 100) : 0}%</strong> (${kpis.completados}/${kpis.totalInscritos})<br>
+                    Ingresos vs Proyectado: <strong>${kpis.proyectado > 0 ? Math.round((kpis.ingresosTotales / kpis.proyectado) * 100) : 0}%</strong> ($${kpis.ingresosTotales.toLocaleString('es-MX')}/$${kpis.proyectado.toLocaleString('es-MX')})<br>
+                    Costo promedio por inscrito: <strong>$${kpis.totalInscritos > 0 ? Math.round(kpis.proyectado / kpis.totalInscritos) : 0}</strong> MXN
+                </p>
+            </div>
+        `;
+
+        app.innerHTML = html;
+        document.getElementById('logoutLink').style.display = 'inline';
+    }
+
+    async function boot() {
+        const app = document.getElementById('app');
+        app.innerHTML = `<div class="loading">Cargando KPIs...</div>`;
+        await cargarDatos();
+        renderPanel();
+    }
+
+    window.addEventListener('load', async () => {
+        try {
+            const session = await Auth.getSession();
+            if (session) {
+                const esAdmin = await Auth.isAdmin(session.user.email);
+                if (esAdmin) { boot(); return; }
+                await Auth.signOut();
+            }
+            renderGateShell();
+        } catch (e) {
+            console.error('Error:', e);
+            document.getElementById('app').innerHTML = `<div style="text-align:center;padding:40px;"><div style="font-size:3rem;margin-bottom:14px;">⚠️</div><h1 style="color:var(--text-bright);">Algo salió mal</h1></div>`;
+        }
+    });
+    </script>
+</body>
+</html>
