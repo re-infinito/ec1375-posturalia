@@ -89,7 +89,7 @@ _internal_no_publicar/    TODO gitignored
 
 El Google Form de evidencias se retiró — `evidencias.html` ahora usa `<input type="file">` nativos solo para lo que el sitio no genera: capturas de Zoom, INE, CURP, foto de diploma, certificados (opcional).
 
-**⚠️ Pendiente confirmar:** `NEXTCLOUD_URL` en Vercel se guardó como `.../login` — probablemente la pantalla de login del navegador, no el endpoint WebDAV real. El código lo normaliza defensivamente, pero falta confirmar con Diego/Humberto que apunta al lugar correcto.
+**✅ Verificado end-to-end (14 sep 2026):** el Nextcloud además está detrás de Cloudflare Access (Zero Trust, capa aparte del Tunnel) — sin credenciales, cualquier request quedaba atrapada en una pantalla de login por correo antes de llegar a Nextcloud. Humberto generó un Service Token (`CF_ACCESS_CLIENT_ID` / `CF_ACCESS_CLIENT_SECRET`, mandados como headers `CF-Access-Client-Id`/`CF-Access-Client-Secret` en cada request) que lo evita para tráfico servidor-a-servidor. Con eso, se probó la secuencia real completa (MKCOL en cascada + PUT) directo contra `nextcloud.paideiatech.net` — 201 en los 4 pasos, confirmando URL, Service Token y contraseña de aplicación correctos.
 
 Spec: `docs/superpowers/specs/2026-09-12-nextcloud-portafolio-storage-design.md`. Plan: `docs/superpowers/plans/2026-09-12-nextcloud-portafolio-storage.md`.
 
@@ -171,7 +171,8 @@ SQL consolidado: _internal_no_publicar/02-sql/supabase_setup_v5_new_project.sql 
 ```
 SUPABASE_SERVICE_ROLE_KEY, MERCADOPAGO_ACCESS_TOKEN, MERCADOPAGO_WEBHOOK_SECRET,
 MASTER_LOGIN_PASSWORD, GOOGLE_CALENDAR_ID, GOOGLE_CALENDAR_KEY_FILE (JSON completo de la Service Account, no una ruta),
-NEXTCLOUD_URL, NEXTCLOUD_USERNAME, NEXTCLOUD_APP_PASSWORD
+NEXTCLOUD_URL, NEXTCLOUD_USERNAME, NEXTCLOUD_APP_PASSWORD,
+CF_ACCESS_CLIENT_ID, CF_ACCESS_CLIENT_SECRET (Service Token de Cloudflare Access, ver sección Nextcloud)
 ```
 
 ### Resend (email transaccional)
@@ -244,9 +245,8 @@ Landing (`index.html`) sigue un arco emocional Vocación→Miedo→Transformaci�
 11. Videos del proceso pendientes (contexto SEP-CONOCER, capacitación, muestra de atención) — `alineacion.html` ya tiene los espacios (`VIDEO_CAPACITACION_URL`, `VIDEO_MUESTRA_URL`).
 12. Portada de `ruta-estudio.html` y pantalla 1 de `ruta-alineacion.html` siguen diciendo "ACADEMIA POSTURALIA" — es texto incrustado en una fotografía (no editable por CSS/HTML), pendiente que Diego regenere la imagen.
 13. Gate de autenticación para `kpi-dashboard-live.html` (hoy público).
-14. Confirmar `NEXTCLOUD_URL` real (ver sección Nextcloud arriba).
-15. Replicar webhook de Mercado Pago en modo productivo.
-16. Calendario de citas en `plan-evaluacion.html` sigue en placeholder (`GOOGLE_CALENDAR_BOOKING_URL` vacío, fallback a WhatsApp) — el candidato pidió horarios fijos recurrentes, no un Calendly en tiempo real.
+14. Replicar webhook de Mercado Pago en modo productivo.
+15. Calendario de citas en `plan-evaluacion.html` sigue en placeholder (`GOOGLE_CALENDAR_BOOKING_URL` vacío, fallback a WhatsApp) — el candidato pidió horarios fijos recurrentes, no un Calendly en tiempo real.
 
 ---
 
