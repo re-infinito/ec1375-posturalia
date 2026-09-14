@@ -309,10 +309,13 @@
         usuarioNombre: '', usuarioEdad: '', usuarioFechaNacimiento: '', usuarioDomicilio: '',
         usuarioTelefono: '', usuarioCorreo: '', contactoEmergencia: '',
         fisiologicos: '', socioemocionales: '', heredofamiliares: '', deportivos: '', consumoSustancias: '',
+        medicoTratante: '', informacionToxicologica: '', resultadosLaboratorio: '',
         presionArterial: '', pulso: '', temperatura: '', oxigenacion: '', peso: '', estatura: '',
         observacionPostural: '', frecuenciaRespiratoria: '', sintomasNecesidades: '',
-        tecnicaAplicar: '', otraTecnica: '', expedienteNo: '', fechaConsentimiento: todayISOSession(),
+        tecnicaAplicar: '', otraTecnica: '', zonasCuerpo: '', vestimentaRecomendada: '', reaccionesFisicas: '',
+        expedienteNo: '', fechaConsentimiento: todayISOSession(), limitantesServicio: '',
         condicionesPreparacion: '', numeroSesionesPlan: '', duracionSesionPlan: '', objetivosEfectos: '',
+        horaInicio: '', horaTermino: '',
         telefonoMovilSeguimiento: '', telefonoFijoSeguimiento: '', correoSeguimiento: '', medioContacto: '',
         notaEvolucion: '', pronostico: '', recomendaciones: ''
     };
@@ -808,6 +811,11 @@
                 <div class="field-group"><label>Heredofamiliares</label><textarea id="f_heredofamiliares" rows="2">${escapeHtml(s.heredofamiliares)}</textarea></div>
                 <div class="field-group"><label>Actividad deportiva</label><input type="text" id="f_deportivos" value="${escapeHtml(s.deportivos)}"></div>
                 <div class="field-group"><label>Consumo de sustancias</label><input type="text" id="f_consumoSustancias" value="${escapeHtml(s.consumoSustancias)}" placeholder="Ej. No / Tabaco ocasional"></div>
+
+                <div class="section-label">Información médica adicional</div>
+                <div class="field-group"><label>Médico tratante / profesional de la salud que lo atiende</label><input type="text" id="f_medicoTratante" value="${escapeHtml(s.medicoTratante)}" placeholder="Nombre, o 'Ninguno' si no aplica"></div>
+                <div class="field-group"><label>Información toxicológica</label><input type="text" id="f_informacionToxicologica" value="${escapeHtml(s.informacionToxicologica)}" placeholder="Ej. Sin antecedentes toxicológicos"></div>
+                <div class="field-group"><label>Resumen de resultados de laboratorio y gabinete (si aplica)</label><textarea id="f_resultadosLaboratorio" rows="2" placeholder="Ej. No cuenta con estudios recientes">${escapeHtml(s.resultadosLaboratorio)}</textarea></div>
             </div>
         `;
     }
@@ -909,6 +917,9 @@
                     <label>Especifica la técnica *</label>
                     <input type="text" id="f_otraTecnica" value="${escapeHtml(s.otraTecnica)}" placeholder="Ej. Reflexología podal">
                 </div>` : ''}
+                <div class="field-group"><label>Puntos y zonas del cuerpo que se abordarán</label><textarea id="f_zonasCuerpo" rows="2" placeholder="Ej. Espalda, cuello y hombros">${escapeHtml(s.zonasCuerpo)}</textarea></div>
+                <div class="field-group"><label>Vestimenta recomendada para la sesión</label><input type="text" id="f_vestimentaRecomendada" value="${escapeHtml(s.vestimentaRecomendada)}" placeholder="Ej. Ropa cómoda y ligera"></div>
+                <div class="field-group"><label>Reacciones o sensaciones posibles (durante y después)</label><textarea id="f_reaccionesFisicas" rows="2" placeholder="Ej. Relajación, ligera somnolencia posterior">${escapeHtml(s.reaccionesFisicas)}</textarea></div>
             </div>
         `;
     }
@@ -923,6 +934,7 @@
                     <div class="field-group"><label>Expediente No.</label><input type="text" id="f_expedienteNo" value="${escapeHtml(s.expedienteNo)}" placeholder="Ej. 250812"></div>
                     <div class="field-group"><label>Fecha</label><input type="date" id="f_fechaConsentimiento" value="${s.fechaConsentimiento}"></div>
                 </div>
+                <div class="field-group"><label>Limitantes de aplicación del servicio</label><textarea id="f_limitantesServicio" rows="2" placeholder="Ej. No aplica en zonas con heridas abiertas o infecciones de piel">${escapeHtml(s.limitantesServicio)}</textarea></div>
                 <div class="legal-text">
                     Yo, <strong>${escapeHtml(s.usuarioNombre) || '[nombre del usuario]'}</strong>, expreso mi libre voluntad para autorizar el procedimiento señalado en este documento después de haberme proporcionado la información completa sobre padecimiento o estado actual, la cual fue realizada en forma amplia, precisa y suficiente en un lenguaje claro y sencillo, informándome sobre posibles riesgos, complicaciones y secuelas de igual forma los beneficios.
                     <br><br>
@@ -942,7 +954,14 @@
             <div class="hero"><div class="hero-icon">📅</div><h1 class="hero-title">Plan de Sesión</h1></div>
             ${renderGuionPanel('plan_sesion')}
             <div class="card">
+                <div class="section-label">Esta sesión (No. 1)</div>
+                <div class="field-row">
+                    <div class="field-group"><label>Hora de inicio</label><input type="time" id="f_horaInicio" value="${escapeHtml(s.horaInicio)}"></div>
+                    <div class="field-group"><label>Hora de término</label><input type="time" id="f_horaTermino" value="${escapeHtml(s.horaTermino)}"></div>
+                </div>
                 <div class="field-group"><label>Condiciones de preparación</label><textarea id="f_condicionesPreparacion" rows="2" placeholder="Ej. Limpieza de camilla y sábana desechable nueva">${escapeHtml(s.condicionesPreparacion)}</textarea></div>
+
+                <div class="section-label">Plan a futuro</div>
                 <div class="field-row">
                     <div class="field-group"><label>Número de sesiones planeadas</label><input type="text" id="f_numeroSesionesPlan" value="${escapeHtml(s.numeroSesionesPlan)}" placeholder="Ej. 7"></div>
                     <div class="field-group"><label>Duración de cada sesión</label><input type="text" id="f_duracionSesionPlan" value="${escapeHtml(s.duracionSesionPlan)}" placeholder="Ej. 1 hora"></div>
@@ -1153,7 +1172,8 @@
     function attachRecepcionListeners() { bindFields(['temperatura']); }
     function attachFichaListeners() {
         bindFields(['usuarioNombre', 'usuarioEdad', 'usuarioFechaNacimiento', 'usuarioDomicilio', 'usuarioTelefono', 'usuarioCorreo',
-            'contactoEmergencia', 'fisiologicos', 'socioemocionales', 'heredofamiliares', 'deportivos', 'consumoSustancias']);
+            'contactoEmergencia', 'fisiologicos', 'socioemocionales', 'heredofamiliares', 'deportivos', 'consumoSustancias',
+            'medicoTratante', 'informacionToxicologica', 'resultadosLaboratorio']);
     }
     function attachPesoEstaturaListeners() { bindFields(['peso', 'estatura']); }
     function attachSpo2PulsoListeners() { bindFields(['oxigenacion', 'pulso']); }
@@ -1162,15 +1182,22 @@
     function attachPresionListeners() { bindFields(['presionArterial']); }
     function attachVerificarListeners() { bindFields(['sintomasNecesidades']); }
     function tecnicaEfectiva(s) { return s.tecnicaAplicar === 'Otra' ? (s.otraTecnica || '') : (s.tecnicaAplicar || ''); }
-    function attachTerapiaExplicacionListeners() { bindFields(['otraTecnica']); }
+    function formatFechaDDMMYYYY(iso) {
+        if (!iso) return '';
+        const partes = iso.split('-');
+        if (partes.length !== 3) return iso;
+        const [y, m, d] = partes;
+        return `${d}-${m}-${y}`;
+    }
+    function attachTerapiaExplicacionListeners() { bindFields(['otraTecnica', 'zonasCuerpo', 'vestimentaRecomendada', 'reaccionesFisicas']); }
     function handleTecnicaAplicarChange(value) {
         sessionData.tecnicaAplicar = value;
         if (value !== 'Otra') sessionData.otraTecnica = '';
         saveProgress();
         renderStep();
     }
-    function attachConsentimientoListeners() { bindFields(['expedienteNo', 'fechaConsentimiento']); }
-    function attachPlanSesionListeners() { bindFields(['condicionesPreparacion', 'numeroSesionesPlan', 'duracionSesionPlan', 'objetivosEfectos']); }
+    function attachConsentimientoListeners() { bindFields(['expedienteNo', 'fechaConsentimiento', 'limitantesServicio']); }
+    function attachPlanSesionListeners() { bindFields(['horaInicio', 'horaTermino', 'condicionesPreparacion', 'numeroSesionesPlan', 'duracionSesionPlan', 'objetivosEfectos']); }
     function attachPlanSeguimientoListeners() { bindFields(['notaEvolucion', 'pronostico', 'recomendaciones']); }
     function attachMedioContactoListeners() { bindFields(['telefonoMovilSeguimiento', 'telefonoFijoSeguimiento', 'correoSeguimiento', 'medioContacto']); }
 
@@ -1313,7 +1340,7 @@ const LOGO_CONOCER_BASE64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAA
                 ['Folio:', s.expedienteNo || ''],
                 ['Nombre completo:', s.usuarioNombre || ''],
                 ['Edad:', s.usuarioEdad || ''],
-                ['Fecha de nacimiento:', s.usuarioFechaNacimiento || ''],
+                ['Fecha de nacimiento:', formatFechaDDMMYYYY(s.usuarioFechaNacimiento) || ''],
                 ['Domicilio:', s.usuarioDomicilio || ''],
                 ['Teléfono:', s.usuarioTelefono || ''],
                 ['Correo electrónico:', s.usuarioCorreo || ''],
@@ -1343,7 +1370,20 @@ const LOGO_CONOCER_BASE64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAA
                 ['Estatura', s.estatura || '—'],
                 ['Observación postural', s.observacionPostural || '—'],
                 ['Frecuencia respiratoria', s.frecuenciaRespiratoria || '—']
-            ]
+            ],
+            margin: { top: 24 },
+            didDrawPage: () => addOfficialLogos(doc)
+        });
+        y = doc.lastAutoTable.finalY + 8;
+        doc.autoTable({
+            startY: y, head: [['Información médica adicional', 'Detalle']], styles: { fontSize: 8.5, cellPadding: 3 }, headStyles: { fillColor: [0, 136, 255] },
+            body: [
+                ['Médico tratante / profesional de la salud', s.medicoTratante || '—'],
+                ['Información toxicológica', s.informacionToxicologica || '—'],
+                ['Resumen de resultados de laboratorio y gabinete', s.resultadosLaboratorio || '—']
+            ],
+            margin: { top: 24 },
+            didDrawPage: () => addOfficialLogos(doc)
         });
         y = doc.lastAutoTable.finalY + 8;
         doc.setFontSize(9); doc.setFont(undefined, 'bold');
@@ -1374,10 +1414,10 @@ const LOGO_CONOCER_BASE64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAA
         doc.autoTable({
             startY: 42, theme: 'plain', styles: { fontSize: 9, cellPadding: 1.5 },
             body: [
-                ['Fecha:', s.fechaConsentimiento || ''],
+                ['Fecha:', formatFechaDDMMYYYY(s.fechaConsentimiento) || ''],
                 ['Nombre del usuario:', s.usuarioNombre || ''],
                 ['Edad:', s.usuarioEdad || ''],
-                ['Fecha de nacimiento:', s.usuarioFechaNacimiento || ''],
+                ['Fecha de nacimiento:', formatFechaDDMMYYYY(s.usuarioFechaNacimiento) || ''],
                 ['Domicilio:', s.usuarioDomicilio || ''],
                 ['Familiar/responsable a avisar:', s.contactoEmergencia || ''],
                 ['Técnica a aplicar:', tecnicaEfectiva(s)],
@@ -1385,6 +1425,20 @@ const LOGO_CONOCER_BASE64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAA
             ]
         });
         let y = doc.lastAutoTable.finalY + 8;
+
+        doc.autoTable({
+            startY: y, head: [['Condiciones del servicio', 'Detalle']], styles: { fontSize: 8.5, cellPadding: 3 }, headStyles: { fillColor: [0, 136, 255] },
+            body: [
+                ['Zonas del cuerpo que se abordarán', s.zonasCuerpo || '—'],
+                ['Vestimenta recomendada', s.vestimentaRecomendada || '—'],
+                ['Reacciones o sensaciones posibles', s.reaccionesFisicas || '—'],
+                ['Limitantes de aplicación del servicio', s.limitantesServicio || '—'],
+                ['Condiciones de preparación', s.condicionesPreparacion || '—'],
+                ['Número de sesiones y duración', `${s.numeroSesionesPlan || '—'} / ${s.duracionSesionPlan || '—'}`],
+                ['Objetivos y efectos generales', s.objetivosEfectos || '—']
+            ]
+        });
+        y = doc.lastAutoTable.finalY + 8;
 
         doc.setFontSize(9); doc.setFont(undefined, 'bold');
         doc.text('Aviso de Privacidad:', 14, y); y += 5;
@@ -1412,24 +1466,51 @@ const LOGO_CONOCER_BASE64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAA
         const s = sessionData;
         docHeader(doc, 'PLAN DE SESIÓN', 'DOC 3');
 
-        doc.autoTable({
-            startY: 42, theme: 'plain', styles: { fontSize: 9, cellPadding: 1.5 },
-            body: [['Usuario:', s.usuarioNombre || ''], ['Fecha:', todayISOSession()]]
-        });
-        let y = doc.lastAutoTable.finalY + 10;
-        doc.setFontSize(10); doc.setFont(undefined, 'bold'); doc.text('Condiciones de preparación', 14, y); y += 6;
-        doc.setFont(undefined, 'normal'); doc.setFontSize(9);
-        let lines = doc.splitTextToSize(s.condicionesPreparacion || '—', 180);
-        doc.text(lines, 14, y); y += lines.length * 5 + 10;
+        doc.setFontSize(8); doc.setFont(undefined, 'italic');
+        doc.text('Este documento se integra con el Plan de Seguimiento para el control de las sesiones posteriores.', 105, 35, { align: 'center' });
+        doc.setFont(undefined, 'normal');
 
         doc.autoTable({
-            startY: y, head: [['No. de sesiones', 'Duración de cada sesión']], styles: { fontSize: 9, cellPadding: 3 }, headStyles: { fillColor: [0, 136, 255] },
-            body: [[s.numeroSesionesPlan || '—', s.duracionSesionPlan || '—']]
+            startY: 42, theme: 'plain', styles: { fontSize: 9, cellPadding: 1.5 },
+            body: [
+                ['Usuario:', s.usuarioNombre || ''],
+                ['Sesión No.:', '1'],
+                ['Fecha:', formatFechaDDMMYYYY(todayISOSession())],
+                ['Hora de inicio:', s.horaInicio || '—'],
+                ['Hora de término:', s.horaTermino || '—']
+            ]
+        });
+        let y = doc.lastAutoTable.finalY + 8;
+
+        doc.autoTable({
+            startY: y, head: [['Signos vitales', 'Valor']], styles: { fontSize: 8.5, cellPadding: 3 }, headStyles: { fillColor: [0, 136, 255] },
+            body: [
+                ['Presión arterial', s.presionArterial || '—'],
+                ['Pulso', s.pulso || '—'],
+                ['Temperatura', s.temperatura || '—'],
+                ['Oxigenación (SpO2)', s.oxigenacion || '—'],
+                ['Frecuencia respiratoria', s.frecuenciaRespiratoria || '—']
+            ]
         });
         y = doc.lastAutoTable.finalY + 10;
-        doc.setFontSize(10); doc.setFont(undefined, 'bold'); doc.text('Objetivos y efectos generales', 14, y); y += 6;
+
+        doc.setFontSize(10); doc.setFont(undefined, 'bold'); doc.text('Descripción de actividades / técnica aplicada', 14, y); y += 6;
         doc.setFont(undefined, 'normal'); doc.setFontSize(9);
-        lines = doc.splitTextToSize(s.objetivosEfectos || '—', 180);
+        let lines = doc.splitTextToSize(tecnicaEfectiva(s) || '—', 180);
+        doc.text(lines, 14, y); y += lines.length * 5 + 10;
+
+        if (y > 220) { doc.addPage(); addOfficialLogos(doc); y = 30; }
+        doc.setFontSize(10); doc.setFont(undefined, 'bold'); doc.text('Notas de evolución y pronóstico', 14, y); y += 6;
+        doc.setFont(undefined, 'normal'); doc.setFontSize(9);
+        lines = doc.splitTextToSize(s.notaEvolucion || '—', 180);
+        doc.text(lines, 14, y); y += lines.length * 5 + 5;
+        lines = doc.splitTextToSize(s.pronostico || '—', 180);
+        doc.text(lines, 14, y); y += lines.length * 5 + 10;
+
+        if (y > 220) { doc.addPage(); addOfficialLogos(doc); y = 30; }
+        doc.setFontSize(10); doc.setFont(undefined, 'bold'); doc.text('Recomendaciones / tareas para casa', 14, y); y += 6;
+        doc.setFont(undefined, 'normal'); doc.setFontSize(9);
+        lines = doc.splitTextToSize(s.recomendaciones || '—', 180);
         doc.text(lines, 14, y);
 
         const blob = doc.output('blob');
@@ -1446,7 +1527,7 @@ const LOGO_CONOCER_BASE64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAA
             startY: 42, theme: 'plain', styles: { fontSize: 9, cellPadding: 1.5 },
             body: [
                 ['Nombre del usuario:', s.usuarioNombre || ''],
-                ['Fecha:', todayISOSession()],
+                ['Fecha:', formatFechaDDMMYYYY(todayISOSession())],
                 ['Teléfono móvil:', s.telefonoMovilSeguimiento || ''],
                 ['Teléfono fijo:', s.telefonoFijoSeguimiento || ''],
                 ['Correo electrónico:', s.correoSeguimiento || ''],
