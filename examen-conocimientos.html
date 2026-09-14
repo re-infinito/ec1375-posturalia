@@ -19,7 +19,7 @@
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: linear-gradient(135deg, var(--dark) 0%, #0a1530 100%);
-            color: var(--text); line-height: 1.6; min-height: 100vh; padding-bottom: 110px;
+            color: var(--text); line-height: 1.6; min-height: 100vh; padding-bottom: 40px;
         }
 
         .container { max-width: 760px; margin: 0 auto; padding: 24px 20px; }
@@ -166,7 +166,7 @@
         { tema: 'Pruebas Funcionales de Daniels', q: 'En la escala de Daniels, ¿qué número corresponde a "Contracción sin movimiento"?', opciones: ['0', '1', '2', '3', '4', '5'], correcta: 1 }
     ];
 
-    let examState = null; // { order: [{qIndex, optionOrder: [0,1,2,3] shuffled}], answers: {}, submitted, score, fecha }
+    let examState = null; // { order: [{qIndex, optionOrder}], currentIndex, answers, firstAttemptCorrect, submitted, score, correctas, fecha }
 
     function shuffle(arr) {
         const a = arr.slice();
@@ -177,9 +177,17 @@
         return a;
     }
 
-    function buildRandomizedOrder() {
-        const qOrder = shuffle(REACTIVOS.map((_, i) => i));
-        return qOrder.map(qIndex => ({ qIndex, optionOrder: shuffle([0, 1, 2, 3]) }));
+    /* El orden de las preguntas sigue el orden del documento fuente (mismo
+       índice que REACTIVOS, sin barajar) — solo se aleatoriza el orden de
+       las opciones de cada pregunta, y únicamente entre los índices que esa
+       pregunta realmente tiene (antes se barajaban siempre 4 índices fijos,
+       lo que dejaba casillas vacías clicables en preguntas de 2 o 3
+       opciones, como Higiene de Columna). */
+    function buildOrder() {
+        return REACTIVOS.map((r, qIndex) => ({
+            qIndex,
+            optionOrder: shuffle(r.opciones.map((_, i) => i))
+        }));
     }
 
     function loadAutodiagnosticoResult() {
@@ -195,7 +203,7 @@
             const saved = JSON.parse(localStorage.getItem('examenConocimientosData') || 'null');
             if (saved && saved.order) return saved;
         } catch (e) {}
-        return { order: buildRandomizedOrder(), answers: {}, submitted: false, score: null, fecha: null };
+        return { order: buildOrder(), currentIndex: 0, answers: {}, firstAttemptCorrect: {}, submitted: false, score: null, correctas: null, fecha: null };
     }
 
     function saveExamState() {
@@ -268,120 +276,95 @@
         renderExamen(app);
     }
 
+    /* Una pregunta por pantalla. Al responder, se muestra de inmediato si
+       fue correcta o incorrecta: si acierta, botón para avanzar; si falla,
+       se revela la respuesta correcta, una liga a la Biblioteca (en pestaña
+       nueva, para no perder el avance del examen) y un botón "Regresar a
+       contestar" que borra esa respuesta y deja la misma pregunta lista
+       para intentarla de nuevo — no se avanza hasta acertar. */
     function renderExamen(app) {
-        const answeredCount = Object.keys(examState.answers).length;
-        const unansweredCount = REACTIVOS.length - answeredCount;
-        const isComplete = answeredCount === REACTIVOS.length;
+        const idx = examState.currentIndex;
+        const entry = examState.order[idx];
+        const r = REACTIVOS[entry.qIndex];
+        const selected = examState.answers[entry.qIndex];
+        const isAnswered = selected !== undefined;
+        const isCorrect = isAnswered && selected === r.correcta;
 
-        document.getElementById('topBarProgress').textContent = `${answeredCount} / ${REACTIVOS.length} respondidas`;
+        document.getElementById('topBarProgress').textContent = `Reactivo ${idx + 1} / ${REACTIVOS.length}`;
 
-        const questionsHtml = examState.order.map((entry, position) => {
-            const r = REACTIVOS[entry.qIndex];
-            const selected = examState.answers[entry.qIndex];
-            const isAnswered = selected !== undefined;
-            const optionsHtml = entry.optionOrder.map(optIndex => `
-                <label class="exam-option ${selected === optIndex ? 'selected' : ''}">
-                    <input type="radio" name="q${entry.qIndex}" ${selected === optIndex ? 'checked' : ''} onchange="selectAnswer(${entry.qIndex}, ${optIndex})">
+        const optionsHtml = entry.optionOrder.map(optIndex => {
+            let cls = 'exam-option';
+            if (isAnswered && optIndex === r.correcta) cls += ' locked-correct';
+            else if (isAnswered && optIndex === selected) cls += ' locked-wrong';
+            return `
+                <label class="${cls}">
+                    <input type="radio" name="q${entry.qIndex}" ${selected === optIndex ? 'checked' : ''} ${isAnswered ? 'disabled' : ''} onchange="selectAnswer(${entry.qIndex}, ${optIndex})">
                     <span>${escapeHtml(r.opciones[optIndex])}</span>
                 </label>
-            `).join('');
-            return `
-                <div class="exam-question" style="border-left: 4px solid ${isAnswered ? 'var(--success)' : 'var(--danger)'}; padding-left: 16px;">
-                    <div class="exam-question-num" style="color: ${isAnswered ? 'var(--success)' : 'var(--danger)'};">
-                        ${isAnswered ? '✓' : '○'} Reactivo ${position + 1} de ${REACTIVOS.length} — ${escapeHtml(r.tema)}
-                    </div>
-                    <div class="exam-question-text">${escapeHtml(r.q)}</div>
-                    <div class="exam-options">${optionsHtml}</div>
-                </div>
             `;
         }).join('');
 
-        const validationBox = !isComplete ? `
-            <div style="background: rgba(255,51,51,0.08); border: 1px solid var(--danger); border-radius: 8px; padding: 14px; margin-bottom: 16px;">
-                <p style="color: var(--danger); font-weight: 600; margin-bottom: 8px; font-size: 0.9rem;">
-                    ⚠️ Aún faltan ${unansweredCount} pregunta${unansweredCount !== 1 ? 's' : ''} por responder
-                </p>
-                <p style="color: var(--text); font-size: 0.85rem;">
-                    Debes responder todas las preguntas antes de poder enviar el examen.
-                </p>
+        const feedbackHtml = !isAnswered ? '' : isCorrect ? `
+            <div class="card" style="border:1px solid var(--success);background:rgba(0,255,136,0.08);">
+                <p style="color:var(--success);font-weight:700;margin-bottom:14px;">✅ ¡Correcto!</p>
+                <button class="btn btn-primary btn-full" onclick="siguientePregunta()">
+                    ${idx + 1 < REACTIVOS.length ? 'Siguiente pregunta →' : 'Ver resultados →'}
+                </button>
             </div>
-        ` : '';
+        ` : `
+            <div class="card" style="border:1px solid var(--danger);background:rgba(255,51,51,0.08);">
+                <p style="color:var(--danger);font-weight:700;margin-bottom:8px;">❌ Incorrecto</p>
+                <p style="color:var(--text-bright);font-size:0.88rem;margin-bottom:4px;">Respuesta correcta: <strong>${escapeHtml(r.opciones[r.correcta])}</strong></p>
+                <p style="color:var(--text);font-size:0.82rem;margin-bottom:14px;">Tema: ${escapeHtml(r.tema)}</p>
+                <a href="biblioteca.html" target="_blank" class="btn btn-primary btn-full">📚 Ir a la Biblioteca a repasar este tema</a>
+                <button class="btn btn-secondary btn-full" onclick="reintentarPregunta(${entry.qIndex})">🔁 Regresar a contestar</button>
+            </div>
+        `;
 
         app.innerHTML = `
             <div class="hero">
                 <div class="hero-icon">🧠</div>
                 <h1 class="hero-title">Examen de Conocimientos</h1>
-                <p class="hero-subtitle">${REACTIVOS.length} reactivos de opción múltiple. Un solo intento — revisa bien tus respuestas antes de enviar.</p>
+                <p class="hero-subtitle">Una pregunta a la vez — si te equivocas, verás la respuesta correcta y podrás repasar antes de continuar.</p>
             </div>
-            ${questionsHtml}
-            <div class="sticky-submit">
-                <div class="progress-text" id="progressText" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                    <span style="color: ${isComplete ? 'var(--success)' : 'var(--danger)'}; font-weight: 600;">
-                        ${isComplete ? '✓ Todas completadas' : `${unansweredCount} sin responder`}
-                    </span>
-                    <span>${answeredCount} / ${REACTIVOS.length} respondidas</span>
-                </div>
-                ${validationBox}
-                <button class="btn btn-primary" id="btnSubmit" onclick="submitExamen()" ${isComplete ? '' : 'disabled'}
-                    style="opacity: ${isComplete ? '1' : '0.5'};">
-                    Enviar examen →
-                </button>
+            <div class="exam-question">
+                <div class="exam-question-num">Reactivo ${idx + 1} de ${REACTIVOS.length} — ${escapeHtml(r.tema)}</div>
+                <div class="exam-question-text">${escapeHtml(r.q)}</div>
+                <div class="exam-options">${optionsHtml}</div>
             </div>
+            ${feedbackHtml}
         `;
     }
 
     function selectAnswer(qIndex, optIndex) {
+        if (examState.firstAttemptCorrect[qIndex] === undefined) {
+            examState.firstAttemptCorrect[qIndex] = optIndex === REACTIVOS[qIndex].correcta;
+        }
         examState.answers[qIndex] = optIndex;
         saveExamState();
-        const answeredCount = Object.keys(examState.answers).length;
-        const unansweredCount = REACTIVOS.length - answeredCount;
-        const isComplete = answeredCount === REACTIVOS.length;
-
-        document.getElementById('topBarProgress').textContent = `${answeredCount} / ${REACTIVOS.length} respondidas`;
-
-        const progressText = document.getElementById('progressText');
-        if (progressText) {
-            progressText.innerHTML = `
-                <span style="color: ${isComplete ? 'var(--success)' : 'var(--danger)'}; font-weight: 600;">
-                    ${isComplete ? '✓ Todas completadas' : `${unansweredCount} sin responder`}
-                </span>
-                <span>${answeredCount} / ${REACTIVOS.length} respondidas</span>
-            `;
-        }
-
-        const btn = document.getElementById('btnSubmit');
-        if (btn) {
-            btn.disabled = !isComplete;
-            btn.style.opacity = isComplete ? '1' : '0.5';
-        }
-
-        document.querySelectorAll(`input[name="q${qIndex}"]`).forEach(input => {
-            input.closest('.exam-option').classList.toggle('selected', input.checked);
-        });
-
-        // Actualizar indicador visual de la pregunta
-        const questionElements = document.querySelectorAll('.exam-question');
-        questionElements.forEach((el, idx) => {
-            const entryIdx = examState.order[idx]?.qIndex;
-            if (entryIdx !== undefined) {
-                const isAnswered = examState.answers[entryIdx] !== undefined;
-                el.style.borderLeftColor = isAnswered ? 'var(--success)' : 'var(--danger)';
-                const numDiv = el.querySelector('.exam-question-num');
-                if (numDiv) {
-                    numDiv.style.color = isAnswered ? 'var(--success)' : 'var(--danger)';
-                    numDiv.textContent = numDiv.textContent.replace(/^(✓|○)/, isAnswered ? '✓' : '○');
-                }
-            }
-        });
+        renderExamen(document.getElementById('app'));
+        window.scrollTo(0, 0);
     }
 
-    async function submitExamen() {
-        if (Object.keys(examState.answers).length !== REACTIVOS.length) return;
-        if (!confirm('Una vez enviado no podrás cambiar tus respuestas. ¿Confirmas que quieres enviar el examen?')) return;
+    function reintentarPregunta(qIndex) {
+        delete examState.answers[qIndex];
+        saveExamState();
+        renderExamen(document.getElementById('app'));
+    }
 
-        let correctas = 0;
-        REACTIVOS.forEach((r, qIndex) => { if (examState.answers[qIndex] === r.correcta) correctas++; });
+    function siguientePregunta() {
+        if (examState.currentIndex + 1 < REACTIVOS.length) {
+            examState.currentIndex++;
+            saveExamState();
+            renderExamen(document.getElementById('app'));
+            window.scrollTo(0, 0);
+        } else {
+            finishExamen();
+        }
+    }
 
+    async function finishExamen() {
+        const correctas = REACTIVOS.filter((_, qIndex) => examState.firstAttemptCorrect[qIndex]).length;
         examState.submitted = true;
         examState.score = Math.round((correctas / REACTIVOS.length) * 10000) / 100;
         examState.correctas = correctas;
@@ -395,54 +378,41 @@
     }
 
     async function renderResultado(app, result) {
-        document.getElementById('topBarProgress').textContent = 'Examen enviado';
+        document.getElementById('topBarProgress').textContent = 'Examen completado';
         const pass = examState.score >= PASSING_PERCENT;
 
-        const incorrectas = REACTIVOS
-            .map((r, qIndex) => ({ r, qIndex, elegida: examState.answers[qIndex] }))
-            .filter(x => x.elegida !== x.r.correcta);
-        const temasAFortalecer = [...new Set(incorrectas.map(x => x.r.tema))];
+        const temasRepasados = [...new Set(
+            REACTIVOS
+                .map((r, qIndex) => ({ r, qIndex }))
+                .filter(x => examState.firstAttemptCorrect[x.qIndex] === false)
+                .map(x => x.r.tema)
+        )];
 
-        const reforzamientoHtml = !pass ? `
+        const reforzamientoHtml = temasRepasados.length ? `
             <div class="card" style="background:rgba(255,215,0,0.06);border:1px solid var(--accent);">
-                <h3 style="color:var(--accent);margin-bottom:10px;">📚 Antes de reintentar, refuerza estos temas</h3>
+                <h3 style="color:var(--accent);margin-bottom:10px;">📚 Temas que repasaste durante el examen</h3>
                 <ul style="margin:0 0 14px 18px;color:var(--text-bright);">
-                    ${temasAFortalecer.map(t => `<li style="margin-bottom:4px;">${escapeHtml(t)}</li>`).join('')}
+                    ${temasRepasados.map(t => `<li style="margin-bottom:4px;">${escapeHtml(t)}</li>`).join('')}
                 </ul>
-                <p style="color:var(--text);font-size:0.85rem;margin-bottom:14px;">
-                    Ve a tu Biblioteca y busca cada tema de la lista antes de volver a intentar el examen — la meta es que domines el 100% del contenido, no solo pasar el mínimo.
+                <p style="color:var(--text);font-size:0.85rem;">
+                    Respondiste correctamente las ${REACTIVOS.length} preguntas antes de terminar — vale la pena repasar estos temas una vez más en tu Biblioteca antes de tu evaluación real.
                 </p>
-                <a href="biblioteca.html" class="btn btn-primary btn-full" style="margin-bottom:10px;">📚 Ir a reforzarme a la Biblioteca</a>
-                <button class="btn btn-secondary btn-full" onclick="reintentarExamen()">🔁 Reintentar examen</button>
-            </div>
-        ` : '';
-
-        const revisionHtml = incorrectas.length ? `
-            <div class="card">
-                <h3 style="color:var(--danger);margin-bottom:12px;">📋 Reactivos que fallaste (${incorrectas.length})</h3>
-                ${incorrectas.map(x => `
-                    <div style="border-left:3px solid var(--danger);padding-left:12px;margin-bottom:14px;">
-                        <div style="color:var(--text);font-size:0.78rem;margin-bottom:4px;">${escapeHtml(x.r.tema)}</div>
-                        <div style="color:var(--text-bright);font-weight:600;margin-bottom:6px;">${escapeHtml(x.r.q)}</div>
-                        <div style="color:var(--danger);font-size:0.85rem;">Tu respuesta: ${escapeHtml(x.r.opciones[x.elegida])}</div>
-                        <div style="color:var(--success);font-size:0.85rem;">Respuesta correcta: ${escapeHtml(x.r.opciones[x.r.correcta])}</div>
-                    </div>
-                `).join('')}
             </div>
         ` : '';
 
         app.innerHTML = `
-            <div class="hero"><div class="hero-icon">${pass ? '✅' : '📋'}</div><h1 class="hero-title">Examen enviado</h1></div>
+            <div class="hero"><div class="hero-icon">${pass ? '✅' : '📋'}</div><h1 class="hero-title">Examen completado</h1></div>
             <div class="result-box ${pass ? 'pass' : 'fail'}">
-                <p style="color:var(--text-bright);">Aciertos: <strong>${examState.correctas} / ${REACTIVOS.length}</strong></p>
+                <p style="color:var(--text-bright);">Respondiste correctamente las <strong>${REACTIVOS.length} / ${REACTIVOS.length}</strong> preguntas.</p>
+                <p style="color:var(--text);font-size:0.85rem;margin-top:6px;">Aciertos a la primera: <strong>${examState.correctas} / ${REACTIVOS.length}</strong></p>
                 <div class="result-score">${examState.score}%</div>
-                <p style="color:var(--text-bright);font-weight:700;">${pass ? '¡Competente!' : `No competente — se requiere ${PASSING_PERCENT}% para resultar competente`}</p>
+                <p style="color:var(--text-bright);font-weight:700;">${pass ? '¡Competente!' : `No competente a la primera — se requiere ${PASSING_PERCENT}%`}</p>
                 <p style="color:var(--text);font-size:0.85rem;margin-top:10px;">Esta es una autoevaluación de práctica — tu evaluación oficial es el video de tu sesión, revisado por tu Centro Evaluador. Este resultado no bloquea tu avance.</p>
             </div>
             ${reforzamientoHtml}
-            ${revisionHtml}
             <div class="card" style="text-align:center;">
                 <button class="btn btn-primary btn-full" onclick="generateExamenPDF()">📄 Descargar comprobante (PDF)</button>
+                <button class="btn btn-secondary btn-full" onclick="reintentarExamen()">🔁 Reintentar examen completo</button>
                 <a href="documentos-sesion.html" style="color:var(--primary);text-decoration:none;font-size:0.9rem;display:block;margin-top:12px;">← Volver a mis Documentos de Sesión</a>
             </div>
             <div id="flowNextStepCta"></div>
@@ -453,8 +423,8 @@
     }
 
     function reintentarExamen() {
-        if (!confirm('Vas a reiniciar el examen con un nuevo orden de preguntas y tendrás que responder todas de nuevo. ¿Continuar?')) return;
-        examState = { order: buildRandomizedOrder(), answers: {}, submitted: false, score: null, correctas: null, fecha: null };
+        if (!confirm('Vas a reiniciar el examen desde la primera pregunta. ¿Continuar?')) return;
+        examState = { order: buildOrder(), currentIndex: 0, answers: {}, firstAttemptCorrect: {}, submitted: false, score: null, correctas: null, fecha: null };
         saveExamState();
         renderExamen(document.getElementById('app'));
         window.scrollTo(0, 0);
