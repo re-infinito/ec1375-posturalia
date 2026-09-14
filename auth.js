@@ -17,6 +17,16 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 // Ver "Nota de seguridad" en docs/superpowers/specs/2026-09-12-admin-flow-bypass-design.md.
 const CANDIDATE_FLOW_BYPASS_EMAIL = 'paideia.tech@outlook.com';
 
+/* Copia exacta de REACTIVO_KEYS en ruta-estudio.html — el placeholder de
+   Autodiagnóstico DEBE usar estas claves reales (no unas inventadas) para
+   que Reforzamiento las reconozca. ruta-estudio.html traduce el resultado
+   real del Autodiagnóstico a answeredYes/answeredNo buscando cada una de
+   estas 142 claves en autodiagnosticoData.answers — con claves inventadas
+   (admin_placeholder_N) ninguna coincide, así que ve 0/142 contestadas y
+   manda al candidato bypass a "contestar todo" en vez de directo al
+   resultado (0 brechas que reforzar, solo falta dar visto bueno). */
+const REACTIVO_KEYS_REALES = ["e1_c0_g0_i0","e1_c0_g0_i1","e1_c0_g0_i2","e1_c0_g0_i3","e1_c0_g0_i4","e1_c0_g0_i5","e1_c1_g0_i0","e1_c1_g0_i1","e1_c1_g0_i2","e1_c1_g0_i3","e1_c1_g0_i4","e1_c1_g0_i5","e1_c1_g0_i6","e1_c1_g0_i7","e1_c1_g0_i8","e1_c1_g1_i0","e1_c1_g1_i1","e1_c1_g1_i2","e1_c1_g1_i3","e1_c2_g0_i0","e1_c2_g0_i1","e1_c2_g0_i2","e1_c3_g0_i0","e1_c3_g0_i1","e2_c0_g0_i0","e2_c0_g0_i1","e2_c0_g0_i2","e2_c0_g0_i3","e2_c0_g0_i4","e2_c0_g0_i5","e2_c0_g0_i6","e2_c0_g1_i0","e2_c0_g1_i1","e2_c0_g1_i2","e2_c0_g1_i3","e2_c0_g1_i4","e2_c0_g1_i5","e2_c0_g1_i6","e2_c0_g1_i7","e2_c0_g1_i8","e2_c0_g2_i0","e2_c0_g2_i1","e2_c0_g2_i2","e2_c0_g2_i3","e2_c0_g2_i4","e2_c0_g2_i5","e2_c0_g2_i6","e2_c0_g2_i7","e2_c0_g3_i0","e2_c0_g3_i1","e2_c0_g3_i2","e2_c0_g3_i3","e2_c0_g3_i4","e2_c0_g3_i5","e2_c0_g4_i0","e2_c0_g4_i1","e2_c0_g5_i0","e2_c0_g5_i1","e2_c0_g5_i2","e2_c0_g6_i0","e2_c0_g6_i1","e2_c0_g6_i2","e2_c0_g6_i3","e2_c0_g6_i4","e2_c1_g0_i0","e2_c1_g0_i1","e2_c1_g0_i2","e2_c1_g0_i3","e2_c1_g0_i4","e2_c1_g0_i5","e2_c1_g0_i6","e2_c1_g0_i7","e2_c1_g0_i8","e2_c1_g0_i9","e2_c1_g0_i10","e2_c1_g0_i11","e2_c2_g0_i0","e2_c2_g0_i1","e2_c2_g0_i2","e2_c2_g0_i3","e2_c2_g0_i4","e2_c3_g0_i0","e2_c3_g0_i1","e2_c3_g0_i2","e3_c0_g0_i0","e3_c0_g0_i1","e3_c0_g0_i2","e3_c0_g1_i0","e3_c0_g1_i1","e3_c0_g1_i2","e3_c0_g1_i3","e3_c0_g1_i4","e3_c0_g1_i5","e3_c0_g2_i0","e3_c0_g2_i1","e3_c0_g2_i2","e3_c0_g3_i0","e3_c0_g3_i1","e3_c0_g3_i2","e3_c0_g3_i3","e3_c0_g3_i4","e3_c0_g3_i5","e3_c0_g3_i6","e3_c1_g0_i0","e3_c1_g0_i1","e3_c1_g0_i2","e3_c1_g0_i3","e3_c1_g0_i4","e3_c1_g0_i5","e3_c1_g0_i6","e3_c1_g0_i7","e3_c1_g0_i8","e3_c1_g0_i9","e3_c1_g0_i10","e3_c1_g0_i11","e3_c1_g0_i12","e4_c0_g0_i0","e4_c0_g0_i1","e4_c0_g0_i2","e4_c0_g0_i3","e4_c0_g1_i0","e4_c0_g1_i1","e4_c0_g1_i2","e4_c0_g1_i3","e4_c0_g1_i4","e4_c0_g1_i5","e4_c0_g1_i6","e4_c0_g1_i7","e4_c0_g2_i0","e4_c0_g2_i1","e4_c0_g2_i2","e4_c0_g2_i3","e4_c1_g0_i0","e4_c1_g0_i1","e4_c1_g0_i2","e4_c1_g0_i3","e4_c1_g0_i4","e4_c1_g1_i0","e4_c1_g1_i1","e4_c1_g1_i2","e4_c1_g1_i3","e4_c1_g1_i4"];
+
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 window.supabaseClient = supabaseClient;
 
@@ -611,7 +621,7 @@ const Auth = {
 
     ADMIN_PLACEHOLDER_AUTODIAGNOSTICO() {
         const answers = {};
-        for (let i = 0; i < 142; i++) answers[`admin_placeholder_${i}`] = 'SI';
+        REACTIVO_KEYS_REALES.forEach((key) => { answers[key] = 'SI'; });
         const nowIso = new Date().toISOString();
         return {
             personalData: {
