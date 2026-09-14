@@ -64,6 +64,15 @@ const FlowStatus = {
             alineacionAuth = await Auth.isPhaseAuthorized(email, 'alineacion');
             entregaAuth = await Auth.isPhaseAuthorized(email, 'entrega');
         }
+        /* Entrega nunca se marca "done" para la sesión bypass, sin importar
+           lo que diga la autorización real — es dinero real y una decisión
+           real del evaluador, no algo que la cuenta de pruebas deba poder
+           simular como ya resuelto (independiente de cualquier fila vieja
+           de candidatos_fase_pagos que exista para ese correo). Se llama
+           aquí (no se confía en que quien llamó a getSteps() ya haya
+           revisado Auth.isBypassSession() antes) para que esta función se
+           baste sola. */
+        if (await Auth.isBypassSession()) entregaAuth = false;
 
         var doneById = {
             'autodiagnostico': !!(localAuto && localAuto.answers && Object.keys(localAuto.answers).length === 142 && localAuto.ndaAccepted),
