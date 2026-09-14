@@ -1948,7 +1948,7 @@
             margin: { left: 14, right: 14 },
             body: [
                 ['Estándar de:', 'EC1375 - Prestación de servicios auxiliares en la contribución tradicional y complementaria de la recuperación de las condiciones físicas y socioemocionales de las personas'],
-                ['Fecha:', pd.fecha || todayISO()]
+                ['Fecha:', formatFechaDDMMYYYY(pd.fecha) || formatFechaDDMMYYYY(todayISO())]
             ]
         });
         let y = doc.lastAutoTable.finalY + 8;
@@ -2044,7 +2044,7 @@
                 ['Candidato/a:', pd.nombre || ''],
                 ['CURP:', pd.curp || ''],
                 ['Estándar de Competencia:', 'EC1375'],
-                ['Fecha de aceptación:', ndaSignedAt ? new Date(ndaSignedAt).toLocaleString('es-MX') : (pd.fecha || todayISO())]
+                ['Fecha de aceptación:', ndaSignedAt ? new Date(ndaSignedAt).toLocaleString('es-MX') : (formatFechaDDMMYYYY(pd.fecha) || formatFechaDDMMYYYY(todayISO()))]
             ]
         });
         let y = doc.lastAutoTable.finalY + 12;
@@ -2262,6 +2262,16 @@
         return `${d.getFullYear()}-${m}-${day}`;
     }
 
+    /* pd.fecha viene de un <input type="date"> (ISO YYYY-MM-DD) — se
+       muestra siempre en formato DD-MM-YYYY en los documentos oficiales,
+       igual que el resto del sitio. */
+    function formatFechaDDMMYYYY(iso) {
+        if (!iso) return '';
+        const [yyyy, mm, dd] = iso.split('-');
+        if (!yyyy || !mm || !dd) return iso;
+        return `${dd}-${mm}-${yyyy}`;
+    }
+
     /* =========================================================
        PDF GENERATION
     ========================================================= */
@@ -2385,8 +2395,23 @@
         const propLines = doc.splitTextToSize(proposito, 182);
         doc.text(propLines, 14, y); y += propLines.length * 4 + 8;
 
+        doc.setFontSize(10);
         doc.setFont(undefined, 'bold');
-        doc.text('IMPORTANTE', 105, y, { align: 'center' }); y += 6;
+        doc.text('PERFIL RECOMENDADO DEL CANDIDATO A ELABORAR EL DIAGNÓSTICO:', 105, y, { align: 'center' }); y += 6;
+        doc.setFontSize(8.5);
+        doc.setFont(undefined, 'normal');
+        doc.text('Módulo/Ocupacional:', 105, y, { align: 'center' }); y += 5;
+        doc.text('- Servicios de salud y asistencia social.', 105, y, { align: 'center' }); y += 5;
+        doc.text('- Servicios médicos de consulta externa y servicios relacionados.', 105, y, { align: 'center' }); y += 10;
+
+        doc.setFillColor(0, 0, 0);
+        doc.setTextColor(255, 255, 255);
+        doc.rect(14, y, 182, 6, 'F');
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'bold');
+        doc.text('IMPORTANTE', 105, y + 4.3, { align: 'center' }); y += 11;
+        doc.setTextColor(0, 0, 0);
+        doc.setFontSize(8.5);
         doc.setFont(undefined, 'normal');
         const importante = 'El Diagnóstico de competencia laboral es un documento personal, particular y confidencial del candidato a evaluación y certificación, sus resultados sólo se darán a conocer de manera personal. Con esta información el candidato decidirá si ingresa a los procesos de evaluación y certificación de la competencia laboral o asiste a un taller de capacitación final.';
         const impLines = doc.splitTextToSize(importante, 182);
@@ -2431,20 +2456,26 @@
                 ['Teléfono de casa', pd.telefonoCasa || ''],
                 ['Teléfono de celular', pd.telefonoCelular || ''],
                 ['Correo electrónico', pd.email || ''],
-                ['Fecha de aplicación', pd.fecha || '']
-            ]
+                ['Fecha de aplicación', formatFechaDDMMYYYY(pd.fecha)],
+                ['Firma', '']
+            ],
+            didParseCell: data => {
+                if (data.row.index === 8) data.cell.styles.minCellHeight = 18;
+            },
+            didDrawCell: data => {
+                if (data.row.index === 8 && data.column.index === 1) {
+                    if (signatureMode === 'draw' && signatureDataUrl) {
+                        doc.addImage(signatureDataUrl, 'PNG', data.cell.x + 2, data.cell.y + 1, 45, 15);
+                    } else if (signatureTypedName) {
+                        doc.setFont(undefined, 'italic');
+                        doc.setFontSize(12);
+                        doc.text(signatureTypedName, data.cell.x + 2, data.cell.y + data.cell.height / 2 + 2);
+                        doc.setFont(undefined, 'normal');
+                        doc.setFontSize(9);
+                    }
+                }
+            }
         });
-        let y = doc.lastAutoTable.finalY + 4;
-        doc.setFont(undefined, 'bold');
-        doc.setFontSize(9);
-        doc.text('Firma', 14, y);
-        if (signatureMode === 'draw' && signatureDataUrl) {
-            doc.addImage(signatureDataUrl, 'PNG', 40, y - 6, 45, 16);
-        } else if (signatureTypedName) {
-            doc.setFont(undefined, 'italic');
-            doc.setFontSize(12);
-            doc.text(signatureTypedName, 40, y);
-        }
     }
 
     /* Tabla VALORACIÓN oficial: Total/SI/NO/TOTAL por categoría de cada
@@ -2478,7 +2509,7 @@
             doc.autoTable({
                 startY: y,
                 head: [['', 'TOTAL', 'SI', 'NO', 'TOTAL']],
-                body: elemento.categorias.map(c => [c.tipo, String(c.total), String(c.si), String(c.no), String(c.total)]),
+                body: elemento.categorias.map(c => [c.tipo === 'ACTITUDES' ? 'ACTITUD/HÁBITOS Y VALORES' : c.tipo, String(c.total), String(c.si), String(c.no), String(c.total)]),
                 styles: { fontSize: 8, cellPadding: 1.8, halign: 'center' },
                 columnStyles: { 0: { halign: 'left', cellWidth: 82 } },
                 headStyles: { fillColor: [230, 230, 230], textColor: [0, 0, 0], fontStyle: 'bold' },
@@ -2592,14 +2623,25 @@
                     grupo.items.forEach((item, iIdx) => {
                         const id = `e${elemento.elemento}_c${cIdx}_g${gIdx}_i${iIdx}`;
                         const answer = answers[id];
-                        rows.push([item, answer === 'SI' ? 'X' : '', answer === 'NO' ? 'X' : '']);
+                        rows.push([`${iIdx + 1}. ${item}`, answer === 'SI' ? 'X' : '', answer === 'NO' ? 'X' : '']);
                     });
                 });
+
+                if (y > 260) { doc.addPage(); y = 15; }
+                doc.setFillColor(220, 220, 220);
+                doc.setTextColor(0, 0, 0);
+                doc.setFont(undefined, 'normal');
+                doc.setFontSize(8.5);
+                const preguntaLines = doc.splitTextToSize(`Con relación a este elemento ${categoria.pregunta}`, 178);
+                const preguntaH = preguntaLines.length * 4 + 2;
+                doc.rect(14, y, 182, preguntaH, 'F');
+                doc.text(preguntaLines, 105, y + 3.5, { align: 'center' });
+                y += preguntaH + 2;
 
                 if (y > 270) { doc.addPage(); y = 15; }
                 doc.autoTable({
                     startY: y,
-                    head: [[categoria.tipo, 'SI', 'NO']],
+                    head: [['', 'SI', 'NO']],
                     body: rows,
                     styles: { fontSize: 7.5, cellPadding: 1.3 },
                     columnStyles: { 0: { cellWidth: 152 }, 1: { cellWidth: 15, halign: 'center' }, 2: { cellWidth: 15, halign: 'center' } },
@@ -2649,7 +2691,7 @@
                 ['Estándar de Competencia:', 'EC1375 - Prestación de servicios auxiliares en la contribución'],
                 ['', 'tradicional y complementaria de la recuperación de las condiciones'],
                 ['', 'físicas y socioemocionales de las personas.'],
-                ['Fecha:', pd.fecha || todayISO()]
+                ['Fecha:', formatFechaDDMMYYYY(pd.fecha) || formatFechaDDMMYYYY(todayISO())]
             ]
         });
         let y = doc.lastAutoTable.finalY + 16;
