@@ -9,7 +9,13 @@
  * Retorna: { success: true, path } o { success: false, error }
  *
  * Variables de entorno requeridas: NEXTCLOUD_URL, NEXTCLOUD_USERNAME,
- * NEXTCLOUD_APP_PASSWORD (ya configuradas en Vercel).
+ * NEXTCLOUD_APP_PASSWORD, CF_ACCESS_CLIENT_ID, CF_ACCESS_CLIENT_SECRET
+ * (ya configuradas en Vercel).
+ *
+ * El Nextcloud está detrás de Cloudflare Access (Zero Trust) además del
+ * Cloudflare Tunnel — sin las 2 credenciales de Service Token de arriba,
+ * toda petición (incluida esta, servidor-a-servidor) queda atrapada en la
+ * pantalla de login por correo de Access antes de llegar a Nextcloud.
  */
 
 const { createClient } = require('@supabase/supabase-js');
@@ -44,14 +50,21 @@ function carpetaCandidato(nombre, curp) {
     return partes.join('_') || 'candidato_sin_identificar';
 }
 
-async function ensureFolder(baseWebdavUrl, authBasic, folderPath) {
+function cloudflareAccessHeaders() {
+    const clientId = process.env.CF_ACCESS_CLIENT_ID;
+    const clientSecret = process.env.CF_ACCESS_CLIENT_SECRET;
+    if (!clientId || !clientSecret) return {};
+    return { 'CF-Access-Client-Id': clientId, 'CF-Access-Client-Secret': clientSecret };
+}
+
+async function ensureFolder(baseWebdavUrl, baseHeaders, folderPath) {
     const partes = folderPath.split('/').filter(Boolean);
     let acumulado = '';
     for (const parte of partes) {
         acumulado += `/${encodeURIComponent(parte)}`;
         const resp = await fetch(`${baseWebdavUrl}${acumulado}`, {
             method: 'MKCOL',
-            headers: { Authorization: authBasic }
+            headers: baseHeaders
         });
         // 201 = creada. 405 = ya existía. Cualquier otra cosa es un error real.
         if (resp.status !== 201 && resp.status !== 405) {
@@ -114,18 +127,19 @@ async function handler(req, res) {
 
         const baseWebdavUrl = `${nextcloudUrl}/remote.php/dav/files/${encodeURIComponent(nextcloudUser)}`;
         const authBasic = 'Basic ' + Buffer.from(`${nextcloudUser}:${nextcloudPass}`).toString('base64');
+        const baseHeaders = { Authorization: authBasic, ...cloudflareAccessHeaders() };
 
         const carpeta = carpetaCandidato(nombre, curp);
         const faseCarpeta = FASE_CARPETA[fase];
         const folderPath = `Portafolios/${carpeta}/${faseCarpeta}`;
 
-        await ensureFolder(baseWebdavUrl, authBasic, folderPath);
+        await ensureFolder(baseWebdavUrl, baseHeaders, folderPath);
 
         const filePath = `${folderPath}/${filename}`;
         const putUrl = `${baseWebdavUrl}/${filePath.split('/').map(encodeURIComponent).join('/')}`;
         const putResp = await fetch(putUrl, {
             method: 'PUT',
-            headers: { Authorization: authBasic, 'Content-Type': 'application/octet-stream' },
+            headers: { ...baseHeaders, 'Content-Type': 'application/octet-stream' },
             body: fileBuffer
         });
 
