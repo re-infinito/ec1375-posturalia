@@ -88,21 +88,25 @@
     <div class="container" id="app"></div>
 
     <script>
+    /* Preguntas y escala verbatim contra el formato oficial "Encuesta de
+       Satisfacción del Proceso de Evaluación- Certificación de Competencia"
+       (RED CONOCER / ICEMéxico) — mismo orden, mismo texto, misma escala de
+       4 caritas de izquierda a derecha. Antes tenía 8 preguntas parafraseadas
+       y el orden de la escala invertido; el formato oficial solo trae 7. */
     const PREGUNTAS = [
-        '¿La presentación del Estándar de Competencia y la aplicación del diagnóstico fue realizada sin costo para usted?',
-        '¿La información proporcionada fue suficiente para iniciar sin dudas su proceso de evaluación?',
-        '¿Recibió un trato digno y respetuoso durante las etapas del proceso de evaluación?',
-        '¿Fue condicionado/a a tomar un curso de capacitación previo a la evaluación?',
-        '¿Le presentaron, explicaron y acordaron el Plan de Evaluación previo a la evaluación?',
-        '¿Recibió retroalimentación detallada de las etapas y resultados de su evaluación?',
-        '¿El evaluador atendió todas sus dudas?',
-        '¿En caso de haber resultado competente, le informaron los tiempos de entrega del certificado?'
+        '¿La presentación del Estándar de Competencia y la aplicación del diagnóstico, lo realizaron sin costo para usted?',
+        '¿Le proporcionaron la información suficiente y necesaria para iniciar su proceso de evaluación?',
+        '¿Durante el proceso de evaluación le dieron trato digno y respetuoso?',
+        '¿Le realizaron la evaluación sin que la ECE/OC/CE/EI lo condicionarán a tomar un curso de capacitación?',
+        '¿Le presentaron y acordaron con usted el Plan de Evaluación?',
+        '¿Recibió retroalimentación de los resultados de su evaluación?',
+        '¿El evaluador atendió todas sus dudas?'
     ];
     const ESCALA = [
-        { valor: 'Totalmente en desacuerdo', clase: 'active-neg' },
-        { valor: 'Parcialmente en desacuerdo', clase: 'active-neg' },
-        { valor: 'De acuerdo', clase: 'active-mid' },
-        { valor: 'Muy de acuerdo', clase: 'active-pos' }
+        { valor: 'Muy de acuerdo', clase: 'active-pos', mouthDepth: 1.6 },
+        { valor: 'De acuerdo', clase: 'active-mid', mouthDepth: 0.2 },
+        { valor: 'Parcialmente en desacuerdo', clase: 'active-neg', mouthDepth: -1.0 },
+        { valor: 'Totalmente en desacuerdo', clase: 'active-neg', mouthDepth: -1.8 }
     ];
 
     let respuestas = {};
@@ -507,53 +511,139 @@
         doc.addImage(LOGO_ICE_BASE64, 'PNG', 163, 10, 33, 11.3);
     }
 
+    /* Carita dibujada a vector (círculo amarillo + ojos + boca) — replica el
+       formato oficial RED CONOCER/ICEMéxico de la Encuesta de Satisfacción,
+       donde las 4 opciones de la escala se muestran siempre las 4 con su
+       carita, y el candidato "marca con una X" la que eligió (en vez de
+       nuestro formato anterior de una sola columna de texto con la
+       respuesta). mouthDepth > 0 dibuja una sonrisa (boca cóncava hacia
+       abajo en el centro); mouthDepth < 0 dibuja una boca triste. */
+    function drawCarita(doc, cx, cy, r, mouthDepth) {
+        doc.setDrawColor(0);
+        doc.setLineWidth(0.25);
+        doc.setFillColor(255, 214, 51);
+        doc.circle(cx, cy, r, 'FD');
+        doc.setFillColor(0, 0, 0);
+        doc.circle(cx - r * 0.4, cy - r * 0.25, r * 0.09, 'F');
+        doc.circle(cx + r * 0.4, cy - r * 0.25, r * 0.09, 'F');
+        const mw = r * 1.1;
+        const startX = cx - mw / 2, startY = cy + r * 0.3;
+        doc.setLineWidth(0.3);
+        doc.lines([[mw / 3, mouthDepth, (mw * 2) / 3, mouthDepth, mw, 0]], startX, startY, [1, 1], 'S', false);
+    }
+
+    function drawCheckX(doc, x, y, w, h) {
+        doc.setDrawColor(0, 60, 200);
+        doc.setLineWidth(0.6);
+        doc.line(x + 2, y + 2, x + w - 2, y + h - 2);
+        doc.line(x + w - 2, y + 2, x + 2, y + h - 2);
+        doc.setDrawColor(0);
+        doc.setLineWidth(0.3);
+    }
+
+    function formatFechaDDMMYYYY(d) {
+        const dd = String(d.getDate()).padStart(2, '0');
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        return `${dd}-${mm}-${d.getFullYear()}`;
+    }
+
     function generatePDFBlob() {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
         const result = loadAutodiagnosticoResult();
         const pd = result.personalData;
+        const ML = 14, MR = 196, USABLE = MR - ML;
 
         addOfficialLogos(doc);
-        doc.setFontSize(15);
+        doc.setFontSize(13);
         doc.setFont(undefined, 'bold');
-        doc.text('ENCUESTA DE SATISFACCIÓN', 105, 27, { align: 'center' });
+        doc.text('Encuesta de Satisfacción del Proceso de Evaluación', 105, 26, { align: 'center' });
+        doc.text('Certificación de Competencia', 105, 32, { align: 'center' });
+        doc.setFontSize(10);
+        doc.text('SU OPINIÓN ES MUY IMPORTANTE', 105, 40, { align: 'center' });
+
+        // Tabla de encabezado: Candidato/a, Fecha de aplicación, Firma
+        let y = 46;
+        doc.setLineWidth(0.3);
         doc.setFontSize(9);
+        doc.rect(ML, y, USABLE, 7);
+        doc.line(ML + 35, y, ML + 35, y + 7);
+        doc.setFont(undefined, 'bold');
+        doc.text('Candidato/a:', ML + 2, y + 4.7);
         doc.setFont(undefined, 'normal');
-        doc.text('Proceso de Evaluación de Competencia EC1375', 105, 33, { align: 'center' });
+        doc.text(pd.nombre || '', ML + 37, y + 4.7);
 
-        doc.autoTable({
-            startY: 42, theme: 'plain', styles: { fontSize: 9, cellPadding: 1.5 },
-            body: [['Candidato/a:', pd.nombre || ''], ['Fecha:', new Date().toLocaleDateString('es-MX')]]
-        });
-
-        let y = doc.lastAutoTable.finalY + 8;
-        doc.autoTable({
-            startY: y,
-            head: [['#', 'Pregunta', 'Respuesta']],
-            body: PREGUNTAS.map((p, idx) => [idx + 1, p, respuestas[idx] || '']),
-            styles: { fontSize: 8, cellPadding: 3 },
-            columnStyles: { 0: { cellWidth: 8 }, 1: { cellWidth: 130 }, 2: { cellWidth: 44 } },
-            headStyles: { fillColor: [0, 136, 255] }
-        });
-        y = doc.lastAutoTable.finalY + 10;
-
-        if (comentarios) {
-            doc.setFontSize(10); doc.setFont(undefined, 'bold');
-            doc.text('Comentarios y/o sugerencias:', 14, y); y += 6;
-            doc.setFont(undefined, 'normal');
-            const comentariosLines = doc.splitTextToSize(comentarios, 180);
-            doc.text(comentariosLines, 14, y);
-            y += comentariosLines.length * 5 + 8;
+        y += 7;
+        const rowH2 = 16;
+        doc.rect(ML, y, USABLE, rowH2);
+        doc.line(ML + 35, y, ML + 35, y + rowH2);
+        doc.line(ML + 75, y, ML + 75, y + rowH2);
+        doc.setFont(undefined, 'bold');
+        doc.text('Fecha de aplicación', ML + 2, y + 4.7);
+        doc.text('Firma:', ML + 77, y + 4.7);
+        doc.setFont(undefined, 'normal');
+        doc.text(formatFechaDDMMYYYY(new Date()), ML + 37, y + 4.7);
+        if (signatureMode === 'draw' && signatureDataUrl) {
+            doc.addImage(signatureDataUrl, 'PNG', ML + 95, y + 1.5, 50, 13);
+        } else if (signatureTypedName) {
+            doc.setFont(undefined, 'italic'); doc.setFontSize(12);
+            doc.text(signatureTypedName, ML + 95, y + 10);
+            doc.setFontSize(9);
         }
 
-        if (y > 260) { doc.addPage(); y = 15; }
+        // Instrucciones
+        y += rowH2 + 6;
+        doc.setFont(undefined, 'normal');
+        doc.text('Conteste las siguientes preguntas marcando con una X la opción que considere adecuada al', ML, y);
+        y += 4.5;
+        doc.text('servicio recibido, conforme a la siguiente escala de evaluación:', ML, y);
+        y += 4.5;
+        doc.text('Si alguno de los aspectos a evaluar no aplica escriba NA en el reactivo.', ML, y);
+
+        // Encabezado de columnas con caritas (Muy de acuerdo → Totalmente en desacuerdo)
+        y += 8;
+        const textColW = 92, checkColW = (USABLE - textColW) / ESCALA.length;
+        const checkColX = idx => ML + textColW + idx * checkColW;
+        ESCALA.forEach((e, idx) => {
+            const cx = checkColX(idx) + checkColW / 2;
+            drawCarita(doc, cx, y, 4, e.mouthDepth);
+            doc.setFontSize(7.5);
+            const labelLines = doc.splitTextToSize(e.valor.charAt(0).toUpperCase() + e.valor.slice(1), checkColW - 2);
+            doc.text(labelLines, cx, y + 7, { align: 'center' });
+        });
+
+        // Filas de preguntas con las 4 casillas de carita cada una
+        y += 15;
+        doc.setFontSize(8.5);
+        PREGUNTAS.forEach((p, idx) => {
+            const textLines = doc.splitTextToSize(`${idx + 1}. ${p}`, textColW - 4);
+            const rowH = Math.max(textLines.length * 4 + 4, 16);
+            if (y + rowH > 285) { doc.addPage(); y = 20; }
+            doc.setFont(undefined, 'normal');
+            doc.rect(ML, y, textColW, rowH);
+            doc.text(textLines, ML + 2, y + 5.5);
+            const seleccionada = respuestas[idx];
+            ESCALA.forEach((e, colIdx) => {
+                const cx0 = checkColX(colIdx);
+                doc.rect(cx0, y, checkColW, rowH);
+                drawCarita(doc, cx0 + checkColW / 2, y + rowH / 2 - 1, 3, e.mouthDepth);
+                if (seleccionada === e.valor) drawCheckX(doc, cx0, y, checkColW, rowH);
+            });
+            y += rowH;
+        });
+
+        // Comentarios
+        y += 8;
+        if (y > 270) { doc.addPage(); y = 20; }
         doc.setFontSize(9); doc.setFont(undefined, 'normal');
-        doc.text('Firma:', 14, y);
-        if (signatureMode === 'draw' && signatureDataUrl) {
-            doc.addImage(signatureDataUrl, 'PNG', 14, y + 3, 55, 20);
-        } else if (signatureTypedName) {
-            doc.setFont(undefined, 'italic'); doc.setFontSize(13);
-            doc.text(signatureTypedName, 14, y + 12);
+        doc.text('¿Tiene algún otro comentario por externar?', ML, y);
+        if (comentarios) {
+            y += 5;
+            const comentariosLines = doc.splitTextToSize(comentarios, USABLE);
+            doc.text(comentariosLines, ML, y);
+            y += comentariosLines.length * 5;
+        } else {
+            doc.line(ML + 92, y - 1, MR, y - 1);
         }
 
         return { blob: doc.output('blob'), filename: `Encuesta_Satisfaccion_EC1375_${(pd.nombre || 'candidato').replace(/\s+/g, '_')}.pdf` };

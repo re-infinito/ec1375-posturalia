@@ -1,6 +1,6 @@
 # Claude.md — EC1375 Paideia Tech
 
-**Última actualización:** 12 de septiembre, 2026
+**Última actualización:** 14 de septiembre, 2026
 **Qué es:** Sitio de certificación oficial EC1375 (SEP-CONOCER) para terapeutas alternativas en México. Landing de alta conversión (marca "Paideia Tech", antes "Posturalia") + portal post-pago donde el candidato completa todo el proceso de certificación desde el navegador (autodiagnóstico, alineación, evaluación, entrega de evidencias) sin papeleo.
 **URL en vivo:** https://sepconocer.paideiatech.com (alias activo en paralelo: `ec1375-posturalia.vercel.app`, mismo proyecto de Vercel)
 **Estado:** Todo lo descrito en este documento está en producción salvo que diga lo contrario. Precio de referencia: $14,750 MXN en 4 pagos (Registro 15% / Alineación 30% / Evaluación 40% / Entrega 15%), negociable por candidato.
@@ -35,7 +35,7 @@ reforzamiento.html, practica.html, biblioteca.html   Stubs (`location.replace('r
 examen-conocimientos.html Examen de conocimientos (parte de la ruta lineal post-alineación)
 plan-evaluacion.html      Tabla de 25 grupos (=142 reactivos), agenda cita, gate fase Evaluación
 documentos-sesion.html    Wizard de 4 documentos (Ficha/Consentimiento/Plan Sesión/Seguimiento) de la sesión real con paciente
-encuesta-satisfaccion.html  8 preguntas oficiales Likert
+encuesta-satisfaccion.html  7 preguntas oficiales, formato de caritas (RED CONOCER/ICEMéxico)
 evidencias.html           Checklist final + uploads nativos (Zoom, INE, CURP, foto diploma, certificados)
 entrega.html              Gate fase Entrega, confirmación final (no enlazada desde el flujo — el equipo comparte el link manual cuando el evaluador aprueba)
 
@@ -134,8 +134,20 @@ Credenciales Google: OAuth "Aplicación de escritorio", proyecto de Cloud `EC137
 
 **Puntos abiertos sin confirmar con Diego:**
 - "Foto para el diploma" y "Certificados de formación" no tienen ubicación exacta confirmada en el expediente oficial — hoy van en Anexos.
-- Posible documento faltante: "Encuesta de Satisfacción del Proceso de Evaluación" corta (Bueno/Regular/Malo) podría ser distinta de la Encuesta de 8 preguntas ya construida — no confirmado, no construido.
+- ~~Posible documento faltante: "Encuesta de Satisfacción..." corta podría ser distinta de la ya construida~~ — resuelto 14 sep: el formato oficial (RED CONOCER/ICEMéxico, verificado contra el expediente de Humberto) es la encuesta de 7 preguntas con escala de 4 caritas, ya implementada. No hay una encuesta corta separada.
 - Cédula de Evaluación y el IEC los llena el evaluador después de revisar el video — el script los inserta en blanco; falta un flujo para que el evaluador los llene digitalmente (ver backlog #7).
+
+---
+
+## Cambios recientes (14 de septiembre, 2026)
+
+- **Estadímetro:** liga de compra actualizada a un modelo distinto en `plan-evaluacion.html` y `ruta-alineacion.html`.
+- **Examen de Conocimientos (`examen-conocimientos.html`):** banco de 37→46 reactivos actualizado contra `EC-1375-reactivos - actualizado.docx` (agrega Desinfección/Sanitización, Higiene de Columna, amplía Residuos Peligrosos y Signos Vitales). Terminología cambiada de Aprobado/No aprobado a **Competente/No competente**, umbral subido de 80% a **97.64%**. Se agregó ciclo de reforzamiento: al fallar, se listan los temas y reactivos incorrectos con la respuesta correcta, con botón a la Biblioteca y botón "Reintentar examen" (nuevo orden aleatorio, sin límite de intentos) — sigue siendo una autoevaluación de práctica que no bloquea el avance (el examen oficial es el video revisado por el Centro Evaluador).
+- **Encuesta de Satisfacción (`encuesta-satisfaccion.html`):** rediseñada para replicar el formato OFICIAL de RED CONOCER/ICEMéxico (verificado contra el expediente de Humberto) — 7 preguntas (antes 8, una no era del formato oficial) con las 4 caritas de la escala siempre visibles por pregunta (Muy de acuerdo → Totalmente en desacuerdo, dibujadas a vector en el PDF) y una X sobre la opción elegida, en vez de una tabla de texto plano. Reduce el riesgo de que el formato choque con lo que la SEP espera ver en el expediente.
+- **Ficha de Registro RENAP + foto del candidato:** nuevo documento oficial (`autodiagnostico.html`) — captura de foto y autorización de publicación RENAP en el paso personal, nuevo bucket de Storage `fotos-candidato`, PDF nuevo con el texto legal RENAP verbatim, insertado en el checklist y en `assemble_expediente.py`.
+- **Autodiagnóstico:** PDF ampliado de un resumen de 6-7 páginas a las 11 páginas del formato oficial (portada, índice+presentación, datos personales, propósito/instrucciones, tablas de criterios existentes, Valoración con estadísticas reales calculadas).
+- **Nextcloud:** ruta alterna por Google Form en `evidencias.html` cuando falla la subida automática, para no dejar al candidato bloqueado mientras se resuelve la configuración del NAS.
+- **jspdf-autotable:** el modo por default `tableWidth:'auto'` reescala CUALQUIER tabla a los ~182mm de ancho de página aunque se den anchos de columna explícitos, produciendo advertencias de consola engañosas. Agregar `tableWidth:'wrap'` cuando se dan anchos de columna explícitos evita el problema — aplicado en todas las tablas nuevas de esta sesión.
 
 ---
 
