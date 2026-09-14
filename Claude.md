@@ -9,7 +9,7 @@
 
 ## Stack
 
-- HTML5 + CSS3 + JS vanilla, **sin build step, sin framework**. Convención del proyecto: **páginas estáticas sin módulos compartidos** — cada `.html` es autocontenida. Única excepción deliberada: `auth.js` (sesión/RLS es justo el tipo de código donde una copia desincronizada entre páginas es el modo de falla a evitar).
+- HTML5 + CSS3 + JS vanilla, **sin build step, sin framework**. Convención del proyecto: **páginas estáticas sin módulos compartidos** — cada `.html` es autocontenida. Dos excepciones deliberadas: `auth.js` (sesión/RLS) y `flow-status.js` (los 10 pasos reales del flujo y qué cuenta como "completo" en cada uno) — ambos son justo el tipo de lógica donde una copia desincronizada entre páginas es el modo de falla a evitar (ya pasó más de una vez). `flow-status.js` se carga después de `auth.js` y antes del script propio de cada página; ver sección "Progreso del candidato" abajo.
 - Backend: funciones serverless de Vercel (Node, mezcla de `module.exports` CommonJS y `export default` ESM — ambas conviven) + Supabase (Postgres/RLS/Auth/Storage).
 - Pagos: Mercado Pago (Payment Link estático para Registro, API de Preferencias con monto dinámico para las otras 3 fases) + transferencia bancaria manual.
 - Documentos: generación de PDF client-side (jsPDF/jspdf-autotable), subida automática vía WebDAV a un Nextcloud propiedad del evaluador (Humberto), sin backend de storage propio.
@@ -24,25 +24,43 @@
 ```
 index.html, quiz.html                    Landing + quiz de calentamiento (pre-pago)
 success.html / failure.html / pending.html   Retorno de Mercado Pago (Registro)
-recuperar.html                           Login / continuar en otro dispositivo
+recuperar.html                           Login (email+password/login-maestro) Y, una vez logueado, dashboard de
+                                          progreso — lista los 10 pasos del flujo real (vía flow-status.js) con
+                                          ✓ hecho / ▶ siguiente / 🔒 bloqueado y liga directa a cada uno
 restablecer-password.html                Landing de "olvidé mi contraseña" (Supabase PASSWORD_RECOVERY)
 
-autodiagnostico.html      142 reactivos EC1375, wizard de pasos, login+password aquí, sube 3 PDFs a Nextcloud
+autodiagnostico.html      142 reactivos EC1375, wizard de pasos, login+password aquí, foto+autorización RENAP,
+                           certificados previos, firma — sube a Nextcloud el Autodiagnóstico, la Ficha de
+                           Registro RENAP y sus Acuses (ver sección "Ficha de Registro RENAP" abajo)
 alineacion.html           Gate fase Alineación · reserva de sesión en vivo (Google Calendar) · CTAs a ruta-alineacion.html / ruta-estudio.html
 ruta-alineacion.html      57 pantallas curadas con video real de YouTube — presentación de Alineación
 ruta-estudio.html         Motor de estudio de 5.4MB (state machine "V4.4", API pública window.EC1375) — biblioteca/práctica/reforzamiento
 reforzamiento.html, practica.html, biblioteca.html   Stubs (`location.replace('ruta-estudio.html?boot=X')`) — no tienen contenido propio
-examen-conocimientos.html Examen de conocimientos (parte de la ruta lineal post-alineación)
+guion-maestro.html        Guion de apoyo para la sesión real con el usuario (abrir en otra pestaña o imprimir) —
+                           enlazado desde plan-evaluacion.html, sin PDF ni gate de fase propio
+examen-conocimientos.html Autoevaluación de práctica, 39 reactivos (100% de EC-1375-reactivos - actualizado.docx),
+                           una pregunta por pantalla con retroalimentación inmediata — ver "Cambios recientes"
 plan-evaluacion.html      Tabla de 25 grupos (=142 reactivos), agenda cita, gate fase Evaluación
 documentos-sesion.html    Wizard de 4 documentos (Ficha/Consentimiento/Plan Sesión/Seguimiento) de la sesión real con paciente
 encuesta-satisfaccion.html  7 preguntas oficiales, formato de caritas (RED CONOCER/ICEMéxico)
 evidencias.html           Checklist final + uploads nativos (Zoom, INE, CURP, foto diploma, certificados)
 entrega.html              Gate fase Entrega, confirmación final (no enlazada desde el flujo — el equipo comparte el link manual cuando el evaluador aprueba)
 
-admin-index.html, admin-precios.html, admin-sesiones.html   Panel interno del equipo (precios/sesiones de alineación)
-kpi-dashboard-live.html   Dashboard de KPIs (inscritos/completados/ingresos por fase) — ⚠️ sin auth.js, público a quien tenga la URL
+admin-index.html          Índice de navegación rápida a todos los módulos (equipo/QA), agrupado por sección del flujo
+admin-precios.html        Montos por fase, altas de candidatos, status de pago, liberación manual por fase
+admin-sesiones.html       Crea sesiones grupales de Alineación (Google Calendar/Meet), lista inscripciones
+admin-kpis.html           Dashboard de KPIs (inscritos/completados/ingresos por fase) — GATEADO por `Auth.renderAdminGate()`,
+                           lee `candidatos_precio`/`candidatos_fase_pagos` directo desde Supabase (sin API propia)
+admin-utilidades.html     Reparto de utilidades por lote de ingresos entre 3 socios (Fernando/Lot/Diego, 16.67% c/u
+                           por default) + colaborador opcional "Christherapy" (50%, deja 16.67% c/u a los socios) —
+                           tabla `reparto_utilidades`, gateado por `Auth.renderAdminGate()`
+kpi-dashboard-live.html   ⚠️ Versión vieja del dashboard de KPIs — SIN gate de autenticación, público a quien tenga
+                           la URL, y ya no está enlazada desde ningún lado del sitio. Redundante con admin-kpis.html
+                           (que sí está gateado) — candidato a retirar, ver backlog #13.
 
-auth.js                   Supabase Auth (email+password) + sync + gates + admin bypass — único módulo compartido
+auth.js                   Supabase Auth (email+password) + sync + gates + admin bypass — módulo compartido
+flow-status.js            Fuente única de los 10 pasos del flujo y de qué cuenta como "completo" en cada uno —
+                           módulo compartido (ver "Progreso del candidato" abajo)
 api/master-login.js       Login-maestro: entra como cualquier candidato autorizado (server-side, Admin API)
 api/crear-preferencia.js  Genera Preferencia de MP con monto dinámico por candidato/fase
 api/monto-fase.js         Calcula el monto de una fase sin crear preferencia (para mostrarlo en UI/transferencia)
@@ -75,15 +93,41 @@ _internal_no_publicar/    TODO gitignored
 - **Candidato:** `Auth.renderAuthGate()` en `auth.js` — correo → "ya tengo contraseña" (signin) / "primera vez" (signup) / "olvidé mi contraseña" (`resetPasswordForEmail` → `restablecer-password.html`, escucha el evento `PASSWORD_RECOVERY`).
 - **Admin** (cuenta con `is_admin()`): `Auth.renderAdminGate()` — mismo patrón pero comprueba `is_admin()` en el paso de correo, **antes** de ofrecer signin/signup (si no, una cuenta admin que nunca puso contraseña no tenía a dónde ir en "primera vez").
 - **Login-maestro:** cualquier correo con ≥1 fase pagada + contraseña universal **`Paideia2026`** (env var `MASTER_LOGIN_PASSWORD`) inicia sesión como ese candidato — pensado para que el equipo ayude en llamadas sin esperar un correo de restablecimiento. `api/master-login.js` verifica la contraseña maestra ANTES de tocar el correo (mensaje 401 genérico si falla), confirma que el correo tenga al menos una fila en `candidatos_fase_pagos`, y emite sesión vía Admin API (`generateLink` tipo magiclink → el cliente canjea con `verifyOtp`). Nunca expone la service role key ni la contraseña maestra al navegador. `Auth._handleSignIn()` cae a esto automáticamente si el signin normal falla (mismo mensaje de error en ambos casos, no revela el motivo).
-- **Bypass de navegación libre** (solo `paideia.tech@outlook.com`, `CANDIDATE_FLOW_BYPASS_EMAIL` en `auth.js`): salta el pago de "registro" y siembra datos placeholder de Autodiagnóstico automáticamente, para que el equipo navegue/demuestre el flujo completo sin datos reales. Verificado server-side vía RPC `is_current_user_flow_bypass_admin()` (nunca confía en `session.user.email` del cliente, que se puede falsificar). Barra fija (`Auth.renderAdminBar()`) con links a las 8 páginas del flujo + botón "Reset" que limpia el progreso downstream sin borrar el placeholder. Detalle completo: `docs/superpowers/specs/2026-09-12-admin-flow-bypass-design.md`.
+- **Bypass de navegación libre** (solo `paideia.tech@outlook.com`, `CANDIDATE_FLOW_BYPASS_EMAIL` en `auth.js`): salta el pago de "registro" y siembra datos placeholder de Autodiagnóstico automáticamente, para que el equipo navegue/demuestre el flujo completo sin datos reales. Verificado server-side vía RPC `is_current_user_flow_bypass_admin()` (nunca confía en `session.user.email` del cliente, que se puede falsificar). Barra fija (`Auth.renderAdminBar()`) con links a las 13 páginas del flujo (incluye Biblioteca, Guion Maestro y el Dashboard de `recuperar.html`) + botón "Reset" que limpia el progreso downstream sin borrar el placeholder. Entrega nunca se marca "done"/autorizada para esta cuenta sin importar lo que diga `candidatos_fase_pagos` — es dinero real y una decisión real del evaluador, no algo que la cuenta de pruebas deba poder simular (`FlowStatus.getSteps()` lo fuerza a `false` explícitamente). Detalle completo: `docs/superpowers/specs/2026-09-12-admin-flow-bypass-design.md`.
 
 **Pagos por fase:** `candidatos_precio` (email → `total_acordado`, default $14,750, se edita a mano en Supabase) + `candidatos_fase_pagos` (email+fase → pagado) + RPC `is_fase_authorized(email, fase)`. Cada página gateada exige la fase anterior autorizada **y** sus documentos ya subidos a Nextcloud (doble compuerta). Transferencias bancarias se autorizan a mano en el Table Editor de Supabase; pagos por Mercado Pago los autoriza `api/mercadopago-webhook.js` automáticamente.
 
 ---
 
+## Progreso del candidato (`flow-status.js`)
+
+Módulo compartido que define los **10 pasos reales** del flujo (Autodiagnóstico → Reforzamiento → Alineación → Plan de Evaluación → Documentos de Sesión → Práctica → Examen de Conocimientos → Encuesta → Evidencias → Entrega) y calcula, para cada uno, `done`/`current`/`locked` — reutilizando siempre el MISMO gate que la página siguiente ya usa para dejar pasar, nunca una condición inventada aparte. Expone:
+- `FlowStatus.getSteps()` — el arreglo de 10 pasos con su estado.
+- `FlowStatus.renderProgressBar(steps, currentPageId)` — barra fija arriba, visible en las páginas del flujo (además de la barra de progreso INTERNA que ya tienen los wizards largos como Autodiagnóstico o Documentos de Sesión — no se reemplazan entre sí).
+- `FlowStatus.renderNextStepCTA(steps, currentPageId, container)` — botón "Siguiente: X →" calculado del estado real, nunca un href escrito a mano por página.
+
+**Entrega es un caso especial siempre:** nunca es "current" (depende de que el equipo la autorice a mano tras revisar la evaluación real), y su razón de bloqueo es siempre `esperando_evaluador`. Para la cuenta de bypass, Entrega nunca se marca "done" sin importar lo que diga `candidatos_fase_pagos` — es dinero real y una decisión real del evaluador.
+
+`recuperar.html` usa este módulo para mostrar, justo después de iniciar sesión, un dashboard completo del proceso (resuelve lo que antes era el backlog "página de estado del proceso para el candidato").
+
+---
+
+## Ficha de Registro RENAP + foto del candidato
+
+Documento oficial de autorización de publicación de datos en el RENAP (Registro Nacional de Personas con Competencias Certificadas), construido en el paso "personal" del Autodiagnóstico junto con la foto del candidato:
+- **Foto:** obligatoria para avanzar. Se reescala a máx. 500px de ancho (canvas, JPEG calidad 0.85) y se incrusta directamente en el PDF como preview — la subida del archivo original a Storage es solo respaldo y su falla no bloquea el avance.
+- **Autorización RENAP:** checkbox voluntario, NO bloquea el avance. El PDF marca `SI ( X ) NO ( )` según la respuesta, con el texto legal RENAP verbatim.
+- Bucket privado de Supabase Storage `fotos-candidato` (RLS por `user_id`, mismo patrón que `certificados-previos`). `Auth.uploadFotoCandidato(file, path)` en `auth.js` (con `upsert:true`, a diferencia de `uploadCertificado`).
+- `generateFichaRegistroPDFBlob()` genera el PDF; se sube a Nextcloud junto con el resto de los documentos de Registro (mismo mecanismo `subirDocumento('registro', ...)` que el Autodiagnóstico) y aparece en el checklist de resultado como "🪪 Ficha de Registro".
+- En `assemble_expediente.py`: slot dedicado `ficha_registro_candidato` (detectado por palabras clave "ficha de registro"/"renap", distinto del slot preexistente `ficha_registro_paciente`), insertado justo después del separador inicial, antes de CURP/INE — orden verificado contra un expediente real.
+
+**⚠️ Pendiente que Diego haga en Supabase:** crear el bucket `fotos-candidato` (si no existe) y correr `_internal_no_publicar/02-sql/supabase_setup_v7_foto_candidato_storage.sql`.
+
+---
+
 ## Documentos → Nextcloud (reemplaza Google Form para uploads generados)
 
-`api/subir-portafolio.js` sube automáticamente cada PDF que el sitio genera (Autodiagnóstico + sus Acuses, Plan de Evaluación + Acuse, los 4 de Documentos de Sesión, Encuesta) a `Portafolios/{Nombre_CURP}/{01-Registro|02-Alineacion|03-Evaluacion|04-Entrega}/` en el Nextcloud de Humberto (TrueNAS SCALE + Cloudflare Tunnel, cuenta de servicio solo-WebDAV), validando el `access_token` real de la sesión antes de aceptar (evita que un candidato sobreescriba la carpeta de otro). Estado por documento vive en el JSONB de cada página (`documentosNextcloud: {clave: ruta}`) — sin tablas ni RPCs nuevas.
+`api/subir-portafolio.js` sube automáticamente cada PDF que el sitio genera (Autodiagnóstico + Ficha de Registro RENAP + sus Acuses, Plan de Evaluación + Acuse, los 4 de Documentos de Sesión, Encuesta) a `Portafolios/{Nombre_CURP}/{01-Registro|02-Alineacion|03-Evaluacion|04-Entrega}/` en el Nextcloud de Humberto (TrueNAS SCALE + Cloudflare Tunnel, cuenta de servicio solo-WebDAV), validando el `access_token` real de la sesión antes de aceptar (evita que un candidato sobreescriba la carpeta de otro). Estado por documento vive en el JSONB de cada página (`documentosNextcloud: {clave: ruta}`) — sin tablas ni RPCs nuevas.
 
 **Cadena de gates (bloqueo duro):** Alineación exige Registro subido → Documentos de Sesión exige Alineación → Encuesta exige Documentos de Sesión → Evidencias exige Encuesta → Entrega exige Evidencias. `documentosFaseCompletos()` (duplicada en cada archivo gateado) acepta subido-O-descargado como "completo" — ver "Cambios recientes" abajo.
 
@@ -103,9 +147,12 @@ Tablas: `sesiones_alineacion`, `inscripciones_alineacion`, `emails_enviados_alin
 
 ---
 
-## KPI Dashboard
+## KPI Dashboard y Reparto de Utilidades (admin)
 
-`kpi-dashboard-live.html` + `api/kpi-data.js`: lee `candidatos_precio` + `candidatos_fase_pagos` en vivo y calcula inscritos/completados/en-progreso e ingresos por fase. **No tiene ningún gate de autenticación** — cualquiera con la URL puede verlo. Confirmar con Diego si necesita protegerse antes de compartir el link ampliamente.
+- **`admin-kpis.html`** — versión gateada (`Auth.renderAdminGate()`) del dashboard de KPIs: inscritos/completados/en-progreso e ingresos por fase, leyendo `candidatos_precio` + `candidatos_fase_pagos` directo de Supabase client-side (sin API propia). Es la que hay que usar/compartir de aquí en adelante.
+- **`kpi-dashboard-live.html`** — la versión vieja, **sin ningún gate**, sigue viva en esa URL aunque ya no está enlazada desde ningún lado del sitio. Ver backlog #13.
+- **`admin-utilidades.html`** — reparto de utilidades por lote de ingresos entre los 3 socios (Fernando/Lot/Diego, 16.67% cada uno por default) más un colaborador opcional "Christherapy" (50% cuando participa, deja 16.67% c/u a los socios en vez de 33.33%). Configuración por lote guardada en la tabla `reparto_utilidades`, gateado por `Auth.renderAdminGate()`.
+- **`api/kpi-data.js`** sigue existiendo (usado originalmente por `kpi-dashboard-live.html`) — confirmar si `admin-kpis.html` todavía lo necesita o si puede eliminarse junto con la página vieja.
 
 ---
 
@@ -144,9 +191,14 @@ Credenciales Google: OAuth "Aplicación de escritorio", proyecto de Cloud `EC137
 - **Estadímetro:** liga de compra actualizada a un modelo distinto en `plan-evaluacion.html` y `ruta-alineacion.html`.
 - **Examen de Conocimientos (`examen-conocimientos.html`), reescrito varias veces el mismo día — este es el estado final:** banco de **39 reactivos, 100% provenientes de `EC-1375-reactivos - actualizado.docx`** (se descartó por completo el banco anterior de 37 parafraseados de otra fuente; ver comentario en el código para el detalle de qué "relacionar columnas" del docx se omitieron y cuáles se reconstruyeron como opción múltiple). Las preguntas siguen el **orden del documento** (ya no se baraja el orden de las preguntas, solo el de las opciones de cada una — y solo entre las opciones que esa pregunta realmente tiene, corrigiendo un bug donde preguntas de 2-3 opciones mostraban casillas vacías clicables). Interfaz de **una pregunta por pantalla**: al responder, retroalimentación inmediata (correcto/incorrecto); si falla, se revela la respuesta correcta, un botón a la Biblioteca (pestaña nueva) y un botón "Regresar a contestar" — no avanza a la siguiente pregunta hasta acertar. Por diseño, todos terminan con el 100% de aciertos — **ya NO se muestra ningún resultado de Competente/No competente ni umbral alguno**: ese juicio es exclusivo del Centro Evaluador al calificar el Plan de Evaluación, las respuestas del examen y el resto del expediente. Sí se muestra, al final, la lista de temas que el candidato tuvo que repasar en el camino (informativo, no calificación).
 - **Encuesta de Satisfacción (`encuesta-satisfaccion.html`):** rediseñada para replicar el formato OFICIAL de RED CONOCER/ICEMéxico (verificado contra el expediente de Humberto) — 7 preguntas (antes 8, una no era del formato oficial) con las 4 caritas de la escala siempre visibles por pregunta (Muy de acuerdo → Totalmente en desacuerdo, dibujadas a vector en el PDF) y una X sobre la opción elegida, en vez de una tabla de texto plano. Reduce el riesgo de que el formato choque con lo que la SEP espera ver en el expediente.
-- **Ficha de Registro RENAP + foto del candidato:** nuevo documento oficial (`autodiagnostico.html`) — captura de foto y autorización de publicación RENAP en el paso personal, nuevo bucket de Storage `fotos-candidato`, PDF nuevo con el texto legal RENAP verbatim, insertado en el checklist y en `assemble_expediente.py`.
+- **Ficha de Registro RENAP + foto del candidato:** nuevo documento oficial — ver sección dedicada arriba.
 - **Autodiagnóstico:** PDF ampliado de un resumen de 6-7 páginas a las 11 páginas del formato oficial (portada, índice+presentación, datos personales, propósito/instrucciones, tablas de criterios existentes, Valoración con estadísticas reales calculadas).
+- **Plan de Evaluación (`plan-evaluacion.html`):** agrega campos "Evaluadora:"/"Centro de Evaluación:" al encabezado del PDF y una sección "Criterios para obtener juicio de competente" (Primer/Segundo criterio, texto genérico sin inventar el 97.64% ahí) antes del bloque de firmas; firma del candidato movida a su columna correspondiente.
+- **Progreso del candidato:** nuevo módulo compartido `flow-status.js` (ver sección dedicada arriba) — fuente única de los 10 pasos del flujo. `recuperar.html` se reescribió como dashboard completo de progreso además de login. Barra de progreso y CTA "Siguiente paso" conectados en `alineacion.html`, `documentos-sesion.html`, `plan-evaluacion.html`, `encuesta-satisfaccion.html`, `evidencias.html`, `entrega.html`, `examen-conocimientos.html` y `ruta-estudio.html` (que además ahora redirige a `recuperar.html` si se abre sin `?boot=`, en vez de mostrar el motor "pelón").
+- **Admin:** nuevos paneles `admin-kpis.html` (KPIs gateado, reemplaza en uso a `kpi-dashboard-live.html` — ver backlog #13) y `admin-utilidades.html` (reparto de utilidades por lote entre socios — ver sección dedicada arriba).
+- **`ruta-alineacion.html`:** botón real de "completado" en la última pantalla (antes no hacía nada).
 - **Nextcloud:** ruta alterna por Google Form en `evidencias.html` cuando falla la subida automática, para no dejar al candidato bloqueado mientras se resuelve la configuración del NAS.
+- **Bugs menores corregidos:** placeholder de datos del bypass en `auth.js` usaba claves de reactivo inexistentes; `entrega.html` tenía un atajo que dejaba pasar el gate de pago real para la cuenta de bypass (quitado — Entrega es dinero real, nunca debe poder simularse como pagada).
 - **jspdf-autotable:** el modo por default `tableWidth:'auto'` reescala CUALQUIER tabla a los ~182mm de ancho de página aunque se den anchos de columna explícitos, produciendo advertencias de consola engañosas. Agregar `tableWidth:'wrap'` cuando se dan anchos de columna explícitos evita el problema — aplicado en todas las tablas nuevas de esta sesión.
 
 ---
@@ -249,14 +301,14 @@ Landing (`index.html`) sigue un arco emocional Vocación→Miedo→Transformaci�
 3. Recuperar PDFs perdidos — los datos para regenerarlos viven en Supabase, pero los PDFs en sí no se guardan.
 4. Multi-evaluador — número de WhatsApp y nombre de evaluador están fijos en código.
 5. Anti-duplicados de CURP.
-6. Página de estado del proceso para el candidato (en vez de preguntar por WhatsApp).
+6. ~~Página de estado del proceso para el candidato (en vez de preguntar por WhatsApp)~~ — resuelto: `recuperar.html` ahora es también un dashboard de progreso vía `flow-status.js` (ver esa sección arriba).
 7. Flujo del evaluador: llenar digitalmente Cédula de Evaluación e IEC, automatizar "Resultado Evaluación" (competente/no competente) — hoy 100% manual por WhatsApp. Bloquea enlazar `entrega.html` automáticamente.
 8. Migrar `assemble_expediente.py` para leer del Nextcloud nuevo en vez de Google Forms/Drive.
 9. Logo SVG de mejor calidad (`assets/images/logo/paideia-tech-logo-*.svg`, inconcluso) — seguir con el PNG actual por ahora.
 10. PPT de Alineación de mejor calidad, idealmente en Google Slides para embeber en vez de forzar descarga de ~17MB.
 11. Videos del proceso pendientes (contexto SEP-CONOCER, capacitación, muestra de atención) — `alineacion.html` ya tiene los espacios (`VIDEO_CAPACITACION_URL`, `VIDEO_MUESTRA_URL`).
 12. Portada de `ruta-estudio.html` y pantalla 1 de `ruta-alineacion.html` siguen diciendo "ACADEMIA POSTURALIA" — es texto incrustado en una fotografía (no editable por CSS/HTML), pendiente que Diego regenere la imagen.
-13. Gate de autenticación para `kpi-dashboard-live.html` (hoy público).
+13. `kpi-dashboard-live.html` sigue público (sin gate) y ya es redundante con `admin-kpis.html` (misma función, sí gateado) — lo más simple es retirar/redirigir la versión vieja en vez de agregarle un gate.
 14. Replicar webhook de Mercado Pago en modo productivo.
 15. Calendario de citas en `plan-evaluacion.html` sigue en placeholder (`GOOGLE_CALENDAR_BOOKING_URL` vacío, fallback a WhatsApp) — el candidato pidió horarios fijos recurrentes, no un Calendly en tiempo real.
 
@@ -266,7 +318,7 @@ Landing (`index.html`) sigue un arco emocional Vocación→Miedo→Transformaci�
 
 - `MASTER_LOGIN_PASSWORD` y `SUPABASE_SERVICE_ROLE_KEY` solo se usan server-side (`api/master-login.js`, `api/*-webhook.js`) — nunca en HTML/JS de cliente.
 - El bypass de navegación (`CANDIDATE_FLOW_BYPASS_EMAIL`) se verifica siempre server-side vía RPC; el chequeo local (`isFlowBypassAdmin`) solo decide qué UI mostrar antes de que exista sesión, nunca otorga acceso por sí solo.
-- `kpi-dashboard-live.html` no tiene gate — no compartir el link ampliamente hasta agregar uno (backlog #13).
+- `kpi-dashboard-live.html` no tiene gate — no compartir ese link; usar `admin-kpis.html` (gateado) en su lugar (backlog #13).
 
 ---
 
