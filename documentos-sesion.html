@@ -1310,6 +1310,7 @@ const LOGO_CONOCER_BASE64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAA
         doc.autoTable({
             startY: 42, theme: 'plain', styles: { fontSize: 9, cellPadding: 1.5 },
             body: [
+                ['Folio:', s.expedienteNo || ''],
                 ['Nombre completo:', s.usuarioNombre || ''],
                 ['Edad:', s.usuarioEdad || ''],
                 ['Fecha de nacimiento:', s.usuarioFechaNacimiento || ''],
@@ -1373,16 +1374,29 @@ const LOGO_CONOCER_BASE64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAA
         doc.autoTable({
             startY: 42, theme: 'plain', styles: { fontSize: 9, cellPadding: 1.5 },
             body: [
+                ['Fecha:', s.fechaConsentimiento || ''],
                 ['Nombre del usuario:', s.usuarioNombre || ''],
+                ['Edad:', s.usuarioEdad || ''],
+                ['Fecha de nacimiento:', s.usuarioFechaNacimiento || ''],
+                ['Domicilio:', s.usuarioDomicilio || ''],
+                ['Familiar/responsable a avisar:', s.contactoEmergencia || ''],
                 ['Técnica a aplicar:', tecnicaEfectiva(s)],
-                ['Expediente No.:', s.expedienteNo || ''],
-                ['Fecha:', s.fechaConsentimiento || '']
+                ['Expediente No.:', s.expedienteNo || '']
             ]
         });
-        let y = doc.lastAutoTable.finalY + 10;
-        doc.setFontSize(9); doc.setFont(undefined, 'normal');
+        let y = doc.lastAutoTable.finalY + 8;
+
+        doc.setFontSize(9); doc.setFont(undefined, 'bold');
+        doc.text('Aviso de Privacidad:', 14, y); y += 5;
+        doc.setFont(undefined, 'normal');
+        const avisoPrivacidad = 'Sus datos personales están protegidos conforme a la Ley Federal de Protección de Datos Personales en Posesión de Particulares. Con la firma del presente documento manifiesta estar enterado(a) de dicho aviso.';
+        let avisoLines = doc.splitTextToSize(avisoPrivacidad, 180);
+        doc.text(avisoLines, 14, y); y += avisoLines.length * 5 + 8;
+
+        doc.setFont(undefined, 'normal');
         const consentText = `Yo, ${s.usuarioNombre || '[nombre del usuario]'}, expreso mi libre voluntad para autorizar el procedimiento señalado en este documento después de haberme proporcionado la información completa sobre padecimiento o estado actual, la cual fue realizada en forma amplia, precisa y suficiente en un lenguaje claro y sencillo, informándome sobre posibles riesgos, complicaciones y secuelas de igual forma los beneficios. El especialista informó métodos alternativos, el derecho de cambiar mi decisión en cualquier momento y manifestarla antes de cualquier procedimiento. Con el propósito de que mi atención sea adecuada, me comprometo a proporcionar información completa y veraz, así como seguir las indicaciones del especialista. Otorgo mi autorización al personal asistente auxiliar, así como al profesional que brinda los servicios tradicionales y complementarios la atención de contingencias y urgencias derivadas del procedimiento señalado, atendiendo al principio de libertad prescriptiva.`;
         const lines = doc.splitTextToSize(consentText, 180);
+        if (y > 220) { doc.addPage(); addOfficialLogos(doc); y = 30; }
         doc.text(lines, 14, y); y += lines.length * 5 + 15;
 
         if (y > 240) { doc.addPage(); addOfficialLogos(doc); y = 30; }
