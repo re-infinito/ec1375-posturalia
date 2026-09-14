@@ -20,7 +20,7 @@
             color: var(--text); line-height: 1.6; min-height: 100vh; padding-bottom: 60px;
         }
 
-        .container { max-width: 1000px; margin: 0 auto; padding: 24px 20px; }
+        .container { max-width: 1100px; margin: 0 auto; padding: 24px 20px; }
         .top-bar {
             position: sticky; top: 0; background: var(--dark); border-bottom: 1px solid var(--dark-light);
             padding: 16px 20px; z-index: 100; display: flex; justify-content: space-between; align-items: center;
@@ -33,23 +33,35 @@
 
         .field-group { margin-bottom: 14px; }
         .field-group label { display: block; font-size: 0.82rem; color: var(--text); margin-bottom: 5px; font-weight: 600; }
-        .field-group input { width: 100%; padding: 10px 12px; background: var(--dark); border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; color: var(--text-bright); font-size: 0.9rem; }
+        .field-group input, .field-group select { width: 100%; padding: 10px 12px; background: var(--dark); border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; color: var(--text-bright); font-size: 0.9rem; }
 
         .btn { padding: 10px 18px; border-radius: 8px; font-weight: 700; font-size: 0.85rem; border: none; cursor: pointer; }
         .btn-primary { background: var(--primary); color: white; }
         .btn-primary:hover { background: var(--primary-light); }
+        .btn-secondary { background: transparent; border: 1px solid var(--primary); color: var(--primary); }
         .btn-small { padding: 8px 12px; font-size: 0.75rem; }
+
+        .lote-selector { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; margin-bottom: 20px; }
+        .lote-btn { padding: 12px; border-radius: 8px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: var(--text); cursor: pointer; font-weight: 600; transition: all 0.2s; }
+        .lote-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+        .lote-btn:hover { border-color: var(--primary); }
+
+        .reparto-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-bottom: 20px; }
+        .reparto-card { background: rgba(0,136,255,0.08); border: 1px solid rgba(0,136,255,0.2); border-radius: 8px; padding: 16px; }
+        .reparto-title { font-weight: 700; color: var(--text-bright); margin-bottom: 12px; font-size: 0.95rem; }
+        .reparto-item { margin-bottom: 12px; }
+        .reparto-label { font-size: 0.8rem; color: var(--text); margin-bottom: 4px; }
+        .reparto-input-group { display: flex; gap: 8px; }
+        .reparto-input-group input { flex: 1; }
+        .reparto-percent { font-size: 0.85rem; color: var(--accent); font-weight: 700; }
 
         .tabla { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-top: 16px; }
         .tabla th { text-align: left; color: var(--primary-light); font-size: 0.72rem; text-transform: uppercase; padding: 10px; border-bottom: 1px solid rgba(255,255,255,0.1); background: rgba(0,136,255,0.05); }
         .tabla td { padding: 12px 10px; border-bottom: 1px solid rgba(255,255,255,0.06); }
-        .tabla tr:hover { background: rgba(255,255,255,0.02); }
 
-        .row-input { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr auto; gap: 10px; align-items: center; margin-bottom: 12px; padding: 12px; background: rgba(255,255,255,0.02); border-radius: 6px; }
-        .row-input input { padding: 8px 10px; background: var(--dark); border: 1px solid rgba(255,255,255,0.15); border-radius: 4px; color: var(--text-bright); font-size: 0.85rem; }
-
-        .resumen { background: rgba(0,255,136,0.08); border: 1px solid rgba(0,255,136,0.2); border-radius: 8px; padding: 16px; margin-top: 16px; }
-        .resumen-row { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 20px; padding: 8px 0; }
+        .resumen { background: rgba(0,255,136,0.08); border: 1px solid rgba(0,255,136,0.2); border-radius: 8px; padding: 16px; }
+        .resumen-row { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 20px; padding: 10px 0; border-bottom: 1px solid rgba(0,255,136,0.1); }
+        .resumen-row:last-child { border-bottom: none; }
         .resumen-valor { font-size: 1.1rem; font-weight: 700; color: var(--success); }
 
         .error { color: var(--danger); font-size: 0.85rem; margin-top: 4px; }
@@ -71,14 +83,16 @@
     <script>
     let candidatos = [];
     let pagosPorEmail = {};
-    let socios = [
-        { nombre: 'Fernando', porcentaje: 50, id: 'fernando' },
-        { nombre: 'Lot', porcentaje: 25, id: 'lot' },
-        { nombre: 'Diego', porcentaje: 15, id: 'diego' }
-    ];
-    let colaboradores = [
-        { nombre: 'Christherapy', porcentaje: 10, id: 'christherapy' }
-    ];
+    let loteActivo = 1;
+    let configuracionLotes = {};
+
+    // Configuración por defecto para cada lote
+    const configDefault = {
+        chris: 50,
+        fernando: 16.67,
+        lot: 16.67,
+        diego: 16.67
+    };
 
     function renderGateShell() {
         const app = document.getElementById('app');
@@ -107,13 +121,19 @@
         pagosPorEmail = {};
         (pagos.data || []).forEach(row => {
             if (!pagosPorEmail[row.email]) pagosPorEmail[row.email] = new Set();
-            pagosPorEmail[row.email].add(row.fase);
+            pagosPorEmail[row.email].add(row.fecha);
         });
+
+        // Cargar configuraciones guardadas
+        const config = localStorage.getItem('config_lotes');
+        if (config) {
+            configuracionLotes = JSON.parse(config);
+        }
     }
 
-    function calcularIngresosTotales() {
-        const activos = candidatos.filter(c => (c.estado || 'activo') === 'activo');
-        return activos.reduce((sum, c) => {
+    function calcularIngresosTotales(lote) {
+        const activosEnLote = candidatos.filter(c => (c.estado || 'activo') === 'activo' && (c.lote || 1) === lote);
+        return activosEnLote.reduce((sum, c) => {
             const pagos = pagosPorEmail[c.email] || new Set();
             let total = 0;
             ['registro', 'alineacion', 'evaluacion', 'entrega'].forEach(f => {
@@ -123,115 +143,151 @@
         }, 0);
     }
 
-    function calcularReparto() {
-        const ingresosTotales = calcularIngresosTotales();
-        const todos = [...socios, ...colaboradores];
-
-        return todos.map(persona => ({
-            ...persona,
-            monto: Math.round((ingresosTotales * persona.porcentaje) / 100)
-        }));
+    function obtenerConfiguracion(lote) {
+        return configuracionLotes[`lote_${lote}`] || { ...configDefault };
     }
 
-    function guardarConfiguracion() {
-        const fernando = parseFloat(document.getElementById('perc_fernando').value) || 0;
-        const lot = parseFloat(document.getElementById('perc_lot').value) || 0;
-        const diego = parseFloat(document.getElementById('perc_diego').value) || 0;
-        const christherapy = parseFloat(document.getElementById('perc_christherapy').value) || 0;
+    function calcularReparto(lote) {
+        const config = obtenerConfiguracion(lote);
+        const ingresos = calcularIngresosTotales(lote);
 
-        const total = fernando + lot + diego + christherapy;
+        return {
+            chris: Math.round((ingresos * config.chris) / 100),
+            fernando: Math.round((ingresos * config.fernando) / 100),
+            lot: Math.round((ingresos * config.lot) / 100),
+            diego: Math.round((ingresos * config.diego) / 100),
+            total: ingresos
+        };
+    }
+
+    function guardarConfiguracion(lote) {
+        const config = {
+            chris: parseFloat(document.getElementById('perc_chris').value) || 0,
+            fernando: parseFloat(document.getElementById('perc_fernando').value) || 0,
+            lot: parseFloat(document.getElementById('perc_lot').value) || 0,
+            diego: parseFloat(document.getElementById('perc_diego').value) || 0
+        };
+
+        const total = Object.values(config).reduce((a, b) => a + b, 0);
 
         if (Math.abs(total - 100) > 0.01) {
             alert(`Error: El total debe ser 100%. Actual: ${total.toFixed(2)}%`);
             return;
         }
 
-        socios[0].porcentaje = fernando;
-        socios[1].porcentaje = lot;
-        socios[2].porcentaje = diego;
-        colaboradores[0].porcentaje = christherapy;
-
-        // Guardar en localStorage por ahora (después puede ser Supabase)
-        localStorage.setItem('config_utilidades', JSON.stringify({ socios, colaboradores }));
+        configuracionLotes[`lote_${lote}`] = config;
+        localStorage.setItem('config_lotes', JSON.stringify(configuracionLotes));
 
         renderPanel();
-        alert('✅ Configuración guardada');
+        alert(`✅ Configuración del Lote ${lote} guardada`);
     }
 
     function renderPanel() {
         const app = document.getElementById('app');
-        const reparto = calcularReparto();
-        const ingresosTotales = calcularIngresosTotales();
+        const lotesUnicos = [...new Set(candidatos.map(c => c.lote || 1))].sort((a, b) => a - b);
+        const config = obtenerConfiguracion(loteActivo);
+        const reparto = calcularReparto(loteActivo);
 
-        const socoTableRows = socios.map(s => `
-            <tr>
-                <td><strong>${s.nombre}</strong></td>
-                <td><input type="number" id="perc_${s.id}" value="${s.porcentaje}" min="0" max="100" step="0.1" style="width:80px;"></td>
-                <td style="text-align:right;">$${reparto.find(r => r.id === s.id)?.monto.toLocaleString('es-MX')}</td>
-                <td style="text-align:right; color:var(--text);font-size:0.8rem;">${s.porcentaje}% de $${ingresosTotales.toLocaleString('es-MX')}</td>
-            </tr>
-        `).join('');
-
-        const colaboTableRows = colaboradores.map(c => `
-            <tr style="background:rgba(255,215,0,0.05);">
-                <td><strong>${c.nombre}</strong> <span style="color:var(--accent);font-size:0.75rem;">(Colaborador)</span></td>
-                <td><input type="number" id="perc_${c.id}" value="${c.porcentaje}" min="0" max="100" step="0.1" style="width:80px;"></td>
-                <td style="text-align:right;">$${reparto.find(r => r.id === c.id)?.monto.toLocaleString('es-MX')}</td>
-                <td style="text-align:right; color:var(--text);font-size:0.8rem;">${c.porcentaje}% de $${ingresosTotales.toLocaleString('es-MX')}</td>
-            </tr>
-        `).join('');
-
-        const totalAsignado = reparto.reduce((sum, r) => sum + r.porcentaje, 0);
+        const loteBotonesHtml = lotesUnicos.map(lote => `
+            <button class="lote-btn ${lote === loteActivo ? 'active' : ''}" onclick="loteActivo=${lote};renderPanel()">
+                Lote ${lote} (${candidatos.filter(c => c.lote === lote).length})
+            </button>
+        `).join('') + `<button class="lote-btn" onclick="agregarLote()">+ Nuevo</button>`;
 
         const html = `
             <div class="card">
-                <h2>💰 Ingresos Totales Realizados</h2>
+                <h2>📍 Seleccionar Lote</h2>
+                <div class="lote-selector">${loteBotonesHtml}</div>
+            </div>
+
+            <div class="card">
+                <h2>💰 Ingresos Totales — Lote ${loteActivo}</h2>
                 <div style="font-size:2rem;font-weight:700;color:var(--success);margin:20px 0;">
-                    $${ingresosTotales.toLocaleString('es-MX')} MXN
+                    $${reparto.total.toLocaleString('es-MX')} MXN
                 </div>
                 <p style="font-size:0.85rem;color:var(--text);">De candidatos en estado Activo con pagos realizados</p>
             </div>
 
             <div class="card">
-                <h2>👥 Configurar Reparto — Socios</h2>
-                <table class="tabla">
-                    <thead>
-                        <tr><th>Socio</th><th>Porcentaje</th><th>Monto</th><th>Cálculo</th></tr>
-                    </thead>
-                    <tbody>${socoTableRows}</tbody>
-                </table>
-            </div>
+                <h2>⚙️ Configurar Reparto — Lote ${loteActivo}</h2>
+                <div class="reparto-grid">
+                    <div class="reparto-card">
+                        <div class="reparto-title">👤 Christherapy (Colaborador)</div>
+                        <div class="reparto-item">
+                            <div class="reparto-label">Porcentaje</div>
+                            <div class="reparto-input-group">
+                                <input type="number" id="perc_chris" value="${config.chris}" min="0" max="100" step="0.01" style="flex:1;">
+                                <span class="reparto-percent">%</span>
+                            </div>
+                        </div>
+                    </div>
 
-            <div class="card">
-                <h2>🤝 Colaboradores Externos</h2>
-                <table class="tabla">
-                    <thead>
-                        <tr><th>Colaborador</th><th>Porcentaje</th><th>Monto</th><th>Cálculo</th></tr>
-                    </thead>
-                    <tbody>${colaboTableRows}</tbody>
-                </table>
+                    <div class="reparto-card">
+                        <div class="reparto-title">👥 Fernando (Socio)</div>
+                        <div class="reparto-item">
+                            <div class="reparto-label">Porcentaje</div>
+                            <div class="reparto-input-group">
+                                <input type="number" id="perc_fernando" value="${config.fernando}" min="0" max="100" step="0.01" style="flex:1;">
+                                <span class="reparto-percent">%</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="reparto-card">
+                        <div class="reparto-title">👥 Lot (Socio)</div>
+                        <div class="reparto-item">
+                            <div class="reparto-label">Porcentaje</div>
+                            <div class="reparto-input-group">
+                                <input type="number" id="perc_lot" value="${config.lot}" min="0" max="100" step="0.01" style="flex:1;">
+                                <span class="reparto-percent">%</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="reparto-card">
+                        <div class="reparto-title">👥 Diego (Socio)</div>
+                        <div class="reparto-item">
+                            <div class="reparto-label">Porcentaje</div>
+                            <div class="reparto-input-group">
+                                <input type="number" id="perc_diego" value="${config.diego}" min="0" max="100" step="0.01" style="flex:1;">
+                                <span class="reparto-percent">%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <div class="card">
                 <div class="resumen">
-                    <div style="font-size:0.9rem;font-weight:700;color:var(--text-bright);margin-bottom:12px;">📊 Resumen del Reparto</div>
-                    ${reparto.map(r => `
-                        <div class="resumen-row">
-                            <div><strong>${r.nombre}</strong></div>
-                            <div style="text-align:right;">${r.porcentaje}%</div>
-                            <div class="resumen-valor">$${r.monto.toLocaleString('es-MX')}</div>
-                        </div>
-                    `).join('')}
-                    <div style="border-top:1px solid rgba(0,255,136,0.2);margin-top:12px;padding-top:12px;margin-bottom:0;">
-                        <div class="resumen-row">
-                            <div><strong>TOTAL</strong></div>
-                            <div style="text-align:right;"><strong>${totalAsignado}%</strong></div>
-                            <div class="resumen-valor">$${ingresosTotales.toLocaleString('es-MXN')}</div>
-                        </div>
+                    <div style="font-size:0.9rem;font-weight:700;color:var(--text-bright);margin-bottom:16px;">📊 Resumen del Reparto — Lote ${loteActivo}</div>
+                    <div class="resumen-row">
+                        <div><strong>Christherapy</strong></div>
+                        <div style="text-align:right;"><strong>${config.chris.toFixed(2)}%</strong></div>
+                        <div class="resumen-valor">$${reparto.chris.toLocaleString('es-MX')}</div>
                     </div>
-                    ${Math.abs(totalAsignado - 100) > 0.01 ? `<div class="error" style="margin-top:12px;">⚠️ El total debe ser 100%, actualmente es ${totalAsignado}%</div>` : ''}
+                    <div class="resumen-row">
+                        <div><strong>Fernando</strong></div>
+                        <div style="text-align:right;"><strong>${config.fernando.toFixed(2)}%</strong></div>
+                        <div class="resumen-valor">$${reparto.fernando.toLocaleString('es-MX')}</div>
+                    </div>
+                    <div class="resumen-row">
+                        <div><strong>Lot</strong></div>
+                        <div style="text-align:right;"><strong>${config.lot.toFixed(2)}%</strong></div>
+                        <div class="resumen-valor">$${reparto.lot.toLocaleString('es-MX')}</div>
+                    </div>
+                    <div class="resumen-row">
+                        <div><strong>Diego</strong></div>
+                        <div style="text-align:right;"><strong>${config.diego.toFixed(2)}%</strong></div>
+                        <div class="resumen-valor">$${reparto.diego.toLocaleString('es-MX')}</div>
+                    </div>
+                    <div class="resumen-row" style="border-bottom:none;border-top:1px solid rgba(0,255,136,0.2);padding-top:12px;margin-top:12px;">
+                        <div><strong>TOTAL</strong></div>
+                        <div style="text-align:right;"><strong>${(config.chris + config.fernando + config.lot + config.diego).toFixed(2)}%</strong></div>
+                        <div class="resumen-valor">$${reparto.total.toLocaleString('es-MX')}</div>
+                    </div>
+                    ${Math.abs((config.chris + config.fernando + config.lot + config.diego) - 100) > 0.01 ? `<div class="error" style="margin-top:12px;">⚠️ El total debe ser 100%</div>` : ''}
                 </div>
-                <button class="btn btn-primary" style="width:100%;margin-top:16px;" onclick="guardarConfiguracion()">💾 Guardar Configuración</button>
+                <button class="btn btn-primary" style="width:100%;margin-top:16px;" onclick="guardarConfiguracion(${loteActivo})">💾 Guardar Configuración Lote ${loteActivo}</button>
             </div>
         `;
 
@@ -239,17 +295,15 @@
         document.getElementById('logoutLink').style.display = 'inline';
     }
 
+    function agregarLote() {
+        const maxLote = Math.max(...candidatos.map(c => c.lote || 1));
+        const nuevoLote = maxLote + 1;
+        alert(`✅ Nuevo lote ${nuevoLote} creado. Asigna candidatos desde el panel de Precios.`);
+    }
+
     async function boot() {
         const app = document.getElementById('app');
         app.innerHTML = `<div style="padding:40px;text-align:center;">Cargando datos...</div>`;
-
-        // Cargar configuración guardada
-        const config = localStorage.getItem('config_utilidades');
-        if (config) {
-            const parsed = JSON.parse(config);
-            socios = parsed.socios;
-            colaboradores = parsed.colaboradores;
-        }
 
         await cargarDatos();
         renderPanel();
