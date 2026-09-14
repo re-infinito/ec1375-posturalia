@@ -12,6 +12,9 @@
         :root {
             --dark: #050a1a; --dark-light: #0f1428; --primary: #0088FF; --primary-light: #00CCFF;
             --accent: #FFD700; --text: #D0D0D0; --text-bright: #FFFFFF; --danger: #FF3333; --success: #00FF88;
+            --c-registro: #2a78d6; --c-alineacion: #eb6834; --c-evaluacion: #1baf7a; --c-entrega: #eda100;
+            --c-activo: #1baf7a; --c-desistio: #eb3b3b; --c-cambiolote: #eda100;
+            --c-chris: #9b59b6; --c-fernando: #2a78d6; --c-lot: #eb6834; --c-diego: #1baf7a;
         }
 
         body {
@@ -20,7 +23,7 @@
             color: var(--text); line-height: 1.6; min-height: 100vh; padding-bottom: 60px;
         }
 
-        .container { max-width: 1200px; margin: 0 auto; padding: 24px 20px; }
+        .container { max-width: 1300px; margin: 0 auto; padding: 24px 20px; }
         .top-bar {
             position: sticky; top: 0; background: var(--dark); border-bottom: 1px solid var(--dark-light);
             padding: 16px 20px; z-index: 100; display: flex; justify-content: space-between; align-items: center;
@@ -28,30 +31,88 @@
         .top-bar-inner { font-size: 0.95rem; color: var(--text-bright); font-weight: 700; }
         .top-bar a { color: var(--primary); font-size: 0.82rem; text-decoration: none; margin-left: 20px; }
 
-        .card { background: var(--dark-light); border-radius: 12px; padding: 22px; margin-bottom: 20px; }
-        .card h2 { font-size: 1.1rem; color: var(--text-bright); margin-bottom: 16px; }
-        .card h3 { font-size: 0.9rem; color: var(--primary-light); margin-top: 16px; margin-bottom: 12px; text-transform: uppercase; }
+        .card { background: var(--dark-light); border-radius: 12px; padding: 22px; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.08); }
+        .card h2 { font-size: 1.05rem; color: var(--text-bright); margin-bottom: 16px; }
+        .card .subtitle { font-size: 0.78rem; color: rgba(255,255,255,0.4); margin-top: -12px; margin-bottom: 16px; }
 
-        .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 20px; }
+        .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; margin-bottom: 20px; }
         .kpi-card {
-            background: rgba(0,136,255,0.08); border: 1px solid rgba(0,136,255,0.2); border-radius: 8px;
-            padding: 16px; text-align: center;
+            background: rgba(0,136,255,0.08); border: 1px solid rgba(0,136,255,0.2); border-radius: 10px;
+            padding: 16px;
         }
-        .kpi-value { font-size: 2rem; font-weight: 700; color: var(--primary-light); }
-        .kpi-label { font-size: 0.8rem; color: var(--text); margin-top: 6px; text-transform: uppercase; }
-        .kpi-change { font-size: 0.75rem; color: var(--success); margin-top: 4px; }
+        .kpi-value { font-size: 1.8rem; font-weight: 700; color: var(--primary-light); font-family: 'Courier New', monospace; }
+        .kpi-label { font-size: 0.72rem; color: var(--text); margin-top: 6px; text-transform: uppercase; letter-spacing: 0.4px; }
+        .kpi-delta { font-size: 0.72rem; color: var(--success); margin-top: 4px; }
+        .kpi-card.danger { background: rgba(255,51,51,0.08); border-color: rgba(255,51,51,0.2); }
+        .kpi-card.danger .kpi-value { color: var(--danger); }
+        .kpi-card.warn { background: rgba(237,161,0,0.08); border-color: rgba(237,161,0,0.25); }
+        .kpi-card.warn .kpi-value { color: var(--c-cambiolote); }
 
-        .metric-row { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 12px; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.06); }
-        .metric-row:last-child { border-bottom: none; }
-        .metric-label { font-size: 0.85rem; color: var(--text); }
-        .metric-value { font-size: 0.9rem; color: var(--text-bright); font-weight: 600; }
+        /* Donut estado */
+        .estado-wrap { display: flex; gap: 28px; align-items: center; flex-wrap: wrap; }
+        .donut {
+            width: 170px; height: 170px; border-radius: 50%; flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+            position: relative;
+        }
+        .donut-hole {
+            width: 100px; height: 100px; border-radius: 50%; background: var(--dark-light);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+        }
+        .donut-hole .n { font-size: 1.5rem; font-weight: 700; color: var(--text-bright); }
+        .donut-hole .l { font-size: 0.62rem; color: var(--text); text-transform: uppercase; }
+        .legend-list { display: flex; flex-direction: column; gap: 10px; }
+        .legend-row { display: flex; align-items: center; gap: 10px; font-size: 0.85rem; }
+        .legend-dot { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+        .legend-row .val { color: var(--text-bright); font-weight: 700; margin-left: auto; padding-left: 20px; }
 
-        .chart-container { width: 100%; height: 300px; background: rgba(255,255,255,0.02); border-radius: 8px; padding: 20px; margin-bottom: 20px; }
-        .loading { text-align: center; padding: 40px; color: var(--text); }
+        /* Funnel */
+        .funnel-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+        .funnel-label { min-width: 110px; font-size: 0.82rem; color: rgba(255,255,255,0.6); }
+        .funnel-track { flex: 1; background: rgba(255,255,255,0.05); border-radius: 6px; overflow: hidden; height: 38px; }
+        .funnel-fill {
+            height: 100%; border-radius: 6px; display: flex; align-items: center; justify-content: space-between;
+            padding: 0 12px; color: white; font-size: 0.78rem; font-weight: 600; white-space: nowrap;
+            transition: width 0.4s ease;
+        }
+        .funnel-meta { min-width: 75px; text-align: right; font-size: 0.78rem; color: rgba(255,255,255,0.4); }
 
-        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-top: 12px; }
-        th { text-align: left; color: var(--primary-light); font-size: 0.72rem; text-transform: uppercase; padding: 8px 6px; border-bottom: 1px solid rgba(255,255,255,0.1); }
-        td { padding: 8px 6px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+        /* Phase cards */
+        .phase-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; }
+        .phase-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 16px; }
+        .phase-name { font-size: 0.85rem; font-weight: 700; color: var(--text-bright); margin-bottom: 10px; }
+        .progress-bar { width: 100%; height: 7px; background: rgba(255,255,255,0.08); border-radius: 4px; overflow: hidden; margin-bottom: 12px; }
+        .progress-fill { height: 100%; border-radius: 4px; transition: width 0.4s ease; }
+        .phase-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.76rem; }
+        .stat-item { color: rgba(255,255,255,0.45); }
+        .stat-value { color: var(--text-bright); font-weight: 700; }
+
+        /* Ingresos vs proyectado */
+        .ip-track { width: 100%; height: 44px; background: rgba(255,255,255,0.05); border-radius: 8px; overflow: hidden; position: relative; }
+        .ip-fill { height: 100%; background: linear-gradient(90deg, var(--success), #00cc6a); display: flex; align-items: center; padding: 0 14px; color: #04120a; font-weight: 700; font-size: 0.8rem; white-space: nowrap; transition: width 0.4s ease; }
+        .ip-labels { display: flex; justify-content: space-between; margin-top: 8px; font-size: 0.78rem; color: rgba(255,255,255,0.5); }
+
+        /* Utilidades por lote */
+        .lote-util-block { margin-bottom: 22px; }
+        .lote-util-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+        .lote-util-header .titulo { font-size: 0.9rem; font-weight: 700; color: var(--text-bright); }
+        .lote-util-header .total { font-size: 0.85rem; color: var(--success); font-weight: 700; }
+        .stacked-bar { width: 100%; height: 32px; border-radius: 6px; overflow: hidden; display: flex; background: rgba(255,255,255,0.05); }
+        .stacked-seg { height: 100%; display: flex; align-items: center; justify-content: center; font-size: 0.72rem; font-weight: 700; color: white; white-space: nowrap; overflow: hidden; }
+        .util-legend { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 10px; font-size: 0.76rem; color: rgba(255,255,255,0.55); }
+        .util-legend .legend-row { font-size: 0.76rem; }
+
+        /* Lote breakdown */
+        .lote-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; }
+        .lote-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 16px; }
+        .lote-card .titulo { font-size: 0.9rem; font-weight: 700; color: var(--text-bright); margin-bottom: 10px; }
+        .lote-mini-row { display: flex; justify-content: space-between; font-size: 0.8rem; padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .lote-mini-row:last-child { border-bottom: none; }
+        .lote-mini-row .k { color: rgba(255,255,255,0.5); }
+        .lote-mini-row .v { color: var(--text-bright); font-weight: 600; }
+
+        .loading { text-align: center; padding: 60px; color: var(--text); }
+        .empty-note { font-size: 0.8rem; color: rgba(255,255,255,0.35); padding: 10px 0; }
     </style>
 </head>
 <body>
@@ -69,6 +130,7 @@
     <script>
     let candidatos = [];
     let pagosPorEmail = {};
+    let configLotes = {};
 
     function renderGateShell() {
         const app = document.getElementById('app');
@@ -89,9 +151,10 @@
     }
 
     async function cargarDatos() {
-        const [precios, pagos] = await Promise.all([
+        const [precios, pagos, reparto] = await Promise.all([
             supabaseClient.from('candidatos_precio').select('*'),
-            supabaseClient.from('candidatos_fase_pagos').select('email,fase')
+            supabaseClient.from('candidatos_fase_pagos').select('email,fase'),
+            supabaseClient.from('reparto_utilidades').select('*')
         ]);
         candidatos = precios.data || [];
         pagosPorEmail = {};
@@ -99,22 +162,39 @@
             if (!pagosPorEmail[row.email]) pagosPorEmail[row.email] = new Set();
             pagosPorEmail[row.email].add(row.fase);
         });
+        configLotes = {};
+        (reparto.data || []).forEach(row => { configLotes[row.lote] = row; });
+    }
+
+    function obtenerConfigLote(lote) {
+        return configLotes[lote] || {
+            incluir_chris: true, porcentaje_chris: 50,
+            porcentaje_fernando: 16.67, porcentaje_lot: 16.67, porcentaje_diego: 16.67
+        };
+    }
+
+    function ingresosDe(lista) {
+        return lista.reduce((sum, c) => {
+            const pagos = pagosPorEmail[c.email] || new Set();
+            let total = 0;
+            ['registro', 'alineacion', 'evaluacion', 'entrega'].forEach(f => {
+                if (pagos.has(f)) total += c[`monto_${f}`] || 0;
+            });
+            return sum + total;
+        }, 0);
     }
 
     function calcularKPIs() {
         const activos = candidatos.filter(c => (c.estado || 'activo') === 'activo');
+        const desistieron = candidatos.filter(c => c.estado === 'desistió');
+        const cambioLote = candidatos.filter(c => c.estado === 'cambio_lote');
         const fases = ['registro', 'alineacion', 'evaluacion', 'entrega'];
 
-        // Conteos por fase
         const porFase = {};
         fases.forEach(f => {
-            porFase[f] = activos.filter(c => {
-                const pagos = pagosPorEmail[c.email] || new Set();
-                return pagos.has(f);
-            }).length;
+            porFase[f] = activos.filter(c => (pagosPorEmail[c.email] || new Set()).has(f)).length;
         });
 
-        // Ingresos por fase
         const ingresosPorFase = {};
         fases.forEach(f => {
             ingresosPorFase[f] = activos.reduce((sum, c) => {
@@ -128,7 +208,6 @@
         const ingresosTotales = Object.values(ingresosPorFase).reduce((a, b) => a + b, 0);
         const proyectado = activos.reduce((sum, c) => sum + (c.total_acordado || 0), 0);
 
-        // Conversiones
         const conv = {
             registro: totalInscritos > 0 ? Math.round((porFase.registro / totalInscritos) * 100) : 0,
             alineacion: porFase.registro > 0 ? Math.round((porFase.alineacion / porFase.registro) * 100) : 0,
@@ -136,7 +215,187 @@
             entrega: porFase.evaluacion > 0 ? Math.round((porFase.entrega / porFase.evaluacion) * 100) : 0,
         };
 
-        return { totalInscritos, completados, porFase, ingresosPorFase, ingresosTotales, proyectado, conv };
+        return {
+            totalInscritos, completados, porFase, ingresosPorFase, ingresosTotales, proyectado, conv,
+            desistieron: desistieron.length, cambioLote: cambioLote.length,
+            totalRegistrados: candidatos.length
+        };
+    }
+
+    function fmtK(n) { return `$${(n / 1000).toFixed(1)}K`; }
+    function fmtMX(n) { return `$${Math.round(n).toLocaleString('es-MX')}`; }
+
+    function renderDonutEstado(kpis) {
+        const total = kpis.totalRegistrados || 1;
+        const pActivo = (kpis.totalInscritos / total) * 100;
+        const pDesistio = (kpis.desistieron / total) * 100;
+        const pCambio = (kpis.cambioLote / total) * 100;
+
+        const c1 = pActivo;
+        const c2 = c1 + pDesistio;
+
+        const gradient = `conic-gradient(
+            var(--c-activo) 0% ${c1}%,
+            var(--c-desistio) ${c1}% ${c2}%,
+            var(--c-cambiolote) ${c2}% 100%
+        )`;
+
+        return `
+            <div class="estado-wrap">
+                <div class="donut" style="background:${gradient};">
+                    <div class="donut-hole">
+                        <div class="n">${total}</div>
+                        <div class="l">Total</div>
+                    </div>
+                </div>
+                <div class="legend-list">
+                    <div class="legend-row"><div class="legend-dot" style="background:var(--c-activo);"></div>Activos<span class="val">${kpis.totalInscritos} (${pActivo.toFixed(0)}%)</span></div>
+                    <div class="legend-row"><div class="legend-dot" style="background:var(--c-desistio);"></div>Desistieron<span class="val">${kpis.desistieron} (${pDesistio.toFixed(0)}%)</span></div>
+                    <div class="legend-row"><div class="legend-dot" style="background:var(--c-cambiolote);"></div>Cambio de lote<span class="val">${kpis.cambioLote} (${pCambio.toFixed(0)}%)</span></div>
+                </div>
+            </div>
+        `;
+    }
+
+    function renderFunnel(kpis) {
+        const fases = [
+            { key: 'registro', label: 'Registro', color: 'var(--c-registro)' },
+            { key: 'alineacion', label: 'Alineación', color: 'var(--c-alineacion)' },
+            { key: 'evaluacion', label: 'Evaluación', color: 'var(--c-evaluacion)' },
+            { key: 'entrega', label: 'Entrega', color: 'var(--c-entrega)' }
+        ];
+        return fases.map(f => {
+            const cantidad = kpis.porFase[f.key] || 0;
+            const pct = kpis.totalInscritos > 0 ? (cantidad / kpis.totalInscritos) * 100 : 0;
+            const monto = kpis.ingresosPorFase[f.key] || 0;
+            return `
+                <div class="funnel-bar">
+                    <div class="funnel-label">${f.label}</div>
+                    <div class="funnel-track">
+                        <div class="funnel-fill" style="width:${Math.max(pct, 6)}%;background:${f.color};">
+                            <span>${cantidad} (${pct.toFixed(0)}%)</span>
+                        </div>
+                    </div>
+                    <div class="funnel-meta">${fmtK(monto)}</div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function renderPhaseCards(kpis) {
+        const fases = [
+            { key: 'registro', label: '1. Registro', color: 'var(--c-registro)' },
+            { key: 'alineacion', label: '2. Alineación', color: 'var(--c-alineacion)' },
+            { key: 'evaluacion', label: '3. Evaluación', color: 'var(--c-evaluacion)' },
+            { key: 'entrega', label: '4. Entrega', color: 'var(--c-entrega)' }
+        ];
+        return fases.map(f => {
+            const cantidad = kpis.porFase[f.key] || 0;
+            const pct = kpis.totalInscritos > 0 ? (cantidad / kpis.totalInscritos) * 100 : 0;
+            const monto = kpis.ingresosPorFase[f.key] || 0;
+            const promedio = cantidad > 0 ? monto / cantidad : 0;
+            return `
+                <div class="phase-card">
+                    <div class="phase-name">${f.label}</div>
+                    <div class="progress-bar"><div class="progress-fill" style="width:${pct}%;background:${f.color};"></div></div>
+                    <div class="phase-stats">
+                        <div class="stat-item">Candidatos: <span class="stat-value">${cantidad}</span></div>
+                        <div class="stat-item">Avance: <span class="stat-value">${pct.toFixed(0)}%</span></div>
+                        <div class="stat-item">Ingresos: <span class="stat-value">${fmtK(monto)}</span></div>
+                        <div class="stat-item">Promedio: <span class="stat-value">${promedio > 0 ? fmtK(promedio) : '-'}</span></div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function renderIngresosVsProyectado(kpis) {
+        const pct = kpis.proyectado > 0 ? Math.min((kpis.ingresosTotales / kpis.proyectado) * 100, 100) : 0;
+        return `
+            <div class="ip-track">
+                <div class="ip-fill" style="width:${Math.max(pct, 8)}%;">${fmtMX(kpis.ingresosTotales)}</div>
+            </div>
+            <div class="ip-labels">
+                <span>${pct.toFixed(1)}% del proyectado cobrado</span>
+                <span>Proyectado total: ${fmtMX(kpis.proyectado)}</span>
+            </div>
+        `;
+    }
+
+    function renderUtilidadesPorLote() {
+        const lotesUnicos = [...new Set(candidatos.map(c => c.lote || 1))].sort((a, b) => a - b);
+
+        if (lotesUnicos.length === 0) {
+            return `<div class="empty-note">No hay candidatos registrados todavía.</div>`;
+        }
+
+        return lotesUnicos.map(lote => {
+            const activosLote = candidatos.filter(c => (c.estado || 'activo') === 'activo' && (c.lote || 1) === lote);
+            const ingresos = ingresosDe(activosLote);
+            const config = obtenerConfigLote(lote);
+
+            const chris = config.incluir_chris ? Math.round((ingresos * config.porcentaje_chris) / 100) : 0;
+            const fernando = Math.round((ingresos * config.porcentaje_fernando) / 100);
+            const lot = Math.round((ingresos * config.porcentaje_lot) / 100);
+            const diego = Math.round((ingresos * config.porcentaje_diego) / 100);
+            const total = chris + fernando + lot + diego || 1;
+
+            const segs = [
+                config.incluir_chris ? { label: 'Chris', val: chris, color: 'var(--c-chris)' } : null,
+                { label: 'Fernando', val: fernando, color: 'var(--c-fernando)' },
+                { label: 'Lot', val: lot, color: 'var(--c-lot)' },
+                { label: 'Diego', val: diego, color: 'var(--c-diego)' }
+            ].filter(Boolean);
+
+            const barHtml = segs.map(s => {
+                const pct = (s.val / total) * 100;
+                return `<div class="stacked-seg" style="width:${pct}%;background:${s.color};">${pct > 8 ? fmtMX(s.val) : ''}</div>`;
+            }).join('');
+
+            const legendHtml = segs.map(s => `
+                <div class="legend-row"><div class="legend-dot" style="background:${s.color};"></div>${s.label}<span class="val">${fmtMX(s.val)}</span></div>
+            `).join('');
+
+            return `
+                <div class="lote-util-block">
+                    <div class="lote-util-header">
+                        <div class="titulo">📦 Lote ${lote} ${config.incluir_chris ? '(con Chris)' : '(solo socios)'}</div>
+                        <div class="total">Ingresos: ${fmtMX(ingresos)}</div>
+                    </div>
+                    <div class="stacked-bar">${barHtml || '<div class="empty-note">Sin ingresos aún</div>'}</div>
+                    <div class="util-legend">${legendHtml}</div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function renderDesglosePorLote() {
+        const lotesUnicos = [...new Set(candidatos.map(c => c.lote || 1))].sort((a, b) => a - b);
+
+        if (lotesUnicos.length === 0) {
+            return `<div class="empty-note">No hay candidatos registrados todavía.</div>`;
+        }
+
+        return `<div class="lote-grid">${lotesUnicos.map(lote => {
+            const enLote = candidatos.filter(c => (c.lote || 1) === lote);
+            const activos = enLote.filter(c => (c.estado || 'activo') === 'activo');
+            const desistieron = enLote.filter(c => c.estado === 'desistió');
+            const cambioLote = enLote.filter(c => c.estado === 'cambio_lote');
+            const ingresos = ingresosDe(activos);
+            const proyectado = activos.reduce((sum, c) => sum + (c.total_acordado || 0), 0);
+
+            return `
+                <div class="lote-card">
+                    <div class="titulo">📦 Lote ${lote}</div>
+                    <div class="lote-mini-row"><span class="k">Total registrados</span><span class="v">${enLote.length}</span></div>
+                    <div class="lote-mini-row"><span class="k">Activos</span><span class="v" style="color:var(--c-activo);">${activos.length}</span></div>
+                    <div class="lote-mini-row"><span class="k">Desistieron</span><span class="v" style="color:var(--c-desistio);">${desistieron.length}</span></div>
+                    <div class="lote-mini-row"><span class="k">Cambio de lote</span><span class="v" style="color:var(--c-cambiolote);">${cambioLote.length}</span></div>
+                    <div class="lote-mini-row"><span class="k">Ingresos realizados</span><span class="v">${fmtMX(ingresos)}</span></div>
+                    <div class="lote-mini-row"><span class="k">Proyectado</span><span class="v">${fmtMX(proyectado)}</span></div>
+                </div>
+            `;
+        }).join('')}</div>`;
     }
 
     function renderPanel() {
@@ -149,65 +408,63 @@
                 <div class="kpi-grid">
                     <div class="kpi-card">
                         <div class="kpi-value">${kpis.totalInscritos}</div>
-                        <div class="kpi-label">Total Inscritos</div>
+                        <div class="kpi-label">Inscritos Activos</div>
                     </div>
                     <div class="kpi-card">
                         <div class="kpi-value">${kpis.completados}</div>
                         <div class="kpi-label">Completados</div>
-                        <div class="kpi-change">${kpis.totalInscritos > 0 ? Math.round((kpis.completados / kpis.totalInscritos) * 100) : 0}%</div>
+                        <div class="kpi-delta">${kpis.totalInscritos > 0 ? Math.round((kpis.completados / kpis.totalInscritos) * 100) : 0}%</div>
                     </div>
                     <div class="kpi-card">
-                        <div class="kpi-value">$${kpis.ingresosTotales.toLocaleString('es-MX')}</div>
+                        <div class="kpi-value">${fmtK(kpis.ingresosTotales)}</div>
                         <div class="kpi-label">Ingresos Realizados</div>
                     </div>
                     <div class="kpi-card">
-                        <div class="kpi-value">$${kpis.proyectado.toLocaleString('es-MX')}</div>
+                        <div class="kpi-value">${fmtK(kpis.proyectado)}</div>
                         <div class="kpi-label">Proyectado</div>
+                    </div>
+                    <div class="kpi-card danger">
+                        <div class="kpi-value">${kpis.desistieron}</div>
+                        <div class="kpi-label">Desistieron</div>
+                    </div>
+                    <div class="kpi-card warn">
+                        <div class="kpi-value">${kpis.cambioLote}</div>
+                        <div class="kpi-label">Cambio de Lote</div>
                     </div>
                 </div>
             </div>
 
             <div class="card">
-                <h2>🔀 Conversión por Fase</h2>
-                <div class="metric-row">
-                    <div><div class="metric-label">Fase</div></div>
-                    <div><div class="metric-label">Candidatos</div></div>
-                    <div><div class="metric-label">Ingresos</div></div>
-                    <div><div class="metric-label">Conversión</div></div>
-                </div>
-                <div class="metric-row">
-                    <div><div class="metric-label">Registro</div></div>
-                    <div><div class="metric-value">${kpis.porFase.registro}</div></div>
-                    <div><div class="metric-value">$${kpis.ingresosPorFase.registro.toLocaleString('es-MX')}</div></div>
-                    <div><div class="metric-value">${kpis.conv.registro}%</div></div>
-                </div>
-                <div class="metric-row">
-                    <div><div class="metric-label">Alineación</div></div>
-                    <div><div class="metric-value">${kpis.porFase.alineacion}</div></div>
-                    <div><div class="metric-value">$${kpis.ingresosPorFase.alineacion.toLocaleString('es-MX')}</div></div>
-                    <div><div class="metric-value">${kpis.conv.alineacion}%</div></div>
-                </div>
-                <div class="metric-row">
-                    <div><div class="metric-label">Evaluación</div></div>
-                    <div><div class="metric-value">${kpis.porFase.evaluacion}</div></div>
-                    <div><div class="metric-value">$${kpis.ingresosPorFase.evaluacion.toLocaleString('es-MX')}</div></div>
-                    <div><div class="metric-value">${kpis.conv.evaluacion}%</div></div>
-                </div>
-                <div class="metric-row">
-                    <div><div class="metric-label">Entrega</div></div>
-                    <div><div class="metric-value">${kpis.porFase.entrega}</div></div>
-                    <div><div class="metric-value">$${kpis.ingresosPorFase.entrega.toLocaleString('es-MX')}</div></div>
-                    <div><div class="metric-value">${kpis.conv.entrega}%</div></div>
-                </div>
+                <h2>🔴 Estado de Candidatos</h2>
+                <div class="subtitle">Del total de ${kpis.totalRegistrados} registrados históricamente</div>
+                ${renderDonutEstado(kpis)}
             </div>
 
             <div class="card">
-                <h2>💡 Análisis Rápido</h2>
-                <p style="font-size:0.9rem;margin-bottom:12px;">
-                    Tasa de finalización: <strong>${kpis.totalInscritos > 0 ? Math.round((kpis.completados / kpis.totalInscritos) * 100) : 0}%</strong> (${kpis.completados}/${kpis.totalInscritos})<br>
-                    Ingresos vs Proyectado: <strong>${kpis.proyectado > 0 ? Math.round((kpis.ingresosTotales / kpis.proyectado) * 100) : 0}%</strong> ($${kpis.ingresosTotales.toLocaleString('es-MX')}/$${kpis.proyectado.toLocaleString('es-MX')})<br>
-                    Costo promedio por inscrito: <strong>$${kpis.totalInscritos > 0 ? Math.round(kpis.proyectado / kpis.totalInscritos) : 0}</strong> MXN
-                </p>
+                <h2>🔀 Embudo de Conversión</h2>
+                <div class="subtitle">Solo candidatos activos</div>
+                ${renderFunnel(kpis)}
+            </div>
+
+            <div class="card">
+                <h2>📶 Progreso por Fase</h2>
+                <div class="phase-grid">${renderPhaseCards(kpis)}</div>
+            </div>
+
+            <div class="card">
+                <h2>💰 Ingresos vs Proyectado</h2>
+                ${renderIngresosVsProyectado(kpis)}
+            </div>
+
+            <div class="card">
+                <h2>💵 Reparto de Utilidades por Lote</h2>
+                <div class="subtitle">Montos reales según configuración de <a href="admin-utilidades.html" style="color:var(--primary);">admin-utilidades.html</a></div>
+                ${renderUtilidadesPorLote()}
+            </div>
+
+            <div class="card">
+                <h2>📦 Desglose por Lote</h2>
+                ${renderDesglosePorLote()}
             </div>
         `;
 
