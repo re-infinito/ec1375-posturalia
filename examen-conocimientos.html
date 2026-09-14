@@ -112,7 +112,6 @@
        una correspondencia 1:1 verificable con las respuestas del
        documento, así que se reconstruyeron como opción múltiple.
     ========================================================= */
-    const PASSING_PERCENT = 97.64;
 
     const REACTIVOS = [
         // Técnicas de Atención Tradicional y Complementaria
@@ -363,11 +362,17 @@
         }
     }
 
+    /* No se guarda ni se muestra un "score" tipo aprobado/reprobado aquí:
+       como no se puede avanzar sin acertar cada reactivo (con o sin
+       reforzamiento), TODOS terminan con el 100% de aciertos por diseño.
+       El resultado Competente/No competente es un juicio oficial que
+       únicamente emite el Centro Evaluador al calificar el Plan de
+       Evaluación, las respuestas del examen y el resto del expediente —
+       esta pantalla nunca debe anticiparlo. */
     async function finishExamen() {
-        const correctas = REACTIVOS.filter((_, qIndex) => examState.firstAttemptCorrect[qIndex]).length;
         examState.submitted = true;
-        examState.score = Math.round((correctas / REACTIVOS.length) * 10000) / 100;
-        examState.correctas = correctas;
+        examState.correctas = REACTIVOS.length;
+        examState.score = 100;
         examState.fecha = new Date().toISOString().split('T')[0];
         saveExamState();
 
@@ -379,7 +384,6 @@
 
     async function renderResultado(app, result) {
         document.getElementById('topBarProgress').textContent = 'Examen completado';
-        const pass = examState.score >= PASSING_PERCENT;
 
         const temasRepasados = [...new Set(
             REACTIVOS
@@ -395,19 +399,17 @@
                     ${temasRepasados.map(t => `<li style="margin-bottom:4px;">${escapeHtml(t)}</li>`).join('')}
                 </ul>
                 <p style="color:var(--text);font-size:0.85rem;">
-                    Respondiste correctamente las ${REACTIVOS.length} preguntas antes de terminar — vale la pena repasar estos temas una vez más en tu Biblioteca antes de tu evaluación real.
+                    Vale la pena repasar estos temas una vez más en tu Biblioteca antes de tu evaluación real.
                 </p>
             </div>
         ` : '';
 
         app.innerHTML = `
-            <div class="hero"><div class="hero-icon">${pass ? '✅' : '📋'}</div><h1 class="hero-title">Examen completado</h1></div>
-            <div class="result-box ${pass ? 'pass' : 'fail'}">
+            <div class="hero"><div class="hero-icon">✅</div><h1 class="hero-title">Examen completado</h1></div>
+            <div class="result-box pass">
                 <p style="color:var(--text-bright);">Respondiste correctamente las <strong>${REACTIVOS.length} / ${REACTIVOS.length}</strong> preguntas.</p>
-                <p style="color:var(--text);font-size:0.85rem;margin-top:6px;">Aciertos a la primera: <strong>${examState.correctas} / ${REACTIVOS.length}</strong></p>
-                <div class="result-score">${examState.score}%</div>
-                <p style="color:var(--text-bright);font-weight:700;">${pass ? '¡Competente!' : `No competente a la primera — se requiere ${PASSING_PERCENT}%`}</p>
-                <p style="color:var(--text);font-size:0.85rem;margin-top:10px;">Esta es una autoevaluación de práctica — tu evaluación oficial es el video de tu sesión, revisado por tu Centro Evaluador. Este resultado no bloquea tu avance.</p>
+                <div class="result-score">100%</div>
+                <p style="color:var(--text);font-size:0.85rem;margin-top:10px;">Esta es una autoevaluación de práctica — no determina si eres competente o no. Ese resultado lo emite tu Centro Evaluador al calificar tu Plan de Evaluación, tus respuestas del examen y el resto de tu expediente. Completar este examen no bloquea tu avance.</p>
             </div>
             ${reforzamientoHtml}
             <div class="card" style="text-align:center;">
@@ -460,7 +462,10 @@ const LOGO_CONOCER_BASE64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAA
         doc.text(`Aciertos: ${examState.correctas} / ${REACTIVOS.length}`, 14, y); y += 8;
         doc.setFont(undefined, 'bold');
         doc.text(`Calificación: ${examState.score}%`, 14, y); y += 8;
-        doc.text(`Resultado: ${examState.score >= PASSING_PERCENT ? 'COMPETENTE' : 'NO COMPETENTE (mínimo ' + PASSING_PERCENT + '%)'}`, 14, y);
+        doc.setFont(undefined, 'normal');
+        doc.text('Esta es una autoevaluación de práctica — no determina si el candidato es', 14, y); y += 6;
+        doc.text('competente. Ese resultado lo emite el Centro Evaluador al calificar el Plan de', 14, y); y += 6;
+        doc.text('Evaluación, las respuestas del examen y el resto del expediente.', 14, y);
 
         doc.save(`Examen_Conocimientos_${(nombre || 'candidato').replace(/\s+/g, '_')}.pdf`);
     }
