@@ -240,7 +240,11 @@
         }
 
         const email = session.user.email;
-        const autorizado = Auth._isBypassSession || await Auth.isPhaseAuthorized(email, 'entrega');
+        /* Deliberadamente SIN el atajo Auth._isBypassSession que sí usan
+           alineacion.html/documentos-sesion.html — Entrega es dinero real y
+           una decisión real del evaluador, nunca debe quedar "desbloqueada"
+           para pruebas aunque sea solo en apariencia. */
+        const autorizado = await Auth.isPhaseAuthorized(email, 'entrega');
 
         if (!autorizado) {
             const monto = await fetchMontoFase(email, 'entrega');
