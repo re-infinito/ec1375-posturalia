@@ -186,6 +186,21 @@ Credenciales Google: OAuth "Aplicación de escritorio", proyecto de Cloud `EC137
 
 ---
 
+## Validación de formato contra el expediente real de Humberto
+
+Diego pidió (14 sep) que cada documento que el sitio genera haga match al 100% con las mismas tablas/formato que la SEP ya aprobó — verificado contra `PORTAFOLIO HUMBERTO LOT 1375  .pdf` en `_internal_no_publicar/03-documentos-referencia/` (expediente real, confidencial). Esta tabla es la fuente de verdad de qué ya se comparó **página por página** contra ese expediente y qué falta — **actualizar esta sección en cuanto se termine de validar/corregir cada documento, antes de pasar al siguiente, para no repetir la investigación.**
+
+| Documento | Estado | Notas |
+|---|---|---|
+| Encuesta de Satisfacción | ✅ Validado 14 sep | Formato de caritas verbatim contra el expediente (ver sección "Cambios recientes"). |
+| Ficha de Registro RENAP | ✅ Validado 14 sep | Texto legal RENAP y layout construidos contra el expediente desde el inicio. |
+| Plan de Evaluación | ✅ Validado 14 sep | Comparado imagen por imagen contra las 12 páginas reales (pp. 23-34): las 29 filas numeradas, encabezado, tabla Resultado del Diagnóstico, Requerimientos, las dos tablas de Acuerdo (con Horario separado), Nota, lista de 4 puntos, y el 97.64 real del Primer criterio. |
+| Autodiagnóstico | ⚠️ Reconstruido contra el formato OFICIAL genérico (portada/índice/datos personales/propósito/Valoración), pero **nunca comparado imagen por imagen contra el Autodiagnóstico real y llenado de Humberto** — a diferencia de los tres de arriba. Pendiente de esa validación específica. | Diego tiene un PDF de ejemplo enviado el 14 sep para su propia revisión visual; su aprobación no reemplaza la comparación página por página contra el expediente. |
+| Documentos de Sesión (Ficha del usuario, Carta de Consentimiento, Plan de Sesión, Plan de Seguimiento) | ❌ Sin validar | 4 documentos generados en `documentos-sesion.html` con datos reales de la sesión — nunca comparados contra las versiones reales llenadas por Humberto (aparecen en su expediente real, sección "Ficha-Carta-Plan de Sesión-Plan de Seguimiento del paciente"). |
+| Cédula de Evaluación / IEC | N/A — no los genera el sitio | Los llena el evaluador a mano después de revisar el video; el sitio/script solo inserta la plantilla oficial en blanco (`plantilla_IEC_blanco.pdf`, 83 págs.). Vale la pena confirmar en algún momento que esa plantilla sigue siendo la vigente, pero no es una tabla que el sitio "arme" con datos del candidato. |
+
+---
+
 ## Cambios recientes (14 de septiembre, 2026)
 
 - **Estadímetro:** liga de compra actualizada a un modelo distinto en `plan-evaluacion.html` y `ruta-alineacion.html`.
