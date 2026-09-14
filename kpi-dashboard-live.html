@@ -4,219 +4,74 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>KPI Dashboard — EC1375 Paideia Tech</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="auth.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     :root {
-      --dark: #050a1a;
-      --dark-light: #0f1428;
-      --primary: #0088FF;
-      --accent: #FFD700;
-      --text: #D0D0D0;
-      --text-bright: #FFFFFF;
-      --success: #00FF88;
-      --danger: #FF3333;
+      --dark: #050a1a; --dark-light: #0f1428; --primary: #0088FF;
+      --text: #D0D0D0; --text-bright: #FFFFFF;
     }
-
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       background: linear-gradient(135deg, var(--dark) 0%, #0a1530 100%);
-      color: var(--text);
-      line-height: 1.6;
-      min-height: 100vh;
-      padding-bottom: 60px;
+      color: var(--text); line-height: 1.6; min-height: 100vh;
     }
-
-    .dashboard { max-width: 1400px; margin: 0 auto; padding: 24px 20px; }
-
-    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
-    h1 { font-size: 24px; font-weight: 700; color: var(--text-bright); }
-
-    .refresh-btn {
-      padding: 10px 18px;
-      background: var(--dark-light);
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      border-radius: 8px;
-      color: var(--primary);
-      cursor: pointer;
-      font-size: 13px;
-      font-weight: 600;
-      transition: all 0.2s ease;
+    .container { max-width: 420px; margin: 0 auto; padding: 40px 20px; }
+    .hero { text-align: center; margin-bottom: 30px; }
+    .hero-icon { font-size: 3rem; margin-bottom: 14px; }
+    .hero-title { font-size: 1.5rem; font-weight: 700; color: var(--text-bright); margin-bottom: 8px; }
+    .card { background: var(--dark-light); border-radius: 12px; padding: 24px; text-align: center; }
+    .card p { font-size: 0.85rem; margin-bottom: 16px; }
+    .card a.btn {
+      display: inline-block; padding: 12px 24px; background: var(--primary); color: white;
+      border-radius: 8px; font-weight: 700; font-size: 0.88rem; text-decoration: none;
     }
-    .refresh-btn:hover { background: rgba(0, 136, 255, 0.1); }
-    .refresh-btn.loading { opacity: 0.6; cursor: wait; }
-
-    .last-update { font-size: 11px; color: rgba(255, 255, 255, 0.4); margin-top: 4px; }
-
-    .kpi-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-      gap: 12px;
-      margin-bottom: 2rem;
-    }
-
-    .kpi-card {
-      background: var(--dark-light);
-      border-radius: 12px;
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      padding: 16px;
-    }
-
-    .kpi-label { font-size: 11px; color: rgba(255, 255, 255, 0.5); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
-    .kpi-value { font-size: 28px; font-weight: 700; color: var(--text-bright); font-family: 'Courier New', monospace; }
-    .kpi-delta { font-size: 11px; color: rgba(255, 255, 255, 0.4); margin-top: 6px; }
-
-    .section-title { font-size: 16px; font-weight: 700; color: var(--text-bright); margin: 2rem 0 1rem; }
-
-    .chart-container {
-      background: var(--dark-light);
-      border-radius: 12px;
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      padding: 24px;
-      margin-bottom: 1.5rem;
-    }
-
-    .funnel-bar {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 12px;
-    }
-
-    .funnel-label { min-width: 140px; font-size: 13px; color: rgba(255, 255, 255, 0.5); }
-    .funnel-fill {
-      flex: 1;
-      height: 36px;
-      border-radius: 4px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0 12px;
-      color: white;
-      font-size: 12px;
-      font-weight: 500;
-    }
-    .funnel-meta { min-width: 80px; text-align: right; font-size: 12px; color: rgba(255, 255, 255, 0.3); }
-
-    .legend {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 16px;
-      margin-top: 1rem;
-      font-size: 12px;
-      color: rgba(255, 255, 255, 0.6);
-    }
-
-    .legend-item { display: flex; align-items: center; gap: 6px; }
-    .legend-box { width: 12px; height: 12px; border-radius: 2px; }
-
-    .phase-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 12px;
-    }
-
-    .phase-card {
-      background: var(--dark-light);
-      border-radius: 12px;
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      padding: 16px;
-    }
-
-    .phase-name { font-size: 13px; font-weight: 600; color: var(--text-bright); margin-bottom: 8px; }
-    .progress-bar { width: 100%; height: 6px; background: rgba(255, 255, 255, 0.1); border-radius: 3px; overflow: hidden; margin-bottom: 12px; }
-    .progress-fill { height: 100%; border-radius: 3px; }
-
-    .phase-stats {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-      font-size: 12px;
-    }
-
-    .stat-item { color: rgba(255, 255, 255, 0.4); }
-    .stat-value { color: var(--text-bright); font-weight: 600; }
-
-    .loading-text { text-align: center; color: rgba(255, 255, 255, 0.4); padding: 60px 20px; }
-    .error-text { text-align: center; color: #FF6B6B; padding: 60px 20px; }
   </style>
 </head>
 <body>
-  <div class="dashboard">
-    <div class="header">
-      <div>
-        <h1>📊 KPI Dashboard — EC1375 Paideia Tech</h1>
-        <div class="last-update">Última actualización: <span id="lastUpdate">cargando...</span></div>
-      </div>
-      <button class="refresh-btn" id="refreshBtn" onclick="loadData()">🔄 Actualizar</button>
-    </div>
-    <div id="content">
-      <div class="loading-text">⏳ Cargando datos en vivo...</div>
-    </div>
-  </div>
+  <div class="container" id="app"></div>
 
   <script>
-    async function loadData() {
+    // Este dashboard (público, sin auth.js) fue reemplazado por
+    // admin-kpis.html — mismo cálculo de KPIs pero con más detalle
+    // (estado de candidatos, reparto de utilidades, desglose por lote)
+    // y protegido por login de administrador. Este archivo se conserva
+    // como stub gateado para no romper enlaces/bookmarks viejos, pero
+    // ya no expone ningún dato sin sesión de admin.
+    function renderGateShell() {
+      const app = document.getElementById('app');
+      app.innerHTML = `
+        <div class="hero"><div class="hero-icon">📊</div><h1 class="hero-title">KPI Dashboard</h1></div>
+        <div class="card" id="adminGateContainer"></div>`;
+      Auth.renderAdminGate(document.getElementById('adminGateContainer'), {
+        onVerified: () => { window.location.href = 'admin-kpis.html'; }
+      });
+    }
+
+    function renderRedirecting() {
+      const app = document.getElementById('app');
+      app.innerHTML = `
+        <div class="hero"><div class="hero-icon">📊</div><h1 class="hero-title">KPI Dashboard</h1></div>
+        <div class="card">
+          <p>Este dashboard se movió al panel de administración con más detalle (estado de candidatos, utilidades, desglose por lote).</p>
+          <a class="btn" href="admin-kpis.html">Ir al panel de KPIs →</a>
+        </div>`;
+    }
+
+    window.addEventListener('load', async () => {
       try {
-        document.getElementById('refreshBtn').classList.add('loading');
-        const response = await fetch('/api/kpi-data');
-        if (!response.ok) throw new Error(`Error ${response.status}`);
-        const data = await response.json();
-        if (data.error) throw new Error(data.error);
-        renderDashboard(data);
-        document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
-      } catch (error) {
-        document.getElementById('content').innerHTML = `<div class="error-text">⚠️ Error: ${error.message}</div>`;
-      } finally {
-        document.getElementById('refreshBtn').classList.remove('loading');
+        const session = await Auth.getSession();
+        if (session) {
+          const esAdmin = await Auth.isAdmin(session.user.email);
+          if (esAdmin) { renderRedirecting(); window.location.href = 'admin-kpis.html'; return; }
+          await Auth.signOut();
+        }
+        renderGateShell();
+      } catch (e) {
+        console.error('Error:', e);
+        renderGateShell();
       }
-    }
-
-    function renderDashboard(data) {
-      const { totalInscritos, completados, enProgreso, ingresosTotales, proyectado, ingresosPorFase, porFase } = data;
-      const html = `
-        <div class="kpi-grid">
-          <div class="kpi-card"><div class="kpi-label">Total Inscritos</div><div class="kpi-value">${totalInscritos}</div><div class="kpi-delta">${completados} completados</div></div>
-          <div class="kpi-card"><div class="kpi-label">Ingresos Realizados</div><div class="kpi-value">$${(ingresosTotales / 1000).toFixed(1)}K</div><div class="kpi-delta">${proyectado > 0 ? ((ingresosTotales / proyectado) * 100).toFixed(1) : 0}% proyectado</div></div>
-          <div class="kpi-card"><div class="kpi-label">En Progreso</div><div class="kpi-value">${enProgreso}</div><div class="kpi-delta">${totalInscritos > 0 ? ((enProgreso / totalInscritos) * 100).toFixed(1) : 0}%</div></div>
-          <div class="kpi-card"><div class="kpi-label">Certificados</div><div class="kpi-value">${completados}</div><div class="kpi-delta">${totalInscritos > 0 ? ((completados / totalInscritos) * 100).toFixed(1) : 0}%</div></div>
-          <div class="kpi-card"><div class="kpi-label">Valor Promedio</div><div class="kpi-value">$${totalInscritos > 0 ? (proyectado / totalInscritos / 1000).toFixed(1) : 0}K</div><div class="kpi-delta">Por candidato</div></div>
-          <div class="kpi-card"><div class="kpi-label">Proyección Total</div><div class="kpi-value">$${(proyectado / 1000).toFixed(1)}K</div><div class="kpi-delta">Si todos completan</div></div>
-        </div>
-        <div class="chart-container">
-          <h2 class="section-title">Flujo de Conversión por Fase</h2>
-          ${['registro', 'alineacion', 'evaluacion', 'entrega'].map((fase, i) => {
-            const labels = ['Registro', 'Alineación', 'Evaluación', 'Entrega'];
-            const colors = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100'];
-            const cantidad = porFase[fase] || 0;
-            const pct = totalInscritos > 0 ? (cantidad / totalInscritos) * 100 : 0;
-            const monto = ingresosPorFase[fase] || 0;
-            return `<div class="funnel-bar"><div class="funnel-label">${labels[i]}</div><div class="funnel-fill" style="width: ${Math.max(pct, 5)}%; background: ${colors[i]};"><span>${cantidad} (${pct.toFixed(1)}%)</span></div><div class="funnel-meta">$${(monto/1000).toFixed(0)}K</div></div>`;
-          }).join('')}
-          <div class="legend">
-            <div class="legend-item"><div class="legend-box" style="background: #2a78d6;"></div>Registro</div>
-            <div class="legend-item"><div class="legend-box" style="background: #eb6834;"></div>Alineación</div>
-            <div class="legend-item"><div class="legend-box" style="background: #1baf7a;"></div>Evaluación</div>
-            <div class="legend-item"><div class="legend-box" style="background: #eda100;"></div>Entrega</div>
-          </div>
-        </div>
-        <h2 class="section-title">Progreso por Fase</h2>
-        <div class="phase-grid">
-          ${['registro', 'alineacion', 'evaluacion', 'entrega'].map((fase, i) => {
-            const labels = ['1. Registro', '2. Alineación', '3. Evaluación', '4. Entrega'];
-            const colors = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100'];
-            const cantidad = porFase[fase] || 0;
-            const pct = totalInscritos > 0 ? (cantidad / totalInscritos) * 100 : 0;
-            const monto = ingresosPorFase[fase] || 0;
-            return `<div class="phase-card"><div class="phase-name">${labels[i]}</div><div class="progress-bar"><div class="progress-fill" style="width: ${pct}%; background: ${colors[i]};"></div></div><div class="phase-stats"><div class="stat-item">Candidatos: <span class="stat-value">${cantidad}</span></div><div class="stat-item">Avance: <span class="stat-value">${pct.toFixed(1)}%</span></div><div class="stat-item">Ingresos: <span class="stat-value">$${(monto/1000).toFixed(0)}K</span></div><div class="stat-item">Promedio: <span class="stat-value">${monto > 0 && cantidad > 0 ? '$' + (monto/cantidad/1000).toFixed(1) + 'K' : '-'}</span></div></div></div>`;
-          }).join('')}
-        </div>
-      `;
-      document.getElementById('content').innerHTML = html;
-    }
-
-    window.addEventListener('load', () => {
-      loadData();
-      setInterval(loadData, 30000);
     });
   </script>
 </body>

@@ -113,6 +113,12 @@
 
         .loading { text-align: center; padding: 60px; color: var(--text); }
         .empty-note { font-size: 0.8rem; color: rgba(255,255,255,0.35); padding: 10px 0; }
+
+        /* Selector de lote */
+        .lote-selector { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; }
+        .lote-btn { padding: 12px; border-radius: 8px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: var(--text); cursor: pointer; font-weight: 600; font-size: 0.85rem; transition: all 0.2s; }
+        .lote-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+        .lote-btn:hover { border-color: var(--primary); }
     </style>
 </head>
 <body>
@@ -131,6 +137,7 @@
     let candidatos = [];
     let pagosPorEmail = {};
     let configLotes = {};
+    let loteFiltro = null; // null = todos los lotes
 
     function renderGateShell() {
         const app = document.getElementById('app');
@@ -190,8 +197,9 @@
         return candidatos.filter(c => c.estado !== 'administrador');
     }
 
-    function calcularKPIs() {
-        const visibles = candidatosVisibles();
+    function calcularKPIs(lote) {
+        let visibles = candidatosVisibles();
+        if (lote) visibles = visibles.filter(c => (c.lote || 1) === lote);
         const activos = visibles.filter(c => (c.estado || 'activo') === 'activo');
         const desistieron = visibles.filter(c => c.estado === 'desistió');
         const cambioLote = visibles.filter(c => c.estado === 'cambio_lote');
@@ -226,11 +234,13 @@
             entrega: porFase.evaluacion > 0 ? Math.round((porFase.entrega / porFase.evaluacion) * 100) : 0,
         };
 
+        const candidatosEnLote = lote ? candidatos.filter(c => (c.lote || 1) === lote) : candidatos;
+
         return {
             totalInscritos, completados, porFase, ingresosPorFase, ingresosTotales, proyectado, conv,
             desistieron: desistieron.length, cambioLote: cambioLote.length,
             totalRegistrados: visibles.length,
-            administrador: candidatos.length - visibles.length
+            administrador: candidatosEnLote.length - visibles.length
         };
     }
 
@@ -334,9 +344,10 @@
         `;
     }
 
-    function renderUtilidadesPorLote() {
+    function renderUtilidadesPorLote(lote) {
         const visibles = candidatosVisibles();
-        const lotesUnicos = [...new Set(visibles.map(c => c.lote || 1))].sort((a, b) => a - b);
+        let lotesUnicos = [...new Set(visibles.map(c => c.lote || 1))].sort((a, b) => a - b);
+        if (lote) lotesUnicos = lotesUnicos.filter(l => l === lote);
 
         if (lotesUnicos.length === 0) {
             return `<div class="empty-note">No hay candidatos registrados todavía.</div>`;
@@ -416,13 +427,33 @@
         }).join('')}</div>`;
     }
 
+    function renderLoteSelector() {
+        const visibles = candidatosVisibles();
+        const lotesUnicos = [...new Set(visibles.map(c => c.lote || 1))].sort((a, b) => a - b);
+        if (lotesUnicos.length <= 1) return '';
+
+        const botones = [
+            `<button class="lote-btn ${loteFiltro === null ? 'active' : ''}" onclick="loteFiltro=null;renderPanel()">Todos (${visibles.length})</button>`,
+            ...lotesUnicos.map(lote => `<button class="lote-btn ${loteFiltro === lote ? 'active' : ''}" onclick="loteFiltro=${lote};renderPanel()">Lote ${lote} (${visibles.filter(c => (c.lote || 1) === lote).length})</button>`)
+        ];
+
+        return `
+            <div class="card">
+                <h2>📍 Filtrar por Lote</h2>
+                <div class="lote-selector">${botones.join('')}</div>
+            </div>
+        `;
+    }
+
     function renderPanel() {
         const app = document.getElementById('app');
-        const kpis = calcularKPIs();
+        const kpis = calcularKPIs(loteFiltro);
+        const contexto = loteFiltro ? ` — Lote ${loteFiltro}` : '';
 
         const html = `
+            ${renderLoteSelector()}
             <div class="card">
-                <h2>📈 KPIs Generales</h2>
+                <h2>📈 KPIs Generales${contexto}</h2>
                 <div class="kpi-grid">
                     <div class="kpi-card">
                         <div class="kpi-value">${kpis.totalInscritos}</div>
@@ -453,37 +484,39 @@
             </div>
 
             <div class="card">
-                <h2>🔴 Estado de Candidatos</h2>
+                <h2>🔴 Estado de Candidatos${contexto}</h2>
                 <div class="subtitle">Del total de ${kpis.totalRegistrados} registrados históricamente${kpis.administrador > 0 ? ` · ${kpis.administrador} cuenta(s) de administrador excluida(s) de todas las sumas` : ''}</div>
                 ${renderDonutEstado(kpis)}
             </div>
 
             <div class="card">
-                <h2>🔀 Embudo de Conversión</h2>
+                <h2>🔀 Embudo de Conversión${contexto}</h2>
                 <div class="subtitle">Solo candidatos activos</div>
                 ${renderFunnel(kpis)}
             </div>
 
             <div class="card">
-                <h2>📶 Progreso por Fase</h2>
+                <h2>📶 Progreso por Fase${contexto}</h2>
                 <div class="phase-grid">${renderPhaseCards(kpis)}</div>
             </div>
 
             <div class="card">
-                <h2>💰 Ingresos vs Proyectado</h2>
+                <h2>💰 Ingresos vs Proyectado${contexto}</h2>
                 ${renderIngresosVsProyectado(kpis)}
             </div>
 
             <div class="card">
-                <h2>💵 Reparto de Utilidades por Lote</h2>
+                <h2>💵 Reparto de Utilidades${loteFiltro ? ` — Lote ${loteFiltro}` : ' por Lote'}</h2>
                 <div class="subtitle">Montos reales según configuración de <a href="admin-utilidades.html" style="color:var(--primary);">admin-utilidades.html</a></div>
-                ${renderUtilidadesPorLote()}
+                ${renderUtilidadesPorLote(loteFiltro)}
             </div>
 
+            ${loteFiltro ? '' : `
             <div class="card">
                 <h2>📦 Desglose por Lote</h2>
                 ${renderDesglosePorLote()}
             </div>
+            `}
         `;
 
         app.innerHTML = html;
