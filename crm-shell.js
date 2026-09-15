@@ -434,7 +434,8 @@
 
     /* Quita emojis y espacios sobrantes del título del top-bar de la página. */
     function limpiarTitulo(txt) {
-        return String(txt || '').split('\n')[0].replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}]/gu, '').replace(/\s+/g, ' ').trim();
+        var lineas = String(txt || '').split('\n').map(function (l) { return l.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}]/gu, '').replace(/\s+/g, ' ').trim(); }).filter(Boolean);
+        return lineas[0] || '';
     }
 
     /* Refleja en el encabezado del shell el paso y el avance del wizard. */
