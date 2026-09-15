@@ -309,7 +309,7 @@ Los helpers puros no tocan el DOM y se prueban con `node --test`. `crm-shell.js`
 - [ ] **Step 1: Escribir las pruebas (fallan porque el módulo no existe)**
 
 ```js
-// tests/crm-shell.test.js — correr con: node --test tests/
+// tests/crm-shell.test.js — correr con: node --test tests/*.test.js
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const CrmShell = require('../crm-shell.js');
@@ -422,7 +422,7 @@ test('escapeHtml neutraliza etiquetas', () => {
 
 - [ ] **Step 2: Correr las pruebas y ver que fallan**
 
-Run: `node --test tests/`
+Run: `node --test tests/*.test.js`
 Expected: falla con `Cannot find module '../crm-shell.js'`.
 
 - [ ] **Step 3: Crear `crm-shell.js` con los helpers puros y el esqueleto del módulo**
@@ -669,7 +669,7 @@ Expected: falla con `Cannot find module '../crm-shell.js'`.
 
 - [ ] **Step 4: Correr las pruebas y ver que pasan**
 
-Run: `node --test tests/`
+Run: `node --test tests/*.test.js`
 Expected: `# pass 10` y `# fail 0`.
 
 - [ ] **Step 5: Commit**
@@ -961,7 +961,7 @@ por:
 
 - [ ] **Step 4: Verificar sintaxis y que las pruebas siguen pasando**
 
-Run: `node --check crm-shell.js && node --test tests/`
+Run: `node --check crm-shell.js && node --test tests/*.test.js`
 Expected: sin errores de sintaxis; `# pass 10`, `# fail 0`.
 
 - [ ] **Step 5: Prueba de humo en navegador con una página de prueba temporal**
@@ -1186,7 +1186,7 @@ por:
 
 - [ ] **Step 2: Verificar sintaxis y pruebas**
 
-Run: `node --check crm-shell.js && node --test tests/`
+Run: `node --check crm-shell.js && node --test tests/*.test.js`
 Expected: sin errores; `# pass 10`.
 
 - [ ] **Step 3: Reescribir `recuperar.html`**
@@ -1658,7 +1658,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 
 - [ ] **Step 4: Cerrar sesión desde el sidebar** — clic en "Cerrar sesión" → aterriza en `recuperar.html` con el gate de login; `Auth.getSession()` regresa `null`.
 
-- [ ] **Step 5: `node --test tests/` sigue en verde y `node --check` en `crm-shell.js` y `flow-status.js`.**
+- [ ] **Step 5: `node --test tests/*.test.js` sigue en verde y `node --check` en `crm-shell.js` y `flow-status.js`.**
 
 - [ ] **Step 6: Commit de cualquier corrección** (si no hubo, no hay commit).
 
@@ -1682,7 +1682,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
                                   usuario); CrmShell.renderDashboard() pinta el panel de recuperar.html. Tema claro por
                                   default con toggle a oscuro (localStorage 'paideia-theme'), vía los 9 tokens compartidos
                                   + --border/--surface-2. Modo rail (<script data-crm-mode="rail">) en ruta-estudio/
-                                  ruta-alineacion: solo iconos, sin tema. Helpers puros probados con `node --test tests/`.
+                                  ruta-alineacion: solo iconos, sin tema. Helpers puros probados con `node --test tests/*.test.js`.
    tests/crm-shell.test.js       Pruebas en Node (sin dependencias) de los helpers puros de crm-shell.js
    ```
    Y actualizar la descripción de `recuperar.html` a: "Login (email+password/login-maestro) Y, una vez logueado, panel de control tipo CRM (hero con cifras: pasos/documentos/fase pagada/próxima sesión + tarjetas de progreso, ruta, documentos del expediente, pagos, sesión de Alineación y 'Requieren atención') — todo calculado de `flow-status.js`, `pullMyRow`, `isPhaseAuthorized` y `api/mis-inscripciones-alineacion`."
