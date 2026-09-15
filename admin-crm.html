@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="favicon.ico" sizes="any">
+    <link rel="icon" href="favicon-32x32.png" type="image/png" sizes="32x32">
+    <link rel="icon" href="favicon-16x16.png" type="image/png" sizes="16x16">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <title>Panel del equipo - EC1375 Paideia Tech</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="auth.js"></script>
+    <script src="flow-status.js"></script>
+    <script src="crm-shell.js" data-crm-mode="admin" data-crm-page="admin-panel"></script>
+    <script src="admin-data.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --dark: #050a1a; --dark-light: #0f1428; --primary: #0088FF; --primary-light: #00CCFF;
+            --accent: #FFD700; --text: #D0D0D0; --text-bright: #FFFFFF; --danger: #FF3333; --success: #00FF88;
+            --border: rgba(255,255,255,0.12); --surface-2: rgba(255,255,255,0.05);
+        }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--dark); color: var(--text); line-height: 1.6; min-height: 100vh; padding-bottom: 60px; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 24px 20px; }
+        .container.narrow { max-width: 560px; }
+        .top-bar { position: sticky; top: 0; background: var(--dark); border-bottom: 1px solid var(--dark-light); padding: 16px 20px; z-index: 100; }
+        .top-bar-inner { font-size: 0.95rem; color: var(--text-bright); font-weight: 700; }
+        body.crm-active .top-bar { display: none; }
+        .hero { text-align: center; padding: 30px 0; }
+        .hero-icon { font-size: 3rem; margin-bottom: 14px; }
+        .hero-title { font-size: 1.6rem; font-weight: 700; color: var(--text-bright); margin-bottom: 10px; }
+        .card { background: var(--dark-light); border: 1px solid var(--border); border-radius: 12px; padding: 24px; margin-bottom: 20px; }
+        .field-group { margin-bottom: 16px; }
+        .field-group label { display: block; font-size: 0.85rem; color: var(--text); margin-bottom: 6px; font-weight: 600; }
+        .field-group input { width: 100%; padding: 14px; background: var(--dark); border: 1px solid var(--border); border-radius: 8px; color: var(--text-bright); font-size: 1rem; font-family: inherit; }
+        .btn { padding: 15px 24px; border-radius: 8px; font-weight: 700; font-size: 0.95rem; border: none; cursor: pointer; text-align: center; text-decoration: none; display: block; font-family: inherit; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-secondary { background: transparent; border: 2px solid var(--primary); color: var(--primary); margin-top: 10px; }
+        .btn-full { width: 100%; }
+        .msg { font-size: 0.88rem; margin-top: 14px; text-align: center; }
+        .msg.error { color: var(--danger); }
+        .spinner { text-align: center; color: var(--text); font-size: 0.88rem; padding: 40px 0; }
+    </style>
+</head>
+<body>
+    <div class="top-bar"><div class="top-bar-inner">🏠 Panel del equipo</div></div>
+    <div class="container" id="app"></div>
+
+    <script>
+    function renderGateShell() {
+        document.getElementById('app').innerHTML = `
+            <div class="container narrow" style="padding:0;">
+                <div class="hero"><div class="hero-icon">🔐</div><h1 class="hero-title">Acceso del equipo</h1></div>
+                <div class="card" id="adminGateContainer"></div>
+            </div>`;
+        Auth.renderAdminGate(document.getElementById('adminGateContainer'), { onVerified: boot });
+    }
+    function esc(s) { return CrmShell._helpers.escapeHtml(s); }
+    const fmt = AdminData.fmtMX;
+    function fechaCorta(iso) {
+        if (!iso) return '—';
+        const d = new Date(iso); if (isNaN(d)) return String(iso).slice(0, 10);
+        return d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'America/Mexico_City' });
+    }
+
+    /* Índice de módulos (antes admin-index.html), agrupado igual que el flujo. */
+    const MODULOS = [
+        { grupo: '📣 Marketing / Funnel', items: [['index.html', 'Landing'], ['quiz.html', 'Quiz de calentamiento']] },
+        { grupo: '💳 Post-pago', items: [['success.html', 'Success'], ['pending.html', 'Pending'], ['failure.html', 'Failure']] },
+        { grupo: '🔐 Cuenta', items: [['panel.html', 'Login + panel del candidato'], ['restablecer-password.html', 'Restablecer contraseña']] },
+        { grupo: '📋 Proceso del candidato', items: [['autodiagnostico.html', '1. Autodiagnóstico'], ['reforzamiento.html', '2. Reforzamiento'], ['alineacion.html', '3. Alineación'], ['ruta-alineacion.html', '↳ Ruta de Alineación'], ['biblioteca.html', '↳ Biblioteca'], ['plan-evaluacion.html', '4. Plan de Evaluación'], ['guion-maestro.html', '↳ Guion Maestro'], ['documentos-sesion.html', '5. Documentos de Sesión'], ['practica.html', '6. Práctica'], ['examen-conocimientos.html', '7. Examen de Conocimientos'], ['encuesta-satisfaccion.html', '8. Encuesta'], ['evidencias.html', '9. Evidencias'], ['entrega.html', '10. Entrega']] },
+        { grupo: '⚙️ Administración', items: [['admin-candidatos.html', 'Candidatos'], ['admin-precios.html', 'Precios y pagos'], ['admin-sesiones.html', 'Sesiones de Alineación'], ['admin-kpis.html', 'KPIs'], ['admin-utilidades.html', 'Utilidades']] }
+    ];
+
+    async function boot(session) {
+        const app = document.getElementById('app');
+        CrmShell.mount({ mode: 'admin', currentPageId: 'admin-panel', title: 'Panel del equipo' });
+        app.innerHTML = '<p class="spinner">Cargando datos del equipo…</p>';
+        let datos;
+        try { datos = await AdminData.cargar(); }
+        catch (e) { app.innerHTML = `<p class="msg error">No se pudieron cargar los datos: ${esc(e.message || e)}</p>`; return; }
+        render(app, datos);
+    }
+
+    function card(icono, titulo, cuerpo, extraH) {
+        return `<section class="crm-card"><div class="crm-card-h"><span class="crm-stat-ico">${icono}</span>${esc(titulo)}${extraH || ''}</div>${cuerpo}</section>`;
+    }
+
+    function render(app, datos) {
+        const k = AdminData.kpis(datos);
+        const lista = AdminData.candidatos(datos);
+        const porPaso = AdminData.porPaso(lista);
+        const ug = AdminData.utilidadesGlobal(datos);
+        const pagos = AdminData.ultimosPagos(datos, 8);
+        const sesiones = datos.sesiones ? AdminData.proximasSesiones(datos) : null;
+        const inscritos = sesiones ? sesiones.reduce((a, s) => a + (s.inscritos || 0), 0) : null;
+        const atencion = AdminData.atencion(datos, lista);
+        const avisos = [];
+        if (datos.errores.candidatosRows) avisos.push('El paso y los documentos de cada candidato requieren correr <code>2026-09-15-admin-lista-candidatos.sql</code> en Supabase.');
+        if (datos.errores.utilidadesPagos) avisos.push('Las utilidades pagadas requieren correr <code>2026-09-15-utilidades-pagos.sql</code> en Supabase.');
+        if (datos.errores.sesiones) avisos.push('No se pudieron cargar las sesiones (la API de Vercel no está disponible en este entorno).');
+
+        const hero = `
+            <div class="crm-hero">
+                <span class="crm-hero-badge">🏛️ EQUIPO · EC1375</span>
+                <h1>Panel del equipo</h1>
+                <div class="crm-hero-sub">Candidatos, ingresos, utilidades y sesiones en un solo lugar</div>
+                <div class="crm-hero-meta"><span>👥 ${k.totalRegistrados} registrados</span><span>📦 ${AdminData.lotes(datos).length} lote(s)</span><span>🔄 Actualizado ${new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}</span></div>
+                <div class="crm-hero-actions">
+                    <a class="crm-btn crm-btn-cta" href="admin-candidatos.html">👥 Ver candidatos</a>
+                    <a class="crm-btn crm-btn-ghost" href="admin-precios.html">💰 Precios y pagos</a>
+                    <a class="crm-btn crm-btn-ghost" href="admin-sesiones.html">🎓 Nueva sesión</a>
+                </div>
+                <div class="crm-stats">
+                    <div class="crm-stat"><span class="crm-stat-ico">👥</span><div><div class="crm-stat-num">${k.totalInscritos}</div><div class="crm-stat-lbl">Candidatos activos · ${k.completados} certificados</div></div></div>
+                    <div class="crm-stat"><span class="crm-stat-ico">💰</span><div><div class="crm-stat-num" style="font-size:1.2rem;">${fmt(k.ingresosTotales)}</div><div class="crm-stat-lbl">Ingresos · proyectado ${fmt(k.proyectado)}</div></div></div>
+                    <div class="crm-stat"><span class="crm-stat-ico">💵</span><div><div class="crm-stat-num" style="font-size:1.2rem;">${fmt(ug.pagado)}</div><div class="crm-stat-lbl">Utilidades pagadas · pendiente ${fmt(ug.pendiente)}</div></div></div>
+                    <div class="crm-stat"><span class="crm-stat-ico">🎓</span><div><div class="crm-stat-num">${inscritos === null ? '—' : inscritos}</div><div class="crm-stat-lbl">Inscritos a próximas sesiones</div></div></div>
+                </div>
+            </div>`;
+
+        const maxPaso = Math.max(1, ...porPaso.map(p => p.n));
+        const pasosHtml = '<ul class="crm-list">' + porPaso.filter(p => p.n > 0 || !['certificado', 'esperando_evaluador', 'sin_iniciar'].includes(p.id)).map(p => `
+            <li><span style="flex:1;min-width:0;"><div style="display:flex;justify-content:space-between;gap:8px;"><span>${esc(p.label)}</span><strong style="color:var(--text-bright);">${p.n}</strong></div>
+            <div class="crm-bar" style="margin-top:4px;"><span style="width:${Math.round((p.n / maxPaso) * 100)}%"></span></div></span></li>`).join('') + '</ul>';
+
+        const maxFase = Math.max(1, ...AdminData.FASES.map(f => k.ingresosPorFase[f]));
+        const fasesHtml = '<ul class="crm-list">' + AdminData.FASES.map(f => `
+            <li><span style="flex:1;min-width:0;"><div style="display:flex;justify-content:space-between;gap:8px;"><span>${AdminData.FASE_LABEL[f]} <span class="crm-muted">· ${k.porFase[f]} activos</span></span><strong style="color:var(--text-bright);">${fmt(k.ingresosPorFase[f])}</strong></div>
+            <div class="crm-bar" style="margin-top:4px;"><span style="width:${Math.round((k.ingresosPorFase[f] / maxFase) * 100)}%;background:var(--success);"></span></div></span></li>`).join('') +
+            `<li><span>Conversión: Registro ${k.conv.registro}% → Alineación ${k.conv.alineacion}% → Evaluación ${k.conv.evaluacion}% → Entrega ${k.conv.entrega}%</span></li></ul>`;
+
+        const pagosHtml = pagos.length ? '<ul class="crm-list">' + pagos.map(p => `
+            <li><span class="crm-st">${p.origen === 'mercadopago' ? '💳' : '🏦'}</span><span style="min-width:0;"><a href="admin-candidatos.html?q=${encodeURIComponent(p.email)}">${esc(p.nombre || p.email)}</a><div class="crm-muted">${esc(p.faseLabel)} · ${p.origen === 'mercadopago' ? 'Mercado Pago' : 'Transferencia'} · ${fechaCorta(p.fecha)}</div></span><span class="crm-right crm-ok">${fmt(p.monto)}</span></li>`).join('') + '</ul>' : '<p class="crm-empty">Sin pagos registrados.</p>';
+
+        let sesionesHtml;
+        if (!sesiones) sesionesHtml = '<p class="crm-empty">No pudimos cargar las sesiones.</p>';
+        else if (!sesiones.length) sesionesHtml = '<p class="crm-empty">No hay sesiones abiertas. <a href="admin-sesiones.html" style="color:var(--primary);font-weight:700;">Crear una →</a></p>';
+        else sesionesHtml = '<ul class="crm-list">' + sesiones.slice(0, 6).map(s => `
+            <li><span class="crm-st">🎓</span><span style="min-width:0;"><strong style="color:var(--text-bright);">${esc(s.fecha)} · ${esc(String(s.hora_inicio || '').slice(0, 5))}${s.hora_fin ? '–' + esc(String(s.hora_fin).slice(0, 5)) : ''} h</strong><div class="crm-muted">${esc(s.instructor_nombre || '')} · ${s.inscritos || 0} / ${s.capacidad_maxima || '?'} inscritos</div></span>
+            <span class="crm-right">${s.zoom_link ? `<a href="${esc(s.zoom_link)}" target="_blank" rel="noopener">Zoom ↗</a>` : '<span class="crm-chip warn">Sin Zoom</span>'}</span></li>`).join('') + '</ul>';
+
+        const utilHtml = ug.porLote.length ? '<ul class="crm-list">' + ug.porLote.map(u => `
+            <li><span style="flex:1;min-width:0;"><div style="display:flex;justify-content:space-between;gap:8px;"><span>Lote ${u.lote} <span class="crm-muted">· ingresos ${fmt(u.ingresos)}</span></span><span><span class="crm-ok">${fmt(u.pagado)}</span> <span class="crm-muted">pagado</span> · <span class="crm-warn">${fmt(u.pendiente)}</span> <span class="crm-muted">pendiente</span></span></div>
+            <div class="crm-bar" style="margin-top:4px;"><span style="width:${u.aRepartir ? Math.round((u.pagado / u.aRepartir) * 100) : 0}%;background:var(--success);"></span></div>
+            <div class="crm-muted" style="margin-top:4px;">${u.socios.map(s => `${esc(s.label)} ${fmt(s.pagado)} / ${fmt(s.aRepartir)}`).join(' · ')}</div></span></li>`).join('') + '</ul>' : '<p class="crm-empty">Sin lotes.</p>';
+
+        const atencionHtml = atencion.length ? '<ul class="crm-list">' + atencion.map(i => `
+            <li><span class="crm-st">${i.tipo === 'sesion' ? '🎓' : i.tipo === 'evaluador' ? '🏆' : i.tipo === 'inactivo' ? '⏳' : '📭'}</span><a href="${esc(i.href)}">${esc(i.texto)}</a></li>`).join('') + '</ul>' : '<p class="crm-empty crm-ok">Todo en orden ✨</p>';
+
+        const modulosHtml = MODULOS.map(g => `<div class="crm-group-lbl">${esc(g.grupo)}</div><div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;">${g.items.map(([href, name]) => `<a class="crm-chip" href="${href}" target="_blank" rel="noopener" style="text-decoration:none;">${esc(name)}</a>`).join('')}</div>`).join('');
+
+        app.innerHTML = (avisos.length ? `<div class="crm-note">⚠️ ${avisos.join('<br>')}</div>` : '') + hero + '<div class="crm-grid">' +
+            card('🗺️', 'Candidatos por paso', pasosHtml, `<span class="crm-count">${k.totalInscritos} activos</span>`) +
+            card('💰', 'Ingresos por fase', fasesHtml, `<span class="crm-count">${fmt(k.ingresosTotales)}</span>`) +
+            card('🧾', 'Últimos pagos', pagosHtml) +
+            card('🎓', 'Próximas sesiones de Alineación', sesionesHtml) +
+            card('💵', 'Utilidades por lote', utilHtml, `<span class="crm-count"><a href="admin-utilidades.html">Registrar pago →</a></span>`) +
+            card('🔔', 'Requieren atención', atencionHtml, `<span class="crm-count">${atencion.length}</span>`) +
+            '</div>' + card('🗂️', 'Índice de módulos (abren en pestaña nueva)', modulosHtml);
+    }
+
+    renderGateShell();
+    </script>
+</body>
+</html>

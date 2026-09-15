@@ -10,6 +10,8 @@
     <title>Admin — KPIs EC1375 - Paideia Tech</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="auth.js"></script>
+    <script src="flow-status.js"></script>
+    <script src="crm-shell.js" data-crm-mode="admin" data-crm-page="admin-kpis"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -19,11 +21,12 @@
             --c-registro: #2a78d6; --c-alineacion: #eb6834; --c-evaluacion: #1baf7a; --c-entrega: #eda100;
             --c-activo: #1baf7a; --c-desistio: #eb3b3b; --c-cambiolote: #eda100;
             --c-chris: #9b59b6; --c-fernando: #2a78d6; --c-lot: #eb6834; --c-diego: #1baf7a;
+            --border: rgba(255,255,255,0.12); --surface-2: rgba(255,255,255,0.05);
         }
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, var(--dark) 0%, #0a1530 100%);
+            background: var(--dark);
             color: var(--text); line-height: 1.6; min-height: 100vh; padding-bottom: 60px;
         }
 
@@ -35,9 +38,9 @@
         .top-bar-inner { font-size: 0.95rem; color: var(--text-bright); font-weight: 700; }
         .top-bar a { color: var(--primary); font-size: 0.82rem; text-decoration: none; margin-left: 20px; }
 
-        .card { background: var(--dark-light); border-radius: 12px; padding: 22px; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.08); }
+        .card { background: var(--dark-light); border-radius: 12px; padding: 22px; margin-bottom: 20px; border: 1px solid var(--border); }
         .card h2 { font-size: 1.05rem; color: var(--text-bright); margin-bottom: 16px; }
-        .card .subtitle { font-size: 0.78rem; color: rgba(255,255,255,0.4); margin-top: -12px; margin-bottom: 16px; }
+        .card .subtitle { font-size: 0.78rem; color: var(--text); margin-top: -12px; margin-bottom: 16px; }
 
         .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; margin-bottom: 20px; }
         .kpi-card {
@@ -72,57 +75,58 @@
 
         /* Funnel */
         .funnel-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
-        .funnel-label { min-width: 110px; font-size: 0.82rem; color: rgba(255,255,255,0.6); }
-        .funnel-track { flex: 1; background: rgba(255,255,255,0.05); border-radius: 6px; overflow: hidden; height: 38px; }
+        .funnel-label { min-width: 110px; font-size: 0.82rem; color: var(--text); }
+        .funnel-track { flex: 1; background: var(--surface-2); border-radius: 6px; overflow: hidden; height: 38px; }
         .funnel-fill {
             height: 100%; border-radius: 6px; display: flex; align-items: center; justify-content: space-between;
             padding: 0 12px; color: white; font-size: 0.78rem; font-weight: 600; white-space: nowrap;
             transition: width 0.4s ease;
         }
-        .funnel-meta { min-width: 75px; text-align: right; font-size: 0.78rem; color: rgba(255,255,255,0.4); }
+        .funnel-meta { min-width: 75px; text-align: right; font-size: 0.78rem; color: var(--text); }
 
         /* Phase cards */
         .phase-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; }
-        .phase-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 16px; }
+        .phase-card { background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
         .phase-name { font-size: 0.85rem; font-weight: 700; color: var(--text-bright); margin-bottom: 10px; }
-        .progress-bar { width: 100%; height: 7px; background: rgba(255,255,255,0.08); border-radius: 4px; overflow: hidden; margin-bottom: 12px; }
+        .progress-bar { width: 100%; height: 7px; background: var(--border); border-radius: 4px; overflow: hidden; margin-bottom: 12px; }
         .progress-fill { height: 100%; border-radius: 4px; transition: width 0.4s ease; }
         .phase-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.76rem; }
-        .stat-item { color: rgba(255,255,255,0.45); }
+        .stat-item { color: var(--text); }
         .stat-value { color: var(--text-bright); font-weight: 700; }
 
         /* Ingresos vs proyectado */
-        .ip-track { width: 100%; height: 44px; background: rgba(255,255,255,0.05); border-radius: 8px; overflow: hidden; position: relative; }
+        .ip-track { width: 100%; height: 44px; background: var(--surface-2); border-radius: 8px; overflow: hidden; position: relative; }
         .ip-fill { height: 100%; background: linear-gradient(90deg, var(--success), #00cc6a); display: flex; align-items: center; padding: 0 14px; color: #04120a; font-weight: 700; font-size: 0.8rem; white-space: nowrap; transition: width 0.4s ease; }
-        .ip-labels { display: flex; justify-content: space-between; margin-top: 8px; font-size: 0.78rem; color: rgba(255,255,255,0.5); }
+        .ip-labels { display: flex; justify-content: space-between; margin-top: 8px; font-size: 0.78rem; color: var(--text); }
 
         /* Utilidades por lote */
         .lote-util-block { margin-bottom: 22px; }
         .lote-util-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
         .lote-util-header .titulo { font-size: 0.9rem; font-weight: 700; color: var(--text-bright); }
         .lote-util-header .total { font-size: 0.85rem; color: var(--success); font-weight: 700; }
-        .stacked-bar { width: 100%; height: 32px; border-radius: 6px; overflow: hidden; display: flex; background: rgba(255,255,255,0.05); }
+        .stacked-bar { width: 100%; height: 32px; border-radius: 6px; overflow: hidden; display: flex; background: var(--surface-2); }
         .stacked-seg { height: 100%; display: flex; align-items: center; justify-content: center; font-size: 0.72rem; font-weight: 700; color: white; white-space: nowrap; overflow: hidden; }
-        .util-legend { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 10px; font-size: 0.76rem; color: rgba(255,255,255,0.55); }
+        .util-legend { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 10px; font-size: 0.76rem; color: var(--text); }
         .util-legend .legend-row { font-size: 0.76rem; }
 
         /* Lote breakdown */
         .lote-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; }
-        .lote-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 16px; }
+        .lote-card { background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
         .lote-card .titulo { font-size: 0.9rem; font-weight: 700; color: var(--text-bright); margin-bottom: 10px; }
-        .lote-mini-row { display: flex; justify-content: space-between; font-size: 0.8rem; padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .lote-mini-row { display: flex; justify-content: space-between; font-size: 0.8rem; padding: 4px 0; border-bottom: 1px solid var(--surface-2); }
         .lote-mini-row:last-child { border-bottom: none; }
-        .lote-mini-row .k { color: rgba(255,255,255,0.5); }
+        .lote-mini-row .k { color: var(--text); }
         .lote-mini-row .v { color: var(--text-bright); font-weight: 600; }
 
         .loading { text-align: center; padding: 60px; color: var(--text); }
-        .empty-note { font-size: 0.8rem; color: rgba(255,255,255,0.35); padding: 10px 0; }
+        .empty-note { font-size: 0.8rem; color: var(--text); padding: 10px 0; }
 
         /* Selector de lote */
         .lote-selector { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; }
-        .lote-btn { padding: 12px; border-radius: 8px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: var(--text); cursor: pointer; font-weight: 600; font-size: 0.85rem; transition: all 0.2s; }
+        .lote-btn { padding: 12px; border-radius: 8px; background: var(--surface-2); border: 1px solid var(--border); color: var(--text); cursor: pointer; font-weight: 600; font-size: 0.85rem; transition: all 0.2s; }
         .lote-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
         .lote-btn:hover { border-color: var(--primary); }
+            body.crm-active .top-bar { display: none; }
     </style>
 </head>
 <body>

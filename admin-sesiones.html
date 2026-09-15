@@ -10,6 +10,8 @@
     <title>Admin - Sesiones de Alineación - Paideia Tech</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="auth.js"></script>
+    <script src="flow-status.js"></script>
+    <script src="crm-shell.js" data-crm-mode="admin" data-crm-page="admin-sesiones"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/l10n/es.js"></script>
@@ -26,11 +28,12 @@
             --text-bright: #FFFFFF;
             --danger: #FF3333;
             --success: #00FF88;
+            --border: rgba(255,255,255,0.12); --surface-2: rgba(255,255,255,0.05);
         }
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, var(--dark) 0%, #0a1530 100%);
+            background: var(--dark);
             color: var(--text);
             line-height: 1.6;
             min-height: 100vh;
@@ -51,7 +54,7 @@
             display: flex;
             gap: 12px;
             margin-bottom: 24px;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
+            border-bottom: 1px solid var(--border);
         }
 
         .tab-btn {
@@ -98,7 +101,7 @@
             width: 100%;
             padding: 10px;
             background: rgba(0,0,0,0.3);
-            border: 1px solid rgba(255,255,255,0.1);
+            border: 1px solid var(--border);
             border-radius: 6px;
             color: var(--text-bright);
             font-family: inherit;
@@ -194,7 +197,7 @@
             color: #fff;
         }
         .flatpickr-day:hover { background: rgba(0,136,255,0.2); }
-        .flatpickr-day.flatpickr-disabled { color: rgba(255,255,255,0.15); }
+        .flatpickr-day.flatpickr-disabled { color: var(--border); }
         .flatpickr-time input,
         .flatpickr-time .flatpickr-time-separator,
         .flatpickr-time .flatpickr-am-pm { color: var(--text-bright); }
@@ -204,6 +207,7 @@
         .numInputWrapper span.arrowDown:after { border-top-color: var(--text); }
         .numInputWrapper:hover { background: transparent; }
         .numInputWrapper span:hover { background: rgba(0,136,255,0.15); }
+            body.crm-active .top-bar { display: none; }
     </style>
 </head>
 <body>
@@ -669,7 +673,7 @@
                         </div>
 
                         <button type="submit" class="btn btn-primary">✓ Crear Sesión</button>
-                        <button type="button" id="cancelarEdicionBtn" class="btn" style="display:none; background: transparent; border: 1px solid rgba(255,255,255,0.2); color: var(--text);" onclick="cancelarEdicion()">Cancelar edición</button>
+                        <button type="button" id="cancelarEdicionBtn" class="btn" style="display:none; background: transparent; border: 1px solid var(--border); color: var(--text);" onclick="cancelarEdicion()">Cancelar edición</button>
                     </form>
                 </div>
             </div>

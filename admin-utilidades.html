@@ -10,17 +10,21 @@
     <title>Admin — Reparto de Utilidades EC1375</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="auth.js"></script>
+    <script src="flow-status.js"></script>
+    <script src="crm-shell.js" data-crm-mode="admin" data-crm-page="admin-utilidades"></script>
+    <script src="admin-data.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
         :root {
             --dark: #050a1a; --dark-light: #0f1428; --primary: #0088FF; --primary-light: #00CCFF;
             --accent: #FFD700; --text: #D0D0D0; --text-bright: #FFFFFF; --danger: #FF3333; --success: #00FF88;
+            --border: rgba(255,255,255,0.12); --surface-2: rgba(255,255,255,0.05);
         }
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, var(--dark) 0%, #0a1530 100%);
+            background: var(--dark);
             color: var(--text); line-height: 1.6; min-height: 100vh; padding-bottom: 60px;
         }
 
@@ -37,7 +41,7 @@
 
         .field-group { margin-bottom: 14px; }
         .field-group label { display: block; font-size: 0.82rem; color: var(--text); margin-bottom: 5px; font-weight: 600; }
-        .field-group input, .field-group select { width: 100%; padding: 10px 12px; background: var(--dark); border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; color: var(--text-bright); font-size: 0.9rem; }
+        .field-group input, .field-group select { width: 100%; padding: 10px 12px; background: var(--dark); border: 1px solid var(--border); border-radius: 8px; color: var(--text-bright); font-size: 0.9rem; }
 
         .checkbox-group { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
         .checkbox-group input[type="checkbox"] { width: 20px; height: 20px; cursor: pointer; }
@@ -49,7 +53,7 @@
         .btn-primary:disabled { background: rgba(0,136,255,0.3); cursor: not-allowed; }
 
         .lote-selector { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; margin-bottom: 20px; }
-        .lote-btn { padding: 12px; border-radius: 8px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: var(--text); cursor: pointer; font-weight: 600; transition: all 0.2s; }
+        .lote-btn { padding: 12px; border-radius: 8px; background: var(--surface-2); border: 1px solid var(--border); color: var(--text); cursor: pointer; font-weight: 600; transition: all 0.2s; }
         .lote-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
         .lote-btn:hover { border-color: var(--primary); }
 
@@ -69,6 +73,7 @@
 
         .error { color: var(--danger); font-size: 0.85rem; margin-top: 4px; }
         .loading { text-align: center; padding: 40px; color: var(--text); }
+            body.crm-active .top-bar { display: none; }
     </style>
 </head>
 <body>
@@ -370,7 +375,82 @@
         `;
 
         app.innerHTML = html;
+        app.insertAdjacentHTML('beforeend', renderPagosCard(loteActivo));
+        attachPagosListeners(loteActivo);
         document.getElementById('logoutLink').style.display = 'inline';
+    }
+
+    /* ---- Utilidades YA PAGADAS (tabla utilidades_pagos, 15 sep 2026) ----
+       Registro real de cada entrega a un socio; el reparto de arriba es lo
+       teórico. Pagado/pendiente por socio se calcula con AdminData.utilidades
+       (misma fórmula que calcularReparto). Si la tabla no existe todavía
+       (falta correr 2026-09-15-utilidades-pagos.sql), se muestra el aviso. */
+    function escapeHtml(str) { if (!str) return ''; const d = document.createElement('div'); d.textContent = str; return d.innerHTML; }
+    let utilidadesPagos = [];
+    let utilidadesPagosError = null;
+    async function cargarPagosUtilidades() {
+        const { data, error } = await supabaseClient.from('utilidades_pagos').select('*').order('fecha', { ascending: false });
+        utilidadesPagos = data || [];
+        utilidadesPagosError = error ? (error.message || String(error)) : null;
+    }
+    function datosParaAdminData() {
+        return { precio: candidatos, pagos: Object.keys(pagosPorEmail).flatMap(email => [...pagosPorEmail[email]].map(fase => ({ email, fase }))),
+                 reparto: Object.keys(configuracionLotes).map(k => ({ lote: Number(k.replace('lote_', '')), ...configuracionLotes[k] })), utilidadesPagos };
+    }
+    function renderPagosCard(lote) {
+        const hoy = new Date().toISOString().slice(0, 10);
+        if (utilidadesPagosError) {
+            return `<div class="card"><h2>💸 Utilidades pagadas — Lote ${lote}</h2><p style="font-size:0.85rem;color:var(--accent);margin-top:10px;">⚠️ Falta correr <code>2026-09-15-utilidades-pagos.sql</code> en Supabase para registrar pagos (${escapeHtml(utilidadesPagosError)}).</p></div>`;
+        }
+        const u = AdminData.utilidades(datosParaAdminData(), lote);
+        const delLote = utilidadesPagos.filter(p => Number(p.lote) === Number(lote));
+        const filas = u.socios.map(s => `
+            <div class="resumen-row"><div><strong>${escapeHtml(s.label)}</strong></div>
+                <div style="text-align:right;">a repartir <strong>$${s.aRepartir.toLocaleString('es-MX')}</strong></div>
+                <div class="resumen-valor" style="color:${s.pendiente > 0 ? 'var(--accent)' : 'var(--success)'};">pagado $${s.pagado.toLocaleString('es-MX')} · pendiente $${s.pendiente.toLocaleString('es-MX')}</div></div>`).join('');
+        const lista = delLote.length ? delLote.map(p => `
+            <div class="resumen-row"><div>${escapeHtml(p.fecha || '')} · <strong>${escapeHtml((AdminData.SOCIOS.find(s => s.id === p.socio) || {}).label || p.socio)}</strong>${p.nota ? ` <span style="opacity:0.7;">— ${escapeHtml(p.nota)}</span>` : ''}</div>
+                <div style="text-align:right;"><strong>$${Number(p.monto).toLocaleString('es-MX')}</strong></div>
+                <div style="text-align:right;"><button type="button" class="crm-btn crm-btn-danger" data-del-pago="${p.id}">Eliminar</button></div></div>`).join('') : '<p style="font-size:0.85rem;color:var(--text);">Aún no hay pagos registrados en este lote.</p>';
+        return `
+            <div class="card">
+                <h2>💸 Utilidades pagadas — Lote ${lote}</h2>
+                <div class="resumen" style="margin-top:12px;">${filas}
+                    <div class="resumen-row" style="border-bottom:none;border-top:1px solid var(--border);padding-top:12px;margin-top:12px;"><div><strong>TOTAL</strong></div>
+                        <div style="text-align:right;"><strong>$${u.aRepartir.toLocaleString('es-MX')}</strong></div>
+                        <div class="resumen-valor">pagado $${u.pagado.toLocaleString('es-MX')} · pendiente $${u.pendiente.toLocaleString('es-MX')}</div></div>
+                </div>
+                <h3 style="margin:18px 0 8px;font-size:0.95rem;color:var(--text-bright);">Registrar pago</h3>
+                <form class="crm-form" id="formPagoUtilidad">
+                    <label>Socio<select name="socio" required>${u.socios.map(s => `<option value="${s.id}">${escapeHtml(s.label)}</option>`).join('')}</select></label>
+                    <label>Monto (MXN)<input type="number" name="monto" min="1" step="1" required placeholder="0"></label>
+                    <label>Fecha<input type="date" name="fecha" value="${hoy}" required></label>
+                    <label>Nota<input type="text" name="nota" placeholder="Opcional"></label>
+                    <button type="submit" class="crm-btn crm-btn-primary">💾 Registrar</button>
+                </form>
+                <h3 style="margin:18px 0 8px;font-size:0.95rem;color:var(--text-bright);">Pagos registrados</h3>
+                <div class="resumen">${lista}</div>
+            </div>`;
+    }
+    function attachPagosListeners(lote) {
+        const form = document.getElementById('formPagoUtilidad');
+        if (form) form.addEventListener('submit', async (ev) => {
+            ev.preventDefault();
+            const fd = new FormData(form);
+            const session = await Auth.getSession();
+            const { error } = await supabaseClient.from('utilidades_pagos').insert({
+                lote, socio: fd.get('socio'), monto: Number(fd.get('monto')), fecha: fd.get('fecha'), nota: (fd.get('nota') || '').trim() || null,
+                registrado_por: session && session.user ? session.user.email : null
+            });
+            if (error) { alert('No se pudo registrar el pago: ' + (error.message || error)); return; }
+            await cargarPagosUtilidades(); renderPanel();
+        });
+        document.querySelectorAll('[data-del-pago]').forEach(btn => btn.addEventListener('click', async () => {
+            if (!confirm('¿Eliminar este pago registrado?')) return;
+            const { error } = await supabaseClient.from('utilidades_pagos').delete().eq('id', btn.dataset.delPago);
+            if (error) { alert('No se pudo eliminar: ' + (error.message || error)); return; }
+            await cargarPagosUtilidades(); renderPanel();
+        }));
     }
 
     function agregarLote() {
@@ -384,6 +464,7 @@
         app.innerHTML = `<div class="loading">Cargando datos...</div>`;
 
         await cargarDatos();
+        await cargarPagosUtilidades();
         renderPanel();
     }
 
