@@ -80,6 +80,13 @@ kpi-dashboard-live.html   ⚠️ Versión vieja del dashboard de KPIs — SIN ga
 auth.js                   Supabase Auth (email+password) + sync + gates + admin bypass — módulo compartido
 flow-status.js            Fuente única de los 10 pasos del flujo y de qué cuenta como "completo" en cada uno —
                            módulo compartido (ver "Progreso del candidato" abajo)
+protect.js                Disuasión de copia/captura (15 sep): marca de agua en mosaico con correo+fecha, bloqueo de
+                           selección/copiar/arrastrar/clic derecho (no en campos de formulario), atajos F12/Ctrl+Shift+I-J-C-K/
+                           Ctrl+U/Ctrl+S/Ctrl+P/PrintScreen y vista de impresión en blanco. Se activa solo con sesión NO
+                           exenta (exentos: cuenta bypass y correos en `admins`); `?protect=1` fuerza activarla para probar.
+                           `data-protect-print="allow"` permite imprimir (solo guion-maestro.html). Cargado en las 11
+                           páginas del flujo (8 reales + ruta-estudio + ruta-alineacion + guion-maestro). NO bloquea
+                           screenshots de verdad (imposible en web) — es disuasión y rastreo. Pruebas: tests/protect.test.js.
 crm-shell.js, crm-shell.css   Shell CRM del candidato: CrmShell.mount() envuelve el DOM de la página con sidebar
                            (10 pasos con ✓/▶/🔒 + badge de pendientes) + encabezado (hamburguesa, toggle de tema,
                            usuario); CrmShell.renderDashboard() pinta el panel de panel.html. Tema claro por
@@ -277,6 +284,7 @@ Mismo shell CRM que el candidato, en modo admin (`<script src="crm-shell.js" dat
 
 ## Cambios recientes (15 de septiembre, 2026)
 
+- **`protect.js`** — disuasión de copia/captura en las 11 páginas del flujo (ver Estructura de archivos) + headers en `vercel.json` (`X-Frame-Options: DENY`, `Content-Security-Policy: frame-ancestors 'none'`, `X-Content-Type-Options`, `Referrer-Policy`) para que el sitio no pueda embeberse en otro dominio. Decisiones de Diego: sin difuminado al perder el foco (estorbaría en Documentos de Sesión durante el Zoom), cuenta bypass y admins exentos (videos), impresión permitida solo en el Guion Maestro. Lo que sigue para proteger de verdad el contenido es el proyecto 4 (contenido servido desde Supabase con RLS por fase pagada; ver Backlog).
 - **CRM del equipo** — ver sección dedicada arriba: `admin-crm.html`, `admin-candidatos.html`, `admin-data.js`, utilidades pagadas, shell admin en todas las páginas admin, `admin-index.html` redirige. Dos SQL pendientes de correr.
 - **Cuenta bypass en modo demo total:** datos ficticios precargados en las 6 páginas del flujo, cero candados, progreso desde localStorage (`FlowStatus.getRow()`), botón "Reiniciar demo" — ver "Bypass de navegación libre" en Autenticación y gates.
 - **Sesión persistente:** el login entra directo si ya hay sesión guardada + casilla "Mantener mi sesión iniciada" (ver "Autenticación y gates"). Antes había que teclear la contraseña en cada visita.
@@ -408,6 +416,8 @@ Landing (`index.html`) sigue un arco emocional Vocación→Miedo→Transformaci�
 12. Portada de `ruta-estudio.html` y pantalla 1 de `ruta-alineacion.html` siguen diciendo "ACADEMIA POSTURALIA" — es texto incrustado en una fotografía (no editable por CSS/HTML), pendiente que Diego regenere la imagen.
 13. `kpi-dashboard-live.html` sigue público (sin gate) y ya es redundante con `admin-kpis.html` (misma función, sí gateado) — lo más simple es retirar/redirigir la versión vieja en vez de agregarle un gate.
 14. Replicar webhook de Mercado Pago en modo productivo.
+16. **Contenido al servidor (proyecto 4 acordado con Diego, 15 sep):** tabla `contenido_ec1375` en Supabase con RLS por fase pagada + bucket privado para las imágenes de `ruta-estudio.html` (4.7MB de sus 5.4MB son base64), páginas como cascarones que piden el contenido tras autenticarse, script de extracción en `_internal_no_publicar/01-scripts/` que se vuelve a correr si se regeneran `ruta-estudio`/`ruta-alineacion`. Cero funciones nuevas de Vercel (ya hay 12). Es la única protección real del contenido; `protect.js` solo disuade.
+17. Refactorizar `admin-kpis`/`admin-utilidades`/`admin-precios` para usar `admin-data.js` (hoy conservan su copia local de las fórmulas); retirar `kpi-dashboard-live.html` (#13).
 15. Calendario de citas en `plan-evaluacion.html` sigue en placeholder (`GOOGLE_CALENDAR_BOOKING_URL` vacío, fallback a WhatsApp) — el candidato pidió horarios fijos recurrentes, no un Calendly en tiempo real.
 
 ---
