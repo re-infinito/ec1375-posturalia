@@ -51,14 +51,28 @@ encuesta-satisfaccion.html  7 preguntas oficiales, formato de caritas (RED CONOC
 evidencias.html           Checklist final + uploads nativos (Zoom, INE, CURP, foto diploma, certificados)
 entrega.html              Gate fase Entrega, confirmación final (no enlazada desde el flujo — el equipo comparte el link manual cuando el evaluador aprueba)
 
-admin-index.html          Índice de navegación rápida a todos los módulos (equipo/QA), agrupado por sección del flujo
+admin-crm.html            Panel del equipo (home admin, 15 sep): hero con candidatos activos, ingresos vs proyectado,
+                           utilidades pagadas vs pendientes e inscritos a próximas sesiones + tarjetas (candidatos por
+                           paso, ingresos por fase, últimos pagos, próximas sesiones, utilidades por lote, requieren
+                           atención, índice de módulos). Shell CRM en modo admin (`data-crm-mode="admin"`).
+admin-candidatos.html     Lista tipo "pacientes": nombre, lote, estado, fase pagada, paso actual (FlowStatus.computeSteps
+                           con la fila del RPC admin_lista_candidatos), documentos X/15, última actividad; búsqueda
+                           (`?q=`), filtros y drawer de detalle con los 10 pasos y los 15 documentos con su ruta
+admin-data.js             Módulo compartido SOLO de páginas admin: AdminData.cargar() (precio, pagos, reparto,
+                           utilidades_pagos, RPCs admin_lista_nombres/admin_lista_candidatos, /api/sesiones-alineacion)
+                           + kpis()/utilidades()/candidatos()/porPaso()/ultimosPagos()/atencion() — port exacto de las
+                           fórmulas de admin-kpis/admin-utilidades (que siguen con su copia local). Pruebas en
+                           tests/admin-data.test.js.
+admin-index.html          Stub de redirección a admin-crm.html (el índice de módulos vive ahí como tarjeta)
 admin-precios.html        Montos por fase, altas de candidatos, status de pago, liberación manual por fase
 admin-sesiones.html       Crea sesiones grupales de Alineación (Google Calendar/Meet), lista inscripciones
 admin-kpis.html           Dashboard de KPIs (inscritos/completados/ingresos por fase) — GATEADO por `Auth.renderAdminGate()`,
                            lee `candidatos_precio`/`candidatos_fase_pagos` directo desde Supabase (sin API propia)
 admin-utilidades.html     Reparto de utilidades por lote de ingresos entre 3 socios (Fernando/Lot/Diego, 16.67% c/u
                            por default) + colaborador opcional "Christherapy" (50%, deja 16.67% c/u a los socios) —
-                           tabla `reparto_utilidades`, gateado por `Auth.renderAdminGate()`
+                           tabla `reparto_utilidades`, gateado por `Auth.renderAdminGate()`. Desde el 15 sep además
+                           registra utilidades YA PAGADAS por socio y lote (tabla `utilidades_pagos`: alta, baja y
+                           pagado vs pendiente por socio)
 kpi-dashboard-live.html   ⚠️ Versión vieja del dashboard de KPIs — SIN gate de autenticación, público a quien tenga
                            la URL, y ya no está enlazada desde ningún lado del sitio. Redundante con admin-kpis.html
                            (que sí está gateado) — candidato a retirar, ver backlog #13.
@@ -246,8 +260,24 @@ Panel tipo CRM (referencia: dashboard de "Quiropráctica 360" que Diego comparti
 
 ---
 
+## CRM del equipo (área admin)
+
+Mismo shell CRM que el candidato, en modo admin (`<script src="crm-shell.js" data-crm-mode="admin" data-crm-page="admin-xxx">`): sidebar con Panel del equipo, Candidatos, Precios y pagos, Sesiones, KPIs, Utilidades y "Ver como candidato"; se monta solo si la sesión es de un correo en `admins` (`Auth.isAdmin`). `Auth.renderAdminGate()` entra directo si ya hay sesión admin y tiene la casilla "Mantener mi sesión iniciada". Las 4 páginas admin previas conservan su lógica; solo ganaron shell, tema claro/oscuro y tokens `--border`/`--surface-2`.
+
+- **`admin-crm.html`** — home. Cifras y tarjetas calculadas por `admin-data.js`. Muestra avisos si falta correr SQL o si la API de sesiones no responde (local).
+- **`admin-candidatos.html`** — paso real de cada candidato con `FlowStatus.computeSteps({ row, alineacionAuth, entregaAuth, esBypass })` (función pura extraída de `getSteps()`, la MISMA lógica que ve el candidato) sobre la fila que regresa el RPC `admin_lista_candidatos()`; documentos con `CrmShell._helpers`. Candidato en `candidatos_precio` sin fila en `candidatos_ec1375` = "Sin iniciar".
+- **Utilidades pagadas** — `admin-utilidades.html` inserta/borra en `utilidades_pagos`; `AdminData.utilidades(datos, lote)` calcula a repartir / pagado / pendiente por socio con la misma fórmula que `calcularReparto`.
+- Spec: `docs/superpowers/specs/2026-09-15-admin-crm-design.md`. Pruebas: `node --test tests/*.test.js` (18).
+
+**⚠️ Pendiente que Diego haga en Supabase (SQL Editor):**
+- `_internal_no_publicar/02-sql/2026-09-15-admin-lista-candidatos.sql` — RPC `admin_lista_candidatos()` (security definer + `is_admin()`, recorta foto/firmas/estado del motor). Sin esto, Candidatos y el panel muestran "Sin iniciar" y 0/15 para todos, con aviso.
+- `_internal_no_publicar/02-sql/2026-09-15-utilidades-pagos.sql` — tabla `utilidades_pagos` + RLS admin. Sin esto, la sección de pagos muestra el aviso.
+
+---
+
 ## Cambios recientes (15 de septiembre, 2026)
 
+- **CRM del equipo** — ver sección dedicada arriba: `admin-crm.html`, `admin-candidatos.html`, `admin-data.js`, utilidades pagadas, shell admin en todas las páginas admin, `admin-index.html` redirige. Dos SQL pendientes de correr.
 - **Cuenta bypass en modo demo total:** datos ficticios precargados en las 6 páginas del flujo, cero candados, progreso desde localStorage (`FlowStatus.getRow()`), botón "Reiniciar demo" — ver "Bypass de navegación libre" en Autenticación y gates.
 - **Sesión persistente:** el login entra directo si ya hay sesión guardada + casilla "Mantener mi sesión iniciada" (ver "Autenticación y gates"). Antes había que teclear la contraseña en cada visita.
 - **`recuperar.html` → `panel.html`** (login + panel); `recuperar.html` queda como redirección. Barra fija de admin retirada (la sustituye el sidebar).
