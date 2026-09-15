@@ -149,6 +149,8 @@
         .video-ejemplo .ph .nm { font-size: 0.85rem; color: var(--text-bright); font-weight: 700; }
         .video-ejemplo .ph .ins { font-size: 0.75rem; color: var(--text); }
         .video-ejemplo iframe { width: 100%; aspect-ratio: 9 / 16; max-height: 360px; display: block; border: 0; }
+        /* Excepción: video horizontal (no Short) — ver comentario en renderVideoEjemplo() */
+        .video-ejemplo.wide .ph, .video-ejemplo.wide iframe { aspect-ratio: 16 / 9; max-height: none; }
         .video-proximamente {
             margin-top: 14px; padding: 10px 12px; border-radius: 8px; font-size: 0.8rem;
             color: var(--text); background: rgba(255,215,0,0.06); border: 1px dashed rgba(255,215,0,0.35);
@@ -206,7 +208,7 @@
                 'Tener disponible el termómetro digital.'
             ]}
         ]},
-        { num: 2, titulo: 'Recepción del usuario', checkpoint: true, items: [
+        { num: 2, titulo: 'Recepción del usuario', checkpoint: true, videoId: '-YXs2cQ_01w', items: [
             { t: 'dialogo', x: 'Buenos días. Bienvenido.' },
             { t: 'accion', x: 'Aplicar gel antibacterial en las manos del usuario.' },
             { t: 'dialogo', x: 'Antes de pasar, voy a tomarle la temperatura.' },
@@ -267,7 +269,7 @@
             { t: 'accion', x: 'Utilizar la báscula y registrar el peso.' },
             { t: 'accion', x: 'Utilizar el estadímetro y registrar la estatura.' }
         ]},
-        { num: 7, titulo: 'Saturación de oxígeno y pulso', checkpoint: true, items: [
+        { num: 7, titulo: 'Saturación de oxígeno y pulso', checkpoint: true, videoId: 'GEF4fIGhVpI', items: [
             { t: 'dialogo', x: 'Ahora voy a medir su saturación de oxígeno y su pulso utilizando el oxímetro.' },
             { t: 'accion', x: 'Limpiar la superficie del sensor con paño suave o algodón y solución desinfectante, conforme a las recomendaciones del fabricante.' },
             { t: 'dialogo', x: 'Por favor, coloque el dedo en el sensor de esta manera.' },
@@ -316,11 +318,11 @@
             { t: 'dialogo', x: 'Si está de acuerdo con lo que hemos explicado y no tiene dudas, le solicito su firma de aceptación.' },
             { t: 'accion', x: 'Recabar firma/huella del usuario, firmar quien otorga el servicio e integrar el consentimiento al expediente.' }
         ]},
-        { num: 14, titulo: 'Atención tradicional/complementaria', checkpoint: true, items: [
+        { num: 14, titulo: 'Atención tradicional/complementaria', checkpoint: true, videoId: 'ZV1aYh0NVlg', videoWide: true, items: [
             { t: 'accion', x: 'Preparar al usuario conforme a la técnica indicada y realizar la terapia manual programada.' },
             { t: 'nota', x: 'Importante: El EC1375 no especifica una técnica particular de terapia manual ni prescribe maniobras quiroprácticas concretas. La técnica demostrada debe corresponder a lo previamente explicado y consentido.' }
         ]},
-        { num: 15, titulo: 'Finalización de la atención', checkpoint: true, videoId: 'E768cqhjuq4', items: [
+        { num: 15, titulo: 'Finalización de la atención', checkpoint: true, videoId: 'iN4ka7r9xPU', items: [
             { t: 'dialogo', x: 'Hemos finalizado la atención.' },
             { t: 'dialogo', x: 'Puede permanecer unos momentos sobre la mesa antes de incorporarse.' },
             { t: 'dialogo', x: '¿Cómo se siente después de la atención que recibió?' },
@@ -336,7 +338,7 @@
             { t: 'accion', x: 'Entregar/aplicar la encuesta y recibir comentarios.' },
             { t: 'dialogo', x: 'Muchas gracias por sus comentarios y por su colaboración.' }
         ]},
-        { num: 17, titulo: 'Programa de seguimiento', checkpoint: true, items: [
+        { num: 17, titulo: 'Programa de seguimiento', checkpoint: true, videoId: 'E768cqhjuq4', items: [
             { t: 'dialogo', x: 'Ahora vamos a establecer su programa de seguimiento.' },
             { t: 'dialogo', x: 'El objetivo que buscamos alcanzar en las siguientes sesiones será [OBJETIVO POR SESIÓN].' },
             { t: 'dialogo', x: 'La propuesta es realizar [NÚMERO DE SESIONES], con una frecuencia de [FRECUENCIA] y una duración aproximada de [DURACIÓN] por sesión.' },
@@ -408,14 +410,17 @@
 
     /* Video de ejemplo por sección — mismo patrón de "toca para reproducir"
        de ruta-alineacion.html (embed de youtube-nocookie al hacer clic, sin
-       cargar el iframe de entrada). Los videos son Shorts verticales de
+       cargar el iframe de entrada). La mayoría son Shorts verticales de
        https://www.youtube.com/playlist?list=PLOZTSHcCf2OI (cuenta de
        YouTube de Paideia Tech) — se suben por sección según se van
-       grabando, así que no todas tienen video todavía. */
+       grabando, así que no todas tienen video todavía. Excepción: la
+       sección 14 (Atención tradicional/complementaria) usa un video
+       horizontal más largo ("pesado", no Short) — `videoWide: true` cambia
+       el aspect-ratio del embed de 9:16 a 16:9 (ver CSS .video-ejemplo.wide). */
     function renderVideoEjemplo(s) {
         if (s.videoId) {
             return `
-                <div class="video-ejemplo" id="video-${s.num}">
+                <div class="video-ejemplo${s.videoWide ? ' wide' : ''}" id="video-${s.num}">
                     <div class="ph" onclick="playVideoEjemplo(${s.num}, '${s.videoId}')">
                         <div class="ic">▶</div>
                         <div class="nm">Ejemplo de esta sección</div>
