@@ -111,6 +111,10 @@
         const steps = stepsR.status === 'fulfilled' ? stepsR.value : null;
         const fases = {};
         FASES_PAGO.forEach((f, i) => { fases[f] = fasesR.status === 'fulfilled' ? !!fasesR.value[i] : false; });
+        /* Misma regla que FlowStatus.getSteps(): para la cuenta bypass, Entrega
+           nunca cuenta como pagada aunque candidatos_fase_pagos diga que sí —
+           es dinero real y una decisión real del evaluador. */
+        if (await Auth.isBypassSession()) fases.entrega = false;
         let inscripciones = inscR.status === 'fulfilled' ? inscR.value : null;
         if (stepsR.status === 'rejected') console.warn('No se pudo calcular tu progreso:', stepsR.reason);
 
