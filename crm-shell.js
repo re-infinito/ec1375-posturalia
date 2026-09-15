@@ -529,7 +529,7 @@
 
         /* Cuenta bypass: botón "Reset demo" (antes vivía en la barra fija de
            admin, retirada el 15 sep — este sidebar la sustituye). */
-        if (typeof Auth !== 'undefined' && typeof Auth.isBypassSession === 'function') {
+        if (mode !== 'admin' && typeof Auth !== 'undefined' && typeof Auth.isBypassSession === 'function') {
             Promise.resolve(Auth.isBypassSession()).then(function (es) {
                 if (!es) return;
                 var user = shell.querySelector('.crm-user');
