@@ -457,6 +457,150 @@
         return shell;
     }
 
+    /* ---------- panel del candidato (recuperar.html) ---------- */
+
+    function donutSvg(steps) {
+        var total = steps.length || 1;
+        var done = steps.filter(function (s) { return s.done; }).length;
+        var cur = steps.filter(function (s) { return s.current; }).length;
+        var r = 54, c = 2 * Math.PI * r;
+        var segs = [
+            { n: done, color: 'var(--success)' },
+            { n: cur, color: 'var(--primary)' },
+            { n: total - done - cur, color: 'var(--border)' }
+        ];
+        var offset = 0, paths = '';
+        segs.forEach(function (s) {
+            var len = c * (s.n / total);
+            paths += '<circle r="' + r + '" cx="75" cy="75" fill="none" stroke="' + s.color + '" stroke-width="16" ' +
+                     'stroke-dasharray="' + len + ' ' + (c - len) + '" stroke-dashoffset="' + (-offset) + '" transform="rotate(-90 75 75)"></circle>';
+            offset += len;
+        });
+        return '<svg viewBox="0 0 150 150" role="img" aria-label="' + done + ' de ' + total + ' pasos completados">' + paths +
+               '<text x="75" y="80" text-anchor="middle" class="crm-donut-num">' + done + '</text>' +
+               '<text x="75" y="98" text-anchor="middle" class="crm-donut-lbl">DE ' + total + ' PASOS</text></svg>';
+    }
+
+    function estadoDocHtml(estado) {
+        return estado === 'subido' ? '<span class="crm-st" title="Subido a tu expediente">✅</span>'
+             : estado === 'descargado' ? '<span class="crm-st" title="Descargado (pendiente de subir)">⬇️</span>'
+             : estado === 'formulario' ? '<span class="crm-st" title="Enviado por formulario alterno">📨</span>'
+             : '<span class="crm-st" title="Pendiente">⏳</span>';
+    }
+
+    function card(icono, titulo, cuerpo, extraH) {
+        return '<section class="crm-card"><div class="crm-card-h"><span class="crm-stat-ico">' + icono + '</span>' +
+               escapeHtml(titulo) + (extraH || '') + '</div>' + cuerpo + '</section>';
+    }
+
+    /* data = { nombre, steps, row, fases: {registro,alineacion,evaluacion,entrega},
+                inscripciones: array | null (null = falló la consulta), onRetryInscripciones: fn } */
+    function renderDashboard(container, data) {
+        var steps = data.steps || [];
+        var row = data.row || null;
+        var fases = data.fases || {};
+        var current = null, entrega = null;
+        steps.forEach(function (s) { if (s.current) current = s; if (s.id === 'entrega') entrega = s; });
+        var done = steps.filter(function (s) { return s.done; }).length;
+        var docs = contarDocumentos(row);
+        var inscripcionesOk = Array.isArray(data.inscripciones);
+        var proxima = inscripcionesOk ? proximaInscripcion(data.inscripciones) : null;
+        var nombre = data.nombre || 'candidato/a';
+        var certificado = !!(entrega && entrega.done);
+
+        /* hero */
+        var ctaHtml = current
+            ? '<a class="crm-btn crm-btn-cta" href="' + escapeHtml(current.href) + '">Continuar: ' + escapeHtml(current.label) + ' →</a>'
+            : '<span class="crm-btn crm-btn-cta" aria-disabled="true">' + (certificado ? '🏆 Certificación completada' : '⏳ Esperando a tu evaluador') + '</span>';
+        var hero =
+            '<div class="crm-hero">' +
+              '<span class="crm-hero-badge">' + (certificado ? '🏆 CERTIFICADO ENTREGADO' : '📡 CERTIFICACIÓN EN CURSO') + '</span>' +
+              '<h1>Hola, ' + escapeHtml(nombre) + '</h1>' +
+              '<div class="crm-hero-sub">Tu panel de certificación EC1375</div>' +
+              '<div class="crm-hero-meta"><span>🔒 Datos protegidos</span><span>☁️ Expediente en la nube</span>' +
+                '<span>🔄 ' + (row && row.updated_at ? 'Sincronizado ' + tiempoRelativo(row.updated_at) : 'Sin datos sincronizados aún') + '</span></div>' +
+              '<div class="crm-hero-actions">' + ctaHtml + '<a class="crm-btn crm-btn-ghost" href="#crmDocs">📄 Ver mis documentos</a></div>' +
+              '<div class="crm-stats">' +
+                '<div class="crm-stat"><span class="crm-stat-ico">✅</span><div><div class="crm-stat-num">' + done + ' / ' + steps.length + '</div><div class="crm-stat-lbl">Pasos completados</div></div></div>' +
+                '<div class="crm-stat"><span class="crm-stat-ico">📄</span><div><div class="crm-stat-num">' + docs.completos + ' / ' + docs.total + '</div><div class="crm-stat-lbl">Documentos</div></div></div>' +
+                '<div class="crm-stat"><span class="crm-stat-ico">💳</span><div><div class="crm-stat-num" style="font-size:1.1rem;">' + escapeHtml(faseMasAlta(fases)) + '</div><div class="crm-stat-lbl">Fase pagada</div></div></div>' +
+                '<div class="crm-stat"><span class="crm-stat-ico">🎓</span><div><div class="crm-stat-num" style="font-size:1.1rem;">' +
+                    (!inscripcionesOk ? '—' : proxima ? escapeHtml(new Date(fechaSesion(proxima.sesion)).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', timeZone: 'America/Mexico_City' })) : 'Sin reservar') +
+                    '</div><div class="crm-stat-lbl">Próxima sesión</div></div></div>' +
+              '</div>' +
+            '</div>';
+
+        /* 1. progreso */
+        var progreso = card('📊', 'Tu progreso',
+            '<div class="crm-donut">' + donutSvg(steps) +
+            '<div class="crm-legend"><span style="--c:var(--success)">Completados · ' + done + '</span>' +
+            '<span style="--c:var(--primary)">En curso · ' + (current ? 1 : 0) + '</span>' +
+            '<span style="--c:var(--border)">Por desbloquear · ' + (steps.length - done - (current ? 1 : 0)) + '</span></div></div>');
+
+        /* 2. ruta */
+        var ruta = card('🗺️', 'Ruta de certificación', '<ul class="crm-list">' + steps.map(function (s) {
+            var ico = s.done ? '✓' : s.current ? '▶' : '🔒';
+            var motivo = s.locked ? (s.reason === 'esperando_evaluador' ? 'Esperando el resultado de tu evaluador' : 'Completa el paso anterior primero') : '';
+            var label = s.locked ? escapeHtml(s.label) : '<a href="' + escapeHtml(s.href) + '">' + escapeHtml(s.label) + '</a>';
+            return '<li' + (s.locked ? ' style="opacity:0.55"' : '') + '><span class="crm-st" style="color:' + (s.done ? 'var(--success)' : s.current ? 'var(--primary)' : 'inherit') + '">' + ico + '</span>' +
+                   '<span>' + label + (motivo ? '<div class="crm-muted">' + motivo + '</div>' : '') + '</span></li>';
+        }).join('') + '</ul>');
+
+        /* 3. documentos */
+        var docsHtml = DOC_GRUPOS.map(function (g) {
+            var jsonb = row ? row[g.col] : null;
+            return '<div class="crm-group-lbl">' + escapeHtml(g.fase) + '</div>' + g.claves.map(function (c) {
+                var est = estadoDocumento(jsonb, c[0]);
+                return '<li>' + estadoDocHtml(est) + '<span>' + escapeHtml(c[1]) + '</span>' +
+                       '<span class="crm-right">' + (est === 'pendiente' ? '<a href="' + g.href + '">Generar</a>' : '<span class="crm-muted">' + est + '</span>') + '</span></li>';
+            }).join('');
+        }).join('');
+        var documentos = '<div id="crmDocs">' + card('📄', 'Documentos del expediente', '<ul class="crm-list">' + docsHtml + '</ul>',
+            '<span class="crm-count">' + docs.completos + ' / ' + docs.total + '</span>') + '</div>';
+
+        /* 4. pagos */
+        var primeraPendiente = null;
+        FASES.forEach(function (f) { if (!primeraPendiente && !fases[f.id]) primeraPendiente = f; });
+        var pagos = card('💳', 'Pagos por fase', '<ul class="crm-list">' + FASES.map(function (f) {
+            var pagada = !!fases[f.id];
+            var accion = (!pagada && primeraPendiente && primeraPendiente.id === f.id && f.href) ? '<a href="' + f.href + '">Pagar →</a>'
+                       : pagada ? '<span class="crm-ok">Pagado</span>' : '<span class="crm-muted">Pendiente</span>';
+            return '<li><span class="crm-st">' + (pagada ? '✅' : '⏳') + '</span><span>' + escapeHtml(f.label) + ' <span class="crm-muted">· ' + f.pct + '</span></span><span class="crm-right">' + accion + '</span></li>';
+        }).join('') + '</ul>');
+
+        /* 5. sesión de alineación */
+        var sesionBody;
+        if (!inscripcionesOk) {
+            sesionBody = '<p class="crm-empty">No pudimos cargar tu sesión. <a href="#" data-crm-retry-inscripciones style="color:var(--primary);font-weight:700;">Reintentar</a></p>';
+        } else if (proxima) {
+            var s = proxima.sesion;
+            sesionBody = '<p class="crm-empty"><strong style="color:var(--text-bright);">' + escapeHtml(formatoSesion(s)) + '</strong>' +
+                         (s.instructor_nombre ? '<div class="crm-muted">Con ' + escapeHtml(s.instructor_nombre) + '</div>' : '') + '</p>' +
+                         (s.zoom_link ? '<a class="crm-btn crm-btn-cta" style="margin-top:8px;" href="' + escapeHtml(s.zoom_link) + '" target="_blank" rel="noopener">🎥 Entrar a Zoom</a>' : '');
+        } else if (fases.alineacion) {
+            sesionBody = '<p class="crm-empty">Aún no has reservado tu sesión en vivo.</p><a class="crm-btn crm-btn-cta" style="margin-top:8px;" href="alineacion.html">📅 Reservar sesión</a>';
+        } else {
+            sesionBody = '<p class="crm-empty">La reserva de tu sesión en vivo se habilita al pagar la fase de Alineación.</p>';
+        }
+        var sesion = card('🎓', 'Sesión de Alineación', sesionBody);
+
+        /* 6. atención */
+        var items = itemsAtencion({ steps: steps, row: row, fases: fases, inscripcion: proxima, inscripcionesOk: inscripcionesOk });
+        var atencion = card('🔔', 'Requieren atención', items.length
+            ? '<ul class="crm-list">' + items.map(function (it) {
+                return '<li><span class="crm-st">' + (it.tipo === 'pago' ? '💳' : it.tipo === 'sesion' ? '🎓' : '📄') + '</span><a href="' + escapeHtml(it.href) + '">' + escapeHtml(it.texto) + '</a></li>';
+              }).join('') + '</ul>'
+            : '<p class="crm-empty crm-ok">Todo en orden ✨</p>',
+            '<span class="crm-count">' + items.length + '</span>');
+
+        container.innerHTML = hero + '<div class="crm-grid">' + progreso + ruta + documentos + pagos + sesion + atencion + '</div>';
+
+        var retry = container.querySelector('[data-crm-retry-inscripciones]');
+        if (retry && typeof data.onRetryInscripciones === 'function') {
+            retry.addEventListener('click', function (ev) { ev.preventDefault(); data.onRetryInscripciones(); });
+        }
+    }
+
     /* ---------- módulo ---------- */
 
     var CrmShell = {
@@ -470,8 +614,8 @@
         FASES: FASES,
         applyTheme: applyTheme,
         toggleTheme: toggleTheme,
-        mount: mount
-        /* renderDashboard se agrega en la Tarea 4 */
+        mount: mount,
+        renderDashboard: renderDashboard
     };
 
     if (typeof module !== 'undefined' && module.exports) module.exports = CrmShell;
