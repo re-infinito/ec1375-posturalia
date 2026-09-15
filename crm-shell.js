@@ -110,9 +110,18 @@
     /* Modo declarado en la etiqueta <script data-crm-mode="rail">. En rail
        no se inyectan tokens (ruta-estudio/ruta-alineacion tienen los suyos). */
     var SCRIPT_MODE = 'full';
+    var SCRIPT_PAGE = '';
     if (typeof document !== 'undefined') {
         var cs = document.currentScript;
         if (cs && cs.dataset && cs.dataset.crmMode === 'rail') SCRIPT_MODE = 'rail';
+        /* Auto-montaje: <script src="crm-shell.js" data-crm-page="alineacion">.
+           Al terminar de cargar la página, si hay sesión, monta el shell en
+           CUALQUIER pantalla de esa página (gate de fase, wizard, resultado)
+           — no depende de dónde la página llame a mount(). mount() es
+           idempotente, así que las llamadas explícitas siguen siendo
+           inofensivas. */
+        if (cs && cs.dataset && cs.dataset.crmPage) SCRIPT_PAGE = cs.dataset.crmPage;
+        if (SCRIPT_PAGE) window.addEventListener('load', function () { autoMount(SCRIPT_PAGE, SCRIPT_MODE); });
         if (SCRIPT_MODE === 'full') {
             var st = document.createElement('style');
             st.id = 'crmThemeTokens';
@@ -364,6 +373,20 @@
             var b = shell.querySelector('[data-crm-badge="' + s.id + '"]');
             if (b && n > 0) { b.textContent = String(n); b.hidden = false; }
         });
+    }
+
+    function autoMount(pageId, mode) {
+        if (document.getElementById('crmShell')) return;
+        if (typeof Auth === 'undefined' || typeof FlowStatus === 'undefined') return;
+        Auth.getSession().then(function (session) {
+            if (!session) return null;
+            return FlowStatus.getSteps().then(function (steps) {
+                mount({ currentPageId: pageId, steps: steps, mode: mode });
+            }).catch(function (e) {
+                console.warn('CRM shell: no se pudo calcular el progreso —', e);
+                mount({ currentPageId: pageId, steps: [], degraded: true, mode: mode });
+            });
+        }).catch(function () { /* sin sesión: la página muestra su gate */ });
     }
 
     function mount(opts) {
