@@ -1,6 +1,10 @@
 <!doctype html>
 <html lang="es-MX">
 <head>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="auth.js"></script>
+<script src="flow-status.js"></script>
+<script src="crm-shell.js" data-crm-mode="rail"></script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
     <link rel="icon" href="favicon.ico" sizes="any">
@@ -1565,6 +1569,20 @@ window.EC1375Alineacion={
   reinicia:function(){ vistas={}; try{
       localStorage.removeItem('ec1375-alineacion-vistas'); }catch(e){} pinta(); }
 };
+})();
+</script>
+<script>
+/* Rail del shell CRM — solo con sesión iniciada. Sin sesión la página se
+   muestra tal cual (también se usa como material abierto en la sesión en
+   vivo). Agregado a mano: si esta página se regenera desde el pipeline
+   externo, volver a insertar este bloque y los 4 <script> del <head>. */
+(async function () {
+    try {
+        var session = await Auth.getSession();
+        if (!session) return;
+        var steps = await FlowStatus.getSteps();
+        CrmShell.mount({ mode: 'rail', currentPageId: 'alineacion', steps: steps });
+    } catch (e) { console.warn('Rail CRM no disponible:', e); }
 })();
 </script>
 </body>
