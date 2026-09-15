@@ -248,7 +248,6 @@
         const app = document.getElementById('app');
         if (await Auth.isBypassSession()) {
             Auth.ensureAdminPlaceholderData();
-            Auth.renderAdminBar();
         }
         const result = loadAutodiagnosticoResult();
 

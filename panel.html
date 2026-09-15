@@ -97,7 +97,6 @@
         const app = document.getElementById('app');
         if (await Auth.isBypassSession()) {
             Auth.ensureAdminPlaceholderData();
-            Auth.renderAdminBar();
         }
         app.innerHTML = `<p class="spinner">Cargando tu panel...</p>`;
         const email = session.user.email;

@@ -454,6 +454,26 @@
             if (!degraded) rellenarBadges(shell, steps, row);
         });
 
+        /* Cuenta bypass: botón "Reset demo" (antes vivía en la barra fija de
+           admin, retirada el 15 sep — este sidebar la sustituye). */
+        if (typeof Auth !== 'undefined' && typeof Auth.isBypassSession === 'function') {
+            Promise.resolve(Auth.isBypassSession()).then(function (es) {
+                if (!es) return;
+                var user = shell.querySelector('.crm-user');
+                if (!user || shell.querySelector('[data-crm-reset]')) return;
+                var btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'crm-sidebtn is-logout';
+                btn.setAttribute('data-crm-reset', '');
+                btn.style.borderColor = '#FF3333';
+                btn.style.color = '#FF3333';
+                btn.textContent = '🔄 Reset demo';
+                btn.title = 'Borra el progreso local de Plan de Evaluación en adelante (solo cuenta de pruebas)';
+                btn.addEventListener('click', function () { Auth.resetAdminDownstreamProgress(); });
+                user.insertBefore(btn, user.querySelector('[data-crm-logout]'));
+            }).catch(function () { /* ignore */ });
+        }
+
         return shell;
     }
 

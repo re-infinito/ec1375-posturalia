@@ -710,7 +710,7 @@ const Auth = {
        ensureAdminPlaceholderData) — si lo hiciera, borraría lo que el
        admin acaba de capturar en la página actual en cuanto esta
        volviera a renderizar (ej. al avanzar un paso). Se dispara solo a
-       mano, vía el botón "🔄 Reset" de la barra — pensado para demos en
+       mano, vía el botón "🔄 Reset demo" del sidebar (crm-shell.js) — pensado para demos en
        vivo, mostrar una página vacía y llenarla desde cero cuantas veces
        haga falta. */
     resetAdminDownstreamProgress() {
@@ -719,35 +719,6 @@ const Auth = {
         localStorage.removeItem('encuestaSatisfaccionData');
         localStorage.removeItem('evidenciasData');
         location.reload();
-    },
-
-    /* Barra fija con links a las 8 páginas del flujo — llamada por cada
-       una tras confirmar Auth._isBypassSession === true. */
-    renderAdminBar() {
-        if (document.getElementById('adminBypassBar')) return;
-        const bar = document.createElement('div');
-        bar.id = 'adminBypassBar';
-        bar.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:#050a1a;border-bottom:2px solid #FFD700;padding:8px 12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;font-size:0.8rem;';
-        const linkStyle = 'color:#fff;background:#0088FF;padding:6px 12px;border-radius:6px;text-decoration:none;font-weight:600;white-space:nowrap;';
-        bar.innerHTML = `
-            <strong style="color:#FFD700;margin-right:4px;">🔧 Admin</strong>
-            <a href="autodiagnostico.html" target="_blank" style="${linkStyle}">Autodiagnóstico</a>
-            <a href="reforzamiento.html" target="_blank" style="${linkStyle}">Reforzamiento</a>
-            <a href="alineacion.html" target="_blank" style="${linkStyle}">Alineación</a>
-            <a href="biblioteca.html" target="_blank" style="${linkStyle};background:transparent;border:1px solid #0088FF;">Biblioteca</a>
-            <a href="plan-evaluacion.html" target="_blank" style="${linkStyle}">Plan Evaluación</a>
-            <a href="guion-maestro.html" target="_blank" style="${linkStyle};background:transparent;border:1px solid #0088FF;">Guion Maestro</a>
-            <a href="documentos-sesion.html" target="_blank" style="${linkStyle}">Doc. Sesión</a>
-            <a href="practica.html" target="_blank" style="${linkStyle}">Práctica</a>
-            <a href="examen-conocimientos.html" target="_blank" style="${linkStyle}">Examen</a>
-            <a href="encuesta-satisfaccion.html" target="_blank" style="${linkStyle}">Encuesta</a>
-            <a href="evidencias.html" target="_blank" style="${linkStyle}">Evidencias</a>
-            <a href="entrega.html" target="_blank" style="${linkStyle}">Entrega</a>
-            <a href="panel.html" target="_blank" style="${linkStyle};background:transparent;border:1px solid #0088FF;">Dashboard</a>
-            <button onclick="Auth.resetAdminDownstreamProgress()" style="${linkStyle};background:transparent;border:1px solid #FF3333;color:#FF3333;cursor:pointer;font-family:inherit;">🔄 Reset</button>
-        `;
-        document.body.prepend(bar);
-        document.body.style.paddingTop = '40px';
     }
 };
 
