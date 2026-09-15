@@ -2,7 +2,7 @@
 
 **Fecha:** 15 de septiembre, 2026
 **Estado:** Aprobado por Diego (diseño verbal), pendiente de revisión del spec escrito
-**Proyecto:** 1 de 3 (ver "Contexto y descomposición")
+**Proyecto:** 1 de 4 (ver "Contexto y descomposición")
 
 ## Contexto y descomposición
 
@@ -13,7 +13,7 @@ cifras, cuadrícula de tarjetas, chip de usuario con "Cerrar sesión", botón
 "Modo oscuro") — para el candidato **y** para el equipo, y además que el
 contenido quede protegido contra copia/captura.
 
-Eso son tres proyectos independientes, cada uno con su propio spec, plan y
+Eso son cuatro proyectos independientes, cada uno con su propio spec, plan y
 deploy, en este orden acordado:
 
 1. **Shell CRM del candidato + panel de control** — este spec.
@@ -223,7 +223,9 @@ tarjeta sobre el fondo del tema. Al verificar sesión, `handleVerified`:
    `GET /api/mis-inscripciones-alineacion?email=` (misma llamada que
    `sesiones-alineacion-component.js`, filtrando `estado === 'confirmada'
    && sesion`). Las cuatro cargas corren en paralelo (`Promise.allSettled`).
-2. Monta el shell (`mount({ currentPageId: 'panel', steps, row })`).
+2. Monta el shell (`mount({ currentPageId: 'panel', steps, row })`) —
+   `'panel'` es el id reservado del item "Panel" del sidebar, no un paso
+   de `FLOW_STEPS_META`.
 3. Llama `CrmShell.renderDashboard(container, data)`.
 
 `renderDashboard` pinta:
@@ -281,8 +283,7 @@ tarjeta sobre el fondo del tema. Al verificar sesión, `handleVerified`:
    Sin montos aquí (el monto exacto lo calcula cada página vía
    `api/monto-fase.js`; no se duplica esa lógica).
 5. **Sesión de Alineación** — si hay inscripción confirmada: fecha y hora
-   (México), botón "Entrar a Zoom" (`zoom_link`) y "Agregar a calendario"
-   no aplica (ya llega la invitación de Google Calendar). Si no hay:
+   (México) y botón "Entrar a Zoom" (`zoom_link`). Si no hay:
    "Aún no has reservado tu sesión en vivo" + botón a `alineacion.html`
    (solo si Alineación está pagada; si no, el texto dice que se habilita
    al pagar esa fase).
@@ -321,9 +322,9 @@ Los bloques van bajo `html[data-theme="light"]` y `html[data-theme="dark"]`
 fallback oscuro). El botón amarillo del hero usa `#FFD700` fijo con texto
 `#050a1a` en ambos temas (es el CTA, debe verse igual que en la captura).
 
-### Cambio mecánico por página (12 páginas: las 10 del flujo menos las 2
-de pipeline, + `recuperar.html`, `guion-maestro.html`, y las 3 stubs no
-cuentan)
+### Cambio mecánico por página (10 páginas: las 8 del flujo con contenido
+propio — los stubs `reforzamiento`/`practica` redirigen a `ruta-estudio`,
+que queda fuera del tema — más `recuperar.html` y `guion-maestro.html`)
 
 1. Agregar `--border` y `--surface-2` al `:root` de la página (valores
    oscuros, para que siga viéndose igual sin el shell).
