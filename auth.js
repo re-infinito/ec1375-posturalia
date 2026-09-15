@@ -27,7 +27,26 @@ const CANDIDATE_FLOW_BYPASS_EMAIL = 'paideia.tech@outlook.com';
    resultado (0 brechas que reforzar, solo falta dar visto bueno). */
 const REACTIVO_KEYS_REALES = ["e1_c0_g0_i0","e1_c0_g0_i1","e1_c0_g0_i2","e1_c0_g0_i3","e1_c0_g0_i4","e1_c0_g0_i5","e1_c1_g0_i0","e1_c1_g0_i1","e1_c1_g0_i2","e1_c1_g0_i3","e1_c1_g0_i4","e1_c1_g0_i5","e1_c1_g0_i6","e1_c1_g0_i7","e1_c1_g0_i8","e1_c1_g1_i0","e1_c1_g1_i1","e1_c1_g1_i2","e1_c1_g1_i3","e1_c2_g0_i0","e1_c2_g0_i1","e1_c2_g0_i2","e1_c3_g0_i0","e1_c3_g0_i1","e2_c0_g0_i0","e2_c0_g0_i1","e2_c0_g0_i2","e2_c0_g0_i3","e2_c0_g0_i4","e2_c0_g0_i5","e2_c0_g0_i6","e2_c0_g1_i0","e2_c0_g1_i1","e2_c0_g1_i2","e2_c0_g1_i3","e2_c0_g1_i4","e2_c0_g1_i5","e2_c0_g1_i6","e2_c0_g1_i7","e2_c0_g1_i8","e2_c0_g2_i0","e2_c0_g2_i1","e2_c0_g2_i2","e2_c0_g2_i3","e2_c0_g2_i4","e2_c0_g2_i5","e2_c0_g2_i6","e2_c0_g2_i7","e2_c0_g3_i0","e2_c0_g3_i1","e2_c0_g3_i2","e2_c0_g3_i3","e2_c0_g3_i4","e2_c0_g3_i5","e2_c0_g4_i0","e2_c0_g4_i1","e2_c0_g5_i0","e2_c0_g5_i1","e2_c0_g5_i2","e2_c0_g6_i0","e2_c0_g6_i1","e2_c0_g6_i2","e2_c0_g6_i3","e2_c0_g6_i4","e2_c1_g0_i0","e2_c1_g0_i1","e2_c1_g0_i2","e2_c1_g0_i3","e2_c1_g0_i4","e2_c1_g0_i5","e2_c1_g0_i6","e2_c1_g0_i7","e2_c1_g0_i8","e2_c1_g0_i9","e2_c1_g0_i10","e2_c1_g0_i11","e2_c2_g0_i0","e2_c2_g0_i1","e2_c2_g0_i2","e2_c2_g0_i3","e2_c2_g0_i4","e2_c3_g0_i0","e2_c3_g0_i1","e2_c3_g0_i2","e3_c0_g0_i0","e3_c0_g0_i1","e3_c0_g0_i2","e3_c0_g1_i0","e3_c0_g1_i1","e3_c0_g1_i2","e3_c0_g1_i3","e3_c0_g1_i4","e3_c0_g1_i5","e3_c0_g2_i0","e3_c0_g2_i1","e3_c0_g2_i2","e3_c0_g3_i0","e3_c0_g3_i1","e3_c0_g3_i2","e3_c0_g3_i3","e3_c0_g3_i4","e3_c0_g3_i5","e3_c0_g3_i6","e3_c1_g0_i0","e3_c1_g0_i1","e3_c1_g0_i2","e3_c1_g0_i3","e3_c1_g0_i4","e3_c1_g0_i5","e3_c1_g0_i6","e3_c1_g0_i7","e3_c1_g0_i8","e3_c1_g0_i9","e3_c1_g0_i10","e3_c1_g0_i11","e3_c1_g0_i12","e4_c0_g0_i0","e4_c0_g0_i1","e4_c0_g0_i2","e4_c0_g0_i3","e4_c0_g1_i0","e4_c0_g1_i1","e4_c0_g1_i2","e4_c0_g1_i3","e4_c0_g1_i4","e4_c0_g1_i5","e4_c0_g1_i6","e4_c0_g1_i7","e4_c0_g2_i0","e4_c0_g2_i1","e4_c0_g2_i2","e4_c0_g2_i3","e4_c1_g0_i0","e4_c1_g0_i1","e4_c1_g0_i2","e4_c1_g0_i3","e4_c1_g0_i4","e4_c1_g1_i0","e4_c1_g1_i1","e4_c1_g1_i2","e4_c1_g1_i3","e4_c1_g1_i4"];
 
-const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+/* "Mantener mi sesión iniciada" (15 sep 2026): Supabase guarda la sesión
+   donde diga este adaptador. Por default localStorage (persiste al cerrar
+   el navegador). Si el candidato desmarca la casilla al entrar, se guarda
+   en sessionStorage (se borra al cerrar la pestaña/navegador). La elección
+   vive en localStorage['paideia-remember'] ('0' = no recordar) y se lee en
+   cada acceso, así que cambiarla justo antes de iniciar sesión manda la
+   sesión nueva al lugar correcto. */
+const REMEMBER_KEY = 'paideia-remember';
+function _authStore() {
+    try { return localStorage.getItem(REMEMBER_KEY) === '0' ? sessionStorage : localStorage; } catch (e) { return sessionStorage; }
+}
+const authStorageAdapter = {
+    getItem: function (k) { try { return _authStore().getItem(k); } catch (e) { return null; } },
+    setItem: function (k, v) { try { _authStore().setItem(k, v); } catch (e) { /* ignore */ } },
+    removeItem: function (k) {
+        try { localStorage.removeItem(k); } catch (e) { /* ignore */ }
+        try { sessionStorage.removeItem(k); } catch (e) { /* ignore */ }
+    }
+};
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { storage: authStorageAdapter } });
 window.supabaseClient = supabaseClient;
 
 const Auth = {
@@ -257,7 +276,29 @@ const Auth = {
     renderAuthGate(container, opts) {
         Auth._authGateContainer = container;
         Auth._authGateOnVerified = (opts && opts.onVerified) || null;
-        Auth._renderAuthGateStep('email');
+        /* Sesión guardada ("mantener mi sesión iniciada"): entrar directo sin
+           pedir correo ni contraseña. Hasta el 15 sep este gate siempre
+           arrancaba en el paso de correo aunque Supabase ya tuviera la
+           sesión persistida — por eso había que teclear la contraseña en
+           cada visita a panel.html. Para cambiar de cuenta: "Cerrar sesión". */
+        Auth._renderAuthGateStep('verifying');
+        Auth.getSession().then(function (session) {
+            if (session && session.user && typeof Auth._authGateOnVerified === 'function') {
+                Auth._authGateOnVerified(session);
+            } else {
+                Auth._renderAuthGateStep('email');
+            }
+        }).catch(function () { Auth._renderAuthGateStep('email'); });
+    },
+
+    /* Lee la casilla "Mantener mi sesión iniciada" (si existe en el paso
+       actual) y fija la preferencia ANTES de iniciar sesión. */
+    _applyRememberChoice() {
+        const cb = document.getElementById('authRememberInput');
+        const remember = !cb || cb.checked;
+        try {
+            if (remember) localStorage.removeItem(REMEMBER_KEY); else localStorage.setItem(REMEMBER_KEY, '0');
+        } catch (e) { /* ignore */ }
     },
 
     _renderAuthGateStep(step, message) {
@@ -289,6 +330,9 @@ const Auth = {
                     <label>Contraseña</label>
                     <input type="password" id="authPasswordInput" placeholder="Tu contraseña">
                 </div>
+                <label style="display:flex;align-items:center;gap:8px;font-size:0.85rem;margin:-4px 0 14px;cursor:pointer;">
+                    <input type="checkbox" id="authRememberInput" checked style="width:auto;margin:0;"> Mantener mi sesión iniciada en este dispositivo
+                </label>
                 ${errorHtml}
                 <button class="btn btn-primary btn-full" onclick="Auth._handleSignIn()">Iniciar sesión</button>
                 <button class="btn btn-secondary btn-full" onclick="Auth._handleRequestReset()">¿Olvidaste tu contraseña?</button>
@@ -305,6 +349,9 @@ const Auth = {
                     <label>Confirma tu contraseña</label>
                     <input type="password" id="authPasswordConfirmInput" placeholder="Repite tu contraseña">
                 </div>
+                <label style="display:flex;align-items:center;gap:8px;font-size:0.85rem;margin:-4px 0 14px;cursor:pointer;">
+                    <input type="checkbox" id="authRememberInput" checked style="width:auto;margin:0;"> Mantener mi sesión iniciada en este dispositivo
+                </label>
                 ${errorHtml}
                 <button class="btn btn-primary btn-full" onclick="Auth._handleSignUp()">Crear contraseña y continuar</button>
                 <button class="btn btn-secondary btn-full" onclick="Auth._renderAuthGateStep('choose')">← Regresar</button>
@@ -350,6 +397,7 @@ const Auth = {
         const input = document.getElementById('authPasswordInput');
         const password = input.value || '';
         if (!password) { Auth._renderAuthGateStep('signin', 'Escribe tu contraseña.'); return; }
+        Auth._applyRememberChoice();
         Auth._renderAuthGateStep('verifying');
         try {
             const { data, error } = await supabaseClient.auth.signInWithPassword({ email: Auth._pendingEmail, password });
@@ -384,6 +432,7 @@ const Auth = {
         if (password !== confirm) { Auth._renderAuthGateStep('signup', 'Las contraseñas no coinciden.'); return; }
         Auth._renderAuthGateStep('verifying');
         try {
+            Auth._applyRememberChoice();
             const { data, error } = await supabaseClient.auth.signUp({ email: Auth._pendingEmail, password });
             if (error) {
                 Auth._renderAuthGateStep('signup', 'Este correo ya tiene cuenta — usa "Ya tengo contraseña", o "¿Olvidaste tu contraseña?" si no la recuerdas.');
