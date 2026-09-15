@@ -68,6 +68,64 @@
         'documentos-sesion': '🗂️', 'practica': '🧪', 'examen': '🧠', 'encuesta': '📝', 'evidencias': '📤', 'entrega': '🏆'
     };
 
+    /* ---------- tema ---------- */
+
+    /* Los mismos 9 tokens que todas las páginas del flujo definen en :root
+       (valores oscuros = los actuales, sin cambio) + --border/--surface-2.
+       html[data-theme] (0,1,1) le gana al :root (0,1,0) de cada página. */
+    var THEME_CSS =
+        'html[data-theme="light"]{--dark:#f4f6fb;--dark-light:#ffffff;--primary:#0070e0;--primary-light:#0088FF;' +
+        '--accent:#c9950a;--text:#3d4663;--text-bright:#0f1428;--danger:#d32020;--success:#0a9a5a;' +
+        '--border:rgba(15,20,40,0.12);--surface-2:rgba(15,20,40,0.04);color-scheme:light}' +
+        'html[data-theme="dark"]{--dark:#050a1a;--dark-light:#0f1428;--primary:#0088FF;--primary-light:#00CCFF;' +
+        '--accent:#FFD700;--text:#D0D0D0;--text-bright:#FFFFFF;--danger:#FF3333;--success:#00FF88;' +
+        '--border:rgba(255,255,255,0.12);--surface-2:rgba(255,255,255,0.05);color-scheme:dark}';
+
+    function leerTema() {
+        try {
+            var t = localStorage.getItem(THEME_KEY);
+            return t === 'dark' ? 'dark' : 'light';
+        } catch (e) { return 'light'; }
+    }
+
+    function applyTheme(tema) {
+        if (typeof document === 'undefined') return;
+        var t = tema || leerTema();
+        document.documentElement.setAttribute('data-theme', t);
+        var botones = document.querySelectorAll('[data-crm-theme-btn]');
+        Array.prototype.forEach.call(botones, function (b) {
+            b.textContent = t === 'dark' ? (b.dataset.crmThemeBtn === 'icon' ? '☀️' : '☀️ Modo claro')
+                                          : (b.dataset.crmThemeBtn === 'icon' ? '🌙' : '🌙 Modo oscuro');
+            b.setAttribute('aria-label', t === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro');
+        });
+        return t;
+    }
+
+    function toggleTheme() {
+        var nuevo = leerTema() === 'dark' ? 'light' : 'dark';
+        try { localStorage.setItem(THEME_KEY, nuevo); } catch (e) { /* modo privado: solo esta carga */ }
+        applyTheme(nuevo);
+    }
+
+    /* Modo declarado en la etiqueta <script data-crm-mode="rail">. En rail
+       no se inyectan tokens (ruta-estudio/ruta-alineacion tienen los suyos). */
+    var SCRIPT_MODE = 'full';
+    if (typeof document !== 'undefined') {
+        var cs = document.currentScript;
+        if (cs && cs.dataset && cs.dataset.crmMode === 'rail') SCRIPT_MODE = 'rail';
+        if (SCRIPT_MODE === 'full') {
+            var st = document.createElement('style');
+            st.id = 'crmThemeTokens';
+            st.textContent = THEME_CSS;
+            document.head.appendChild(st);
+            applyTheme();
+        }
+        var link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = 'crm-shell.css';
+        document.head.appendChild(link);
+    }
+
     /* ---------- helpers puros (probados en Node) ---------- */
 
     function escapeHtml(str) {
@@ -218,6 +276,187 @@
         return items;
     }
 
+    /* ---------- DOM: sidebar, encabezado, mount ---------- */
+
+    function stepsSinEstado() {
+        var meta = (typeof FLOW_STEPS_META !== 'undefined') ? FLOW_STEPS_META : [];
+        return meta.map(function (m) { return { id: m.id, label: m.label, href: m.href, done: false, current: false, locked: false, reason: null }; });
+    }
+
+    function itemHtml(step, currentPageId, degraded) {
+        var ico = ICONOS[step.id] || '•';
+        var cls = 'crm-item';
+        var isHere = step.id === currentPageId;
+        if (isHere) cls += ' is-here';
+        var title = '';
+        if (!degraded) {
+            if (step.done) { cls += ' is-done'; ico = '✓'; }
+            else if (step.current) cls += ' is-current';
+            else if (step.locked) {
+                cls += ' is-locked'; ico = '🔒';
+                title = step.reason === 'esperando_evaluador' ? 'Esperando el resultado de tu evaluador' : 'Completa el paso anterior primero';
+            }
+        }
+        var inner = '<span class="crm-ico">' + ico + '</span><span class="crm-label">' + escapeHtml(step.label) + '</span>' +
+                    '<span class="crm-badge" data-crm-badge="' + escapeHtml(step.id) + '" hidden></span>';
+        if (!degraded && step.locked) {
+            return '<span class="' + cls + '" title="' + escapeHtml(title) + '">' + inner + '</span>';
+        }
+        return '<a class="' + cls + '" href="' + escapeHtml(step.href) + '" title="' + escapeHtml(step.label) + '">' + inner + '</a>';
+    }
+
+    function sidebarHtml(steps, currentPageId, mode, degraded) {
+        var panelCls = 'crm-item' + (currentPageId === 'panel' ? ' is-current is-here' : '');
+        return '' +
+            '<div class="crm-brand"><img src="' + LOGO_SRC + '" alt="Paideia Tech"><div>' +
+                '<strong>Paideia Tech</strong><small>Certificación EC1375</small><span class="crm-pill">SEP · CONOCER</span></div></div>' +
+            (mode === 'rail' ? '<button type="button" class="crm-iconbtn crm-expand" data-crm-expand aria-label="Expandir menú">☰</button>' : '') +
+            (degraded ? '<div class="crm-degraded">No pudimos cargar tu progreso · <a href="#" data-crm-retry>reintentar</a></div>' : '') +
+            '<nav class="crm-nav" aria-label="Pasos de tu certificación">' +
+                '<a class="' + panelCls + '" href="recuperar.html" title="Panel"><span class="crm-ico">' + ICONOS.panel + '</span><span class="crm-label">Panel</span></a>' +
+                steps.map(function (s) { return itemHtml(s, currentPageId, degraded); }).join('') +
+                '<div class="crm-nav-label">Recursos</div>' +
+                '<a class="crm-item" href="biblioteca.html" title="Biblioteca"><span class="crm-ico">📖</span><span class="crm-label">Biblioteca</span></a>' +
+                '<a class="crm-item" href="guion-maestro.html" title="Guion Maestro"><span class="crm-ico">📜</span><span class="crm-label">Guion Maestro</span></a>' +
+            '</nav>' +
+            '<div class="crm-user">' +
+                '<div class="crm-user-row"><span class="crm-avatar" data-crm-avatar>?</span><div style="min-width:0;">' +
+                    '<div class="crm-user-name" data-crm-name>Cargando…</div><div class="crm-user-email" data-crm-email></div></div></div>' +
+                '<button type="button" class="crm-sidebtn" data-crm-theme-btn="text">🌙 Modo oscuro</button>' +
+                '<button type="button" class="crm-sidebtn is-logout" data-crm-logout>⎋ Cerrar sesión</button>' +
+            '</div>' +
+            '<div class="crm-foot"><span>🗂️ Expediente digital</span><span>🔒 Datos protegidos</span><span>🏛️ Certificación oficial SEP-CONOCER</span></div>';
+    }
+
+    function headerHtml(title) {
+        return '' +
+            '<button type="button" class="crm-iconbtn crm-hamburger" data-crm-open aria-label="Abrir menú">☰</button>' +
+            '<div class="crm-topbar-title">' + escapeHtml(title) + '</div>' +
+            '<button type="button" class="crm-iconbtn" data-crm-theme-btn="icon" title="Cambiar tema">🌙</button>' +
+            '<div class="crm-userchip"><span class="crm-avatar" data-crm-avatar>?</span><span class="crm-user-short" data-crm-name-short></span></div>';
+    }
+
+    function syncOffset() {
+        var bar = document.getElementById('adminBypassBar');
+        var h = bar ? bar.getBoundingClientRect().height : 0;
+        document.documentElement.style.setProperty('--crm-offset-top', Math.round(h) + 'px');
+    }
+
+    function setOpen(shell, abierto) {
+        shell.classList.toggle('is-open', !!abierto);
+    }
+
+    function rellenarUsuario(shell, row) {
+        var email = '';
+        try { email = (typeof Auth !== 'undefined' && Auth._session && Auth._session.user && Auth._session.user.email) || ''; } catch (e) { /* ignore */ }
+        var nombre = row && row.nombre ? row.nombre : '';
+        var ini = iniciales(nombre, email);
+        Array.prototype.forEach.call(shell.querySelectorAll('[data-crm-avatar]'), function (el) { el.textContent = ini; });
+        Array.prototype.forEach.call(shell.querySelectorAll('[data-crm-name]'), function (el) { el.textContent = nombre || (email ? email.split('@')[0] : 'Candidato/a'); });
+        Array.prototype.forEach.call(shell.querySelectorAll('[data-crm-name-short]'), function (el) { el.textContent = (nombre || email).split(/\s+/)[0] || ''; });
+        Array.prototype.forEach.call(shell.querySelectorAll('[data-crm-email]'), function (el) { el.textContent = email; });
+    }
+
+    function rellenarBadges(shell, steps, row) {
+        steps.forEach(function (s) {
+            if (!s.current) return;
+            var n = pendientesDelPaso(row, s.id);
+            var b = shell.querySelector('[data-crm-badge="' + s.id + '"]');
+            if (b && n > 0) { b.textContent = String(n); b.hidden = false; }
+        });
+    }
+
+    function mount(opts) {
+        if (typeof document === 'undefined') return null;
+        opts = opts || {};
+        if (document.getElementById('crmShell')) return document.getElementById('crmShell');
+
+        var mode = opts.mode === 'rail' ? 'rail' : 'full';
+        var degraded = !!opts.degraded || !Array.isArray(opts.steps) || opts.steps.length === 0;
+        var steps = degraded ? stepsSinEstado() : opts.steps;
+        var currentPageId = opts.currentPageId || '';
+
+        document.body.classList.add('crm-active', 'crm-' + mode);
+
+        var shell = document.createElement('div');
+        shell.id = 'crmShell';
+        shell.className = 'crm-shell crm-mode-' + mode;
+
+        var sidebar = document.createElement('aside');
+        sidebar.className = 'crm-sidebar';
+        sidebar.innerHTML = sidebarHtml(steps, currentPageId, mode, degraded);
+
+        var backdrop = document.createElement('div');
+        backdrop.className = 'crm-backdrop';
+
+        shell.appendChild(sidebar);
+        shell.appendChild(backdrop);
+
+        if (mode === 'full') {
+            var main = document.createElement('main');
+            main.className = 'crm-main';
+            var topBarInner = document.querySelector('.top-bar .top-bar-inner');
+            var title = opts.title || (topBarInner ? topBarInner.textContent.trim() : document.title);
+            var header = document.createElement('header');
+            header.className = 'crm-topbar';
+            header.innerHTML = headerHtml(title);
+            main.appendChild(header);
+            /* Mover TODO el contenido actual del body (top-bar, #app, barras
+               fijas, nav-bar…) sin clonar — los listeners y el estado de los
+               wizards viven en esos mismos nodos. Se dejan fuera los <script>
+               y la barra de admin (fija arriba, la mide syncOffset). */
+            var hijos = Array.prototype.slice.call(document.body.childNodes);
+            hijos.forEach(function (n) {
+                if (n.nodeType === 1 && (n.id === 'adminBypassBar' || n.tagName === 'SCRIPT')) return;
+                main.appendChild(n);
+            });
+            shell.appendChild(main);
+        } else {
+            var fab = document.createElement('button');
+            fab.type = 'button';
+            fab.className = 'crm-fab';
+            fab.setAttribute('aria-label', 'Abrir menú');
+            fab.textContent = '☰';
+            fab.setAttribute('data-crm-open', '');
+            shell.appendChild(fab);
+        }
+
+        document.body.appendChild(shell);
+
+        /* interacción */
+        shell.addEventListener('click', function (ev) {
+            var t = ev.target.closest ? ev.target.closest('[data-crm-open],[data-crm-expand],[data-crm-theme-btn],[data-crm-logout],[data-crm-retry],.crm-backdrop,.crm-nav a') : null;
+            if (!t) return;
+            if (t.hasAttribute('data-crm-open') || t.hasAttribute('data-crm-expand')) { setOpen(shell, !shell.classList.contains('is-open')); return; }
+            if (t.classList.contains('crm-backdrop')) { setOpen(shell, false); return; }
+            if (t.hasAttribute('data-crm-theme-btn')) { toggleTheme(); return; }
+            if (t.hasAttribute('data-crm-retry')) { ev.preventDefault(); location.reload(); return; }
+            if (t.hasAttribute('data-crm-logout')) {
+                ev.preventDefault();
+                var p = (typeof Auth !== 'undefined' && Auth.signOut) ? Auth.signOut() : Promise.resolve();
+                Promise.resolve(p).then(function () { location.href = 'recuperar.html'; });
+                return;
+            }
+            if (t.matches('.crm-nav a')) setOpen(shell, false);
+        });
+        document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape') setOpen(shell, false); });
+
+        syncOffset();
+        window.addEventListener('resize', syncOffset);
+        applyTheme();
+
+        /* usuario y badges: la fila puede venir en opts.row; si no, se consulta */
+        var rowPromise = opts.row ? Promise.resolve(opts.row)
+            : ((typeof Auth !== 'undefined' && Auth.pullMyRow) ? Auth.pullMyRow().catch(function () { return null; }) : Promise.resolve(null));
+        rellenarUsuario(shell, opts.row || null);
+        rowPromise.then(function (row) {
+            rellenarUsuario(shell, row);
+            if (!degraded) rellenarBadges(shell, steps, row);
+        });
+
+        return shell;
+    }
+
     /* ---------- módulo ---------- */
 
     var CrmShell = {
@@ -228,8 +467,11 @@
             itemsAtencion: itemsAtencion, fechaSesion: fechaSesion
         },
         DOC_GRUPOS: DOC_GRUPOS,
-        FASES: FASES
-        /* applyTheme / toggleTheme / mount / renderDashboard se agregan en las Tareas 3 y 4 */
+        FASES: FASES,
+        applyTheme: applyTheme,
+        toggleTheme: toggleTheme,
+        mount: mount
+        /* renderDashboard se agrega en la Tarea 4 */
     };
 
     if (typeof module !== 'undefined' && module.exports) module.exports = CrmShell;
