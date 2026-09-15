@@ -76,33 +76,27 @@ const FlowStatus = {
         return row;
     },
 
-    async getSteps() {
-        var session = await Auth.getSession();
-        var email = session && session.user && session.user.email;
-        var esBypass = !!email && await Auth.isBypassSession();
-        var row = email ? await FlowStatus.getRow() : null;
-
-        var localAuto = null;
-        try { localAuto = JSON.parse(localStorage.getItem('autodiagnosticoData') || 'null'); } catch (e) { /* ignore */ }
-
+    /* Función PURA (sin Auth, sin red): calcula los 10 pasos a partir de
+       una fila y sus autorizaciones. La usa getSteps() para la sesión actual
+       y admin-data.js (CRM del equipo) por cada candidato con su fila del
+       RPC admin_lista_candidatos — una sola lógica de "qué cuenta como
+       completo", nunca una copia. Cada condición reutiliza el MISMO gate
+       que la página siguiente ya usa para dejar pasar.
+       ctx = { row, localAuto, alineacionAuth, entregaAuth, esBypass } */
+    computeSteps(ctx) {
+        ctx = ctx || {};
+        var row = ctx.row || null;
+        /* Autodiagnóstico: en el navegador del candidato manda localStorage
+           (ctx.localAuto); para otro candidato (admin) se usa su columna
+           autodiagnostico_data, que guarda lo mismo (answers + ndaAccepted). */
+        var localAuto = ctx.localAuto || (row && row.autodiagnostico_data) || null;
         var rutaEstudio = (row && row.ruta_estudio_data) || null;
         var examen = (row && row.examen_conocimientos_data) || null;
-
-        var alineacionAuth = false;
-        var entregaAuth = false;
-        if (email) {
-            alineacionAuth = await Auth.isPhaseAuthorized(email, 'alineacion');
-            entregaAuth = await Auth.isPhaseAuthorized(email, 'entrega');
-        }
-        /* Entrega nunca se marca "done" para la sesión bypass, sin importar
+        var alineacionAuth = !!ctx.alineacionAuth;
+        /* Entrega nunca se marca "done" para la cuenta bypass, sin importar
            lo que diga la autorización real — es dinero real y una decisión
-           real del evaluador, no algo que la cuenta de pruebas deba poder
-           simular como ya resuelto (independiente de cualquier fila vieja
-           de candidatos_fase_pagos que exista para ese correo). Se llama
-           aquí (no se confía en que quien llamó a getSteps() ya haya
-           revisado Auth.isBypassSession() antes) para que esta función se
-           baste sola. */
-        if (esBypass) entregaAuth = false;
+           real del evaluador. */
+        var entregaAuth = !!ctx.entregaAuth && !ctx.esBypass;
 
         var doneById = {
             'autodiagnostico': !!(localAuto && localAuto.answers && Object.keys(localAuto.answers).length === 142 && localAuto.ndaAccepted),
@@ -121,11 +115,9 @@ const FlowStatus = {
             return { id: meta.id, label: meta.label, href: meta.href, done: !!doneById[meta.id], current: false, locked: false, reason: null };
         });
 
-        /* Entrega es un caso especial siempre: nunca es "current" (no es
-           una acción que el candidato dispara con un clic — depende de
-           que el equipo lo autorice a mano tras revisar su evaluación),
-           y su reason siempre es 'esperando_evaluador' cuando no está
-           done, sin importar el estado de los pasos anteriores. */
+        /* Entrega es un caso especial siempre: nunca es "current" (depende
+           de que el equipo la autorice a mano tras revisar la evaluación),
+           y su reason siempre es 'esperando_evaluador' cuando no está done. */
         var entregaStep = steps[steps.length - 1];
         if (!entregaStep.done) {
             entregaStep.locked = true;
@@ -145,15 +137,29 @@ const FlowStatus = {
             }
         }
 
-        /* Cuenta bypass (videos/demos): ningún paso queda bloqueado — todos
-           son navegables desde el sidebar y el panel. El estado done/current
-           sigue saliendo de los datos (demo) reales de localStorage. Entrega
-           conserva su razón informativa pero también se puede abrir. */
-        if (esBypass) {
+        /* Cuenta bypass (videos/demos): ningún paso queda bloqueado. */
+        if (ctx.esBypass) {
             steps.forEach(function (s) { s.locked = false; if (s.id !== 'entrega') s.reason = null; });
         }
-
         return steps;
+    },
+
+    async getSteps() {
+        var session = await Auth.getSession();
+        var email = session && session.user && session.user.email;
+        var esBypass = !!email && await Auth.isBypassSession();
+        var row = email ? await FlowStatus.getRow() : null;
+
+        var localAuto = null;
+        try { localAuto = JSON.parse(localStorage.getItem('autodiagnosticoData') || 'null'); } catch (e) { /* ignore */ }
+
+        var alineacionAuth = false;
+        var entregaAuth = false;
+        if (email) {
+            alineacionAuth = await Auth.isPhaseAuthorized(email, 'alineacion');
+            entregaAuth = await Auth.isPhaseAuthorized(email, 'entrega');
+        }
+        return FlowStatus.computeSteps({ row: row, localAuto: localAuto, alineacionAuth: alineacionAuth, entregaAuth: entregaAuth, esBypass: esBypass });
     },
 
     /* Botón "siguiente paso" — SIEMPRE calculado del estado real de
@@ -180,4 +186,5 @@ const FlowStatus = {
     }
 };
 
-window.FlowStatus = FlowStatus;
+if (typeof window !== 'undefined') window.FlowStatus = FlowStatus;
+if (typeof module !== 'undefined' && module.exports) module.exports = FlowStatus;

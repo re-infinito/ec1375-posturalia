@@ -63,6 +63,16 @@
         'encuesta': 'evaluacion', 'evidencias': 'evaluacion', 'entrega': 'entrega'
     };
 
+    /* Navegación del CRM del equipo (mode: 'admin'). Sin estados de paso. */
+    var ADMIN_NAV = [
+        { id: 'admin-panel', label: 'Panel del equipo', href: 'admin-crm.html', ico: '🏠' },
+        { id: 'admin-candidatos', label: 'Candidatos', href: 'admin-candidatos.html', ico: '👥' },
+        { id: 'admin-precios', label: 'Precios y pagos', href: 'admin-precios.html', ico: '💰' },
+        { id: 'admin-sesiones', label: 'Sesiones de Alineación', href: 'admin-sesiones.html', ico: '🎓' },
+        { id: 'admin-kpis', label: 'KPIs', href: 'admin-kpis.html', ico: '📊' },
+        { id: 'admin-utilidades', label: 'Utilidades', href: 'admin-utilidades.html', ico: '💵' }
+    ];
+
     var ICONOS = {
         'panel': '🏠', 'autodiagnostico': '📋', 'reforzamiento': '📚', 'alineacion': '🎓', 'plan-evaluacion': '📅',
         'documentos-sesion': '🗂️', 'practica': '🧪', 'examen': '🧠', 'encuesta': '📝', 'evidencias': '📤', 'entrega': '🏆'
@@ -114,6 +124,7 @@
     if (typeof document !== 'undefined') {
         var cs = document.currentScript;
         if (cs && cs.dataset && cs.dataset.crmMode === 'rail') SCRIPT_MODE = 'rail';
+        if (cs && cs.dataset && cs.dataset.crmMode === 'admin') SCRIPT_MODE = 'admin';
         /* Auto-montaje: <script src="crm-shell.js" data-crm-page="alineacion">.
            Al terminar de cargar la página, si hay sesión, monta el shell en
            CUALQUIER pantalla de esa página (gate de fase, wizard, resultado)
@@ -122,7 +133,7 @@
            inofensivas. */
         if (cs && cs.dataset && cs.dataset.crmPage) SCRIPT_PAGE = cs.dataset.crmPage;
         if (SCRIPT_PAGE) window.addEventListener('load', function () { autoMount(SCRIPT_PAGE, SCRIPT_MODE); });
-        if (SCRIPT_MODE === 'full') {
+        if (SCRIPT_MODE !== 'rail') {
             var st = document.createElement('style');
             st.id = 'crmThemeTokens';
             st.textContent = THEME_CSS;
@@ -314,7 +325,29 @@
         return '<a class="' + cls + '" href="' + escapeHtml(step.href) + '" title="' + escapeHtml(step.label) + '">' + inner + '</a>';
     }
 
+    function adminSidebarHtml(currentPageId) {
+        return '' +
+            '<div class="crm-brand"><img src="' + LOGO_SRC + '" alt="Paideia Tech"><div>' +
+                '<strong>Paideia Tech</strong><small>Panel del equipo</small><span class="crm-pill">EQUIPO · EC1375</span></div></div>' +
+            '<nav class="crm-nav" aria-label="Módulos de administración">' +
+                ADMIN_NAV.map(function (n) {
+                    var cls = 'crm-item' + (n.id === currentPageId ? ' is-current is-here' : '');
+                    return '<a class="' + cls + '" href="' + n.href + '" title="' + escapeHtml(n.label) + '"><span class="crm-ico">' + n.ico + '</span><span class="crm-label">' + escapeHtml(n.label) + '</span></a>';
+                }).join('') +
+                '<div class="crm-nav-label">Vistas</div>' +
+                '<a class="crm-item" href="panel.html" title="Ver como candidato"><span class="crm-ico">🎓</span><span class="crm-label">Ver como candidato</span></a>' +
+            '</nav>' +
+            '<div class="crm-user">' +
+                '<div class="crm-user-row"><span class="crm-avatar" data-crm-avatar>?</span><div style="min-width:0;">' +
+                    '<div class="crm-user-name" data-crm-name>Administrador</div><div class="crm-user-email" data-crm-email></div></div></div>' +
+                '<button type="button" class="crm-sidebtn" data-crm-theme-btn="text">🌙 Modo oscuro</button>' +
+                '<button type="button" class="crm-sidebtn is-logout" data-crm-logout>⎋ Cerrar sesión</button>' +
+            '</div>' +
+            '<div class="crm-foot"><span>🔐 Acceso solo administradores</span><span>🏛️ Certificación oficial SEP-CONOCER</span></div>';
+    }
+
     function sidebarHtml(steps, currentPageId, mode, degraded) {
+        if (mode === 'admin') return adminSidebarHtml(currentPageId);
         var panelCls = 'crm-item' + (currentPageId === 'panel' ? ' is-current is-here' : '');
         return '' +
             '<div class="crm-brand"><img src="' + LOGO_SRC + '" alt="Paideia Tech"><div>' +
@@ -361,7 +394,8 @@
         var nombre = row && row.nombre ? row.nombre : '';
         var ini = iniciales(nombre, email);
         Array.prototype.forEach.call(shell.querySelectorAll('[data-crm-avatar]'), function (el) { el.textContent = ini; });
-        Array.prototype.forEach.call(shell.querySelectorAll('[data-crm-name]'), function (el) { el.textContent = nombre || (email ? email.split('@')[0] : 'Candidato/a'); });
+        var esAdminShell = shell.classList.contains('crm-mode-admin');
+        Array.prototype.forEach.call(shell.querySelectorAll('[data-crm-name]'), function (el) { el.textContent = nombre || (email ? email.split('@')[0] : (esAdminShell ? 'Administrador' : 'Candidato/a')); });
         Array.prototype.forEach.call(shell.querySelectorAll('[data-crm-name-short]'), function (el) { el.textContent = (nombre || email).split(/\s+/)[0] || ''; });
         Array.prototype.forEach.call(shell.querySelectorAll('[data-crm-email]'), function (el) { el.textContent = email; });
     }
@@ -377,7 +411,18 @@
 
     function autoMount(pageId, mode) {
         if (document.getElementById('crmShell')) return;
-        if (typeof Auth === 'undefined' || typeof FlowStatus === 'undefined') return;
+        if (typeof Auth === 'undefined') return;
+        if (mode === 'admin') {
+            /* Solo con sesión de un correo en la tabla admins. */
+            Auth.getSession().then(function (session) {
+                if (!session || !session.user) return null;
+                return Auth.isAdmin(session.user.email).then(function (es) {
+                    if (es) mount({ mode: 'admin', currentPageId: pageId });
+                });
+            }).catch(function () { /* sin sesión: la página muestra su gate */ });
+            return;
+        }
+        if (typeof FlowStatus === 'undefined') return;
         Auth.getSession().then(function (session) {
             if (!session) return null;
             return FlowStatus.getSteps().then(function (steps) {
@@ -394,8 +439,8 @@
         opts = opts || {};
         if (document.getElementById('crmShell')) return document.getElementById('crmShell');
 
-        var mode = opts.mode === 'rail' ? 'rail' : 'full';
-        var degraded = !!opts.degraded || !Array.isArray(opts.steps) || opts.steps.length === 0;
+        var mode = opts.mode === 'rail' ? 'rail' : opts.mode === 'admin' ? 'admin' : 'full';
+        var degraded = mode !== 'admin' && (!!opts.degraded || !Array.isArray(opts.steps) || opts.steps.length === 0);
         var steps = degraded ? stepsSinEstado() : opts.steps;
         var currentPageId = opts.currentPageId || '';
 
@@ -415,7 +460,7 @@
         shell.appendChild(sidebar);
         shell.appendChild(backdrop);
 
-        if (mode === 'full') {
+        if (mode !== 'rail') {
             var main = document.createElement('main');
             main.className = 'crm-main';
             var topBarInner = document.querySelector('.top-bar .top-bar-inner');
@@ -468,17 +513,19 @@
         window.addEventListener('resize', syncOffset);
         /* En rail (ruta-estudio/ruta-alineacion) no se toca data-theme: esas
            páginas tienen sus propios tokens y siempre son oscuras. */
-        if (mode === 'full') applyTheme();
+        if (mode !== 'rail') applyTheme();
 
         /* usuario y badges: la fila puede venir en opts.row; si no, se consulta */
-        var rowPromise = opts.row ? Promise.resolve(opts.row)
+        var rowPromise = (opts.row || mode === 'admin') ? Promise.resolve(opts.row || null)
             : ((typeof FlowStatus !== 'undefined' && FlowStatus.getRow) ? FlowStatus.getRow().catch(function () { return null; })
             : (typeof Auth !== 'undefined' && Auth.pullMyRow) ? Auth.pullMyRow().catch(function () { return null; }) : Promise.resolve(null));
         rellenarUsuario(shell, opts.row || null);
-        rowPromise.then(function (row) {
-            rellenarUsuario(shell, row);
-            if (!degraded) rellenarBadges(shell, steps, row);
-        });
+        if (mode !== 'admin') {
+            rowPromise.then(function (row) {
+                rellenarUsuario(shell, row);
+                if (!degraded) rellenarBadges(shell, steps, row);
+            });
+        }
 
         /* Cuenta bypass: botón "Reset demo" (antes vivía en la barra fija de
            admin, retirada el 15 sep — este sidebar la sustituye). */
@@ -658,6 +705,7 @@
         },
         DOC_GRUPOS: DOC_GRUPOS,
         FASES: FASES,
+        ADMIN_NAV: ADMIN_NAV,
         applyTheme: applyTheme,
         toggleTheme: toggleTheme,
         mount: mount,

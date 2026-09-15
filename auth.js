@@ -486,7 +486,18 @@ const Auth = {
     renderAdminGate(container, opts) {
         Auth._adminGateContainer = container;
         Auth._adminGateOnVerified = (opts && opts.onVerified) || null;
-        Auth._renderAdminGateStep('email');
+        /* Sesión guardada de un correo admin: entrar directo (15 sep, misma
+           corrección que renderAuthGate). Una sesión de un correo NO admin
+           cae al paso de correo como siempre. */
+        Auth._renderAdminGateStep('verifying');
+        Auth.getSession().then(function (session) {
+            var email = session && session.user && session.user.email;
+            if (!email) { Auth._renderAdminGateStep('email'); return null; }
+            return Auth.isAdmin(email).then(function (es) {
+                if (es && typeof Auth._adminGateOnVerified === 'function') Auth._adminGateOnVerified(session);
+                else Auth._renderAdminGateStep('email');
+            });
+        }).catch(function () { Auth._renderAdminGateStep('email'); });
     },
 
     _renderAdminGateStep(step, message) {
@@ -518,6 +529,9 @@ const Auth = {
                     <label>Contraseña</label>
                     <input type="password" id="adminPasswordInput" placeholder="Tu contraseña">
                 </div>
+                <label style="display:flex;align-items:center;gap:8px;font-size:0.85rem;margin:-4px 0 14px;cursor:pointer;">
+                    <input type="checkbox" id="authRememberInput" checked style="width:auto;margin:0;"> Mantener mi sesión iniciada en este dispositivo
+                </label>
                 ${errorHtml}
                 <button class="btn btn-primary btn-full" onclick="Auth._handleAdminSignIn()">Iniciar sesión</button>
                 <button class="btn btn-secondary btn-full" onclick="Auth._handleAdminRequestReset()">¿Olvidaste tu contraseña?</button>
@@ -534,6 +548,9 @@ const Auth = {
                     <label>Confirma tu contraseña</label>
                     <input type="password" id="adminPasswordConfirmInput" placeholder="Repite tu contraseña">
                 </div>
+                <label style="display:flex;align-items:center;gap:8px;font-size:0.85rem;margin:-4px 0 14px;cursor:pointer;">
+                    <input type="checkbox" id="authRememberInput" checked style="width:auto;margin:0;"> Mantener mi sesión iniciada en este dispositivo
+                </label>
                 ${errorHtml}
                 <button class="btn btn-primary btn-full" onclick="Auth._handleAdminSignUp()">Crear contraseña y entrar</button>
                 <button class="btn btn-secondary btn-full" onclick="Auth._renderAdminGateStep('choose')">← Regresar</button>
@@ -568,6 +585,7 @@ const Auth = {
         const passInput = document.getElementById('adminPasswordInput');
         const password = passInput.value || '';
         if (!password) { Auth._renderAdminGateStep('signin', 'Escribe tu contraseña.'); return; }
+        Auth._applyRememberChoice();
         Auth._renderAdminGateStep('verifying');
         try {
             const { data, error } = await supabaseClient.auth.signInWithPassword({ email: Auth._pendingAdminEmail, password });
@@ -591,6 +609,7 @@ const Auth = {
         const confirm = cInput.value || '';
         if (password.length < 6) { Auth._renderAdminGateStep('signup', 'La contraseña debe tener al menos 6 caracteres.'); return; }
         if (password !== confirm) { Auth._renderAdminGateStep('signup', 'Las contraseñas no coinciden.'); return; }
+        Auth._applyRememberChoice();
         Auth._renderAdminGateStep('verifying');
         try {
             const { data, error } = await supabaseClient.auth.signUp({ email: Auth._pendingAdminEmail, password });
