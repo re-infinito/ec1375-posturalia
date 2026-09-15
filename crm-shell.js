@@ -1,6 +1,6 @@
 /* =========================================================
    crm-shell.js — shell CRM del candidato (sidebar + encabezado + tema)
-   y panel de control de recuperar.html.
+   y panel de control de panel.html.
 
    Tercera excepción deliberada a "páginas estáticas sin módulos
    compartidos" (ver Claude.md), misma justificación que auth.js y
@@ -313,7 +313,7 @@
             (mode === 'rail' ? '<button type="button" class="crm-iconbtn crm-expand" data-crm-expand aria-label="Expandir menú">☰</button>' : '') +
             (degraded ? '<div class="crm-degraded">No pudimos cargar tu progreso · <a href="#" data-crm-retry>reintentar</a></div>' : '') +
             '<nav class="crm-nav" aria-label="Pasos de tu certificación">' +
-                '<a class="' + panelCls + '" href="recuperar.html" title="Panel"><span class="crm-ico">' + ICONOS.panel + '</span><span class="crm-label">Panel</span></a>' +
+                '<a class="' + panelCls + '" href="panel.html" title="Panel"><span class="crm-ico">' + ICONOS.panel + '</span><span class="crm-label">Panel</span></a>' +
                 steps.map(function (s) { return itemHtml(s, currentPageId, degraded); }).join('') +
                 '<div class="crm-nav-label">Recursos</div>' +
                 '<a class="crm-item" href="biblioteca.html" title="Biblioteca"><span class="crm-ico">📖</span><span class="crm-label">Biblioteca</span></a>' +
@@ -434,7 +434,7 @@
             if (t.hasAttribute('data-crm-logout')) {
                 ev.preventDefault();
                 var p = (typeof Auth !== 'undefined' && Auth.signOut) ? Auth.signOut() : Promise.resolve();
-                Promise.resolve(p).then(function () { location.href = 'recuperar.html'; });
+                Promise.resolve(p).then(function () { location.href = 'panel.html'; });
                 return;
             }
             if (t.matches('.crm-nav a')) setOpen(shell, false);
@@ -457,7 +457,7 @@
         return shell;
     }
 
-    /* ---------- panel del candidato (recuperar.html) ---------- */
+    /* ---------- panel del candidato (panel.html) ---------- */
 
     function donutSvg(steps) {
         var total = steps.length || 1;

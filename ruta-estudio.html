@@ -4350,7 +4350,7 @@ window.EC1375.version='4.4';
      siempre, por si algún link viejo apunta aquí sin parámetro. */
   var boot = new URLSearchParams(location.search).get('boot');
   if (!boot) {
-    location.replace('recuperar.html');
+    location.replace('panel.html');
     return;
   }
 
@@ -4372,7 +4372,7 @@ window.EC1375.version='4.4';
   if (!session) {
     blockedScreen('🔐', 'Verifica tu correo para continuar',
       'Encontramos tu avance en este dispositivo, pero necesitas iniciar sesión para seguir.',
-      'recuperar.html', '🔐 Iniciar sesión');
+      'panel.html', '🔐 Iniciar sesión');
     return;
   }
 

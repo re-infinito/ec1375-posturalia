@@ -130,7 +130,7 @@ const FlowStatus = {
             container.innerHTML =
                 '<div class="card" style="text-align:center;margin-top:20px;">' +
                 '<p style="color:var(--text,#D0D0D0);margin-bottom:14px;">🔒 Esperando el resultado de tu evaluador — te contactaremos en cuanto esté listo.</p>' +
-                '<a href="recuperar.html" class="btn btn-secondary btn-full" style="display:block;text-decoration:none;">Sigue tu proceso aquí →</a>' +
+                '<a href="panel.html" class="btn btn-secondary btn-full" style="display:block;text-decoration:none;">Sigue tu proceso aquí →</a>' +
                 '</div>';
             return;
         }

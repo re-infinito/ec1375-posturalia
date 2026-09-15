@@ -223,7 +223,7 @@ const Auth = {
     },
 
     /* Repuebla los 5 localStorage keys que ya usa cada página a partir de
-       una fila de candidatos_ec1375 — usado por recuperar.html y por el
+       una fila de candidatos_ec1375 — usado por panel.html y por el
        paso 'auth' de autodiagnostico.html cuando alguien inicia sesión en
        un dispositivo sin progreso local (para no pisar avance ya guardado
        en la nube con un estado local vacío). No borra nada que no venga
@@ -694,7 +694,7 @@ const Auth = {
             <a href="encuesta-satisfaccion.html" target="_blank" style="${linkStyle}">Encuesta</a>
             <a href="evidencias.html" target="_blank" style="${linkStyle}">Evidencias</a>
             <a href="entrega.html" target="_blank" style="${linkStyle}">Entrega</a>
-            <a href="recuperar.html" target="_blank" style="${linkStyle};background:transparent;border:1px solid #0088FF;">Dashboard</a>
+            <a href="panel.html" target="_blank" style="${linkStyle};background:transparent;border:1px solid #0088FF;">Dashboard</a>
             <button onclick="Auth.resetAdminDownstreamProgress()" style="${linkStyle};background:transparent;border:1px solid #FF3333;color:#FF3333;cursor:pointer;font-family:inherit;">🔄 Reset</button>
         `;
         document.body.prepend(bar);
