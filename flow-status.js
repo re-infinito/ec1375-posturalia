@@ -118,41 +118,6 @@ const FlowStatus = {
         return steps;
     },
 
-    /* Barra compacta, siempre visible, en las 10 páginas del flujo —
-       incluyendo dentro de los wizards largos (Autodiagnóstico,
-       Documentos de Sesión), que ya tienen su propia barra de progreso
-       INTERNA (de esa página) — esta muestra el progreso del PROCESO
-       COMPLETO, no se reemplazan entre sí. currentPageId identifica
-       cuál chip resaltar como "estás aquí" incluso si ese paso técnicamente
-       ya cuenta como `done` (ej. estás en la pantalla de resultado de
-       Autodiagnóstico, que ya está done, pero sigues "en" esa página). */
-    renderProgressBar(steps, currentPageId) {
-        if (document.getElementById('flowProgressBar')) return;
-        var bar = document.createElement('div');
-        bar.id = 'flowProgressBar';
-        bar.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9998;background:#0f1428;border-bottom:1px solid rgba(255,255,255,0.1);padding:8px 12px;display:flex;gap:6px;overflow-x:auto;white-space:nowrap;font-size:0.72rem;';
-        bar.innerHTML = steps.map(function (step) {
-            var isHere = step.id === currentPageId;
-            var base = 'display:inline-flex;align-items:center;gap:4px;padding:5px 10px;border-radius:6px;text-decoration:none;font-weight:600;white-space:nowrap;';
-            if (step.done) {
-                var doneStyle = base + 'background:rgba(0,255,136,0.12);color:#00FF88;' + (isHere ? 'border:1px solid #00FF88;' : '');
-                return '<a href="' + step.href + '" style="' + doneStyle + '">✓ ' + step.label + '</a>';
-            }
-            if (step.locked) {
-                var lockedStyle = base + 'background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.35);cursor:default;';
-                var title = step.reason === 'esperando_evaluador'
-                    ? 'Esperando el resultado de tu evaluador'
-                    : 'Completa el paso anterior primero';
-                return '<span style="' + lockedStyle + '" title="' + title + '">🔒 ' + step.label + '</span>';
-            }
-            var currentStyle = base + 'background:#0088FF;color:#fff;' + (isHere ? 'box-shadow:0 0 0 2px #FFD700 inset;' : '');
-            return '<a href="' + step.href + '" style="' + currentStyle + '">' + step.label + '</a>';
-        }).join('');
-        document.body.prepend(bar);
-        var existingPad = parseInt((document.body.style.paddingTop || '0'), 10) || 0;
-        document.body.style.paddingTop = (existingPad + 36) + 'px';
-    },
-
     /* Botón "siguiente paso" — SIEMPRE calculado del estado real de
        `steps`, nunca un href escrito a mano por página. `container` es
        el elemento donde inyectar el bloque (la página decide dónde). */
