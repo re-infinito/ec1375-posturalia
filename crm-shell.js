@@ -419,7 +419,7 @@
             var main = document.createElement('main');
             main.className = 'crm-main';
             var topBarInner = document.querySelector('.top-bar .top-bar-inner');
-            var title = opts.title || (topBarInner ? topBarInner.textContent.trim() : document.title);
+            var title = opts.title || (topBarInner ? topBarInner.textContent.trim().split('\n')[0].trim() : document.title);
             var header = document.createElement('header');
             header.className = 'crm-topbar';
             header.innerHTML = headerHtml(title);
@@ -466,7 +466,9 @@
 
         syncOffset();
         window.addEventListener('resize', syncOffset);
-        applyTheme();
+        /* En rail (ruta-estudio/ruta-alineacion) no se toca data-theme: esas
+           páginas tienen sus propios tokens y siempre son oscuras. */
+        if (mode === 'full') applyTheme();
 
         /* usuario y badges: la fila puede venir en opts.row; si no, se consulta */
         var rowPromise = opts.row ? Promise.resolve(opts.row)
