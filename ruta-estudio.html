@@ -4523,8 +4523,19 @@ window.EC1375.version='4.4';
        slideshow por su cuenta (o directo con el botón "Empezar"/"Continuar
        donde iba" si su autodiagnóstico original no estaba
        completo, aunque en este punto del flujo real siempre lo está). */
+    /* boot=library&crit=E2·C4 — arranca la Biblioteca ya filtrada a un solo
+       criterio, en vez de las 121 pantallas completas. Lo usa el botón "Ir a
+       la Biblioteca a repasar este tema" de examen-conocimientos.html (ver
+       TEMA_A_CRITERIO en ese archivo) para llevar directo a las pantallas
+       del tema que el candidato falló, igual que boot=remedial ya hace con
+       las brechas del Autodiagnóstico. Si el criterio no existe o no tiene
+       pantallas (typo, dato viejo), se cae a la Biblioteca completa en vez
+       de abrir una lista vacía. */
+    var critParam = new URLSearchParams(location.search).get('crit');
+    var critLista = (boot === 'library' && critParam) ? window.EC1375.routes.criterion(critParam) : null;
     var openResult = boot === 'remedial'
       ? (window.EC1375.enterReinforcement ? window.EC1375.enterReinforcement() : window.EC1375.enterDiagnostic())
+      : (critLista && critLista.length) ? window.EC1375.open('library', critLista)
       : window.EC1375.open(boot);
     /* Si el motor bloqueó la vista (ej. boot=practice sin haber dado el
        visto bueno en Reforzamiento todavía), NO dejar la pantalla a medias

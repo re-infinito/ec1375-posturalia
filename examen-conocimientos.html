@@ -169,6 +169,33 @@
         { tema: 'Pruebas Funcionales de Daniels', q: 'En la escala de Daniels, ¿qué número corresponde a "Contracción sin movimiento"?', opciones: ['0', '1', '2', '3', '4', '5'], correcta: 1 }
     ];
 
+    /* tema (como está escrito arriba, en REACTIVOS) -> código de criterio del
+       motor de estudio (ruta-estudio.html, window.EC1375_DATA.criterios) —
+       verificado uno por uno contra los 34 criterios reales y contra
+       EC1375.routes.criterion(cid) (todos devuelven pantallas reales, no
+       listas vacías). "Biomecánica"/"Movimientos del Cuerpo" y "Cuadrantes
+       Abdominales" caen en el mismo criterio E2·C3 (biomecánica/anatomía
+       topográfica) porque ahí es donde vive ese contenido en la Biblioteca,
+       aunque en el examen sean temas separados. Usado por
+       linkBibliotecaParaTema() de abajo — si algún tema no aparece aquí, el
+       botón cae a la Biblioteca completa sin filtrar (ver esa función). */
+    const TEMA_A_CRITERIO = {
+        'Técnicas de Atención Tradicional y Complementaria': 'E1·C1',
+        'Desinfección y Sanitización': 'E1·C2',
+        'Manejo de Residuos Peligrosos (NOM-087-ECOL-SSA1-2002)': 'E1·C3',
+        'Signos Vitales': 'E2·C1',
+        'Goniometría': 'E2·C2',
+        'Biomecánica': 'E2·C3',
+        'Movimientos del Cuerpo': 'E2·C3',
+        'Cuadrantes Abdominales': 'E2·C3',
+        'Higiene de Columna': 'E2·C4',
+        'Pruebas Funcionales de Daniels': 'E2·C5'
+    };
+    function linkBibliotecaParaTema(tema) {
+        const crit = TEMA_A_CRITERIO[tema];
+        return crit ? `ruta-estudio.html?boot=library&crit=${encodeURIComponent(crit)}` : 'biblioteca.html';
+    }
+
     let examState = null; // { order: [{qIndex, optionOrder}], currentIndex, answers, firstAttemptCorrect, submitted, score, correctas, fecha }
 
     function shuffle(arr) {
@@ -319,7 +346,7 @@
                 <p style="color:var(--danger);font-weight:700;margin-bottom:8px;">❌ Incorrecto</p>
                 <p style="color:var(--text-bright);font-size:0.88rem;margin-bottom:4px;">Respuesta correcta: <strong>${escapeHtml(r.opciones[r.correcta])}</strong></p>
                 <p style="color:var(--text);font-size:0.82rem;margin-bottom:14px;">Tema: ${escapeHtml(r.tema)}</p>
-                <a href="biblioteca.html" target="_blank" class="btn btn-primary btn-full">📚 Ir a la Biblioteca a repasar este tema</a>
+                <a href="${linkBibliotecaParaTema(r.tema)}" target="_blank" class="btn btn-primary btn-full">📚 Ir a la Biblioteca a repasar este tema</a>
                 <button class="btn btn-secondary btn-full" onclick="reintentarPregunta(${entry.qIndex})">🔁 Regresar a contestar</button>
             </div>
         `;
@@ -400,7 +427,7 @@
             <div class="card" style="background:rgba(255,215,0,0.06);border:1px solid var(--accent);">
                 <h3 style="color:var(--accent);margin-bottom:10px;">📚 Temas que repasaste durante el examen</h3>
                 <ul style="margin:0 0 14px 18px;color:var(--text-bright);">
-                    ${temasRepasados.map(t => `<li style="margin-bottom:4px;">${escapeHtml(t)}</li>`).join('')}
+                    ${temasRepasados.map(t => `<li style="margin-bottom:4px;"><a href="${linkBibliotecaParaTema(t)}" target="_blank" style="color:var(--primary-light);">${escapeHtml(t)}</a></li>`).join('')}
                 </ul>
                 <p style="color:var(--text);font-size:0.85rem;">
                     Vale la pena repasar estos temas una vez más en tu Biblioteca antes de tu evaluación real.
