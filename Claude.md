@@ -9,7 +9,7 @@
 
 ## Stack
 
-- HTML5 + CSS3 + JS vanilla, **sin build step, sin framework**. Convención del proyecto: **páginas estáticas sin módulos compartidos** — cada `.html` es autocontenida. Dos excepciones deliberadas: `auth.js` (sesión/RLS) y `flow-status.js` (los 10 pasos reales del flujo y qué cuenta como "completo" en cada uno) — ambos son justo el tipo de lógica donde una copia desincronizada entre páginas es el modo de falla a evitar (ya pasó más de una vez). `flow-status.js` se carga después de `auth.js` y antes del script propio de cada página; ver sección "Progreso del candidato" abajo.
+- HTML5 + CSS3 + JS vanilla, **sin build step, sin framework**. Convención del proyecto: **páginas estáticas sin módulos compartidos** — cada `.html` es autocontenida. Tres excepciones deliberadas: `auth.js` (sesión/RLS), `flow-status.js` (los 10 pasos reales del flujo y qué cuenta como "completo" en cada uno) y `crm-shell.js` + `crm-shell.css` (sidebar/encabezado/tema del panel tipo CRM que envuelve cada página del flujo en tiempo de ejecución — un sidebar copiado 12 veces se desincroniza) — los tres son justo el tipo de lógica donde una copia desincronizada entre páginas es el modo de falla a evitar (ya pasó más de una vez). Orden de carga: `auth.js` → `flow-status.js` → `crm-shell.js` → script propio de cada página; ver secciones "Progreso del candidato" y "Shell CRM del candidato" abajo.
 - Backend: funciones serverless de Vercel (Node, mezcla de `module.exports` CommonJS y `export default` ESM — ambas conviven) + Supabase (Postgres/RLS/Auth/Storage).
 - Pagos: Mercado Pago (Payment Link estático para Registro, API de Preferencias con monto dinámico para las otras 3 fases) + transferencia bancaria manual.
 - Documentos: generación de PDF client-side (jsPDF/jspdf-autotable), subida automática vía WebDAV a un Nextcloud propiedad del evaluador (Humberto), sin backend de storage propio.
@@ -24,16 +24,21 @@
 ```
 index.html, quiz.html                    Landing + quiz de calentamiento (pre-pago)
 success.html / failure.html / pending.html   Retorno de Mercado Pago (Registro)
-recuperar.html                           Login (email+password/login-maestro) Y, una vez logueado, dashboard de
-                                          progreso — lista los 10 pasos del flujo real (vía flow-status.js) con
-                                          ✓ hecho / ▶ siguiente / 🔒 bloqueado y liga directa a cada uno
+panel.html                           Login (email+password/login-maestro) Y, una vez logueado, panel de control
+                                          tipo CRM (hero con cifras: pasos/documentos/fase pagada/próxima sesión +
+                                          tarjetas de progreso, ruta, documentos del expediente, pagos, sesión de
+                                          Alineación y "Requieren atención") — todo calculado de flow-status.js,
+                                          pullMyRow, isPhaseAuthorized y api/mis-inscripciones-alineacion
+recuperar.html                           Stub de redirección a panel.html (nombre viejo, 15 sep) — conserva query y hash
 restablecer-password.html                Landing de "olvidé mi contraseña" (Supabase PASSWORD_RECOVERY)
 
 autodiagnostico.html      142 reactivos EC1375, wizard de pasos, login+password aquí, foto+autorización RENAP,
                            certificados previos, firma — sube a Nextcloud el Autodiagnóstico, la Ficha de
                            Registro RENAP y sus Acuses (ver sección "Ficha de Registro RENAP" abajo)
 alineacion.html           Gate fase Alineación · reserva de sesión en vivo (Google Calendar) · CTAs a ruta-alineacion.html / ruta-estudio.html
-ruta-alineacion.html      57 pantallas curadas con video real de YouTube — presentación de Alineación
+ruta-alineacion.html      57 pantallas curadas con video real de YouTube — presentación de Alineación (carga auth.js/
+                           flow-status.js/crm-shell.js en <head> y un bloque al final para el rail del shell — si se
+                           regenera desde el pipeline, volver a insertarlos, ver Tarea 7 del plan del shell CRM)
 ruta-estudio.html         Motor de estudio de 5.4MB (state machine "V4.4", API pública window.EC1375) — biblioteca/práctica/reforzamiento
 reforzamiento.html, practica.html, biblioteca.html   Stubs (`location.replace('ruta-estudio.html?boot=X')`) — no tienen contenido propio
 guion-maestro.html        Guion de apoyo para la sesión real con el usuario (abrir en otra pestaña o imprimir) —
@@ -61,6 +66,13 @@ kpi-dashboard-live.html   ⚠️ Versión vieja del dashboard de KPIs — SIN ga
 auth.js                   Supabase Auth (email+password) + sync + gates + admin bypass — módulo compartido
 flow-status.js            Fuente única de los 10 pasos del flujo y de qué cuenta como "completo" en cada uno —
                            módulo compartido (ver "Progreso del candidato" abajo)
+crm-shell.js, crm-shell.css   Shell CRM del candidato: CrmShell.mount() envuelve el DOM de la página con sidebar
+                           (10 pasos con ✓/▶/🔒 + badge de pendientes) + encabezado (hamburguesa, toggle de tema,
+                           usuario); CrmShell.renderDashboard() pinta el panel de panel.html. Tema claro por
+                           default con toggle a oscuro (localStorage 'paideia-theme'), vía los 9 tokens compartidos
+                           + --border/--surface-2. Modo rail (<script data-crm-mode="rail">) en ruta-estudio/
+                           ruta-alineacion: solo iconos, sin tema. Helpers puros probados con `node --test tests/*.test.js`.
+tests/crm-shell.test.js   Pruebas en Node (sin dependencias) de los helpers puros de crm-shell.js
 api/master-login.js       Login-maestro: entra como cualquier candidato autorizado (server-side, Admin API)
 api/crear-preferencia.js  Genera Preferencia de MP con monto dinámico por candidato/fase
 api/monto-fase.js         Calcula el monto de una fase sin crear preferencia (para mostrarlo en UI/transferencia)
@@ -90,10 +102,10 @@ _internal_no_publicar/    TODO gitignored
 ## Autenticación y gates
 
 **Password + login-maestro (reemplazó OTP, 12 sep 2026).** Supabase Auth con email+contraseña:
-- **Candidato:** `Auth.renderAuthGate()` en `auth.js` — correo → "ya tengo contraseña" (signin) / "primera vez" (signup) / "olvidé mi contraseña" (`resetPasswordForEmail` → `restablecer-password.html`, escucha el evento `PASSWORD_RECOVERY`).
+- **Candidato:** `Auth.renderAuthGate()` en `auth.js` — **primero revisa si ya hay sesión guardada y entra directo** (15 sep; antes siempre arrancaba en el paso de correo aunque Supabase ya tuviera la sesión persistida, por eso había que teclear la contraseña en cada visita); si no hay sesión: correo → "ya tengo contraseña" (signin) / "primera vez" (signup) / "olvidé mi contraseña" (`resetPasswordForEmail` → `restablecer-password.html`, escucha el evento `PASSWORD_RECOVERY`). Casilla **"Mantener mi sesión iniciada en este dispositivo"** (marcada por default) en los pasos de contraseña: el cliente de Supabase usa un adaptador de storage (`authStorageAdapter`) que guarda la sesión en `localStorage` o, si se desmarca, en `sessionStorage` (se borra al cerrar el navegador); la elección vive en `localStorage['paideia-remember']` (`'0'` = no recordar). Para cambiar de cuenta: "Cerrar sesión" en el sidebar.
 - **Admin** (cuenta con `is_admin()`): `Auth.renderAdminGate()` — mismo patrón pero comprueba `is_admin()` en el paso de correo, **antes** de ofrecer signin/signup (si no, una cuenta admin que nunca puso contraseña no tenía a dónde ir en "primera vez").
 - **Login-maestro:** cualquier correo con ≥1 fase pagada + contraseña universal **`Paideia2026`** (env var `MASTER_LOGIN_PASSWORD`) inicia sesión como ese candidato — pensado para que el equipo ayude en llamadas sin esperar un correo de restablecimiento. `api/master-login.js` verifica la contraseña maestra ANTES de tocar el correo (mensaje 401 genérico si falla), confirma que el correo tenga al menos una fila en `candidatos_fase_pagos`, y emite sesión vía Admin API (`generateLink` tipo magiclink → el cliente canjea con `verifyOtp`). Nunca expone la service role key ni la contraseña maestra al navegador. `Auth._handleSignIn()` cae a esto automáticamente si el signin normal falla (mismo mensaje de error en ambos casos, no revela el motivo).
-- **Bypass de navegación libre** (solo `paideia.tech@outlook.com`, `CANDIDATE_FLOW_BYPASS_EMAIL` en `auth.js`): salta el pago de "registro" y siembra datos placeholder de Autodiagnóstico automáticamente, para que el equipo navegue/demuestre el flujo completo sin datos reales. Verificado server-side vía RPC `is_current_user_flow_bypass_admin()` (nunca confía en `session.user.email` del cliente, que se puede falsificar). Barra fija (`Auth.renderAdminBar()`) con links a las 13 páginas del flujo (incluye Biblioteca, Guion Maestro y el Dashboard de `recuperar.html`) + botón "Reset" que limpia el progreso downstream sin borrar el placeholder. Entrega nunca se marca "done"/autorizada para esta cuenta sin importar lo que diga `candidatos_fase_pagos` — es dinero real y una decisión real del evaluador, no algo que la cuenta de pruebas deba poder simular (`FlowStatus.getSteps()` lo fuerza a `false` explícitamente). Detalle completo: `docs/superpowers/specs/2026-09-12-admin-flow-bypass-design.md`.
+- **Bypass de navegación libre** (solo `paideia.tech@outlook.com`, `CANDIDATE_FLOW_BYPASS_EMAIL` en `auth.js`): salta el pago de "registro" y siembra datos placeholder de Autodiagnóstico automáticamente, para que el equipo navegue/demuestre el flujo completo sin datos reales. Verificado server-side vía RPC `is_current_user_flow_bypass_admin()` (nunca confía en `session.user.email` del cliente, que se puede falsificar). La barra fija de admin (`Auth.renderAdminBar()`) se retiró el 15 sep — el sidebar del shell CRM la sustituye; el botón "🔄 Reset demo" (limpia el progreso downstream sin borrar el placeholder) ahora aparece en el sidebar solo para esta cuenta. Entrega nunca se marca "done"/autorizada para esta cuenta sin importar lo que diga `candidatos_fase_pagos` — es dinero real y una decisión real del evaluador, no algo que la cuenta de pruebas deba poder simular (`FlowStatus.getSteps()` lo fuerza a `false` explícitamente). Detalle completo: `docs/superpowers/specs/2026-09-12-admin-flow-bypass-design.md`.
 
 **Pagos por fase:** `candidatos_precio` (email → `total_acordado`, default $14,750, se edita a mano en Supabase) + `candidatos_fase_pagos` (email+fase → pagado) + RPC `is_fase_authorized(email, fase)`. Cada página gateada exige la fase anterior autorizada **y** sus documentos ya subidos a Nextcloud (doble compuerta). Transferencias bancarias se autorizan a mano en el Table Editor de Supabase; pagos por Mercado Pago los autoriza `api/mercadopago-webhook.js` automáticamente.
 
@@ -103,12 +115,12 @@ _internal_no_publicar/    TODO gitignored
 
 Módulo compartido que define los **10 pasos reales** del flujo (Autodiagnóstico → Reforzamiento → Alineación → Plan de Evaluación → Documentos de Sesión → Práctica → Examen de Conocimientos → Encuesta → Evidencias → Entrega) y calcula, para cada uno, `done`/`current`/`locked` — reutilizando siempre el MISMO gate que la página siguiente ya usa para dejar pasar, nunca una condición inventada aparte. Expone:
 - `FlowStatus.getSteps()` — el arreglo de 10 pasos con su estado.
-- `FlowStatus.renderProgressBar(steps, currentPageId)` — barra fija arriba, visible en las páginas del flujo (además de la barra de progreso INTERNA que ya tienen los wizards largos como Autodiagnóstico o Documentos de Sesión — no se reemplazan entre sí).
+- `FlowStatus.renderProgressBar` ya no existe (15 sep) — la barra de chips fue reemplazada por el sidebar de `crm-shell.js` (`CrmShell.mount({ currentPageId, steps })`), que consume el mismo `getSteps()`. Los wizards largos (Autodiagnóstico, Documentos de Sesión) conservan su barra de progreso INTERNA.
 - `FlowStatus.renderNextStepCTA(steps, currentPageId, container)` — botón "Siguiente: X →" calculado del estado real, nunca un href escrito a mano por página.
 
 **Entrega es un caso especial siempre:** nunca es "current" (depende de que el equipo la autorice a mano tras revisar la evaluación real), y su razón de bloqueo es siempre `esperando_evaluador`. Para la cuenta de bypass, Entrega nunca se marca "done" sin importar lo que diga `candidatos_fase_pagos` — es dinero real y una decisión real del evaluador.
 
-`recuperar.html` usa este módulo para mostrar, justo después de iniciar sesión, un dashboard completo del proceso (resuelve lo que antes era el backlog "página de estado del proceso para el candidato").
+`panel.html` usa este módulo para mostrar, justo después de iniciar sesión, un dashboard completo del proceso (resuelve lo que antes era el backlog "página de estado del proceso para el candidato").
 
 ---
 
@@ -218,8 +230,27 @@ Diego pidió (14 sep) que cada documento que el sitio genera haga match al 100% 
 
 ---
 
+## Shell CRM del candidato (`crm-shell.js` / `crm-shell.css`)
+
+Panel tipo CRM (referencia: dashboard de "Quiropráctica 360" que Diego compartió el 15 sep) que envuelve TODAS las páginas post-pago del candidato: sidebar fijo con logo, "Panel", los 10 pasos (✓ hecho / ▶ actual resaltado / 🔒 bloqueado con tooltip, badge amarillo con documentos pendientes del paso actual, barra dorada "estás aquí"), Recursos (Biblioteca, Guion Maestro), usuario (iniciales/nombre/correo), botón de tema y "Cerrar sesión". Encabezado sticky con hamburguesa (< 1024px, sidebar off-canvas con backdrop y Esc), título de la página, toggle ☀️/🌙 y chip de usuario.
+
+- **Auto-montaje:** cada página del flujo carga `<script src="crm-shell.js" data-crm-page="<id del paso>">`; al `load`, si hay sesión, el módulo llama `FlowStatus.getSteps()` y monta el shell en CUALQUIER pantalla de esa página (gate de fase, wizard, resultado) — no depende de dónde la página llame a `mount()`. (Las llamadas explícitas `CrmShell.mount(...)` que quedaron donde antes iba `renderProgressBar` son inofensivas: `mount` es idempotente.) `panel.html` no usa `data-crm-page` (monta a mano tras el login, con `currentPageId: 'panel'`).
+- `CrmShell.mount({ currentPageId, steps, mode, title, row, degraded })` — idempotente; mueve (sin clonar) todos los hijos del `<body>` salvo `<script>` dentro de `<main class="crm-main">`. Sin sesión no hay shell. Si `steps` viene vacío/`degraded`, pinta los pasos sin estado y un aviso "reintentar". Para la cuenta bypass agrega el botón "🔄 Reset demo" al sidebar.
+- `mode: 'rail'` (`<script src="crm-shell.js" data-crm-mode="rail">`) en `ruta-estudio.html` y `ruta-alineacion.html`: rail fijo de 64px solo con iconos (botón para expandir), sin mover su DOM y SIN inyectar tokens de tema (sus tokens son propios — `--accent` ahí es azul). En móvil, botón flotante.
+- `CrmShell.renderDashboard(container, data)` — solo `panel.html`.
+- **Tema:** claro por default, toggle a oscuro, persistido en `localStorage['paideia-theme']`. Los tokens (`html[data-theme="light"|"dark"]`, los 9 compartidos + `--border`/`--surface-2`) se inyectan inline en `<head>` al parsear el script, antes del primer pintado (sin flash). Cada página del flujo define `--border`/`--surface-2` en su `:root` (valores oscuros) y ya no usa `rgba(255,255,255,x)` ni el gradiente del body. Fuera del tema: landing, quiz, retornos de pago, `restablecer-password`, contenido interno de `ruta-estudio`/`ruta-alineacion`, páginas admin. Los PDF no cambian (jsPDF dibuja sus colores; firmas en `#000`).
+- Barras fijas inferiores existentes (`.nav-bar`, `.sticky-submit`, `.toast`) se desplazan 260px en desktop desde `crm-shell.css`, sin tocar cada página.
+- Verificación: `node --test tests/*.test.js` (helpers puros) + navegador (ver plan). Spec: `docs/superpowers/specs/2026-09-15-crm-shell-candidato-design.md`. Plan: `docs/superpowers/plans/2026-09-15-crm-shell-candidato.md`.
+
+**Proyectos siguientes acordados con Diego (15 sep), en orden:** (2) `protect.js` — disuasión de copia/captura: marca de agua con el correo, bloqueo de selección/copiar/clic derecho/imprimir, atajos de DevTools, difuminado al perder foco, headers anti-embed en Vercel (bloquear screenshots de verdad es imposible en web — acordado); (3) CRM del equipo `admin-crm.html` — lista de candidatos con paso actual/fase pagada/documentos faltantes, requiere RLS admin sobre `candidatos_ec1375` y dividir `FlowStatus.getSteps` en una función pura; (4) contenido al servidor — tabla `contenido_ec1375` con RLS por fase pagada + bucket privado para las imágenes de `ruta-estudio` (4.7MB de sus 5.4MB son base64), sin funciones nuevas de Vercel (ya hay 12).
+
+---
+
 ## Cambios recientes (15 de septiembre, 2026)
 
+- **Sesión persistente:** el login entra directo si ya hay sesión guardada + casilla "Mantener mi sesión iniciada" (ver "Autenticación y gates"). Antes había que teclear la contraseña en cada visita.
+- **`recuperar.html` → `panel.html`** (login + panel); `recuperar.html` queda como redirección. Barra fija de admin retirada (la sustituye el sidebar).
+- **Shell CRM del candidato + panel de control** — ver sección dedicada arriba. `panel.html` (antes `recuperar.html`) reescrito como panel; `guion-maestro.html` y las 8 páginas del flujo montan el shell; `ruta-estudio`/`ruta-alineacion` en modo rail; tema claro/oscuro en las 10 páginas del flujo. `FlowStatus.renderProgressBar` eliminada.
 - **Sesiones de Alineación: Google Meet → Zoom.** No tenemos membresía de Google Meet — el límite de 1h en llamadas grupales de la cuenta gratuita obligaba a agendar bloques de 2h como colchón para una sesión de 1h real. Se reemplazó Google Meet por Zoom en todo el flujo: `admin-sesiones.html` (label/placeholder/badge "✓ Zoom listo"), `api/crear-evento-google.js` (comentarios y campo `location`/descripción del evento), `api/inscribir-alineacion.js` (se quitó además el fallback muerto que intentaba leer un link de `conferenceData` — nunca aplicaba, porque el evento nunca se crea con conferenceData), `api/sesiones-alineacion.js`, `api/mis-inscripciones-alineacion.js`, `api/enviar-recordatorios.js`, `lib/send-email.js` (los 3 templates de email) y `sesiones-alineacion-component.js`. La creación del evento en Google Calendar y el envío automático de la invitación al calendario del candidato (`sendUpdates: 'all'`) **no cambiaron** — eso es una función de Calendar independiente de qué videollamada se use. Columna de Supabase renombrada de `google_meet_link` a `zoom_link` (ver "Sesiones de Alineación en vivo" arriba) — migración pendiente de correr por Diego.
 
 ## Cambios recientes (14 de septiembre, 2026)
@@ -230,7 +261,7 @@ Diego pidió (14 sep) que cada documento que el sitio genera haga match al 100% 
 - **Ficha de Registro RENAP + foto del candidato:** nuevo documento oficial — ver sección dedicada arriba.
 - **Autodiagnóstico:** PDF ampliado de un resumen de 6-7 páginas a las 11 páginas del formato oficial (portada, índice+presentación, datos personales, propósito/instrucciones, tablas de criterios existentes, Valoración con estadísticas reales calculadas).
 - **Plan de Evaluación (`plan-evaluacion.html`):** agrega campos "Evaluadora:"/"Centro de Evaluación:" al encabezado del PDF y una sección "Criterios para obtener juicio de competente" (Primer/Segundo criterio, texto genérico sin inventar el 97.64% ahí) antes del bloque de firmas; firma del candidato movida a su columna correspondiente.
-- **Progreso del candidato:** nuevo módulo compartido `flow-status.js` (ver sección dedicada arriba) — fuente única de los 10 pasos del flujo. `recuperar.html` se reescribió como dashboard completo de progreso además de login. Barra de progreso y CTA "Siguiente paso" conectados en `alineacion.html`, `documentos-sesion.html`, `plan-evaluacion.html`, `encuesta-satisfaccion.html`, `evidencias.html`, `entrega.html`, `examen-conocimientos.html` y `ruta-estudio.html` (que además ahora redirige a `recuperar.html` si se abre sin `?boot=`, en vez de mostrar el motor "pelón").
+- **Progreso del candidato:** nuevo módulo compartido `flow-status.js` (ver sección dedicada arriba) — fuente única de los 10 pasos del flujo. `panel.html` se reescribió como dashboard completo de progreso además de login. Barra de progreso y CTA "Siguiente paso" conectados en `alineacion.html`, `documentos-sesion.html`, `plan-evaluacion.html`, `encuesta-satisfaccion.html`, `evidencias.html`, `entrega.html`, `examen-conocimientos.html` y `ruta-estudio.html` (que además ahora redirige a `panel.html` si se abre sin `?boot=`, en vez de mostrar el motor "pelón").
 - **Admin:** nuevos paneles `admin-kpis.html` (KPIs gateado, reemplaza en uso a `kpi-dashboard-live.html` — ver backlog #13) y `admin-utilidades.html` (reparto de utilidades por lote entre socios — ver sección dedicada arriba).
 - **`ruta-alineacion.html`:** botón real de "completado" en la última pantalla (antes no hacía nada).
 - **Nextcloud:** ruta alterna por Google Form en `evidencias.html` cuando falla la subida automática, para no dejar al candidato bloqueado mientras se resuelve la configuración del NAS.
@@ -337,7 +368,7 @@ Landing (`index.html`) sigue un arco emocional Vocación→Miedo→Transformaci�
 3. Recuperar PDFs perdidos — los datos para regenerarlos viven en Supabase, pero los PDFs en sí no se guardan.
 4. Multi-evaluador — número de WhatsApp y nombre de evaluador están fijos en código.
 5. Anti-duplicados de CURP.
-6. ~~Página de estado del proceso para el candidato (en vez de preguntar por WhatsApp)~~ — resuelto: `recuperar.html` ahora es también un dashboard de progreso vía `flow-status.js` (ver esa sección arriba).
+6. ~~Página de estado del proceso para el candidato (en vez de preguntar por WhatsApp)~~ — resuelto: `panel.html` ahora es también un dashboard de progreso vía `flow-status.js` (ver esa sección arriba).
 7. Flujo del evaluador: llenar digitalmente Cédula de Evaluación e IEC, automatizar "Resultado Evaluación" (competente/no competente) — hoy 100% manual por WhatsApp. Bloquea enlazar `entrega.html` automáticamente.
 8. ~~Migrar `assemble_expediente.py` para leer del Nextcloud nuevo en vez de Google Forms/Drive.~~ — resuelto 15 sep, ver sección "Ensamblado del expediente final" arriba. Pendiente real que quedó de ahí: conseguir una plantilla de IEC genuinamente en blanco (la actual trae los datos reales de Humberto).
 9. Logo SVG de mejor calidad (`assets/images/logo/paideia-tech-logo-*.svg`, inconcluso) — seguir con el PNG actual por ahora.
