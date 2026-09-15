@@ -20,11 +20,12 @@
         :root {
             --dark: #050a1a; --dark-light: #0f1428; --primary: #0088FF; --primary-light: #00CCFF;
             --accent: #FFD700; --text: #D0D0D0; --text-bright: #FFFFFF; --danger: #FF3333; --success: #00FF88;
+            --border: rgba(255,255,255,0.12); --surface-2: rgba(255,255,255,0.05);
         }
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, var(--dark) 0%, #0a1530 100%);
+            background: var(--dark);
             color: var(--text); line-height: 1.6; min-height: 100vh; padding-bottom: 100px;
         }
 
@@ -55,7 +56,7 @@
         .field-group label { display: block; font-size: 0.85rem; color: var(--text); margin-bottom: 6px; font-weight: 600; }
         .field-group input, .field-group textarea, .field-group select {
             width: 100%; padding: 12px 14px; background: var(--dark);
-            border: 1px solid rgba(255,255,255,0.15); border-radius: 8px;
+            border: 1px solid var(--border); border-radius: 8px;
             color: var(--text-bright); font-size: 0.92rem; font-family: inherit;
             color-scheme: dark;
         }
@@ -67,9 +68,9 @@
         .section-label:first-child { margin-top: 0; }
 
         .signature-tabs { display: flex; gap: 10px; margin-bottom: 16px; }
-        .sig-tab-btn { flex: 1; padding: 10px; background: var(--dark); border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; color: var(--text); font-size: 0.85rem; cursor: pointer; }
+        .sig-tab-btn { flex: 1; padding: 10px; background: var(--dark); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 0.85rem; cursor: pointer; }
         .sig-tab-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
-        .sig-canvas { width: 100%; max-width: 500px; height: 130px; background: #fff; border-radius: 8px; border: 2px solid rgba(255,255,255,0.15); touch-action: none; display: block; margin: 0 auto 12px; }
+        .sig-canvas { width: 100%; max-width: 500px; height: 130px; background: #fff; border-radius: 8px; border: 2px solid var(--border); touch-action: none; display: block; margin: 0 auto 12px; }
         .clear-sig-btn { display: block; margin: 0 auto 16px; padding: 8px 16px; background: transparent; border: 1px solid var(--danger); color: var(--danger); border-radius: 6px; font-size: 0.8rem; cursor: pointer; }
 
         .legal-text { font-size: 0.8rem; color: var(--text); background: var(--dark); border-radius: 8px; padding: 14px; margin-bottom: 16px; line-height: 1.6; }
@@ -81,7 +82,7 @@
 
         .nav-bar {
             position: fixed; bottom: 0; left: 0; right: 0; background: var(--dark-light);
-            border-top: 1px solid rgba(255,255,255,0.1); padding: 14px 20px;
+            border-top: 1px solid var(--border); padding: 14px 20px;
             display: flex; gap: 12px; justify-content: center; z-index: 100;
         }
         .nav-bar .btn { flex: 1; max-width: 260px; }
@@ -89,7 +90,7 @@
         .btn { padding: 15px 24px; border-radius: 8px; font-weight: 700; font-size: 0.95rem; border: none; cursor: pointer; transition: all 0.3s ease; text-align: center; }
         .btn-primary { background: var(--primary); color: white; }
         .btn-primary:hover { background: var(--primary-light); transform: translateY(-2px); }
-        .btn-primary:disabled { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.3); cursor: not-allowed; transform: none; }
+        .btn-primary:disabled { background: var(--border); color: var(--text); cursor: not-allowed; transform: none; }
         .btn-secondary { background: transparent; border: 2px solid var(--primary); color: var(--primary); }
         .btn-whatsapp { background: #25D366; color: white; }
         .btn-whatsapp:hover { background: #20ba5a; transform: translateY(-2px); }
@@ -101,18 +102,18 @@
         .doc-download-item button { padding: 8px 16px; font-size: 0.8rem; }
 
         /* Guion que acompaña cada paso */
-        .guion-panel { background: var(--dark); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 16px; margin-bottom: 20px; }
+        .guion-panel { background: var(--dark); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 20px; }
         .guion-panel-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--accent); font-weight: 700; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
         .item-accion { display: flex; gap: 8px; align-items: flex-start; margin-bottom: 8px; font-size: 0.85rem; color: var(--text-bright); }
         .item-accion .tag { background: rgba(0,136,255,0.2); color: var(--primary-light); font-size: 0.65rem; font-weight: 700; padding: 2px 7px; border-radius: 6px; flex-shrink: 0; margin-top: 2px; }
         .item-dialogo { background: var(--dark-light); border-left: 3px solid var(--primary); border-radius: 0 6px 6px 0; padding: 8px 12px; margin-bottom: 8px; font-size: 0.85rem; font-style: italic; color: var(--text); }
-        .item-usuario { background: rgba(255,255,255,0.03); border-left: 3px solid rgba(255,255,255,0.25); border-radius: 0 6px 6px 0; padding: 8px 12px; margin-bottom: 8px; font-size: 0.82rem; font-style: italic; color: rgba(255,255,255,0.55); margin-left: 16px; }
+        .item-usuario { background: var(--surface-2); border-left: 3px solid var(--border); border-radius: 0 6px 6px 0; padding: 8px 12px; margin-bottom: 8px; font-size: 0.82rem; font-style: italic; color: var(--text); margin-left: 16px; }
         .item-nota { background: rgba(255,215,0,0.08); border: 1px solid rgba(255,215,0,0.3); border-radius: 8px; padding: 10px 12px; margin: 10px 0; font-size: 0.8rem; color: var(--accent); }
         .item-lista { font-size: 0.82rem; color: var(--text); margin: 4px 0 10px 20px; }
         .item-lista li { margin-bottom: 4px; }
         .subtitulo { font-size: 0.82rem; font-weight: 700; color: var(--primary-light); margin: 12px 0 6px; text-transform: uppercase; letter-spacing: 0.3px; }
 
-        .checklist-item { display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.06); font-size: 0.85rem; }
+        .checklist-item { display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--surface-2); font-size: 0.85rem; }
         .checklist-item input[type="checkbox"] { width: 18px; height: 18px; flex-shrink: 0; margin-top: 1px; }
         .checklist-item label { color: var(--text); cursor: pointer; }
         .checklist-item.checked label { color: var(--success); text-decoration: line-through; opacity: 0.7; }
@@ -424,7 +425,7 @@
                 <div style="display:flex;justify-content:space-between;align-items:center;">
                     <span>${label}</span><span style="color:var(--accent);font-weight:600;">📥 Descargado</span>
                 </div>
-                <p style="font-size:0.78rem;color:rgba(255,255,255,0.5);">Guardado en tu dispositivo — puedes avanzar. Seguimos reintentando subirlo a tu portafolio en la nube.</p>
+                <p style="font-size:0.78rem;color:var(--text);">Guardado en tu dispositivo — puedes avanzar. Seguimos reintentando subirlo a tu portafolio en la nube.</p>
                 <div style="display:flex;gap:8px;">
                     <button class="btn btn-secondary" style="flex:1;font-size:0.8rem;" onclick="reintentarSubidaSesion('${key}')">🔄 Reintentar subida</button>
                 </div>
@@ -501,7 +502,7 @@
                 </div>
                 <button class="btn btn-secondary btn-full" onclick="copyClabeBBVA()">Copiar CLABE</button>
                 <button class="btn btn-whatsapp btn-full" style="margin-top:10px;" onclick="enviarComprobanteWhatsApp(${typeof monto === 'number' ? monto : 'null'})">📱 Enviar comprobante por WhatsApp</button>
-                <p style="font-size:0.75rem;color:rgba(255,255,255,0.4);margin-top:10px;">Se abre WhatsApp — adjunta ahí la foto o el PDF de tu comprobante para activar este paso.</p>
+                <p style="font-size:0.75rem;color:var(--text);margin-top:10px;">Se abre WhatsApp — adjunta ahí la foto o el PDF de tu comprobante para activar este paso.</p>
             </div>`;
     }
 
@@ -686,8 +687,8 @@
                     <p>Este paso es parte de tu <strong>Evaluación</strong> — antes de continuar necesitas completar ese pago.</p>
                     ${montoTxt ? `<div class="monto">${montoTxt}</div>` : ''}
                     <button id="btnPagarEvaluacion" class="btn btn-primary btn-full" style="margin-top:16px;" onclick="pagarFaseEvaluacion()">💳 Pagar Evaluación</button>
-                    <p style="font-size:0.8rem;color:rgba(255,255,255,0.5);">¿Dudas? <a href="https://wa.me/528115026729" style="color:var(--primary);" target="_blank">Escríbenos por WhatsApp</a></p>
-                    <p style="font-size:0.75rem;color:rgba(255,255,255,0.45);margin-top:10px;">⚠️ Una vez realizado cualquier pago o anticipo, no aplican reembolsos — salvo que la causa sea responsabilidad del Centro Evaluador.</p>
+                    <p style="font-size:0.8rem;color:var(--text);">¿Dudas? <a href="https://wa.me/528115026729" style="color:var(--primary);" target="_blank">Escríbenos por WhatsApp</a></p>
+                    <p style="font-size:0.75rem;color:var(--text);margin-top:10px;">⚠️ Una vez realizado cualquier pago o anticipo, no aplican reembolsos — salvo que la causa sea responsabilidad del Centro Evaluador.</p>
                 </div>
                 ${renderTransferenciaCard(monto)}`;
             return;
@@ -1066,7 +1067,7 @@
             </div>
             <div id="sigUpload_${key}" style="${sig.mode === 'upload' ? '' : 'display:none;'}">
                 <p class="desc" style="margin-bottom:10px;">Útil si la sesión es a distancia: pide al usuario que firme en su propio dispositivo (o en papel) y sube la foto o imagen de su firma.</p>
-                ${sig.uploadDataUrl ? `<img src="${sig.uploadDataUrl}" style="max-width:100%; max-height:130px; background:#fff; border-radius:8px; border:2px solid rgba(255,255,255,0.15); display:block; margin-bottom:12px;">` : ''}
+                ${sig.uploadDataUrl ? `<img src="${sig.uploadDataUrl}" style="max-width:100%; max-height:130px; background:#fff; border-radius:8px; border:2px solid var(--border); display:block; margin-bottom:12px;">` : ''}
                 <input type="file" accept="image/*" id="fileInput_${key}" onchange="handleSignatureUpload('${key}', this)" style="margin-bottom:12px;">
                 ${sig.uploadDataUrl ? `<button type="button" class="clear-sig-btn" onclick="clearUploadSignature('${key}')">Quitar firma</button>` : ''}
             </div>
