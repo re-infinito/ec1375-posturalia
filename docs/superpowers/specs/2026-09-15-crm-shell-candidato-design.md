@@ -288,7 +288,10 @@ tarjeta sobre el fondo del tema. Al verificar sesión, `handleVerified`:
    (solo si Alineación está pagada; si no, el texto dice que se habilita
    al pagar esa fase).
 6. **Requieren atención** — lista derivada, en orden de prioridad:
-   documentos del paso `current` sin subir, siguiente fase sin pagar
+   documentos sin subir de cualquier paso ya abierto (`done` o `current`,
+   nunca de pasos bloqueados — un paso puede estar `done` por sus
+   respuestas y aun así tener un PDF sin subir que bloquea el
+   siguiente), siguiente fase sin pagar
    cuando el paso `current` la exige, sesión de Alineación sin reservar
    cuando Alineación está pagada y el paso Alineación no está `done`. Cada
    item con link. Si está vacía: "Todo en orden ✨".
