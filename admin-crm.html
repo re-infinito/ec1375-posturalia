@@ -75,15 +75,16 @@
     async function boot(session) {
         const app = document.getElementById('app');
         CrmShell.mount({ mode: 'admin', currentPageId: 'admin-panel', title: 'Panel del equipo' });
-        app.innerHTML = '<p class="spinner">Cargando datos del equipo…</p>';
+        app.innerHTML = CrmShell.skeleton('panel');
         let datos;
         try { datos = await AdminData.cargar(); }
         catch (e) { app.innerHTML = `<p class="msg error">No se pudieron cargar los datos: ${esc(e.message || e)}</p>`; return; }
         render(app, datos);
     }
 
+    const ic = (n, s) => CrmShell.icon(n, s);
     function card(icono, titulo, cuerpo, extraH) {
-        return `<section class="crm-card"><div class="crm-card-h"><span class="crm-stat-ico">${icono}</span>${esc(titulo)}${extraH || ''}</div>${cuerpo}</section>`;
+        return `<section class="crm-card"><div class="crm-card-h"><span class="crm-stat-ico">${ic(icono, 18)}</span>${esc(titulo)}${extraH || ''}</div>${cuerpo}</section>`;
     }
 
     function render(app, datos) {
@@ -102,20 +103,20 @@
 
         const hero = `
             <div class="crm-hero">
-                <span class="crm-hero-badge">🏛️ EQUIPO · EC1375</span>
+                <span class="crm-hero-badge">${ic('building', 14)}Equipo · EC1375</span>
                 <h1>Panel del equipo</h1>
                 <div class="crm-hero-sub">Candidatos, ingresos, utilidades y sesiones en un solo lugar</div>
-                <div class="crm-hero-meta"><span>👥 ${k.totalRegistrados} registrados</span><span>📦 ${AdminData.lotes(datos).length} lote(s)</span><span>🔄 Actualizado ${new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}</span></div>
+                <div class="crm-hero-meta"><span>${ic('users', 14)}${k.totalRegistrados} registrados</span><span>${ic('grid', 14)}${AdminData.lotes(datos).length} lote(s)</span><span>${ic('refresh', 14)}Actualizado ${new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}</span></div>
                 <div class="crm-hero-actions">
-                    <a class="crm-btn crm-btn-cta" href="admin-candidatos.html">👥 Ver candidatos</a>
-                    <a class="crm-btn crm-btn-ghost" href="admin-precios.html">💰 Precios y pagos</a>
-                    <a class="crm-btn crm-btn-ghost" href="admin-sesiones.html">🎓 Nueva sesión</a>
+                    <a class="crm-btn crm-btn-cta" href="admin-candidatos.html">${ic('users', 16)}Ver candidatos</a>
+                    <a class="crm-btn crm-btn-ghost" href="admin-precios.html">${ic('dollar', 16)}Precios y pagos</a>
+                    <a class="crm-btn crm-btn-ghost" href="admin-sesiones.html">${ic('video', 16)}Nueva sesión</a>
                 </div>
                 <div class="crm-stats">
-                    <div class="crm-stat"><span class="crm-stat-ico">👥</span><div><div class="crm-stat-num">${k.totalInscritos}</div><div class="crm-stat-lbl">Candidatos activos · ${k.completados} certificados</div></div></div>
-                    <div class="crm-stat"><span class="crm-stat-ico">💰</span><div><div class="crm-stat-num" style="font-size:1.2rem;">${fmt(k.ingresosTotales)}</div><div class="crm-stat-lbl">Ingresos · proyectado ${fmt(k.proyectado)}</div></div></div>
-                    <div class="crm-stat"><span class="crm-stat-ico">💵</span><div><div class="crm-stat-num" style="font-size:1.2rem;">${fmt(ug.pagado)}</div><div class="crm-stat-lbl">Utilidades pagadas · pendiente ${fmt(ug.pendiente)}</div></div></div>
-                    <div class="crm-stat"><span class="crm-stat-ico">🎓</span><div><div class="crm-stat-num">${inscritos === null ? '—' : inscritos}</div><div class="crm-stat-lbl">Inscritos a próximas sesiones</div></div></div>
+                    <div class="crm-stat"><span class="crm-stat-ico">${ic('users', 20)}</span><div><div class="crm-stat-num">${k.totalInscritos}</div><div class="crm-stat-lbl">Candidatos activos · ${k.completados} certificados</div></div></div>
+                    <div class="crm-stat"><span class="crm-stat-ico">${ic('dollar', 20)}</span><div><div class="crm-stat-num" style="font-size:1.2rem;">${fmt(k.ingresosTotales)}</div><div class="crm-stat-lbl">Ingresos · proyectado ${fmt(k.proyectado)}</div></div></div>
+                    <div class="crm-stat"><span class="crm-stat-ico">${ic('card', 20)}</span><div><div class="crm-stat-num" style="font-size:1.2rem;">${fmt(ug.pagado)}</div><div class="crm-stat-lbl">Utilidades pagadas · pendiente ${fmt(ug.pendiente)}</div></div></div>
+                    <div class="crm-stat"><span class="crm-stat-ico">${ic('video', 20)}</span><div><div class="crm-stat-num">${inscritos === null ? '—' : inscritos}</div><div class="crm-stat-lbl">Inscritos a próximas sesiones</div></div></div>
                 </div>
             </div>`;
 
@@ -131,14 +132,14 @@
             `<li><span>Conversión: Registro ${k.conv.registro}% → Alineación ${k.conv.alineacion}% → Evaluación ${k.conv.evaluacion}% → Entrega ${k.conv.entrega}%</span></li></ul>`;
 
         const pagosHtml = pagos.length ? '<ul class="crm-list">' + pagos.map(p => `
-            <li><span class="crm-st">${p.origen === 'mercadopago' ? '💳' : '🏦'}</span><span style="min-width:0;"><a href="admin-candidatos.html?q=${encodeURIComponent(p.email)}">${esc(p.nombre || p.email)}</a><div class="crm-muted">${esc(p.faseLabel)} · ${p.origen === 'mercadopago' ? 'Mercado Pago' : 'Transferencia'} · ${fechaCorta(p.fecha)}</div></span><span class="crm-right crm-ok">${fmt(p.monto)}</span></li>`).join('') + '</ul>' : '<p class="crm-empty">Sin pagos registrados.</p>';
+            <li><span class="crm-st">${ic(p.origen === 'mercadopago' ? 'card' : 'building', 16)}</span><span style="min-width:0;"><a href="admin-candidatos.html?q=${encodeURIComponent(p.email)}">${esc(p.nombre || p.email)}</a><div class="crm-muted">${esc(p.faseLabel)} · ${p.origen === 'mercadopago' ? 'Mercado Pago' : 'Transferencia'} · ${fechaCorta(p.fecha)}</div></span><span class="crm-right crm-ok">${fmt(p.monto)}</span></li>`).join('') + '</ul>' : '<p class="crm-empty">Sin pagos registrados.</p>';
 
         let sesionesHtml;
         if (!sesiones) sesionesHtml = '<p class="crm-empty">No pudimos cargar las sesiones.</p>';
-        else if (!sesiones.length) sesionesHtml = '<p class="crm-empty">No hay sesiones abiertas. <a href="admin-sesiones.html" style="color:var(--primary);font-weight:700;">Crear una →</a></p>';
+        else if (!sesiones.length) sesionesHtml = '<p class="crm-empty">No hay sesiones abiertas. <a href="admin-sesiones.html" style="color:var(--primary);font-weight:700;">Crear una</a></p>';
         else sesionesHtml = '<ul class="crm-list">' + sesiones.slice(0, 6).map(s => `
-            <li><span class="crm-st">🎓</span><span style="min-width:0;"><strong style="color:var(--text-bright);">${esc(s.fecha)} · ${esc(String(s.hora_inicio || '').slice(0, 5))}${s.hora_fin ? '–' + esc(String(s.hora_fin).slice(0, 5)) : ''} h</strong><div class="crm-muted">${esc(s.instructor_nombre || '')} · ${s.inscritos || 0} / ${s.capacidad_maxima || '?'} inscritos</div></span>
-            <span class="crm-right">${s.zoom_link ? `<a href="${esc(s.zoom_link)}" target="_blank" rel="noopener">Zoom ↗</a>` : '<span class="crm-chip warn">Sin Zoom</span>'}</span></li>`).join('') + '</ul>';
+            <li><span class="crm-st">${ic('video', 16)}</span><span style="min-width:0;"><strong style="color:var(--text-bright);">${esc(s.fecha)} · ${esc(String(s.hora_inicio || '').slice(0, 5))}${s.hora_fin ? '–' + esc(String(s.hora_fin).slice(0, 5)) : ''} h</strong><div class="crm-muted">${esc(s.instructor_nombre || '')} · ${s.inscritos || 0} / ${s.capacidad_maxima || '?'} inscritos</div></span>
+            <span class="crm-right">${s.zoom_link ? `<a href="${esc(s.zoom_link)}" target="_blank" rel="noopener">Zoom ${ic('external', 12)}</a>` : '<span class="crm-chip warn">Sin Zoom</span>'}</span></li>`).join('') + '</ul>';
 
         const utilHtml = ug.porLote.length ? '<ul class="crm-list">' + ug.porLote.map(u => `
             <li><span style="flex:1;min-width:0;"><div style="display:flex;justify-content:space-between;gap:8px;"><span>Lote ${u.lote} <span class="crm-muted">· ingresos ${fmt(u.ingresos)}</span></span><span><span class="crm-ok">${fmt(u.pagado)}</span> <span class="crm-muted">pagado</span> · <span class="crm-warn">${fmt(u.pendiente)}</span> <span class="crm-muted">pendiente</span></span></div>
@@ -146,18 +147,18 @@
             <div class="crm-muted" style="margin-top:4px;">${u.socios.map(s => `${esc(s.label)} ${fmt(s.pagado)} / ${fmt(s.aRepartir)}`).join(' · ')}</div></span></li>`).join('') + '</ul>' : '<p class="crm-empty">Sin lotes.</p>';
 
         const atencionHtml = atencion.length ? '<ul class="crm-list">' + atencion.map(i => `
-            <li><span class="crm-st">${i.tipo === 'sesion' ? '🎓' : i.tipo === 'evaluador' ? '🏆' : i.tipo === 'inactivo' ? '⏳' : '📭'}</span><a href="${esc(i.href)}">${esc(i.texto)}</a></li>`).join('') + '</ul>' : '<p class="crm-empty crm-ok">Todo en orden ✨</p>';
+            <li><span class="crm-st">${ic(i.tipo === 'sesion' ? 'video' : i.tipo === 'evaluador' ? 'award' : i.tipo === 'inactivo' ? 'clock' : 'inbox', 16)}</span><a href="${esc(i.href)}">${esc(i.texto)}</a></li>`).join('') + '</ul>' : '<p class="crm-empty crm-ok">Todo en orden</p>';
 
-        const modulosHtml = MODULOS.map(g => `<div class="crm-group-lbl">${esc(g.grupo)}</div><div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;">${g.items.map(([href, name]) => `<a class="crm-chip" href="${href}" target="_blank" rel="noopener" style="text-decoration:none;">${esc(name)}</a>`).join('')}</div>`).join('');
+        const modulosHtml = MODULOS.map(g => `<div class="crm-group-lbl">${esc(g.grupo.replace(/^[^\p{L}\d]+/u, ''))}</div><div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;">${g.items.map(([href, name]) => `<a class="crm-chip" href="${href}" target="_blank" rel="noopener" style="text-decoration:none;">${esc(name)}</a>`).join('')}</div>`).join('');
 
-        app.innerHTML = (avisos.length ? `<div class="crm-note">⚠️ ${avisos.join('<br>')}</div>` : '') + hero + '<div class="crm-grid">' +
-            card('🗺️', 'Candidatos por paso', pasosHtml, `<span class="crm-count">${k.totalInscritos} activos</span>`) +
-            card('💰', 'Ingresos por fase', fasesHtml, `<span class="crm-count">${fmt(k.ingresosTotales)}</span>`) +
-            card('🧾', 'Últimos pagos', pagosHtml) +
-            card('🎓', 'Próximas sesiones de Alineación', sesionesHtml) +
-            card('💵', 'Utilidades por lote', utilHtml, `<span class="crm-count"><a href="admin-utilidades.html">Registrar pago →</a></span>`) +
-            card('🔔', 'Requieren atención', atencionHtml, `<span class="crm-count">${atencion.length}</span>`) +
-            '</div>' + card('🗂️', 'Índice de módulos (abren en pestaña nueva)', modulosHtml);
+        app.innerHTML = (avisos.length ? `<div class="crm-note">${ic('alert', 14)} ${avisos.join('<br>')}</div>` : '') + hero + '<div class="crm-grid">' +
+            card('map', 'Candidatos por paso', pasosHtml, `<span class="crm-count">${k.totalInscritos} activos</span>`) +
+            card('dollar', 'Ingresos por fase', fasesHtml, `<span class="crm-count">${fmt(k.ingresosTotales)}</span>`) +
+            card('file', 'Últimos pagos', pagosHtml) +
+            card('video', 'Próximas sesiones de Alineación', sesionesHtml) +
+            card('card', 'Utilidades por lote', utilHtml, `<span class="crm-count"><a href="admin-utilidades.html">Registrar pago</a></span>`) +
+            card('bell', 'Requieren atención', atencionHtml, `<span class="crm-count">${atencion.length}</span>`) +
+            '</div>' + card('grid', 'Índice de módulos (abren en pestaña nueva)', modulosHtml);
     }
 
     renderGateShell();

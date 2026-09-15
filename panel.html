@@ -98,7 +98,8 @@
         if (await Auth.isBypassSession()) {
             Auth.ensureAdminPlaceholderData();
         }
-        app.innerHTML = `<p class="spinner">Cargando tu panel...</p>`;
+        app.classList.add('is-panel');
+        app.innerHTML = CrmShell.skeleton('panel');
         const email = session.user.email;
 
         const [rowR, stepsR, fasesR, inscR] = await Promise.allSettled([
@@ -118,7 +119,6 @@
         let inscripciones = inscR.status === 'fulfilled' ? inscR.value : null;
         if (stepsR.status === 'rejected') console.warn('No se pudo calcular tu progreso:', stepsR.reason);
 
-        app.classList.add('is-panel');
         CrmShell.mount({ currentPageId: 'panel', steps: steps || [], degraded: !steps, row, title: 'Panel de control' });
 
         const pintar = () => CrmShell.renderDashboard(app, {

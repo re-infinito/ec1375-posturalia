@@ -68,14 +68,17 @@
     let lista = [];
     let datosGlobal = null;
     const filtros = { q: '', lote: '', estado: '', paso: '' };
+    const orden = { key: 'ultimaActividad', dir: 'desc' };
+    const ic = (n, s) => CrmShell.icon(n, s);
+    const FASE_LABEL = AdminData.FASE_LABEL;
 
     async function boot(session) {
         const app = document.getElementById('app');
         CrmShell.mount({ mode: 'admin', currentPageId: 'admin-candidatos', title: 'Candidatos' });
-        app.innerHTML = '<p class="spinner">Cargando candidatos…</p>';
+        app.innerHTML = CrmShell.skeleton('table');
         try { datosGlobal = await AdminData.cargar(); }
         catch (e) { app.innerHTML = `<p class="msg error">No se pudieron cargar los datos: ${esc(e.message || e)}</p>`; return; }
-        lista = AdminData.candidatos(datosGlobal).sort((a, b) => String(b.ultimaActividad || '').localeCompare(String(a.ultimaActividad || '')));
+        lista = AdminData.candidatos(datosGlobal);
         filtros.q = new URLSearchParams(location.search).get('q') || '';
         render();
         document.getElementById('drawerBackdrop').addEventListener('click', cerrarDetalle);
@@ -91,6 +94,25 @@
         return `<span class="crm-chip ${cls}">${esc(c.paso.label)}</span>`;
     }
 
+    const SORT_KEYS = {
+        nombre: c => (c.nombre || c.email || '').toLowerCase(), lote: c => c.lote, estado: c => c.estado,
+        fasePagada: c => ['Sin pago', 'Registro', 'Alineación', 'Evaluación', 'Entrega'].indexOf(c.fasePagada),
+        paso: c => c.paso.id === 'sin_iniciar' ? -1 : c.paso.id === 'certificado' ? 99 : c.paso.id === 'esperando_evaluador' ? 98 : c.hechos,
+        hechos: c => c.hechos, docs: c => c.docs.completos, ultimaActividad: c => c.ultimaActividad || ''
+    };
+    function ordenar(arr) {
+        const f = SORT_KEYS[orden.key] || SORT_KEYS.ultimaActividad;
+        const dir = orden.dir === 'asc' ? 1 : -1;
+        return arr.slice().sort((a, b) => { const x = f(a), y = f(b); return (x < y ? -1 : x > y ? 1 : 0) * dir; });
+    }
+    function exportarCsv(rows) {
+        const cab = ['Nombre', 'Correo', 'CURP', 'Lote', 'Estado', 'Fase pagada', 'Paso actual', 'Pasos hechos', 'Documentos', 'Última actividad', 'Total acordado'];
+        const esc2 = v => '"' + String(v === null || v === undefined ? '' : v).replace(/"/g, '""') + '"';
+        const lineas = [cab.map(esc2).join(',')].concat(rows.map(c => [c.nombre, c.email, c.curp, c.lote, c.estado, c.fasePagada, c.paso.label, c.hechos + '/10', c.docs.completos + '/' + c.docs.total, c.ultimaActividad || '', c.totalAcordado].map(esc2).join(',')));
+        const blob = new Blob(['\ufeff' + lineas.join('\n')], { type: 'text/csv;charset=utf-8' });
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'candidatos-ec1375-' + new Date().toISOString().slice(0, 10) + '.csv'; a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    }
     function filtrar() {
         const q = filtros.q.trim().toLowerCase();
         return lista.filter(c =>
@@ -102,13 +124,15 @@
 
     function render() {
         const app = document.getElementById('app');
-        const vis = filtrar();
+        const vis = ordenar(filtrar());
         const lotes = AdminData.lotes(datosGlobal);
         const pasos = AdminData.porPaso(lista);
-        const aviso = datosGlobal.errores.candidatosRows ? `<div class="crm-note">⚠️ Para ver el paso y los documentos de cada candidato hay que correr <code>2026-09-15-admin-lista-candidatos.sql</code> en Supabase. Mientras, solo se muestran datos de pagos.</div>` : '';
+        const aviso = datosGlobal.errores.candidatosRows ? `<div class="crm-note">${ic('alert', 14)} Para ver el paso y los documentos de cada candidato hay que correr <code>2026-09-15-admin-lista-candidatos.sql</code> en Supabase. Mientras, solo se muestran datos de pagos.</div>` : '';
+        const th = (key, label) => `<th data-sort="${key}" class="${orden.key === key ? 'is-sorted' : ''}">${label}${orden.key === key ? (orden.dir === 'asc' ? ' ↑' : ' ↓') : ''}</th>`;
         app.innerHTML = aviso + `
             <section class="crm-card">
-                <div class="crm-card-h"><span class="crm-stat-ico">👥</span>Candidatos<span class="crm-count">${vis.length} de ${lista.length}</span></div>
+                <div class="crm-card-h"><span class="crm-stat-ico">${ic('users', 18)}</span>Candidatos<span class="crm-count">${vis.length} de ${lista.length}</span>
+                    <div class="crm-toolbar"><button type="button" class="crm-btn crm-btn-sm crm-btn-ghost" id="btnCsv" style="background:var(--surface-2);color:var(--text-bright);border-color:var(--border);">${ic('download', 14)}Exportar CSV</button></div></div>
                 <div class="crm-filters">
                     <input type="search" id="fq" placeholder="Buscar por nombre, correo o CURP" value="${esc(filtros.q)}">
                     <select id="flote"><option value="">Todos los lotes</option>${lotes.map(l => `<option value="${l}" ${String(l) === filtros.lote ? 'selected' : ''}>Lote ${l}</option>`).join('')}</select>
@@ -116,7 +140,7 @@
                     <select id="fpaso"><option value="">Todos los pasos</option>${pasos.map(p => `<option value="${p.id}" ${p.id === filtros.paso ? 'selected' : ''}>${esc(p.label)} (${p.n})</option>`).join('')}</select>
                 </div>
                 <div class="crm-table-wrap"><table class="crm-table">
-                    <thead><tr><th>Candidato</th><th>Lote</th><th>Estado</th><th>Fase pagada</th><th>Paso actual</th><th>Pasos</th><th>Documentos</th><th>Última actividad</th></tr></thead>
+                    <thead><tr>${th('nombre', 'Candidato')}${th('lote', 'Lote')}${th('estado', 'Estado')}${th('fasePagada', 'Fase pagada')}${th('paso', 'Paso actual')}${th('hechos', 'Pasos')}${th('docs', 'Documentos')}${th('ultimaActividad', 'Última actividad')}</tr></thead>
                     <tbody>${vis.length ? vis.map((c, i) => `
                         <tr class="is-clickable" data-email="${esc(c.email)}">
                             <td><strong style="color:var(--text-bright);">${esc(c.nombre || '(sin nombre)')}</strong><div class="crm-muted" style="font-size:0.76rem;">${esc(c.email)}</div></td>
@@ -129,27 +153,60 @@
         document.getElementById('fq').addEventListener('input', ev => { filtros.q = ev.target.value; render(); document.getElementById('fq').focus(); });
         ['lote', 'estado', 'paso'].forEach(k => document.getElementById('f' + k).addEventListener('change', ev => { filtros[k] = ev.target.value; render(); }));
         app.querySelectorAll('tr.is-clickable').forEach(tr => tr.addEventListener('click', () => abrirDetalle(tr.dataset.email)));
+        app.querySelectorAll('th[data-sort]').forEach(h => h.addEventListener('click', () => {
+            const k = h.dataset.sort;
+            if (orden.key === k) orden.dir = orden.dir === 'asc' ? 'desc' : 'asc'; else { orden.key = k; orden.dir = k === 'nombre' ? 'asc' : 'desc'; }
+            render();
+        }));
+        document.getElementById('btnCsv').addEventListener('click', () => exportarCsv(vis));
+    }
+
+    /* Liberar / revocar una fase desde el detalle — misma escritura que admin-precios.html
+       (origen 'manual'; el origen 'mercadopago' solo lo escribe el webhook). */
+    async function toggleFase(c, fase) {
+        const liberada = !!c.fases[fase];
+        const msg = liberada ? `¿Revocar la fase "${FASE_LABEL[fase]}" para ${c.email}?` : `¿Liberar manualmente la fase "${FASE_LABEL[fase]}" para ${c.email}?`;
+        if (!confirm(msg)) return;
+        const { error } = liberada
+            ? await supabaseClient.from('candidatos_fase_pagos').delete().eq('email', c.email).eq('fase', fase)
+            : await supabaseClient.from('candidatos_fase_pagos').insert({ email: c.email, fase, origen: 'manual' });
+        if (error) { alert('No se pudo actualizar: ' + (error.message || error)); return; }
+        if (liberada) datosGlobal.pagos = datosGlobal.pagos.filter(p => !(p.email === c.email && p.fase === fase));
+        else datosGlobal.pagos.push({ email: c.email, fase, origen: 'manual', autorizado_en: new Date().toISOString() });
+        delete datosGlobal._idx;
+        lista = AdminData.candidatos(datosGlobal);
+        render(); abrirDetalle(c.email);
+    }
+    async function guardarNota(c, texto) {
+        const { error } = await supabaseClient.from('candidatos_precio').update({ nota_interna: texto || null }).eq('email', c.email);
+        if (error) { alert('No se pudo guardar la nota (¿falta correr 2026-09-15-nota-interna.sql?): ' + (error.message || error)); return false; }
+        const pr = datosGlobal.precio.find(x => x.email === c.email); if (pr) pr.nota_interna = texto;
+        c.notaInterna = texto;
+        return true;
     }
 
     function abrirDetalle(email) {
         const c = lista.find(x => x.email === email);
         if (!c) return;
         const drawer = document.getElementById('drawer');
-        const pasosHtml = '<ul class="crm-list">' + c.steps.map(s => `<li><span class="crm-st" style="color:${s.done ? 'var(--success)' : s.current ? 'var(--primary)' : 'inherit'}">${s.done ? '✓' : s.current ? '▶' : '🔒'}</span><span>${esc(s.label)}${s.locked && s.reason === 'esperando_evaluador' ? '<div class="crm-muted">Esperando al evaluador</div>' : ''}</span></li>`).join('') + '</ul>';
+        const pasosHtml = '<ul class="crm-list">' + c.steps.map(s => `<li><span class="crm-st" style="color:${s.done ? 'var(--success)' : s.current ? 'var(--primary)' : 'inherit'}">${ic(s.done ? 'check' : s.current ? 'play' : 'lock', 16)}</span><span>${esc(s.label)}${s.locked && s.reason === 'esperando_evaluador' ? '<div class="crm-muted">Esperando al evaluador</div>' : ''}</span></li>`).join('') + '</ul>';
         const docsHtml = CrmShell.DOC_GRUPOS.map(g => {
             const jsonb = c.row ? c.row[g.col] : null;
             return `<div class="crm-group-lbl">${esc(g.fase)}</div>` + g.claves.map(([clave, label]) => {
                 const est = CrmShell._helpers.estadoDocumento(jsonb, clave);
                 const ruta = jsonb && jsonb.documentosNextcloud ? jsonb.documentosNextcloud[clave] : null;
                 const rutaTxt = Array.isArray(ruta) ? ruta.join(', ') : (ruta || '');
-                return `<li><span class="crm-st">${est === 'subido' ? '✅' : est === 'descargado' ? '⬇️' : est === 'formulario' ? '📨' : '⏳'}</span><span style="min-width:0;">${esc(label)}${rutaTxt ? `<div class="crm-muted" style="word-break:break-all;">${esc(rutaTxt)}</div>` : ''}</span><span class="crm-right crm-muted">${est}</span></li>`;
+                return `<li><span class="crm-st ${est === 'subido' ? 'crm-ok' : ''}">${ic(est === 'subido' ? 'check' : est === 'descargado' ? 'download' : est === 'formulario' ? 'inbox' : 'clock', 16)}</span><span style="min-width:0;">${esc(label)}${rutaTxt ? `<div class="crm-muted" style="word-break:break-all;">${esc(rutaTxt)}</div>` : ''}</span><span class="crm-right crm-muted">${est}</span></li>`;
             }).join('');
         }).join('');
-        const fasesHtml = AdminData.FASES.map(f => `<li><span class="crm-st">${c.fases[f] ? '✅' : '⏳'}</span><span>${AdminData.FASE_LABEL[f]}</span><span class="crm-right crm-muted">${c.fases[f] ? (c.origenPagos[f] === 'mercadopago' ? 'Mercado Pago' : 'Manual') : 'Pendiente'}</span></li>`).join('');
+        const fasesHtml = AdminData.FASES.map(f => `<li><span class="crm-st ${c.fases[f] ? 'crm-ok' : ''}">${ic(c.fases[f] ? 'check' : 'clock', 16)}</span><span>${FASE_LABEL[f]}<div class="crm-muted">${c.fases[f] ? (c.origenPagos[f] === 'mercadopago' ? 'Mercado Pago' : 'Liberada a mano') : 'Pendiente'}</div></span>
+            <span class="crm-right"><button type="button" class="crm-btn crm-btn-sm ${c.fases[f] ? 'crm-btn-danger' : 'crm-btn-primary'}" data-fase="${f}">${c.fases[f] ? 'Revocar' : 'Liberar'}</button></span></li>`).join('');
+        const pr = datosGlobal.precio.find(x => x.email === c.email) || {};
+        const nota = c.notaInterna !== undefined ? c.notaInterna : (pr.nota_interna || '');
         drawer.innerHTML = `
             <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
                 <div><h2>${esc(c.nombre || '(sin nombre)')}</h2><div class="crm-muted">${esc(c.email)}</div></div>
-                <button type="button" class="crm-iconbtn" id="drawerClose" aria-label="Cerrar">✕</button>
+                <button type="button" class="crm-iconbtn" id="drawerClose" aria-label="Cerrar">${ic('x', 18)}</button>
             </div>
             <dl class="crm-kv">
                 <dt>CURP</dt><dd>${esc(c.curp || '—')}</dd>
@@ -158,17 +215,27 @@
                 <dt>Paso actual</dt><dd>${chipPaso(c)}</dd>
                 <dt>Última actividad</dt><dd>${fechaCorta(c.ultimaActividad)}</dd>
             </dl>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
-                <a class="crm-btn crm-btn-primary" style="padding:8px 14px;font-size:0.8rem;" href="admin-precios.html">💰 Pagos y liberación</a>
-                <a class="crm-btn crm-btn-ghost" style="padding:8px 14px;font-size:0.8rem;border-color:var(--border);color:var(--text-bright);background:var(--surface-2);" href="admin-sesiones.html">🎓 Sesiones</a>
+            <div class="crm-card-h"><span class="crm-stat-ico">${ic('file', 18)}</span>Nota interna</div>
+            <textarea id="notaInterna" rows="2" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:var(--dark);color:var(--text-bright);font-family:inherit;font-size:0.86rem;resize:vertical;" placeholder="Solo la ve el equipo (ej. acordó pagar en 3 partes, llamar el lunes…)">${esc(nota)}</textarea>
+            <div style="display:flex;justify-content:flex-end;margin:6px 0 14px;"><button type="button" class="crm-btn crm-btn-sm crm-btn-primary" id="btnNota">Guardar nota</button></div>
+            <div class="crm-card-h"><span class="crm-stat-ico">${ic('card', 18)}</span>Fases de pago</div><ul class="crm-list">${fasesHtml}</ul>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 14px;">
+                <a class="crm-btn crm-btn-sm crm-btn-ghost" style="border-color:var(--border);color:var(--text-bright);background:var(--surface-2);" href="admin-precios.html">${ic('dollar', 14)}Montos y precios</a>
+                <a class="crm-btn crm-btn-sm crm-btn-ghost" style="border-color:var(--border);color:var(--text-bright);background:var(--surface-2);" href="admin-sesiones.html">${ic('video', 14)}Sesiones</a>
             </div>
-            <div class="crm-card-h"><span class="crm-stat-ico">💳</span>Fases de pago</div><ul class="crm-list">${fasesHtml}</ul>
-            <div class="crm-card-h" style="margin-top:16px;"><span class="crm-stat-ico">🗺️</span>Ruta de certificación<span class="crm-count">${c.hechos} / 10</span></div>${pasosHtml}
-            <div class="crm-card-h" style="margin-top:16px;"><span class="crm-stat-ico">📄</span>Documentos del expediente<span class="crm-count">${c.docs.completos} / ${c.docs.total}</span></div>
+            <div class="crm-card-h" style="margin-top:16px;"><span class="crm-stat-ico">${ic('map', 18)}</span>Ruta de certificación<span class="crm-count">${c.hechos} / 10</span></div>${pasosHtml}
+            <div class="crm-card-h" style="margin-top:16px;"><span class="crm-stat-ico">${ic('file', 18)}</span>Documentos del expediente<span class="crm-count">${c.docs.completos} / ${c.docs.total}</span></div>
             ${c.tieneFila ? `<ul class="crm-list">${docsHtml}</ul>` : '<p class="crm-empty">Este candidato aún no ha iniciado su Autodiagnóstico (sin fila en candidatos_ec1375).</p>'}`;
         drawer.classList.add('is-open');
         document.getElementById('drawerBackdrop').classList.add('is-open');
         document.getElementById('drawerClose').addEventListener('click', cerrarDetalle);
+        drawer.querySelectorAll('[data-fase]').forEach(b => b.addEventListener('click', () => toggleFase(c, b.dataset.fase)));
+        document.getElementById('btnNota').addEventListener('click', async () => {
+            const btn = document.getElementById('btnNota'); btn.disabled = true; btn.textContent = 'Guardando…';
+            const ok = await guardarNota(c, document.getElementById('notaInterna').value.trim());
+            btn.disabled = false; btn.textContent = ok ? 'Guardado' : 'Guardar nota';
+            if (ok) setTimeout(() => { btn.textContent = 'Guardar nota'; }, 1500);
+        });
     }
     function cerrarDetalle() {
         document.getElementById('drawer').classList.remove('is-open');
