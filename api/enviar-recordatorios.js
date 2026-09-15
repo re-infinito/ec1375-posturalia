@@ -95,7 +95,7 @@ async function procesarRecordatorios24h() {
                     hora_inicio,
                     hora_fin,
                     instructor_nombre,
-                    google_meet_link
+                    zoom_link
                 )
             `)
             .eq('estado_inscripcion', 'confirmada')
@@ -116,7 +116,7 @@ async function procesarRecordatorios24h() {
                 if (!sesion) continue;
 
                 // Enviar recordatorio
-                await enviarRecordatorio24h(inscripcion, sesion, sesion.google_meet_link);
+                await enviarRecordatorio24h(inscripcion, sesion, sesion.zoom_link);
 
                 // Marcar como enviado
                 await supabase
@@ -185,7 +185,7 @@ async function procesarRecordatorios1h() {
                 hora_inicio,
                 hora_fin,
                 instructor_nombre,
-                google_meet_link
+                zoom_link
             `)
             .eq('estado', 'abierta')
             .eq('fecha', ahoyFecha)
@@ -221,7 +221,7 @@ async function procesarRecordatorios1h() {
                 for (const inscripcion of inscripciones || []) {
                     try {
                         // Enviar recordatorio
-                        await enviarRecordatorio1h(inscripcion, sesion, sesion.google_meet_link);
+                        await enviarRecordatorio1h(inscripcion, sesion, sesion.zoom_link);
 
                         // Marcar como enviado
                         await supabase

@@ -1,6 +1,6 @@
 # Claude.md — EC1375 Paideia Tech
 
-**Última actualización:** 14 de septiembre, 2026
+**Última actualización:** 15 de septiembre, 2026
 **Qué es:** Sitio de certificación oficial EC1375 (SEP-CONOCER) para terapeutas alternativas en México. Landing de alta conversión (marca "Paideia Tech", antes "Posturalia") + portal post-pago donde el candidato completa todo el proceso de certificación desde el navegador (autodiagnóstico, alineación, evaluación, entrega de evidencias) sin papeleo.
 **URL en vivo:** https://sepconocer.paideiatech.com (alias activo en paralelo: `ec1375-posturalia.vercel.app`, mismo proyecto de Vercel)
 **Estado:** Todo lo descrito en este documento está en producción salvo que diga lo contrario. Precio de referencia: $14,750 MXN en 4 pagos (Registro 15% / Alineación 30% / Evaluación 40% / Entrega 15%), negociable por candidato.
@@ -139,11 +139,13 @@ Spec: `docs/superpowers/specs/2026-09-12-nextcloud-portafolio-storage-design.md`
 
 ---
 
-## Sesiones de Alineación en vivo (Google Calendar)
+## Sesiones de Alineación en vivo (Google Calendar + Zoom)
 
-`alineacion.html` deja al candidato reservar un horario real: `api/sesiones-alineacion.js` lista cupos, `api/inscribir-alineacion.js` inscribe (agrega invitado al evento de Calendar vía `events.patch` preservando invitados existentes, envía email de confirmación por Resend), `api/mis-inscripciones-alineacion.js` consulta las propias. El admin crea/borra sesiones desde `admin-sesiones.html` vía `api/crear-evento-google.js` / `api/eliminar-evento-google.js`. El link de Google Meet **no se autogenera** (la Service Account no tiene domain-wide delegation — `paideia.tech@outlook.com` es cuenta personal, no Workspace): el admin lo crea a mano en meet.google.com/new y lo pega al crear la sesión. `api/enviar-recordatorios.js` (cron por hora) manda recordatorios 24h y 1h antes, comparando siempre en hora de México (`Intl.DateTimeFormat` con `timeZone: 'America/Mexico_City'`) porque Vercel corre en UTC.
+`alineacion.html` deja al candidato reservar un horario real: `api/sesiones-alineacion.js` lista cupos, `api/inscribir-alineacion.js` inscribe (agrega invitado al evento de Calendar vía `events.patch` preservando invitados existentes, envía email de confirmación por Resend), `api/mis-inscripciones-alineacion.js` consulta las propias. El admin crea/borra sesiones desde `admin-sesiones.html` vía `api/crear-evento-google.js` / `api/eliminar-evento-google.js`. El evento en sí sigue viviendo en Google Calendar (eso es lo que le manda la invitación al calendario del candidato vía `sendUpdates: 'all'` al inscribirse — funciona sin importar el proveedor de email del candidato), pero la videollamada es por **Zoom**, no Google Meet (no tenemos membresía de Google Meet — el límite de 1h en llamadas grupales de la cuenta gratuita obligaba a agendar bloques de 2h como colchón para una sesión que en realidad duraba 1h). El link de Zoom tampoco se autogenera: el admin agenda la reunión en zoom.us y pega el link (columna `zoom_link`) al crear la sesión. `api/enviar-recordatorios.js` (cron por hora) manda recordatorios 24h y 1h antes, comparando siempre en hora de México (`Intl.DateTimeFormat` con `timeZone: 'America/Mexico_City'`) porque Vercel corre en UTC.
 
-Tablas: `sesiones_alineacion`, `inscripciones_alineacion`, `emails_enviados_alineacion` (auditoría de envíos).
+Tablas: `sesiones_alineacion` (columna `zoom_link`, renombrada de `google_meet_link` el 15 sep), `inscripciones_alineacion`, `emails_enviados_alineacion` (auditoría de envíos).
+
+**⚠️ Pendiente que Diego haga en Supabase:** correr `_internal_no_publicar/02-sql/2026-09-15-rename-google-meet-link-to-zoom-link.sql` (renombra la columna `google_meet_link` → `zoom_link` en `sesiones_alineacion`) — el código ya asume el nombre nuevo.
 
 ---
 
@@ -204,6 +206,10 @@ Diego pidió (14 sep) que cada documento que el sitio genera haga match al 100% 
 | Ensamblado del expediente (`assemble_expediente.py`) — portada/índice/separadores/Cédula en blanco | ✅ Validado 15 sep | Comparado directamente contra el expediente real de Humberto (pp. 1, 4-5, 22, 134-135, 139). Encontrado y corregido: `draw_portada()` no tenía el renglón "Evaluadora:" (existe en el real, en blanco para llenarse a mano); `draw_indice()` omitía por completo la sección "4. Anexos" del texto del índice aunque el PDF sí incluye ese separador + los acuses; `draw_cedula_evaluacion_blanco()` le faltaban el renglón de JUICIO ("_____ (COMPETENTE / NO COMPETENTE)"), las 2 notas legales de ratificación/pago, el campo "Observaciones" y la nota de pie de página — y tenía un bug real donde el texto de continuación del Estándar de Competencia (2 líneas) nunca se dibujaba porque el loop solo dibujaba `value` cuando `label` no estaba vacío. Títulos de separadores ajustados para calzar exacto ("1. Datos del Candidato/a", "3. Cierre de Evaluación" sin "la", "4. ANEXOS" en mayúsculas). Verificado generando cada página con reportlab de forma aislada (sin necesitar Google Forms/Drive) y comparando visualmente — todo cabe en una sola página cada uno, sin overflow. Este script vive en `_internal_no_publicar/` (gitignored) — los cambios no se ven en git, solo en el archivo local. |
 
 ---
+
+## Cambios recientes (15 de septiembre, 2026)
+
+- **Sesiones de Alineación: Google Meet → Zoom.** No tenemos membresía de Google Meet — el límite de 1h en llamadas grupales de la cuenta gratuita obligaba a agendar bloques de 2h como colchón para una sesión de 1h real. Se reemplazó Google Meet por Zoom en todo el flujo: `admin-sesiones.html` (label/placeholder/badge "✓ Zoom listo"), `api/crear-evento-google.js` (comentarios y campo `location`/descripción del evento), `api/inscribir-alineacion.js` (se quitó además el fallback muerto que intentaba leer un link de `conferenceData` — nunca aplicaba, porque el evento nunca se crea con conferenceData), `api/sesiones-alineacion.js`, `api/mis-inscripciones-alineacion.js`, `api/enviar-recordatorios.js`, `lib/send-email.js` (los 3 templates de email) y `sesiones-alineacion-component.js`. La creación del evento en Google Calendar y el envío automático de la invitación al calendario del candidato (`sendUpdates: 'all'`) **no cambiaron** — eso es una función de Calendar independiente de qué videollamada se use. Columna de Supabase renombrada de `google_meet_link` a `zoom_link` (ver "Sesiones de Alineación en vivo" arriba) — migración pendiente de correr por Diego.
 
 ## Cambios recientes (14 de septiembre, 2026)
 

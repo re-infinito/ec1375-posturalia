@@ -299,7 +299,7 @@
                     capacidad_maxima,
                     instructor_nombre,
                     estado,
-                    google_meet_link,
+                    zoom_link,
                     google_event_id,
                     descripcion
                 `)
@@ -331,7 +331,7 @@
                     <div class="sesion-meta">
                         👨‍🏫 ${s.instructor_nombre || '(sin instructor)'} •
                         📊 ${s.capacidad_maxima} cupos •
-                        ${s.google_meet_link ? '✓ Google Meet listo' : '⚠️ Sin Google Meet'}
+                        ${s.zoom_link ? '✓ Zoom listo' : '⚠️ Sin Zoom'}
                     </div>
                 </div>
                 <div style="display: flex; gap: 8px;">
@@ -353,7 +353,7 @@
         const horaFin = document.getElementById('horaFin').value;
         const capacidad = parseInt(document.getElementById('capacidad').value);
         const instructor = document.getElementById('instructor').value;
-        const googleMeetLink = document.getElementById('googleMeetLink').value.trim() || null;
+        const zoomLink = document.getElementById('zoomLink').value.trim() || null;
         const descripcion = document.getElementById('descripcion').value;
 
         if (!fecha || !horaInicio || !horaFin || !capacidad) {
@@ -368,7 +368,7 @@
         try {
             // Crear evento en Google Calendar
             const googleResult = await crearEventoGoogleCalendar(
-                fecha, horaInicio, horaFin, instructor, googleMeetLink
+                fecha, horaInicio, horaFin, instructor, zoomLink
             );
 
             if (!googleResult || !googleResult.google_event_id) {
@@ -393,7 +393,7 @@
                         descripcion,
                         estado: 'abierta',
                         google_event_id: googleResult.google_event_id,
-                        google_meet_link: googleResult.google_meet_link
+                        zoom_link: googleResult.zoom_link
                     }])
                     .select();
 
@@ -423,12 +423,12 @@
         }
     }
 
-    async function crearEventoGoogleCalendar(fecha, horaInicio, horaFin, instructor, googleMeetLink) {
+    async function crearEventoGoogleCalendar(fecha, horaInicio, horaFin, instructor, zoomLink) {
         try {
             const resp = await fetch('/api/crear-evento-google', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ fecha, horaInicio, horaFin, instructor, googleMeetLink })
+                body: JSON.stringify({ fecha, horaInicio, horaFin, instructor, zoomLink })
             });
 
             if (!resp.ok) {
@@ -452,7 +452,7 @@
             const data = await resp.json();
             return {
                 google_event_id: data.google_event_id,
-                google_meet_link: data.google_meet_link
+                zoom_link: data.zoom_link
             };
         } catch (e) {
             console.error('Error en crearEventoGoogleCalendar:', e);
@@ -500,7 +500,7 @@
         }
     }
 
-    // Editar solo cambia capacidad/instructor/Meet link/descripción — no
+    // Editar solo cambia capacidad/instructor/link de Zoom/descripción — no
     // fecha/hora, porque eso movería el evento ya creado en Google Calendar
     // y este formulario no tiene forma de actualizar un evento existente
     // (solo de crear uno nuevo). Para cambiar fecha/hora hay que eliminar
@@ -524,7 +524,7 @@
 
         document.getElementById('capacidad').value = sesion.capacidad_maxima;
         document.getElementById('instructor').value = sesion.instructor_nombre || '';
-        document.getElementById('googleMeetLink').value = sesion.google_meet_link || '';
+        document.getElementById('zoomLink').value = sesion.zoom_link || '';
         document.getElementById('descripcion').value = sesion.descripcion || '';
 
         document.getElementById('formCrearSesionTitulo').textContent = 'Editar Sesión';
@@ -538,7 +538,7 @@
     async function actualizarSesion(event) {
         const capacidad = parseInt(document.getElementById('capacidad').value);
         const instructor = document.getElementById('instructor').value;
-        const googleMeetLink = document.getElementById('googleMeetLink').value.trim() || null;
+        const zoomLink = document.getElementById('zoomLink').value.trim() || null;
         const descripcion = document.getElementById('descripcion').value;
 
         if (!capacidad) {
@@ -556,7 +556,7 @@
                 .update({
                     capacidad_maxima: capacidad,
                     instructor_nombre: instructor,
-                    google_meet_link: googleMeetLink,
+                    zoom_link: zoomLink,
                     descripcion
                 })
                 .eq('id', sesionEditandoId);
@@ -656,10 +656,10 @@
                         </div>
 
                         <div class="form-group">
-                            <label>Link de Google Meet</label>
-                            <input type="url" id="googleMeetLink" placeholder="https://meet.google.com/xxx-xxxx-xxx">
+                            <label>Link de Zoom</label>
+                            <input type="url" id="zoomLink" placeholder="https://zoom.us/j/1234567890?pwd=xxxxxxxx">
                             <p style="font-size: 0.78rem; color: var(--text); margin-top: 6px;">
-                                Créalo en <a href="https://meet.google.com/new" target="_blank" rel="noopener" style="color: var(--primary-light);">meet.google.com/new</a> y pega el link aquí — Google no permite generarlo automáticamente para este calendario. Puedes dejarlo vacío y agregarlo después.
+                                Agenda la reunión en <a href="https://zoom.us/meeting/schedule" target="_blank" rel="noopener" style="color: var(--primary-light);">zoom.us</a> y pega aquí el link de acceso — se guarda tal cual, no se genera automáticamente. Puedes dejarlo vacío y agregarlo después.
                             </p>
                         </div>
 

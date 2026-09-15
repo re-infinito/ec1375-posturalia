@@ -24,7 +24,7 @@ class SesionesAlineacionComponent {
         this.render('cargando');
         try {
             // No depender solo del email de confirmación para que el
-            // usuario vea que quedó inscrito y su link de Meet — esto se
+            // usuario vea que quedó inscrito y su link de Zoom — esto se
             // consulta en vivo cada vez que entra a la página.
             await Promise.all([this.cargarSesiones(), this.cargarMisInscripciones()]);
             this.render('sesiones');
@@ -208,12 +208,12 @@ class SesionesAlineacionComponent {
                         </div>
                         ${s.instructor_nombre ? `<div style="color: #888; font-size: 0.85rem; margin-top: 2px;">👨‍🏫 ${s.instructor_nombre}</div>` : ''}
                     </div>
-                    ${s.google_meet_link
-                        ? `<a href="${s.google_meet_link}" target="_blank" rel="noopener" style="
+                    ${s.zoom_link
+                        ? `<a href="${s.zoom_link}" target="_blank" rel="noopener" style="
                             background: #0088FF; color: white; padding: 10px 18px; border-radius: 8px;
                             text-decoration: none; font-weight: 600; white-space: nowrap;
-                        ">🎥 Unirme a Google Meet</a>`
-                        : `<span style="color: #FFD700; font-size: 0.85rem;">Link de Meet pendiente — te avisamos por WhatsApp</span>`}
+                        ">🎥 Unirme a Zoom</a>`
+                        : `<span style="color: #FFD700; font-size: 0.85rem;">Link de Zoom pendiente — te avisamos por WhatsApp</span>`}
                 </div>
             `;
         }).join('');

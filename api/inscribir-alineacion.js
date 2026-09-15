@@ -2,7 +2,7 @@
  * POST /api/inscribir-alineacion
  * Inscribe un usuario a una sesión de alineación
  * Body: { sesion_id, usuario_email, usuario_nombre, usuario_curp }
- * Retorna: { success, inscripcion_id, google_meet_link, mensaje }
+ * Retorna: { success, inscripcion_id, zoom_link, mensaje }
  */
 
 const { createClient } = require('@supabase/supabase-js');
@@ -93,7 +93,7 @@ module.exports = async (req, res) => {
 
         // 4. Agregar usuario como invitado en Google Calendar
         let googleEventAttendeeId = null;
-        let googleMeetLink = sesion.google_meet_link;
+        let zoomLink = sesion.zoom_link;
 
         if (sesion.google_event_id) {
             try {
@@ -114,18 +114,15 @@ module.exports = async (req, res) => {
                     ? attendeesActuales
                     : [...attendeesActuales, { email: usuario_email, displayName: usuario_nombre, responseStatus: 'needsAction' }];
 
-                const attendeeRes = await calendar.events.patch({
+                // sendUpdates: 'all' hace que Google le mande al invitado la
+                // invitación de Calendar por email (con .ics) — así queda
+                // "en su calendario" aunque no use Gmail/Google Calendar.
+                await calendar.events.patch({
                     calendarId: process.env.GOOGLE_CALENDAR_ID,
                     eventId: sesion.google_event_id,
                     requestBody: { attendees: nuevosAttendees },
-                    sendUpdates: 'all' // Envía invitación a Google Calendar
+                    sendUpdates: 'all'
                 });
-
-                // Obtener Google Meet link si no lo tenemos
-                if (!googleMeetLink && attendeeRes.data.conferenceData) {
-                    googleMeetLink = attendeeRes.data.conferenceData
-                        .entryPoints?.find(ep => ep.entryPointType === 'video')?.uri;
-                }
 
                 googleEventAttendeeId = usuario_email;
             } catch (googleError) {
@@ -168,7 +165,7 @@ module.exports = async (req, res) => {
         // emails_enviados_alineacion). Un error de email sigue sin fallar
         // la inscripción — el catch de aquí solo evita que se propague.
         try {
-            await enviarEmailConfirmacion(inscripcion, sesion, googleMeetLink);
+            await enviarEmailConfirmacion(inscripcion, sesion, zoomLink);
         } catch (err) {
             console.error('Error enviando email de confirmación:', err);
         }
@@ -176,8 +173,8 @@ module.exports = async (req, res) => {
         res.status(200).json({
             success: true,
             inscripcion_id: inscripcion.id,
-            google_meet_link: googleMeetLink || 'Se enviará por email',
-            mensaje: `¡Inscripción confirmada! Recibirás un email con el link de Google Meet`,
+            zoom_link: zoomLink || 'Se enviará por email',
+            mensaje: `¡Inscripción confirmada! Recibirás un email con el link de Zoom`,
             sesion_fecha: sesion.fecha,
             sesion_hora: `${sesion.hora_inicio} - ${sesion.hora_fin}`
         });
@@ -193,9 +190,9 @@ module.exports = async (req, res) => {
 /**
  * Enviar email de confirmación de inscripción vía Resend
  */
-async function enviarEmailConfirmacion(inscripcion, sesion, googleMeetLink) {
+async function enviarEmailConfirmacion(inscripcion, sesion, zoomLink) {
     try {
-        const resultado = await enviarConfirmacionInscripcion(inscripcion, sesion, googleMeetLink);
+        const resultado = await enviarConfirmacionInscripcion(inscripcion, sesion, zoomLink);
 
         // Registrar en auditoría que fue enviado. En su propio try/catch:
         // el email YA se mandó — si solo este insert falla, no debe caer

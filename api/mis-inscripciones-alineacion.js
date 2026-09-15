@@ -39,7 +39,7 @@ module.exports = async (req, res) => {
                     hora_inicio,
                     hora_fin,
                     instructor_nombre,
-                    google_meet_link,
+                    zoom_link,
                     descripcion
                 )
             `)
