@@ -102,7 +102,7 @@
         const email = session.user.email;
 
         const [rowR, stepsR, fasesR, inscR] = await Promise.allSettled([
-            Auth.pullMyRow(),
+            FlowStatus.getRow(),
             FlowStatus.getSteps(),
             Promise.all(FASES_PAGO.map(f => Auth.isPhaseAuthorized(email, f))),
             cargarInscripciones(email)

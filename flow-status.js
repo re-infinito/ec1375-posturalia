@@ -44,13 +44,43 @@ function _flowDocumentosCompletos(jsonbData, requiredKeys) {
     });
 }
 
+/* Para la cuenta bypass, Supabase NUNCA recibe el progreso (Auth._flushPendingSync
+   lo suprime a propósito), así que su "fila" se arma desde localStorage con
+   las mismas claves que cada página guarda — de otro modo ningún paso
+   posterior al Autodiagnóstico se marcaría como hecho para esa cuenta. */
+var _BYPASS_ROW_KEYS = {
+    autodiagnostico_data: 'autodiagnosticoData',
+    plan_evaluacion_data: 'planEvaluacionData',
+    documentos_sesion_data: 'documentosSesionData',
+    encuesta_data: 'encuestaSatisfaccionData',
+    evidencias_data: 'evidenciasData',
+    examen_conocimientos_data: 'examenConocimientosData',
+    ruta_estudio_data: 'ec1375-state'
+};
+
 const FlowStatus = {
     FLOW_STEPS_META: FLOW_STEPS_META,
+
+    /* Fila del candidato: la real de Supabase, o la compuesta desde
+       localStorage para la cuenta bypass (ver _BYPASS_ROW_KEYS). */
+    async getRow() {
+        var session = await Auth.getSession();
+        if (!session) return null;
+        if (!(await Auth.isBypassSession())) return Auth.pullMyRow();
+        var row = { user_id: session.user.id, nombre: null, curp: null, updated_at: new Date().toISOString() };
+        Object.keys(_BYPASS_ROW_KEYS).forEach(function (col) {
+            try { row[col] = JSON.parse(localStorage.getItem(_BYPASS_ROW_KEYS[col]) || 'null'); } catch (e) { row[col] = null; }
+        });
+        var pd = row.autodiagnostico_data && row.autodiagnostico_data.personalData;
+        if (pd) { row.nombre = pd.nombre || null; row.curp = pd.curp || null; }
+        return row;
+    },
 
     async getSteps() {
         var session = await Auth.getSession();
         var email = session && session.user && session.user.email;
-        var row = email ? await Auth.pullMyRow() : null;
+        var esBypass = !!email && await Auth.isBypassSession();
+        var row = email ? await FlowStatus.getRow() : null;
 
         var localAuto = null;
         try { localAuto = JSON.parse(localStorage.getItem('autodiagnosticoData') || 'null'); } catch (e) { /* ignore */ }
@@ -72,7 +102,7 @@ const FlowStatus = {
            aquí (no se confía en que quien llamó a getSteps() ya haya
            revisado Auth.isBypassSession() antes) para que esta función se
            baste sola. */
-        if (await Auth.isBypassSession()) entregaAuth = false;
+        if (esBypass) entregaAuth = false;
 
         var doneById = {
             'autodiagnostico': !!(localAuto && localAuto.answers && Object.keys(localAuto.answers).length === 142 && localAuto.ndaAccepted),
@@ -113,6 +143,14 @@ const FlowStatus = {
                 step.locked = true;
                 step.reason = 'paso_anterior_pendiente';
             }
+        }
+
+        /* Cuenta bypass (videos/demos): ningún paso queda bloqueado — todos
+           son navegables desde el sidebar y el panel. El estado done/current
+           sigue saliendo de los datos (demo) reales de localStorage. Entrega
+           conserva su razón informativa pero también se puede abrir. */
+        if (esBypass) {
+            steps.forEach(function (s) { s.locked = false; if (s.id !== 'entrega') s.reason = null; });
         }
 
         return steps;

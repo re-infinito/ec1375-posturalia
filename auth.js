@@ -668,56 +668,196 @@ const Auth = {
         return Auth._isBypassSession;
     },
 
+    /* =========================================================
+       DATOS DEMO (solo cuenta bypass) — 15 sep 2026
+       Diego graba videos para los candidatos con esta cuenta: todo el flujo
+       debe estar precargado con datos FICTICIOS y sin ningún candado, para
+       explicar rápido qué llena cada quien. Cada objeto lleva `_demo: true`
+       para distinguirlo de datos reales de otro candidato que pudieran
+       quedar en el mismo navegador (esos SÍ se sobreescriben; los datos demo
+       ya sembrados NO, para que lo que el admin edite durante el video
+       persista entre páginas). "🔄 Reiniciar demo" (sidebar) vuelve a sembrar
+       todo desde cero.
+    ========================================================= */
+    DEMO_NOMBRE: 'Ana Sofía Demo Ramírez',
+    DEMO_CURP: 'DERA900515MNLMMN08',
+    DEMO_LOCAL_KEYS: ['autodiagnosticoData', 'planEvaluacionData', 'documentosSesionData',
+                      'encuestaSatisfaccionData', 'evidenciasData', 'examenConocimientosData', 'ec1375-state', 'guionChecklistState'],
+
+    /* Foto de credencial ficticia (silueta) generada en canvas → JPEG real,
+       para que el paso "personal" del Autodiagnóstico la acepte y jsPDF la
+       pueda incrustar en la Ficha de Registro RENAP. */
+    _demoFotoDataUrl() {
+        try {
+            const c = document.createElement('canvas'); c.width = 300; c.height = 390;
+            const ctx = c.getContext('2d');
+            ctx.fillStyle = '#e8edf6'; ctx.fillRect(0, 0, 300, 390);
+            ctx.fillStyle = '#0a2a6b';
+            ctx.beginPath(); ctx.arc(150, 140, 62, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(40, 390); ctx.quadraticCurveTo(150, 190, 260, 390); ctx.closePath(); ctx.fill();
+            ctx.fillStyle = '#ffffff'; ctx.font = 'bold 22px sans-serif'; ctx.textAlign = 'center';
+            ctx.fillText('FOTO DEMO', 150, 350);
+            return c.toDataURL('image/jpeg', 0.85);
+        } catch (e) { return null; }
+    },
+
+    _demoFecha(diasDesdeHoy) {
+        const d = new Date(); d.setDate(d.getDate() + (diasDesdeHoy || 0));
+        return d.toISOString().slice(0, 10);
+    },
+
     ADMIN_PLACEHOLDER_AUTODIAGNOSTICO() {
         const answers = {};
         REACTIVO_KEYS_REALES.forEach((key) => { answers[key] = 'SI'; });
         const nowIso = new Date().toISOString();
+        const nombre = Auth.DEMO_NOMBRE;
         return {
+            _demo: true,
             personalData: {
-                nombre: 'Candidato de Prueba (Admin)', curp: 'XAXX010101HNEXXXA4',
-                domicilio: 'N/A', escolaridad: 'N/A', telefonoCasa: '', telefonoCelular: '',
-                email: CANDIDATE_FLOW_BYPASS_EMAIL, fecha: nowIso.slice(0, 10)
+                nombre, curp: Auth.DEMO_CURP,
+                domicilio: 'Av. Ejemplo 123, Col. Centro, Monterrey, N.L., C.P. 64000',
+                escolaridad: 'Licenciatura en Fisioterapia',
+                telefonoCasa: '81 1234 5678', telefonoCelular: '81 8765 4321',
+                email: CANDIDATE_FLOW_BYPASS_EMAIL, fecha: nowIso.slice(0, 10), renapAutorizado: true
             },
-            certificados: [], sinCertificadosPrevios: true, answers,
-            signatureDataUrl: null, signatureTypedName: 'Candidato de Prueba (Admin)', signatureMode: 'typed',
+            certificados: [{ nombre: 'Masaje terapéutico', path: 'demo/certificado-masaje-demo.pdf', fileName: 'certificado-masaje-demo.pdf', size: 184320, uploadedAt: nowIso, uploading: false, error: null }],
+            sinCertificadosPrevios: false,
+            fotoCandidato: { path: null, fileName: 'foto-demo.jpg', previewDataUrl: Auth._demoFotoDataUrl(), uploading: false, error: null },
+            answers,
+            signatureDataUrl: null, signatureTypedName: nombre, signatureMode: 'type',
             triptychAccepted: true,
             ndaAccepted: true, ndaSignedAt: nowIso,
-            ndaSignatureDataUrl: null, ndaSignatureTypedName: 'Candidato de Prueba (Admin)', ndaSignatureMode: 'typed',
-            documentosNextcloud: {}, documentosDescargados: {}
+            ndaSignatureDataUrl: null, ndaSignatureTypedName: nombre, ndaSignatureMode: 'type',
+            documentosNextcloud: {},
+            documentosDescargados: { autodiagnostico: true, fichaRegistro: true, acuseTriptico: true, acuseNda: true }
         };
     },
 
-    /* Siembra SIEMPRE que la sesión sea de bypass — nunca condicionado a
-       "si no hay nada guardado". Ese chequeo original asumía que cualquier
-       dato ya presente en localStorage pertenecía a la sesión actual, pero
-       localStorage es del origen/navegador, no de la cuenta: en un
-       navegador que antes se usó para un candidato real (incluido un
-       autodiagnóstico de prueba de Diego), esos datos reales seguían ahí
-       y nunca se reemplazaban por el placeholder — el bypass terminaba
-       mostrando nombre/resultado/documentos de otra persona en vez del
-       "Candidato de Prueba (Admin)". Como esta función solo se llama tras
-       confirmar Auth._isBypassSession === true, sobrescribir siempre aquí
-       nunca pone en riesgo el progreso de un candidato real. */
-    ensureAdminPlaceholderData() {
-        localStorage.setItem('autodiagnosticoData', JSON.stringify(Auth.ADMIN_PLACEHOLDER_AUTODIAGNOSTICO()));
+    /* Placeholders de las páginas posteriores. Misma forma exacta que cada
+       página guarda en localStorage (ver saveProgress/savePlanProgress/
+       saveExamState de cada una) — si una página cambia su esquema, hay que
+       actualizar aquí. */
+    ADMIN_PLACEHOLDER_DOWNSTREAM() {
+        const nombre = Auth.DEMO_NOMBRE;
+        const paciente = 'Carlos Ejemplo Torres';
+        const hoy = Auth._demoFecha(0);
+        const firmaTyped = (typed) => ({ mode: 'type', dataUrl: null, typed, uploadDataUrl: null });
+        return {
+            planEvaluacionData: {
+                _demo: true,
+                planData: {
+                    lugarDesarrollo: 'Instalaciones del Centro Evaluador',
+                    fechaEvaluacion: Auth._demoFecha(14),
+                    horarioDesarrollo: '10:00 – 12:00 h',
+                    lugarResultados: 'Instalaciones del Centro Evaluador / Videollamada',
+                    horarioResultados: '12:30 h',
+                    acuerdoAceptado: true
+                },
+                signatureDataUrl: null, signatureTypedName: nombre, signatureMode: 'type',
+                documentosNextcloud: {}, documentosDescargados: { planEvaluacion: true, acusePlanEvaluacion: true }
+            },
+            documentosSesionData: {
+                _demo: true,
+                sessionData: {
+                    usuarioNombre: paciente, usuarioEdad: '42', usuarioFechaNacimiento: '1984-03-12',
+                    usuarioDomicilio: 'Calle Ficticia 45, Col. Jardines, Monterrey, N.L.',
+                    usuarioTelefono: '81 5555 0101', usuarioCorreo: 'carlos.ejemplo@correo.com',
+                    contactoEmergencia: 'Laura Ejemplo (esposa) · 81 5555 0202',
+                    fisiologicos: 'Dolor lumbar ocasional; sin cirugías previas',
+                    socioemocionales: 'Estrés laboral moderado',
+                    heredofamiliares: 'Hipertensión (padre)',
+                    deportivos: 'Camina 3 veces por semana',
+                    consumoSustancias: 'No fuma; alcohol social',
+                    medicoTratante: 'Dra. Patricia Modelo (medicina general)',
+                    informacionToxicologica: 'Sin tratamientos farmacológicos actuales',
+                    resultadosLaboratorio: 'Química sanguínea reciente dentro de parámetros normales',
+                    presionArterial: '118/76', pulso: '72', temperatura: '36.5', oxigenacion: '97', peso: '78', estatura: '1.74',
+                    observacionPostural: 'Ligera anteriorización de cabeza y hombros protraídos',
+                    frecuenciaRespiratoria: '16',
+                    sintomasNecesidades: 'Tensión en zona cervical y lumbar; busca relajación y alivio',
+                    tecnicaAplicar: 'Masaje terapéutico', otraTecnica: '',
+                    zonasCuerpo: 'Espalda alta, cuello y hombros',
+                    vestimentaRecomendada: 'Ropa cómoda; se cubre con sábana durante la sesión',
+                    reaccionesFisicas: 'Posible sensibilidad leve en la zona tratada por 24 h',
+                    expedienteNo: 'DEMO-0001', fechaConsentimiento: hoy,
+                    limitantesServicio: 'No se aplica sobre lesiones abiertas, fiebre o procesos inflamatorios agudos',
+                    condicionesPreparacion: 'Llegar 10 min antes; evitar comidas pesadas 1 h antes',
+                    numeroSesionesPlan: '4', duracionSesionPlan: '60 minutos',
+                    objetivosEfectos: 'Reducir tensión muscular y mejorar movilidad cervical',
+                    horaInicio: '10:00', horaTermino: '11:00',
+                    telefonoMovilSeguimiento: '81 5555 0101', telefonoFijoSeguimiento: '81 8000 0303',
+                    correoSeguimiento: 'carlos.ejemplo@correo.com', medioContacto: 'WhatsApp',
+                    notaEvolucion: 'Buena tolerancia a la técnica; refiere alivio inmediato de tensión',
+                    pronostico: 'Favorable con continuidad de sesiones semanales',
+                    recomendaciones: 'Hidratación, estiramientos suaves 2 veces al día, pausas activas en el trabajo'
+                },
+                sesionesSeguimiento: [
+                    { numero: '1', frecuencia: 'Semanal', duracion: '60 min' },
+                    { numero: '2', frecuencia: 'Semanal', duracion: '60 min' },
+                    { numero: '3', frecuencia: 'Semanal', duracion: '60 min' },
+                    { numero: '4', frecuencia: 'Semanal', duracion: '60 min' }
+                ],
+                signatures: { usuarioFicha: firmaTyped(paciente), usuarioConsentimiento: firmaTyped(paciente), usuarioSeguimiento: firmaTyped(paciente) },
+                documentosNextcloud: {}, documentosDescargados: { ficha: true, consentimiento: true, plan_sesion: true, plan_seguimiento: true }
+            },
+            encuestaSatisfaccionData: {
+                _demo: true,
+                respuestas: { 0: 'Muy de acuerdo', 1: 'Muy de acuerdo', 2: 'Muy de acuerdo', 3: 'Muy de acuerdo', 4: 'De acuerdo', 5: 'Muy de acuerdo', 6: 'Muy de acuerdo' },
+                comentarios: 'Excelente acompañamiento durante todo el proceso.',
+                signatureDataUrl: null, signatureTypedName: nombre, signatureMode: 'type',
+                documentosNextcloud: {}, documentosDescargados: { encuesta: true }
+            },
+            evidenciasData: {
+                _demo: true,
+                planData: { evidenciasConfirmadas: true, notas: 'Video grabado en Zoom, 58 minutos, con el paciente de ejemplo.', videoLink: 'https://drive.google.com/file/d/DEMO-VIDEO-EC1375/view' },
+                signatureDataUrl: null, signatureTypedName: nombre, signatureMode: 'type',
+                documentosNextcloud: { zoom: ['demo/zoom-captura-1.png', 'demo/zoom-captura-2.png'], ine: 'demo/ine.pdf', curp: 'demo/curp.pdf', fotoDiploma: 'demo/foto-diploma.jpg' }
+            },
+            examenConocimientosData: {
+                _demo: true,
+                order: [], currentIndex: 0, answers: {}, firstAttemptCorrect: {},
+                submitted: true, score: 100, correctas: 39, fecha: hoy
+            }
+        };
     },
 
-    /* Limpia SOLO el progreso propio de cada página downstream (Plan de
-       Evaluación, Documentos de Sesión, Encuesta, Evidencias) — deja
-       autodiagnosticoData intacto (con el placeholder) para no perder el
-       "prerequisito" que abre esas páginas. Deliberadamente NO se llama
-       automáticamente en cada render (a diferencia de
-       ensureAdminPlaceholderData) — si lo hiciera, borraría lo que el
-       admin acaba de capturar en la página actual en cuanto esta
-       volviera a renderizar (ej. al avanzar un paso). Se dispara solo a
-       mano, vía el botón "🔄 Reset demo" del sidebar (crm-shell.js) — pensado para demos en
-       vivo, mostrar una página vacía y llenarla desde cero cuantas veces
-       haga falta. */
+    /* Siembra SIEMPRE el Autodiagnóstico demo (localStorage es del navegador,
+       no de la cuenta: en un navegador usado antes por un candidato real sus
+       datos seguirían ahí). Las páginas posteriores se siembran solo si no
+       hay nada o si lo que hay NO es demo (`_demo` ausente = datos de otra
+       persona → se reemplazan); lo demo ya sembrado se respeta para que lo
+       que el admin edite durante el video persista. Solo se llama tras
+       confirmar Auth._isBypassSession === true. Regresa true si sembró algo. */
+    ensureAdminPlaceholderData() {
+        let sembrado = false;
+        try {
+            const actual = JSON.parse(localStorage.getItem('autodiagnosticoData') || 'null');
+            if (!actual || !actual._demo) {
+                localStorage.setItem('autodiagnosticoData', JSON.stringify(Auth.ADMIN_PLACEHOLDER_AUTODIAGNOSTICO()));
+                sembrado = true;
+            }
+        } catch (e) {
+            localStorage.setItem('autodiagnosticoData', JSON.stringify(Auth.ADMIN_PLACEHOLDER_AUTODIAGNOSTICO()));
+            sembrado = true;
+        }
+        const down = Auth.ADMIN_PLACEHOLDER_DOWNSTREAM();
+        Object.keys(down).forEach((key) => {
+            let actual = null;
+            try { actual = JSON.parse(localStorage.getItem(key) || 'null'); } catch (e) { actual = null; }
+            if (!actual || !actual._demo) {
+                localStorage.setItem(key, JSON.stringify(down[key]));
+                sembrado = true;
+            }
+        });
+        return sembrado;
+    },
+
+    /* "🔄 Reiniciar demo" del sidebar (crm-shell.js): borra TODO el progreso
+       local de la cuenta bypass (incluido el estado del motor de estudio) y
+       vuelve a sembrar los datos ficticios desde cero. */
     resetAdminDownstreamProgress() {
-        localStorage.removeItem('planEvaluacionData');
-        localStorage.removeItem('documentosSesionData');
-        localStorage.removeItem('encuestaSatisfaccionData');
-        localStorage.removeItem('evidenciasData');
+        Auth.DEMO_LOCAL_KEYS.forEach((k) => localStorage.removeItem(k));
+        Auth.ensureAdminPlaceholderData();
         location.reload();
     }
 };

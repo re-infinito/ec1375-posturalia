@@ -4395,6 +4395,12 @@ window.EC1375.version='4.4';
   try {
     var row = await Auth.pullMyRow();
     if (row && row.ruta_estudio_data) priorState = row.ruta_estudio_data;
+    /* Cuenta bypass: Supabase nunca recibe su estado (sync suprimido), así
+       que el progreso del motor vive solo en localStorage 'ec1375-state'. */
+    if (await Auth.isBypassSession()) {
+      var localState = JSON.parse(localStorage.getItem('ec1375-state') || 'null');
+      if (localState) priorState = localState;
+    }
   } catch (e) { /* sin fila previa o sin red — sigue con estado nuevo */ }
 
   /* El motor no sabe nada de pagos (sólo secuencia pedagógica vía su gate()

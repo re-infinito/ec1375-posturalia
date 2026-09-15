@@ -472,7 +472,8 @@
 
         /* usuario y badges: la fila puede venir en opts.row; si no, se consulta */
         var rowPromise = opts.row ? Promise.resolve(opts.row)
-            : ((typeof Auth !== 'undefined' && Auth.pullMyRow) ? Auth.pullMyRow().catch(function () { return null; }) : Promise.resolve(null));
+            : ((typeof FlowStatus !== 'undefined' && FlowStatus.getRow) ? FlowStatus.getRow().catch(function () { return null; })
+            : (typeof Auth !== 'undefined' && Auth.pullMyRow) ? Auth.pullMyRow().catch(function () { return null; }) : Promise.resolve(null));
         rellenarUsuario(shell, opts.row || null);
         rowPromise.then(function (row) {
             rellenarUsuario(shell, row);
@@ -492,8 +493,8 @@
                 btn.setAttribute('data-crm-reset', '');
                 btn.style.borderColor = '#FF3333';
                 btn.style.color = '#FF3333';
-                btn.textContent = '🔄 Reset demo';
-                btn.title = 'Borra el progreso local de Plan de Evaluación en adelante (solo cuenta de pruebas)';
+                btn.textContent = '🔄 Reiniciar demo';
+                btn.title = 'Vuelve a sembrar todos los datos ficticios desde cero (solo cuenta de pruebas)';
                 btn.addEventListener('click', function () { Auth.resetAdminDownstreamProgress(); });
                 user.insertBefore(btn, user.querySelector('[data-crm-logout]'));
             }).catch(function () { /* ignore */ });
