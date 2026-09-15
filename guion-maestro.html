@@ -10,6 +10,8 @@
     <title>Guion Maestro de Sesión - Paideia Tech</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="auth.js"></script>
+    <script src="flow-status.js"></script>
+    <script src="crm-shell.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -570,6 +572,16 @@
 
         app.innerHTML = renderGuionContent();
         applyChecklistState();
+
+        /* Shell CRM: el guion es recurso de la fase de Evaluación; se marca
+           "estás aquí" en Plan de Evaluación (desde donde se enlaza). */
+        try {
+            const flowSteps = await FlowStatus.getSteps();
+            CrmShell.mount({ currentPageId: 'plan-evaluacion', steps: flowSteps, title: '📜 Guion Maestro' });
+        } catch (e) {
+            console.warn('No se pudo calcular el progreso para el shell:', e);
+            CrmShell.mount({ currentPageId: 'plan-evaluacion', steps: [], degraded: true, title: '📜 Guion Maestro' });
+        }
     }
 
     window.addEventListener('load', () => {
