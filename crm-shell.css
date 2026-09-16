@@ -35,7 +35,7 @@ body.crm-active {
     min-height: calc(100vh - var(--crm-offset-top));
 }
 .crm-main { min-width: 0; display: flex; flex-direction: column; }
-.crm-main .container { max-width: 860px; }
+.crm-main .container { width: 100%; max-width: 860px; }
 .crm-main .top-bar { top: calc(var(--crm-offset-top) + var(--crm-header-h)); }
 
 /* Barras fijas al fondo que ya tienen algunas páginas (nav-bar de los wizards,
