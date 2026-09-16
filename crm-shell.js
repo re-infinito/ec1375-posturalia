@@ -668,6 +668,26 @@
             }).catch(function () { /* ignore */ });
         }
 
+        /* Admin viendo el sitio "como candidato" (link "Ver como candidato"
+           del sidebar admin, que solo navega a panel.html reusando la MISMA
+           sesión): sin esto no había forma de regresar al panel del equipo
+           salvo cerrar sesión y volver a autenticarse como admin desde cero. */
+        if (mode !== 'admin' && typeof Auth !== 'undefined' && typeof Auth.isAdmin === 'function') {
+            var emailActual = (Auth._session && Auth._session.user && Auth._session.user.email) || '';
+            (emailActual ? Auth.isAdmin(emailActual) : Promise.resolve(false)).then(function (esAdmin) {
+                if (!esAdmin) return;
+                var user = shell.querySelector('.crm-user');
+                if (!user || shell.querySelector('[data-crm-admin-return]')) return;
+                var btn = document.createElement('a');
+                btn.href = 'admin-crm.html';
+                btn.className = 'crm-sidebtn';
+                btn.setAttribute('data-crm-admin-return', '');
+                btn.innerHTML = icon('shield') + '<span>Volver al panel de administrador</span>';
+                btn.title = 'Estás viendo el sitio como candidato con tu sesión de administrador — regresa al panel del equipo.';
+                user.insertBefore(btn, user.querySelector('[data-crm-logout]'));
+            }).catch(function () { /* ignore */ });
+        }
+
         return shell;
     }
 

@@ -3348,14 +3348,16 @@ function feedback(ok){
       ? '<div class="tema">Tu autodiagnóstico marcaba este tema como cubierto. Tu '+
         'práctica indica que conviene reforzarlo más adelante. Tus respuestas no se '+
         'modifican: la sugerencia queda registrada.</div>':'';
-    h='<div class="fb bad"><div class="h">Este tema todavía necesita apoyo</div>'+
-      q.explanation+
-      '<div class="tema">Ya reforzaste <b>'+esc(o.name)+'</b> y la verificación '+
-      'todavía no sale. No vamos a repetir preguntas de este tema ahora mismo: puedes '+
-      'volver a intentarlo más adelante, con calma.<br>'+
+    h='<div class="fb bad"><div class="h">Todavía no es esa</div>'+q.explanation+
+      '<div class="tema">Vuelve a revisar <b>'+esc(o.name)+'</b>. Al volver te espera '+
+      'otra pregunta de verificación sobre este mismo tema.<br>'+
       '<span style="opacity:.8">'+esc(o.description)+'</span></div>'+alerta2+
+      '<div class="tema">Fallar aquí no te penaliza: el tema se completa en cuanto '+
+      'aciertes.</div>'+
       '<div class="acts">'+
-      '<button data-go="next">Seguir con otro tema</button>'+
+      '<button data-go="refuerzo">Reforzar este tema · '+n+' pantalla'+(n>1?'s':'')+
+      ' · '+mins+' min</button>'+
+      '<button class="ghost" data-go="next">Seguir con otro tema</button>'+
       (ORIGEN?'<button class="ghost" data-go="origen">Volver a mi alineación</button>':
        '<button class="ghost" data-go="centro">Volver</button>')+'</div></div>';
   } else {
