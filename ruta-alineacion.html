@@ -15,6 +15,7 @@
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="description" content="Ruta de alineación del EC1375 — extracto de la plataforma de preparación de Paideia Tech · Centro Evaluador">
 <title>EC1375 · Ruta de alineación · Paideia Tech</title>
+<script>(function(){try{var t=localStorage.getItem('paideia-theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <style>
 
@@ -91,7 +92,7 @@ button{font:inherit;color:inherit;cursor:pointer;border:none;background:none}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .modchip[aria-current="true"]{background:var(--accent);color:#04121F}}
 
 .spacer{flex:1}
-.tb-actions{display:flex;align-items:center;gap:7px;flex-shrink:0}
+.tb-actions{display:flex;align-items:center;gap:7px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end}
 .tbtn{display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;
   padding:7px 12px;border-radius:999px;border:1px solid var(--line);color:var(--mid);
   transition:border-color .15s,color .15s,background .15s;white-space:nowrap}
@@ -904,6 +905,18 @@ body.pres .app{height:100vh;overflow:hidden}
 .herr b{display:block;font:700 13.5px/1.3 var(--body);margin-bottom:3px}
 .herr span{font-size:12.2px;color:var(--mid)}
 
+/* Igual que en ruta-estudio.html: el topbar (marca + tag + contador + 4
+   botones, ahora con el de tema) deja de caber en una línea antes de llegar
+   al breakpoint móvil, y .tb-actions no encoge — se deja envolver antes de
+   empujar scroll horizontal a toda la página. */
+@media (max-width:1500px){
+  .topbar{flex-wrap:wrap;row-gap:9px;height:auto;min-height:60px;padding-top:8px;padding-bottom:8px}
+  .progress{position:static}
+  /* Igual que en ruta-estudio.html: con flex-shrink:0 el .tb-actions conserva
+     su ancho de max-content y desborda en vez de envolver. */
+  .tb-actions{flex-shrink:1;min-width:0}
+  .tbtn{flex-shrink:0}
+}
 @media (max-width:900px){
   .topbar{flex-wrap:wrap;row-gap:9px}
   .rutas{order:3;width:100%;overflow-x:auto;padding-bottom:2px}
@@ -1002,6 +1015,10 @@ body.pres .app{height:100vh;overflow:hidden}
         stroke="currentColor" stroke-width="2" stroke-linecap="round">
         <path d="M3 4h18v12H3z M8 20h8 M12 16v4"/></svg>
         <span class="lbl">Presentación</span></button>
+      <button class="tbtn" id="btn-theme" title="Cambiar a modo claro"><svg viewBox="0 0 24 24"
+        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+        <span class="lbl" id="theme-lbl">Modo claro</span></button>
     </div>
   </header>
   <div class="progress"><div class="progress-fill" id="pfill"></div></div>
@@ -1514,6 +1531,33 @@ function pres(on){
 }
 document.getElementById('btn-pres').onclick=function(){
   pres(!document.body.classList.contains('pres')); };
+
+/* ── tema claro/oscuro ──
+   Misma llave 'paideia-theme' que crm-shell.js y ruta-estudio.html. Sin
+   atributo data-theme esta página sigue al tema del sistema operativo (ver
+   :root y el bloque prefers-color-scheme arriba), así que el estado inicial
+   del botón se calcula con matchMedia — y NO se escribe localStorage hasta
+   que el candidato elige de verdad, para no fijarle al resto del sitio un
+   tema que nunca pidió. */
+function temaClaroActual(){
+  var t=document.documentElement.getAttribute('data-theme');
+  if(t==='light') return true;
+  if(t==='dark') return false;
+  return !(window.matchMedia&&window.matchMedia('(prefers-color-scheme:dark)').matches);
+}
+function sincronizaBotonTema(){
+  var claro=temaClaroActual();
+  var btn=document.getElementById('btn-theme'), lbl=document.getElementById('theme-lbl');
+  if(lbl) lbl.textContent=claro?'Modo oscuro':'Modo claro';
+  if(btn) btn.title=claro?'Cambiar a modo oscuro':'Cambiar a modo claro';
+}
+document.getElementById('btn-theme').onclick=function(){
+  var claro=!temaClaroActual();
+  document.documentElement.setAttribute('data-theme',claro?'light':'dark');
+  try{ localStorage.setItem('paideia-theme',claro?'light':'dark'); }catch(e){}
+  sincronizaBotonTema();
+};
+sincronizaBotonTema();
 
 prevB.onclick=function(){ ir(pos-1,true); };
 /* La última pantalla NO completa la ruta por sí sola. Completa cuando TODAS

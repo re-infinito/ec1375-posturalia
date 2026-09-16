@@ -23,8 +23,14 @@ html[data-theme="dark"] {
 
 /* ---- Base ---- */
 body.crm-active {
-    background: var(--dark);
     padding-top: 0 !important;   /* renderProgressBar ya no existe; el offset lo maneja el shell */
+}
+/* En modo rail (ruta-estudio/ruta-alineacion) el fondo lo pone la página con
+   su propio --page: esas dos NO definen --dark, así que `background:var(--dark)`
+   quedaba inválido y dejaba el body transparente — con el canvas BLANCO detrás
+   del contenido oscuro (se veía al activar el tema oscuro, 16 sep). */
+body.crm-active:not(.crm-rail) {
+    background: var(--dark);
 }
 .crm-shell * { box-sizing: border-box; }
 
