@@ -198,6 +198,22 @@
         link.rel = 'stylesheet';
         link.href = 'crm-shell.css';
         document.head.appendChild(link);
+        /* PWA (proyecto 4): manifest + service worker (solo cachea la app,
+           nunca el contenido protegido) + botón "Instalar aplicación". */
+        var man = document.createElement('link'); man.rel = 'manifest'; man.href = '/manifest.json'; document.head.appendChild(man);
+        var tc = document.createElement('meta'); tc.name = 'theme-color'; tc.content = '#0a2a6b'; document.head.appendChild(tc);
+        if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+            window.addEventListener('load', function () { navigator.serviceWorker.register('/sw.js').catch(function (e) { console.warn('SW no registrado:', e); }); });
+        }
+        window.addEventListener('beforeinstallprompt', function (ev) {
+            ev.preventDefault();
+            window.__crmInstallPrompt = ev;
+            Array.prototype.forEach.call(document.querySelectorAll('[data-crm-install]'), function (b) { b.hidden = false; });
+        });
+        window.addEventListener('appinstalled', function () {
+            window.__crmInstallPrompt = null;
+            Array.prototype.forEach.call(document.querySelectorAll('[data-crm-install]'), function (b) { b.hidden = true; });
+        });
     }
 
     /* ---------- helpers puros (probados en Node) ---------- */
@@ -394,6 +410,7 @@
             '<div class="crm-user">' +
                 '<div class="crm-user-row"><span class="crm-avatar" data-crm-avatar>?</span><div style="min-width:0;">' +
                     '<div class="crm-user-name" data-crm-name>Administrador</div><div class="crm-user-email" data-crm-email></div></div></div>' +
+                '<button type="button" class="crm-sidebtn crm-sidebtn-install" data-crm-install' + (window.__crmInstallPrompt ? '' : ' hidden') + '>' + icon('download') + '<span>Instalar aplicación</span></button>' +
                 '<button type="button" class="crm-sidebtn" data-crm-theme-btn="text">' + icon('moon') + '<span>Modo oscuro</span></button>' +
                 '<button type="button" class="crm-sidebtn is-logout" data-crm-logout>' + icon('logout') + '<span>Cerrar sesión</span></button>' +
             '</div>' +
@@ -418,6 +435,7 @@
             '<div class="crm-user">' +
                 '<div class="crm-user-row"><span class="crm-avatar" data-crm-avatar>?</span><div style="min-width:0;">' +
                     '<div class="crm-user-name" data-crm-name>Cargando…</div><div class="crm-user-email" data-crm-email></div></div></div>' +
+                '<button type="button" class="crm-sidebtn crm-sidebtn-install" data-crm-install' + (window.__crmInstallPrompt ? '' : ' hidden') + '>' + icon('download') + '<span>Instalar aplicación</span></button>' +
                 '<button type="button" class="crm-sidebtn" data-crm-theme-btn="text">' + icon('moon') + '<span>Modo oscuro</span></button>' +
                 '<button type="button" class="crm-sidebtn is-logout" data-crm-logout>' + icon('logout') + '<span>Cerrar sesión</span></button>' +
             '</div>' +
@@ -591,11 +609,16 @@
 
         /* interacción */
         shell.addEventListener('click', function (ev) {
-            var t = ev.target.closest ? ev.target.closest('[data-crm-open],[data-crm-expand],[data-crm-theme-btn],[data-crm-logout],[data-crm-retry],.crm-backdrop,.crm-nav a') : null;
+            var t = ev.target.closest ? ev.target.closest('[data-crm-open],[data-crm-expand],[data-crm-theme-btn],[data-crm-install],[data-crm-logout],[data-crm-retry],.crm-backdrop,.crm-nav a') : null;
             if (!t) return;
             if (t.hasAttribute('data-crm-open') || t.hasAttribute('data-crm-expand')) { setOpen(shell, !shell.classList.contains('is-open')); return; }
             if (t.classList.contains('crm-backdrop')) { setOpen(shell, false); return; }
             if (t.hasAttribute('data-crm-theme-btn')) { toggleTheme(); return; }
+            if (t.hasAttribute('data-crm-install')) {
+                var pr = window.__crmInstallPrompt;
+                if (pr) { pr.prompt(); pr.userChoice.then(function () { window.__crmInstallPrompt = null; t.hidden = true; }); }
+                return;
+            }
             if (t.hasAttribute('data-crm-retry')) { ev.preventDefault(); location.reload(); return; }
             if (t.hasAttribute('data-crm-logout')) {
                 ev.preventDefault();

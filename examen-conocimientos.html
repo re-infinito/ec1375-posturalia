@@ -11,6 +11,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="auth.js"></script>
+    <script src="contenido.js"></script>
     <script src="protect.js"></script>
     <script src="flow-status.js"></script>
     <script src="crm-shell.js" data-crm-page="examen"></script>
@@ -120,7 +121,7 @@
        documento, así que se reconstruyeron como opción múltiple.
     ========================================================= */
 
-    const REACTIVOS = [
+    let REACTIVOS = [
         // Técnicas de Atención Tradicional y Complementaria
         { tema: 'Técnicas de Atención Tradicional y Complementaria', q: 'Es la técnica que consiste en colocar balines o semillas de mostaza en el pabellón auricular para estimular puntos reflejos con fines terapéuticos:', opciones: ['Masaje Zapoteca', 'Iridología', 'Auriculoterapia', 'Flores de Bach', 'Audioterapia'], correcta: 2 },
         { tema: 'Técnicas de Atención Tradicional y Complementaria', q: 'Proviene del náhuatl "temaz" (sudor) y "calli" (casa) y es utilizado con fines terapéuticos y espirituales:', opciones: ['Masaje Zapoteca', 'Reiki', 'Auriculoterapia', 'Temazcal'], correcta: 3 },
@@ -504,7 +505,11 @@ const LOGO_CONOCER_BASE64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAA
         doc.save(`Examen_Conocimientos_${(nombre || 'candidato').replace(/\s+/g, '_')}.pdf`);
     }
 
-    window.addEventListener('load', () => {
+    window.addEventListener('load', async () => {
+        /* Proyecto 4: los 39 reactivos viven en Supabase (contenido_ec1375,
+           fase Evaluación); el bloque inline, si aún existe, es respaldo. */
+        try { REACTIVOS = await Contenido.cargar('examen:reactivos', { fallback: REACTIVOS.length ? REACTIVOS : null }); }
+        catch (eCont) { document.getElementById('app').innerHTML = Contenido.errorHtml(eCont); return; }
         render().catch(e => {
             console.error('Error en render():', e);
             document.getElementById('app').innerHTML = `

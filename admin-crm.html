@@ -80,6 +80,35 @@
         try { datos = await AdminData.cargar(); }
         catch (e) { app.innerHTML = `<p class="msg error">No se pudieron cargar los datos: ${esc(e.message || e)}</p>`; return; }
         render(app, datos);
+        suscribirRealtime(app);
+    }
+
+    /* Realtime (proyecto 4): un pago, una inscripción o un pago de utilidades
+       aparecen sin recargar. Requiere que las tablas estén en la publicación
+       supabase_realtime (2026-09-15-contenido-ec1375.sql, sección 3). */
+    let rtTimer = null, rtCanal = null;
+    function toastAdmin(msg) {
+        let t = document.getElementById('adminToast');
+        if (!t) { t = document.createElement('div'); t.id = 'adminToast'; t.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:500;background:var(--dark-light);color:var(--text-bright);border:1px solid var(--primary);padding:10px 16px;border-radius:12px;font-size:0.85rem;font-weight:700;box-shadow:0 8px 24px rgba(0,0,0,0.2);opacity:0;transition:opacity 0.2s;'; document.body.appendChild(t); }
+        t.innerHTML = ic('bell', 14) + ' ' + esc(msg); t.style.opacity = '1';
+        clearTimeout(t._h); t._h = setTimeout(() => { t.style.opacity = '0'; }, 3500);
+    }
+    function suscribirRealtime(app) {
+        if (rtCanal || typeof supabaseClient === 'undefined' || !supabaseClient.channel) return;
+        const etiqueta = { candidatos_fase_pagos: 'Nuevo movimiento de pago', inscripciones_alineacion: 'Nueva inscripción a sesión', utilidades_pagos: 'Pago de utilidades registrado' };
+        try {
+            rtCanal = supabaseClient.channel('admin-crm');
+            Object.keys(etiqueta).forEach(tabla => {
+                rtCanal.on('postgres_changes', { event: '*', schema: 'public', table: tabla }, (payload) => {
+                    toastAdmin(etiqueta[tabla] + (payload.new && payload.new.email ? ' · ' + payload.new.email : '') + ' — actualizando…');
+                    clearTimeout(rtTimer);
+                    rtTimer = setTimeout(async () => {
+                        try { const d = await AdminData.cargar(); render(app, d); } catch (e) { console.warn('Realtime: no se pudo recargar', e); }
+                    }, 800);
+                });
+            });
+            rtCanal.subscribe((estado) => { if (estado === 'CHANNEL_ERROR') console.warn('Realtime no disponible (¿tablas fuera de la publicación?)'); });
+        } catch (e) { console.warn('Realtime no disponible:', e); }
     }
 
     const ic = (n, s) => CrmShell.icon(n, s);

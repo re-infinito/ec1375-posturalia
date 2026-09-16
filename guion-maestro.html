@@ -10,6 +10,7 @@
     <title>Guion Maestro de Sesión - Paideia Tech</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="auth.js"></script>
+    <script src="contenido.js"></script>
     <script src="protect.js" data-protect-print="allow"></script>
     <script src="flow-status.js"></script>
     <script src="crm-shell.js" data-crm-page="plan-evaluacion"></script>
@@ -181,7 +182,7 @@
        proporcionado por Diego. Cada sección conserva el orden e
        intercalado exacto de ACCIÓN/DIÁLOGO del documento original.
     ========================================================= */
-    const GUION_SECCIONES = [
+    let GUION_SECCIONES = [
         { num: 1, titulo: 'Preparación del espacio', items: [
             { t: 'accion', x: 'Acondicionar el área antes de recibir al usuario.' },
             { t: 'checklist', key: 's1-prep', x: [
@@ -586,7 +587,11 @@
         }
     }
 
-    window.addEventListener('load', () => {
+    window.addEventListener('load', async () => {
+        /* Proyecto 4: el guion vive en Supabase (contenido_ec1375, fase
+           Evaluación); el bloque inline, si aún existe, es respaldo. */
+        try { GUION_SECCIONES = await Contenido.cargar('guion:secciones', { fallback: GUION_SECCIONES.length ? GUION_SECCIONES : null }); }
+        catch (eCont) { document.getElementById('app').innerHTML = Contenido.errorHtml(eCont); return; }
         render().catch(e => {
             console.error('Error en render():', e);
             document.getElementById('app').innerHTML = `

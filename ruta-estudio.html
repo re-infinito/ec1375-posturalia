@@ -3,6 +3,7 @@
 <head>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="auth.js"></script>
+<script src="contenido.js"></script>
 <script src="protect.js"></script>
 <script src="flow-status.js"></script>
 <script src="crm-shell.js" data-crm-mode="rail"></script>
@@ -4481,6 +4482,28 @@ window.EC1375.version='4.4';
       Auth.syncToSupabase('ruta_estudio_data', state, result.personalData.curp, result.personalData.nombre);
     }
   };
+
+  /* Proyecto 4: datos, media, diapositivas e imágenes vienen de Supabase
+     (contenido_ec1375 / bucket contenido-imagenes) — ver contenido.js y
+     publicar_contenido.py. Mientras el HTML conserve los bloques inline
+     (antes de correr el script), se usan como respaldo. */
+  try {
+    var stageEl = document.querySelector('.stagewrap .stage') || document.querySelector('.stage');
+    var contData = await Contenido.cargar('ruta-estudio:data', { fallback: window.EC1375_DATA || null });
+    var contMedia = await Contenido.cargar('ruta-estudio:media', { fallback: window.EC1375_MEDIA || null });
+    var contSlides = await Contenido.cargar('ruta-estudio:slides', { fallback: (stageEl && stageEl.children.length) ? { html: null } : null });
+    if (!contData || !contMedia || !contSlides) throw new Contenido.ContenidoError('no_publicado', 'contenido incompleto');
+    window.EC1375_DATA = contData;
+    window.EC1375_MEDIA = contMedia;
+    if (contSlides.html && stageEl) {
+      var mapaImg = await Contenido.imagenes(Contenido.rutasEnHtml(contSlides.html));
+      stageEl.innerHTML = Contenido.reemplazarImagenes(contSlides.html, mapaImg);
+    }
+  } catch (eCont) {
+    var appCont = document.getElementById('app');
+    if (appCont) appCont.innerHTML = Contenido.errorHtml(eCont);
+    return;
+  }
 
   var engineTag = document.getElementById('ec1375-engine');
   if (engineTag) {

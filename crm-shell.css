@@ -288,3 +288,6 @@ a.crm-item:hover { background: rgba(255,255,255,0.08); }
 .crm-table th.is-sorted { color: var(--primary); }
 .crm-toolbar { display: flex; gap: 8px; align-items: center; margin-left: auto; flex-wrap: wrap; }
 .crm-btn-sm { padding: 8px 12px; font-size: 0.78rem; min-height: 40px; border-radius: 10px; }
+
+.crm-sidebtn-install { background: #FFD700; color: #050a1a; border-color: transparent; }
+.crm-sidebtn-install:hover { background: #ffe14d; }

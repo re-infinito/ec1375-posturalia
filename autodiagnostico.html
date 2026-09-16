@@ -12,6 +12,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="auth.js"></script>
+    <script src="contenido.js"></script>
     <script src="protect.js"></script>
     <script src="flow-status.js"></script>
     <script src="crm-shell.js" data-crm-page="autodiagnostico"></script>
@@ -458,7 +459,7 @@
     /* =========================================================
        DATA: 142 reactivos oficiales del EC1375 (4 Elementos)
     ========================================================= */
-    const AUTODIAGNOSTICO_DATA = [
+    let AUTODIAGNOSTICO_DATA = [
         {
             elemento: 1,
             titulo: "Preparar el espacio en la contribución tradicional y complementaria de la recuperación de las condiciones físicas y socioemocionales de las personas.",
@@ -943,6 +944,16 @@
         const step = STEPS[currentStepIndex];
         const navBar = document.getElementById('navBar');
         const topBarStep = document.getElementById('topBarStep');
+
+        /* Proyecto 4: los 142 reactivos viven en Supabase (contenido_ec1375,
+           fase Registro) y se piden solo cuando un paso los necesita — los
+           pasos previos al login no los usan. El bloque inline, si aún existe,
+           evita la consulta. */
+        if (['e1', 'e2', 'e3', 'e4', 'firma', 'resultado'].includes(step) && !AUTODIAGNOSTICO_DATA.length) {
+            app.innerHTML = '<p class="spinner" style="text-align:center;padding:40px;color:var(--text);">Cargando tu cuestionario…</p>';
+            try { AUTODIAGNOSTICO_DATA = await Contenido.cargar('autodiagnostico:reactivos'); }
+            catch (eCont) { app.innerHTML = Contenido.errorHtml(eCont); if (navBar) navBar.style.display = 'none'; return; }
+        }
 
         window.scrollTo(0, 0);
 
