@@ -293,7 +293,9 @@ Mismo shell CRM que el candidato, en modo admin (`<script src="crm-shell.js" dat
 
 El contenido valioso ya no debe viajar en el HTML: Ruta de estudio (datos, media, 121 diapositivas, 19 imágenes), Ruta de Alineación (57 diapositivas, 2 imágenes — ahora exige sesión con Alineación pagada; admins/bypass exentos), 39 reactivos del examen, guion maestro y 142 reactivos del autodiagnóstico viven en Supabase y se piden con sesión desde `contenido.js`. Las páginas conservan una **ruta de respaldo**: mientras su bloque inline exista, lo usan (transición sin corte); tras `publicar_contenido.py shell` quedan como cascarones (5.4 MB → 281 KB en `ruta-estudio`). El NAS (Nextcloud) recibe la **copia maestra** del paquete en `Contenido/<versión>/`; no sirve contenido a candidatos (solo es alcanzable servidor a servidor). Spec: `docs/superpowers/specs/2026-09-15-contenido-servidor-design.md`.
 
-**⚠️ Pendiente que Diego haga (en este orden):** (1) correr `_internal_no_publicar/02-sql/2026-09-15-contenido-ec1375.sql`; (2) `vercel env pull _internal_no_publicar/01-scripts/.env`; (3) `python3 publicar_contenido.py extraer` y `publicar`; (4) probar; (5) `python3 publicar_contenido.py shell` → commit → push. Si se regeneran `ruta-estudio`/`ruta-alineacion` desde el pipeline externo: volver a correr `todo` y re-aplicar los cambios manuales documentados (Módulo 7, ligas de compra, scripts del shell/protect/contenido, loader del final de `ruta-alineacion`).
+**Estado (15 sep, 18:30):** SQL ya corrido por Diego ✅ (tabla, bucket, RLS, realtime). `extraer` ya corrido ✅ (paquete local en `_internal_no_publicar/contenido/`). **`publicar` bloqueado por credenciales:** las 7 variables que necesita (`SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_URL`, `NEXTCLOUD_*`, `CF_ACCESS_*`) están marcadas **Sensitive** en Vercel, y `vercel env pull` NO puede leerlas — deja el texto literal `[SENSITIVE]` en `.env` (el script ahora lo detecta y lo explica). Hay que pegar los valores reales a mano en `_internal_no_publicar/01-scripts/.env`: la service role key del dashboard de Supabase (Project Settings → API → `service_role`), y las de Nextcloud/Cloudflare de donde las guarde el equipo (Humberto las generó). Sin las de Nextcloud el script publica igual a Supabase y solo omite la copia maestra.
+
+**⚠️ Pendiente que Diego haga (en este orden):** (1) ~~SQL~~ ✅; (2) pegar a mano en `.env` las variables Sensitive (ver arriba — `vercel env pull` no sirve para ellas); (3) `python3 publicar_contenido.py publicar` (extraer ya está hecho, pero es inofensivo repetirlo); (4) probar; (5) `python3 publicar_contenido.py shell` → commit → push. Nota: correr los comandos desde la raíz del repo o ya dentro de `01-scripts` (el `cd` de la guía asume la raíz). Si se regeneran `ruta-estudio`/`ruta-alineacion` desde el pipeline externo: volver a correr `todo` y re-aplicar los cambios manuales documentados (Módulo 7, ligas de compra, scripts del shell/protect/contenido, loader del final de `ruta-alineacion`).
 
 **Realtime:** `admin-crm.html` escucha `candidatos_fase_pagos`, `inscripciones_alineacion` y `utilidades_pagos` (el mismo SQL las agrega a la publicación `supabase_realtime`).
 
@@ -374,6 +376,8 @@ Registros DNS: _internal_no_publicar/03-documentos-referencia/paideiatech_dns_re
 ### Vercel
 ```
 Proyecto: ec1375-posturalia (nombre cosmético, sin cambiar)
+⚠️ Las variables marcadas Sensitive NO se pueden leer con `vercel env pull` (escribe "[SENSITIVE]"); copiarlas a mano.
+   Solo `development` y `production` existen como entornos; `--environment=production` para las reales.
 Dominios: sepconocer.paideiatech.com (Custom Domain) + ec1375-posturalia.vercel.app (alias)
 Dashboard: https://vercel.com/re-infinito/ec1375-posturalia
 ```
