@@ -80,6 +80,13 @@ kpi-dashboard-live.html   ⚠️ Versión vieja del dashboard de KPIs — SIN ga
 auth.js                   Supabase Auth (email+password) + sync + gates + admin bypass — módulo compartido
 flow-status.js            Fuente única de los 10 pasos del flujo y de qué cuenta como "completo" en cada uno —
                            módulo compartido (ver "Progreso del candidato" abajo)
+contenido.js              Carga del contenido protegido desde Supabase (proyecto 4, 15 sep): tabla `contenido_ec1375` +
+                           bucket privado `contenido-imagenes` (URLs firmadas 1 h), RLS por fase pagada/admin/bypass
+                           (`puede_leer_contenido(fase)`). `Contenido.cargar(clave, {fallback})`, `imagenes()`, `errorHtml()`.
+                           Publica `_internal_no_publicar/01-scripts/publicar_contenido.py` (extraer → publicar → shell).
+                           Ver sección "Contenido al servidor" abajo. Pruebas: tests/contenido.test.js.
+manifest.json, sw.js, icons/   PWA instalable: el service worker cachea SOLO la app (nunca contenido, Supabase ni /api/);
+                           botón "Instalar aplicación" en el sidebar (crm-shell.js). Iconos generados del logo con PIL.
 protect.js                Disuasión de copia/captura (15 sep): marca de agua en mosaico con correo+fecha, bloqueo de
                            selección/copiar/arrastrar/clic derecho (no en campos de formulario), atajos F12/Ctrl+Shift+I-J-C-K/
                            Ctrl+U/Ctrl+S/Ctrl+P/PrintScreen y vista de impresión en blanco. Se activa solo con sesión NO
@@ -282,8 +289,19 @@ Mismo shell CRM que el candidato, en modo admin (`<script src="crm-shell.js" dat
 
 ---
 
+## Contenido al servidor (proyecto 4)
+
+El contenido valioso ya no debe viajar en el HTML: Ruta de estudio (datos, media, 121 diapositivas, 19 imágenes), Ruta de Alineación (57 diapositivas, 2 imágenes — ahora exige sesión con Alineación pagada; admins/bypass exentos), 39 reactivos del examen, guion maestro y 142 reactivos del autodiagnóstico viven en Supabase y se piden con sesión desde `contenido.js`. Las páginas conservan una **ruta de respaldo**: mientras su bloque inline exista, lo usan (transición sin corte); tras `publicar_contenido.py shell` quedan como cascarones (5.4 MB → 281 KB en `ruta-estudio`). El NAS (Nextcloud) recibe la **copia maestra** del paquete en `Contenido/<versión>/`; no sirve contenido a candidatos (solo es alcanzable servidor a servidor). Spec: `docs/superpowers/specs/2026-09-15-contenido-servidor-design.md`.
+
+**⚠️ Pendiente que Diego haga (en este orden):** (1) correr `_internal_no_publicar/02-sql/2026-09-15-contenido-ec1375.sql`; (2) `vercel env pull _internal_no_publicar/01-scripts/.env`; (3) `python3 publicar_contenido.py extraer` y `publicar`; (4) probar; (5) `python3 publicar_contenido.py shell` → commit → push. Si se regeneran `ruta-estudio`/`ruta-alineacion` desde el pipeline externo: volver a correr `todo` y re-aplicar los cambios manuales documentados (Módulo 7, ligas de compra, scripts del shell/protect/contenido, loader del final de `ruta-alineacion`).
+
+**Realtime:** `admin-crm.html` escucha `candidatos_fase_pagos`, `inscripciones_alineacion` y `utilidades_pagos` (el mismo SQL las agrega a la publicación `supabase_realtime`).
+
+---
+
 ## Cambios recientes (15 de septiembre, 2026)
 
+- **Proyecto 4 en código:** `contenido.js`, loaders en 5 páginas, `publicar_contenido.py`, PWA (`manifest.json`, `sw.js`, `icons/`, botón instalar), Realtime en el panel del equipo — ver sección "Contenido al servidor". Publicación pendiente de Diego.
 - **UI lean (prioridades 1 y 3 de la crítica de diseño):** el shell usa un set de iconos SVG monocromos (`CrmShell.icon(nombre, tamaño)`, ~45 iconos estilo Feather) en vez de emojis; **encabezado único** — el `.top-bar` propio de cada página se oculta (`[data-crm-hidden]`) y su paso (`#topBarStep`/`#topBarProgress`) y avance (`#progressBarFill`/`#progressFill`) se reflejan en el encabezado del shell vía MutationObserver (`espejarTopBar`); esqueletos de carga (`CrmShell.skeleton('panel'|'table'|'cards')`); tokens claros con más contraste; controles tocables de 40px. `admin-candidatos.html`: columnas ordenables, exportar CSV, liberar/revocar fases desde el detalle (misma escritura que admin-precios) y **nota interna** por candidato (columna `candidatos_precio.nota_interna`, SQL `2026-09-15-nota-interna.sql` pendiente de correr por Diego). Pendientes de la crítica: wizards con avance/autosave visible + barra inferior móvil (prioridad 2), PWA y Realtime (junto con el proyecto 4).
 - **`protect.js`** — disuasión de copia/captura en las 11 páginas del flujo (ver Estructura de archivos) + headers en `vercel.json` (`X-Frame-Options: DENY`, `Content-Security-Policy: frame-ancestors 'none'`, `X-Content-Type-Options`, `Referrer-Policy`) para que el sitio no pueda embeberse en otro dominio. Decisiones de Diego: sin difuminado al perder el foco (estorbaría en Documentos de Sesión durante el Zoom), cuenta bypass y admins exentos (videos), impresión permitida solo en el Guion Maestro. Lo que sigue para proteger de verdad el contenido es el proyecto 4 (contenido servido desde Supabase con RLS por fase pagada; ver Backlog).
 - **CRM del equipo** — ver sección dedicada arriba: `admin-crm.html`, `admin-candidatos.html`, `admin-data.js`, utilidades pagadas, shell admin en todas las páginas admin, `admin-index.html` redirige. Dos SQL pendientes de correr.
@@ -417,7 +435,8 @@ Landing (`index.html`) sigue un arco emocional Vocación→Miedo→Transformaci�
 12. Portada de `ruta-estudio.html` y pantalla 1 de `ruta-alineacion.html` siguen diciendo "ACADEMIA POSTURALIA" — es texto incrustado en una fotografía (no editable por CSS/HTML), pendiente que Diego regenere la imagen.
 13. `kpi-dashboard-live.html` sigue público (sin gate) y ya es redundante con `admin-kpis.html` (misma función, sí gateado) — lo más simple es retirar/redirigir la versión vieja en vez de agregarle un gate.
 14. Replicar webhook de Mercado Pago en modo productivo.
-16. **Contenido al servidor (proyecto 4 acordado con Diego, 15 sep):** tabla `contenido_ec1375` en Supabase con RLS por fase pagada + bucket privado para las imágenes de `ruta-estudio.html` (4.7MB de sus 5.4MB son base64), páginas como cascarones que piden el contenido tras autenticarse, script de extracción en `_internal_no_publicar/01-scripts/` que se vuelve a correr si se regeneran `ruta-estudio`/`ruta-alineacion`. Cero funciones nuevas de Vercel (ya hay 12). Es la única protección real del contenido; `protect.js` solo disuade.
+16. ~~Contenido al servidor (proyecto 4)~~ — implementado en código el 15 sep (ver sección "Contenido al servidor"); falta que Diego corra el SQL y `publicar_contenido.py`.
+18. **Biblioteca como presentación maestra independiente** (pregunta de Diego, 15 sep): hoy `ruta-estudio.html` (motor generado por el pipeline) cumple tres funciones — Reforzamiento (`boot=remedial`: diapositivas de los reactivos marcados NO + visto bueno `diagnostic.approved`), Práctica (`boot=practice`: objetivos, `practice.completed`) y Biblioteca (`boot=library&crit=`: consulta por criterio, enlazada desde el examen). Con el contenido ya en Supabase es viable un visor propio y ligero (~300 líneas) de la Biblioteca con búsqueda, filtro por criterio y "recomendados para ti" (reactivos NO del autodiagnóstico), y redefinir Reforzamiento/Práctica como "vio las diapositivas recomendadas" — decisión de producto pendiente.
 17. Refactorizar `admin-kpis`/`admin-utilidades`/`admin-precios` para usar `admin-data.js` (hoy conservan su copia local de las fórmulas); retirar `kpi-dashboard-live.html` (#13).
 15. Calendario de citas en `plan-evaluacion.html` sigue en placeholder (`GOOGLE_CALENDAR_BOOKING_URL` vacío, fallback a WhatsApp) — el candidato pidió horarios fijos recurrentes, no un Calendly en tiempo real.
 
