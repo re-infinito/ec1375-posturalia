@@ -79,6 +79,7 @@
 .bib-gate h1{font:800 1.25rem/1.25 var(--display);color:var(--ink);margin:0 0 10px}
 .bib-gate p{color:var(--mid);font-size:.92rem;line-height:1.5;margin:0 0 18px}
 .bib-gate a{display:inline-block;background:var(--accent);color:#fff;text-decoration:none;padding:12px 20px;border-radius:10px;font-weight:700}
+.stage[data-vacio]::after{content:'Nada coincide con tu búsqueda. Prueba otra palabra o quita los filtros.';position:absolute;inset:0;display:grid;place-items:center;padding:24px;text-align:center;color:var(--muted);font:500 14px/1.5 var(--body)}
 .bib-loading{padding:40px;text-align:center;color:var(--muted);font:500 13px/1.4 var(--mono);letter-spacing:.04em}
 body.pres .bib-idx{display:none}
 @media (max-width:1100px){
@@ -281,7 +282,12 @@ body.pres .bib-idx{display:none}
     V.pausarMedios(stage, M);
     [].forEach.call(stage.querySelectorAll('.slide.on'), function (s) { s.classList.remove('on'); });
     var e = lista[pos];
-    if (!e) { frame.innerHTML = ''; counter.textContent = '0 / 0'; prevB.disabled = nextB.disabled = true; rxWrap.innerHTML = ''; return; }
+    if (!e) {
+      frame.innerHTML = ''; counter.textContent = '0 / 0'; pfill.style.width = '0'; prevB.disabled = nextB.disabled = true;
+      rxWrap.innerHTML = ''; notesBtn.style.display = 'none'; notesBox.classList.remove('show');
+      stage.setAttribute('data-vacio', '1'); pintaIndice(); return;
+    }
+    stage.removeAttribute('data-vacio');
     var s = SL[e.sid];
     s.classList.add('on'); s.scrollTop = 0;
     marcaVista(e.sid);
@@ -370,6 +376,18 @@ body.pres .bib-idx{display:none}
     else if (e.key === 'Escape') {
       if (document.body.classList.contains('pres')) V.presentacion(false); else abreIndice(false);
     }
+  });
+
+  /* #sid cambiado sin recargar (liga interna, atrás/adelante): ir a esa
+     pantalla; si los filtros actuales la ocultan, se limpian. */
+  window.addEventListener('hashchange', function () {
+    var sid = location.hash.slice(1);
+    if (!sid || !SL[sid] || (lista[pos] && lista[pos].sid === sid)) return;
+    var k = lista.map(function (e) { return e.sid; }).indexOf(sid);
+    if (k >= 0) { ir(k); return; }
+    f.q = ''; qIn.value = ''; f.mod = ''; modSel.value = ''; f.soloRecomendados = false; f.crit = '';
+    history.replaceState(null, '', location.pathname + '#' + sid);
+    aplicaFiltros(sid);
   });
 
   /* ── arranque: ?crit= filtra; #sid abre esa pantalla ── */
