@@ -46,7 +46,9 @@ const authStorageAdapter = {
         try { sessionStorage.removeItem(k); } catch (e) { /* ignore */ }
     }
 };
-const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { storage: authStorageAdapter } });
+/* Llave donde supabase-js guarda la sesión (su default: sb-<ref>-auth-token). */
+const SUPABASE_STORAGE_KEY = 'sb-' + SUPABASE_URL.replace(/^https?:\/\//, '').split('.')[0] + '-auth-token';
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { storage: authStorageAdapter, storageKey: SUPABASE_STORAGE_KEY } });
 window.supabaseClient = supabaseClient;
 
 const Auth = {
@@ -76,6 +78,7 @@ const Auth = {
     async signOut() {
         await supabaseClient.auth.signOut();
         Auth._session = null;
+        Auth._apartarDatosDemo();   // el siguiente en entrar puede ser otra cuenta (ver "Datos demo" abajo)
     },
 
     /* Debounced, best-effort upsert — nunca bloquea ni lanza al candidato:
@@ -99,6 +102,10 @@ const Auth = {
             const session = await Auth.getSession();
             if (!session) return;
             if (await Auth.isBypassSession()) return;
+            if (Auth._pareceDatoDemo(pending)) {
+                console.warn('Sync omitido: son datos de la cuenta demo, no de esta cuenta.');
+                return;
+            }
             const row = {
                 user_id: session.user.id,
                 curp: (pending.curp || '').trim().toUpperCase(),
@@ -682,13 +689,22 @@ const Auth = {
        y reutiliza el valor en el resto de sus checks sin volver a llamarlo. */
     async isBypassSession() {
         const session = await Auth.getSession();
-        if (!session) { Auth._isBypassSession = false; return false; }
-        try {
-            const { data, error } = await supabaseClient.rpc('is_current_user_flow_bypass_admin');
-            Auth._isBypassSession = !error && !!data;
-        } catch (e) {
+        let verificado = false;
+        if (!session) {
             Auth._isBypassSession = false;
+        } else {
+            try {
+                const { data, error } = await supabaseClient.rpc('is_current_user_flow_bypass_admin');
+                Auth._isBypassSession = !error && !!data;
+                verificado = !error;
+            } catch (e) {
+                Auth._isBypassSession = false;
+            }
         }
+        /* Datos demo según lo que respondió el servidor (ver _apartarDatosDemo). */
+        if (Auth._isBypassSession) Auth._restaurarDatosDemo();
+        else if (verificado) Auth._descartarDatosDemo();
+        else Auth._apartarDatosDemo();
         return Auth._isBypassSession;
     },
 
@@ -708,7 +724,8 @@ const Auth = {
     DEMO_LOCAL_KEYS: ['autodiagnosticoData', 'planEvaluacionData', 'documentosSesionData',
                       'encuestaSatisfaccionData', 'evidenciasData', 'examenConocimientosData', 'ec1375-state', 'guionChecklistState',
                       'ec1375-biblioteca-vistas', 'ec1375-biblioteca-ultima', 'ec1375-biblioteca-guia',
-                      'ec1375-alineacion-vistas'],
+                      'ec1375-alineacion-vistas', 'paideia-demo-apartado'],
+    DEMO_APARTADO: 'paideia-demo-apartado',
 
     /* Foto de credencial ficticia (silueta) generada en canvas → JPEG real,
        para que el paso "personal" del Autodiagnóstico la acepte y jsPDF la
@@ -884,6 +901,90 @@ const Auth = {
         } catch (e) { /* ilegible: ensureAdminPlaceholderData() lo resiembra */ }
     },
 
+    /* Una cuenta real nunca ve ni sube los datos demo (17 sep 2026).
+       localStorage es del navegador, no de la cuenta, y cerrar sesión no
+       borra el progreso: si después entraba una cuenta real en ese navegador,
+       cada página cargaba los objetos demo como si fueran suyos y el
+       siguiente guardado los subía a SU fila (con curp y nombre de "Ana Sofía
+       Demo Ramírez"). Autodiagnóstico lo hacía solo con iniciar sesión.
+
+       Mientras no se confirme que la sesión es la demo, los objetos con
+       `_demo: true` se APARTAN a DEMO_APARTADO: las páginas ya no los
+       encuentran en su llave y arrancan como si no existieran. Se apartan en
+       vez de borrarse para que la cuenta demo recupere lo editado en un video
+       si cierra sesión y vuelve a entrar. Quién decide:
+       - Al cargar auth.js (antes que el script de cualquier página): se
+         apartan salvo que la sesión guardada sea la de la cuenta demo. Es
+         solo una pista leída del navegador y solo decide ESCONDER, nunca da
+         acceso; hace falta porque varias páginas cargan su progreso en `load`
+         antes de preguntarle nada al servidor.
+       - isBypassSession() (RPC server-side): demo → se restauran; otra
+         cuenta confirmada → se borran; sin sesión o sin respuesta del
+         servidor → se quedan apartados.
+       - _flushPendingSync(): respaldo final, nunca sube un guardado con el
+         curp o el nombre demo desde una cuenta que no es la demo (la página
+         arma su objeto sin `_demo`, así que ahí la marca ya no sirve). */
+    _correoSesionGuardada() {
+        try {
+            const raw = authStorageAdapter.getItem(SUPABASE_STORAGE_KEY);
+            if (!raw) return null;
+            const s = JSON.parse(raw);
+            const u = s && (s.user || (s.currentSession && s.currentSession.user));
+            return u && u.email ? String(u.email).trim().toLowerCase() : '';
+        } catch (e) { return ''; }
+    },
+
+    _leerJson(key) {
+        try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch (e) { return null; }
+    },
+
+    _apartarDatosDemo() {
+        try {
+            const apartado = Auth._leerJson(Auth.DEMO_APARTADO) || {};
+            const llaves = Object.values(Auth.DEMO_COLUMNAS).filter((key) => {
+                const v = Auth._leerJson(key);
+                if (!v || v._demo !== true) return false;
+                apartado[key] = v;
+                return true;
+            });
+            if (!llaves.length) return 0;
+            try { localStorage.setItem(Auth.DEMO_APARTADO, JSON.stringify(apartado)); } catch (e) { /* sin espacio: se pierden, pero no se quedan a la vista */ }
+            llaves.forEach((key) => localStorage.removeItem(key));
+            return llaves.length;
+        } catch (e) { return 0; }
+    },
+
+    _restaurarDatosDemo() {
+        try {
+            const apartado = Auth._leerJson(Auth.DEMO_APARTADO);
+            if (!apartado) return;
+            localStorage.removeItem(Auth.DEMO_APARTADO);
+            Object.values(Auth.DEMO_COLUMNAS).forEach((key) => {
+                const guardado = apartado[key];
+                const actual = Auth._leerJson(key);
+                if (!guardado || guardado._demo !== true || (actual && actual._demo === true)) return;
+                localStorage.setItem(key, JSON.stringify(guardado));
+            });
+        } catch (e) { /* ensureAdminPlaceholderData() resiembra lo que falte */ }
+    },
+
+    _descartarDatosDemo() {
+        try {
+            localStorage.removeItem(Auth.DEMO_APARTADO);
+            Object.values(Auth.DEMO_COLUMNAS).forEach((key) => {
+                const v = Auth._leerJson(key);
+                if (v && v._demo === true) localStorage.removeItem(key);
+            });
+        } catch (e) { /* sin storage */ }
+    },
+
+    _pareceDatoDemo(pending) {
+        const curp = String(pending.curp || '').trim().toUpperCase();
+        const nombre = String(pending.nombre || '').trim();
+        return curp === Auth.DEMO_CURP || nombre === Auth.DEMO_NOMBRE ||
+            !!(pending.data && pending.data._demo === true);
+    },
+
     /* Siembra cada llave (Autodiagnóstico y páginas posteriores) solo si no
        hay nada o si lo que hay NO es demo: localStorage es del navegador, no
        de la cuenta, y `_demo` ausente = datos de otra persona → se reemplazan.
@@ -926,3 +1027,7 @@ const Auth = {
 };
 
 window.Auth = Auth;
+
+/* Antes que el script de cualquier página: si la sesión guardada no es la de
+   la cuenta demo, sus datos quedan apartados (ver _apartarDatosDemo). */
+if (Auth._correoSesionGuardada() !== CANDIDATE_FLOW_BYPASS_EMAIL) Auth._apartarDatosDemo();

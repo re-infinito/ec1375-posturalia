@@ -22,18 +22,36 @@ function almacenEnMemoria() {
     };
 }
 
-function cargarAuth() {
+const LLAVE_SESION = 'sb-numsuiuwrvpprhnxovmh-auth-token';
+const CORREO_DEMO = 'paideia.tech@outlook.com';
+
+/* opts.previo: lo que ya había en localStorage antes de cargar auth.js.
+   opts.correo: sesión guardada de ese correo (null = sin sesión).
+   opts.bypass: lo que responde el RPC is_current_user_flow_bypass_admin
+   (true, false o 'error'). Las escrituras a candidatos_ec1375 quedan en upserts. */
+function cargarAuth(opts = {}) {
     const localStorage = almacenEnMemoria();
+    for (const [k, v] of Object.entries(opts.previo || {})) localStorage.setItem(k, JSON.stringify(v));
+    const estado = { correo: opts.correo || null, bypass: opts.bypass ?? false };
+    const sesion = () => (estado.correo ? { user: { id: 'u-' + estado.correo, email: estado.correo } } : null);
+    if (estado.correo) localStorage.setItem(LLAVE_SESION, JSON.stringify({ access_token: 't', ...sesion() }));
+    const upserts = [];
     const sandbox = {
         localStorage,
         sessionStorage: almacenEnMemoria(),
-        console,
+        console: { ...console, warn: () => {} },
         setTimeout: () => 0,          // sin _flushPendingSync real
         clearTimeout: () => {},
         supabase: {
             createClient: () => ({
-                auth: { getSession: async () => ({ data: { session: null } }) },
-                rpc: async () => ({ data: null, error: null })
+                auth: {
+                    getSession: async () => ({ data: { session: sesion() } }),
+                    signOut: async () => { estado.correo = null; localStorage.removeItem(LLAVE_SESION); }
+                },
+                rpc: async () => (estado.bypass === 'error'
+                    ? { data: null, error: { message: 'sin red' } }
+                    : { data: estado.bypass, error: null }),
+                from: () => ({ upsert: async (row) => { upserts.push(row); return { error: null }; } })
             })
         }
     };
@@ -41,7 +59,15 @@ function cargarAuth() {
     vm.createContext(sandbox);
     vm.runInContext(fs.readFileSync(path.join(RAIZ, 'auth.js'), 'utf8'), sandbox, { filename: 'auth.js' });
     const leer = (k) => JSON.parse(localStorage.getItem(k) || 'null');
-    return { Auth: sandbox.Auth, localStorage, leer };
+    return { Auth: sandbox.Auth, localStorage, leer, estado, upserts };
+}
+
+/* Los 6 objetos demo tal como quedan en el navegador después de usar la cuenta demo. */
+function datosDemoSembrados() {
+    const ctx = cargarAuth();
+    ctx.Auth._isBypassSession = true;
+    ctx.Auth.ensureAdminPlaceholderData();
+    return Object.fromEntries(Object.values(ctx.Auth.DEMO_COLUMNAS).map((k) => [k, ctx.leer(k)]));
 }
 
 /* Lo que hace cada página al guardar: arma un objeto nuevo con sus campos (sin
@@ -143,4 +169,105 @@ test('cada página guarda lo sembrado y enseguida llama syncToSupabase con su co
     for (const [columna, llave] of Object.entries(Auth.DEMO_COLUMNAS)) {
         assert.equal(vistas[llave], columna, `${llave}: no se encontró setItem seguido de syncToSupabase('${columna}')`);
     }
+});
+
+/* ── Una cuenta real nunca usa ni sube los datos demo (17 sep) ──────────────
+   localStorage es del navegador: si la cuenta demo cerró sesión y entra una
+   cuenta real, las páginas no deben encontrar los objetos `_demo` en su llave
+   (varias los cargan en `load`, antes de preguntarle nada al servidor). */
+const LLAVES_DEMO = Object.keys(COLUMNAS);
+const visibles = (ctx) => LLAVES_DEMO.filter((k) => ctx.localStorage.getItem(k) !== null);
+
+test('cuenta real con sesión guardada: los datos demo no están a la vista desde que carga auth.js, y se borran al confirmar', async () => {
+    const ctx = cargarAuth({ previo: datosDemoSembrados(), correo: 'de.minconsciente@outlook.com', bypass: false });
+    assert.deepEqual(visibles(ctx), [], 'ninguna página debe poder cargarlos');
+    assert.equal(await ctx.Auth.isBypassSession(), false);
+    assert.equal(ctx.localStorage.getItem(ctx.Auth.DEMO_APARTADO), null, 'cuenta real confirmada: el apartado se borra');
+    assert.deepEqual(visibles(ctx), []);
+});
+
+test('sin sesión guardada (la demo cerró sesión): se apartan, y la cuenta demo los recupera con lo editado', async () => {
+    const previo = datosDemoSembrados();
+    previo.planEvaluacionData.planData.lugarDesarrollo = 'Consultorio EDITADO en video';
+    const ctx = cargarAuth({ previo, correo: null });
+    assert.deepEqual(visibles(ctx), []);
+    assert.equal(await ctx.Auth.isBypassSession(), false);          // sin sesión: se quedan apartados
+    assert.notEqual(ctx.localStorage.getItem(ctx.Auth.DEMO_APARTADO), null);
+
+    ctx.estado.correo = CORREO_DEMO; ctx.estado.bypass = true;       // entra la cuenta demo
+    assert.equal(await ctx.Auth.isBypassSession(), true);
+    assert.equal(ctx.Auth.ensureAdminPlaceholderData(), false, 'no debe resembrar');
+    assert.deepEqual(visibles(ctx), LLAVES_DEMO);
+    assert.equal(ctx.leer('planEvaluacionData').planData.lugarDesarrollo, 'Consultorio EDITADO en video');
+    assert.equal(ctx.localStorage.getItem(ctx.Auth.DEMO_APARTADO), null);
+});
+
+test('sin sesión guardada: si entra una cuenta real, los datos demo se borran y no se suben', async () => {
+    const ctx = cargarAuth({ previo: datosDemoSembrados(), correo: null });
+    ctx.estado.correo = 'de.minconsciente@outlook.com'; ctx.estado.bypass = false;
+    assert.equal(await ctx.Auth.isBypassSession(), false);
+    assert.deepEqual(visibles(ctx), []);
+    assert.equal(ctx.localStorage.getItem(ctx.Auth.DEMO_APARTADO), null);
+});
+
+test('sesión guardada de la cuenta demo: sus datos siguen a la vista al cargar (las páginas los leen en load)', async () => {
+    const ctx = cargarAuth({ previo: datosDemoSembrados(), correo: CORREO_DEMO, bypass: true });
+    assert.deepEqual(visibles(ctx), LLAVES_DEMO);
+    assert.equal(await ctx.Auth.isBypassSession(), true);
+    assert.deepEqual(visibles(ctx), LLAVES_DEMO);
+});
+
+test('pista falsa: dice ser la demo pero el servidor dice que no → se borran', async () => {
+    const ctx = cargarAuth({ previo: datosDemoSembrados(), correo: CORREO_DEMO, bypass: false });
+    assert.equal(await ctx.Auth.isBypassSession(), false);
+    assert.deepEqual(visibles(ctx), []);
+    assert.equal(ctx.localStorage.getItem(ctx.Auth.DEMO_APARTADO), null);
+});
+
+test('el servidor no responde: los datos demo se apartan (no se borran) y vuelven cuando confirma la demo', async () => {
+    const ctx = cargarAuth({ previo: datosDemoSembrados(), correo: CORREO_DEMO, bypass: 'error' });
+    assert.equal(await ctx.Auth.isBypassSession(), false);
+    assert.deepEqual(visibles(ctx), []);
+    ctx.estado.bypass = true;
+    assert.equal(await ctx.Auth.isBypassSession(), true);
+    assert.deepEqual(visibles(ctx), LLAVES_DEMO);
+});
+
+test('los datos sin marca _demo (de una cuenta real) nunca se apartan ni se borran', async () => {
+    const real = { planData: { lugarDesarrollo: 'Mi consultorio' } };
+    const ctx = cargarAuth({ previo: { planEvaluacionData: real }, correo: null });
+    assert.deepEqual(ctx.leer('planEvaluacionData'), real);
+    ctx.estado.correo = 'de.minconsciente@outlook.com';
+    await ctx.Auth.isBypassSession();
+    assert.deepEqual(ctx.leer('planEvaluacionData'), real);
+});
+
+test('cerrar sesión como demo aparta sus datos al momento', async () => {
+    const ctx = cargarAuth({ previo: datosDemoSembrados(), correo: CORREO_DEMO, bypass: true });
+    await ctx.Auth.signOut();
+    assert.deepEqual(visibles(ctx), []);
+    assert.notEqual(ctx.localStorage.getItem(ctx.Auth.DEMO_APARTADO), null);
+});
+
+test('respaldo: una cuenta real nunca sube un guardado con curp o nombre demo, pero sí los suyos', async () => {
+    const ctx = cargarAuth({ correo: 'de.minconsciente@outlook.com', bypass: false });
+    const intentos = [
+        ['DERA900515MNLMMN08', 'Otro nombre', {}],
+        ['', 'Ana Sofía Demo Ramírez', {}],
+        ['GAAD000000HNLRRG00', 'Diego', { _demo: true }]
+    ];
+    for (const [curp, nombre, data] of intentos) {
+        ctx.Auth.syncToSupabase('plan_evaluacion_data', data, curp, nombre);
+        await ctx.Auth.flushSync();
+    }
+    assert.equal(ctx.upserts.length, 0);
+    ctx.Auth.syncToSupabase('plan_evaluacion_data', { planData: {} }, 'GAAD000000HNLRRG00', 'Diego');
+    await ctx.Auth.flushSync();
+    assert.equal(ctx.upserts.length, 1);
+    assert.equal(ctx.upserts[0].curp, 'GAAD000000HNLRRG00');
+});
+
+test('"Reiniciar demo" también borra el apartado', () => {
+    const { Auth } = cargarAuth();
+    assert.ok(Auth.DEMO_LOCAL_KEYS.includes(Auth.DEMO_APARTADO));
 });
