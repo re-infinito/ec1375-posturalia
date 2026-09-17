@@ -1010,7 +1010,31 @@
         if (f.uploading) statusHtml = `<p class="cert-row-status cert-row-status-pending">Subiendo...</p>`;
         else if (f.error) statusHtml = `<p class="cert-row-status cert-row-status-error">⚠ ${escapeHtml(f.error)}</p>`;
         else if (f.previewDataUrl) statusHtml = `<p class="cert-row-status cert-row-status-ok">✓ ${escapeHtml(f.fileName || 'Foto subida')}</p>`;
+        /* Indicaciones oficiales CONOCER (Fernando, 16 sep): el formato pide
+           tamaño infantil 25×30 mm y rechaza fotos sobre/sub expuestas,
+           demasiado cercanas, demasiado lejanas o con adornos en la cabeza.
+           Va en grid auto-fit para que colapse a una columna en el celular
+           sin empujar scroll horizontal. */
+        const bien = ['Rostro de frente y centrado', 'Fondo blanco y liso', 'Iluminación pareja, sin sombras', 'Cabeza completa y hombros visibles', 'Nítida y a color'];
+        const mal = ['Sobreexpuesta (se ve lavada)', 'Subexpuesta (muy oscura)', 'Demasiado cerca (se corta la cabeza)', 'Demasiado lejos (te ves muy pequeña/o)', 'Gorras, sombreros o adornos en la cabeza'];
+        const lista = (items) => items.map(t => `<li style="margin-bottom:4px;">${t}</li>`).join('');
+        const waFoto = encodeURIComponent('Hola, necesito apoyo para tramitar mi fotografía instantánea para la Ficha de Registro del EC1375.');
         return `
+            <div style="border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px;background:var(--dark-light);">
+                <p style="font-size:0.82rem;color:var(--text-bright);font-weight:700;margin-bottom:4px;">📏 Medida oficial: 25 mm de ancho × 30 mm de alto</p>
+                <p style="font-size:0.76rem;color:var(--text);margin-bottom:10px;">Es el tamaño infantil que pide el formato CONOCER. A color, fondo blanco.</p>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;">
+                    <div>
+                        <p style="font-size:0.8rem;color:var(--success);font-weight:700;margin-bottom:4px;">✓ Fotografías correctas</p>
+                        <ul style="padding-left:18px;font-size:0.78rem;color:var(--text);margin:0;">${lista(bien)}</ul>
+                    </div>
+                    <div>
+                        <p style="font-size:0.8rem;color:var(--danger);font-weight:700;margin-bottom:4px;">✕ Fotografías incorrectas</p>
+                        <ul style="padding-left:18px;font-size:0.78rem;color:var(--text);margin:0;">${lista(mal)}</ul>
+                    </div>
+                </div>
+                <p style="font-size:0.75rem;color:var(--text);margin-top:10px;margin-bottom:0;">¿No tienes el tiempo o las condiciones para tomarla? <a href="https://wa.me/528115026729?text=${waFoto}" target="_blank" rel="noopener" style="color:var(--primary);font-weight:600;">Pide apoyo por WhatsApp</a> para tramitar tus fotografías instantáneas.</p>
+            </div>
             <div class="cert-row">
                 <input type="file" accept="image/jpeg,image/png,image/bmp" onchange="handleFotoCandidatoChange(this)">
                 ${statusHtml}
