@@ -84,6 +84,7 @@ const Auth = {
        payload en _pendingSync para que flushSync() pueda forzar el envío
        inmediato (ver abajo). */
     syncToSupabase(column, data, curp, nombre) {
+        if (Auth._isBypassSession === true) Auth._conservarMarcaDemo(column);
         clearTimeout(Auth._syncTimer);
         Auth._pendingSync = { column, data, curp, nombre };
         Auth._syncTimer = setTimeout(() => { Auth._flushPendingSync(); }, 800);
@@ -845,13 +846,50 @@ const Auth = {
         };
     },
 
-    /* Siembra SIEMPRE el Autodiagnóstico demo (localStorage es del navegador,
-       no de la cuenta: en un navegador usado antes por un candidato real sus
-       datos seguirían ahí). Las páginas posteriores se siembran solo si no
-       hay nada o si lo que hay NO es demo (`_demo` ausente = datos de otra
-       persona → se reemplazan); lo demo ya sembrado se respeta para que lo
-       que el admin edite durante el video persista. Solo se llama tras
-       confirmar Auth._isBypassSession === true. Regresa true si sembró algo. */
+    /* Columna de candidatos_ec1375 → llave de localStorage de todo lo que se
+       siembra como demo (misma correspondencia que _BYPASS_ROW_KEYS en
+       flow-status.js). tests/datos-demo.test.js exige que cubra exactamente
+       lo sembrado y que cada página guarde con esa columna. */
+    DEMO_COLUMNAS: {
+        autodiagnostico_data: 'autodiagnosticoData',
+        plan_evaluacion_data: 'planEvaluacionData',
+        documentos_sesion_data: 'documentosSesionData',
+        encuesta_data: 'encuestaSatisfaccionData',
+        evidencias_data: 'evidenciasData',
+        examen_conocimientos_data: 'examenConocimientosData'
+    },
+
+    /* Lo que guarda la cuenta demo también es demo (17 sep 2026). Cada página
+       arma su objeto desde cero al guardar (saveProgress, savePlanProgress,
+       saveExamState tras reiniciar) y no copia `_demo`, así que la siguiente
+       ensureAdminPlaceholderData() tomaba la edición del admin por datos de
+       otra persona y la reemplazaba con los ficticios. Se vuelve a poner la
+       marca aquí, llamado desde syncToSupabase(): todo guardado de progreso
+       pasa por ahí justo después de escribir localStorage, así que basta un
+       solo lugar en vez de tocar cada página. `_demo` se queda como la señal
+       (no una llave aparte) porque viaja con los datos: una llave aparte no
+       distinguiría lo editado por el admin de lo que dejó después en el mismo
+       navegador un candidato real. Solo corre con Auth._isBypassSession ===
+       true (verificado server-side); una cuenta real nunca recibe la marca. */
+    _conservarMarcaDemo(column) {
+        const key = Auth.DEMO_COLUMNAS[column];
+        if (!key) return;
+        try {
+            const actual = JSON.parse(localStorage.getItem(key) || 'null');
+            if (actual && typeof actual === 'object' && !Array.isArray(actual) && actual._demo !== true) {
+                actual._demo = true;
+                localStorage.setItem(key, JSON.stringify(actual));
+            }
+        } catch (e) { /* ilegible: ensureAdminPlaceholderData() lo resiembra */ }
+    },
+
+    /* Siembra cada llave (Autodiagnóstico y páginas posteriores) solo si no
+       hay nada o si lo que hay NO es demo: localStorage es del navegador, no
+       de la cuenta, y `_demo` ausente = datos de otra persona → se reemplazan.
+       Lo demo se respeta, incluido lo que el admin edite durante el video
+       (sus guardados conservan `_demo`, ver _conservarMarcaDemo). Solo se
+       llama tras confirmar Auth._isBypassSession === true. Regresa true si
+       sembró algo. */
     ensureAdminPlaceholderData() {
         let sembrado = false;
         try {
