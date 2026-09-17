@@ -137,14 +137,33 @@ async function handler(req, res) {
 
         const filePath = `${folderPath}/${filename}`;
         const putUrl = `${baseWebdavUrl}/${filePath.split('/').map(encodeURIComponent).join('/')}`;
-        const putResp = await fetch(putUrl, {
-            method: 'PUT',
-            headers: { ...baseHeaders, 'Content-Type': 'application/octet-stream' },
-            body: fileBuffer
-        });
+        /* 17 sep: en producción hubo 502 sueltos mientras otras subidas del
+           mismo candidato salían bien (varias pestañas subiendo a la vez, y
+           ahora también las resubidas por versión). Un PUT sobre el mismo
+           archivo es idempotente, así que ante bloqueo (423), saturación
+           (429) o falla del NAS/túnel (5xx) se reintenta hasta 2 veces. */
+        let putStatus = 0;
+        for (let intento = 1; intento <= 3; intento++) {
+            try {
+                const putResp = await fetch(putUrl, {
+                    method: 'PUT',
+                    headers: { ...baseHeaders, 'Content-Type': 'application/octet-stream' },
+                    body: fileBuffer,
+                    signal: AbortSignal.timeout(45000)
+                });
+                putStatus = putResp.status;
+            } catch (e) {
+                putStatus = 0; // timeout o red
+            }
+            if (putStatus === 201 || putStatus === 204) break;
+            const transitorio = putStatus === 0 || putStatus === 423 || putStatus === 429 || putStatus >= 500;
+            console.error(`subir-portafolio: PUT ${fase}/${filename} intento ${intento} → status ${putStatus || 'sin respuesta'}`);
+            if (!transitorio || intento === 3) break;
+            await new Promise(r => setTimeout(r, 1500 * intento));
+        }
 
-        if (putResp.status !== 201 && putResp.status !== 204) {
-            return res.status(502).json({ success: false, error: `Nextcloud respondió con status ${putResp.status}` });
+        if (putStatus !== 201 && putStatus !== 204) {
+            return res.status(502).json({ success: false, error: `Nextcloud respondió con status ${putStatus || 'sin respuesta'}` });
         }
 
         return res.status(200).json({ success: true, path: filePath });

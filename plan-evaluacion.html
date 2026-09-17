@@ -15,6 +15,7 @@
     <script src="protect.js"></script>
     <script src="flow-status.js"></script>
     <script src="firma-candidato.js"></script>
+    <script src="documentos-nas.js"></script>
     <script src="crm-shell.js" data-crm-page="plan-evaluacion"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -607,83 +608,120 @@ const AUTODIAGNOSTICO_DATA = [
     let documentosNextcloud = {};
     let documentosDescargados = {};
     let generatedDocsAlineacion = {};
+    let documentosHuella = {};
+    let guardandoEstadoSubida = false;   /* true mientras se guarda el resultado de una subida */
 
-    async function subirDocumento(fase, filename, blob, nombre, curp) {
+    /* =========================================================
+       SUBIDA AL NAS CON VERSIÓN (documentos-nas.js, 17 sep)
+       La huella cubre lo que entra a los 2 PDF — el plan, la firma y los
+       datos/respuestas del Autodiagnóstico que el Plan resume — más la
+       versión de plantilla: cualquier corrección los vuelve a subir.
+    ========================================================= */
+    const VERSION_DOCS_ALINEACION = '2026-09-17';
+    const DOCS_ALINEACION = ['planEvaluacion', 'acusePlanEvaluacion'];
+    const DOCS_ALINEACION_ETIQUETAS = [
+        { key: 'planEvaluacion', label: '📄 Plan de Evaluación' },
+        { key: 'acusePlanEvaluacion', label: '📄 Acuse de Recibido' }
+    ];
+
+    function estadoDocsAlineacion() { return { documentosNextcloud, documentosDescargados, documentosHuella }; }
+    function huellaDocsAlineacion() {
+        let auto = null;
         try {
-            const session = await Auth.getSession();
-            if (!session) return { success: false, error: 'Sin sesión activa' };
-            const fileBase64 = await new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onloadend = () => resolve(reader.result.split(',')[1]);
-                reader.onerror = reject;
-                reader.readAsDataURL(blob);
-            });
-            const resp = await fetch('/api/subir-portafolio', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-                body: JSON.stringify({ email: session.user.email, fase, nombre, curp, filename, fileBase64 })
-            });
-            const data = await resp.json();
-            if (!resp.ok || !data.success) return { success: false, error: data.error || 'Error desconocido' };
-            return { success: true, path: data.path };
-        } catch (e) {
-            return { success: false, error: e.message || 'Error de red' };
+            const a = JSON.parse(localStorage.getItem('autodiagnosticoData') || 'null');
+            if (a) auto = { personalData: a.personalData, certificados: a.certificados, answers: a.answers };
+        } catch (e) {}
+        return DocumentosNas.huella({ v: VERSION_DOCS_ALINEACION, planData, signatureDataUrl, signatureTypedName, signatureMode, auto });
+    }
+    function docsAlineacionActuales(huella) {
+        if (!generatedDocsAlineacion.planEvaluacion || generatedDocsAlineacion._huella !== huella) {
+            generatedDocsAlineacion = {
+                _huella: huella,
+                planEvaluacion: generatePDFBlob(),
+                acusePlanEvaluacion: generateAcusePlanEvaluacionPDFBlob()
+            };
         }
+        return generatedDocsAlineacion;
     }
 
-    function renderEstadoDoc(key, label) {
-        const val = documentosNextcloud[key];
-        if (val) {
-            return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);">
-                <span>${label}</span><span style="color:var(--success);font-weight:600;">✅ Subido</span>
+    /* opts.soloSiYaGenerados: resubida automática (al cargar o tras editar),
+       solo si el plan ya se había generado y sigue completo. */
+    async function sincronizarDocsAlineacion(opts) {
+        opts = opts || {};
+        if (Auth._isBypassSession !== false && await Auth.isBypassSession()) return;
+        const result = loadAutodiagnosticoResult();
+        if (!result || !result.completo || !(await Auth.getSession())) return;
+        if (opts.soloSiYaGenerados && !DocumentosNas.yaGenerado(DOCS_ALINEACION, estadoDocsAlineacion())) return;
+        if (!getValidationStatus().completo) return;
+        const huella = huellaDocsAlineacion();
+        const r = await DocumentosNas.sincronizar({
+            grupo: 'alineacion', fase: 'alineacion', claves: DOCS_ALINEACION, huella, estado: estadoDocsAlineacion(),
+            nombre: result.personalData.nombre, curp: result.personalData.curp,
+            generar: () => docsAlineacionActuales(huella),
+            alCambiar: () => pintarEstadoDocsAlineacion()
+        });
+        if (r.subidos.length) {
+            guardandoEstadoSubida = true;
+            try { savePlanProgress(); } finally { guardandoEstadoSubida = false; }
+            await Auth.flushSync();
+        }
+        pintarEstadoDocsAlineacion();
+    }
+
+    function renderEstadoDoc(key, label, huella) {
+        const est = DocumentosNas.estadoDoc(key, estadoDocsAlineacion(), huella);
+        const fila = (derecha) => `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+                <span>${label}</span>${derecha}
+            </div>`;
+        if (est === 'subiendo') {
+            const txt = DocumentosNas.subido(documentosNextcloud[key]) ? 'Actualizando…' : 'Subiendo…';
+            return `<div style="padding:10px 0;border-bottom:1px solid var(--border);">${fila(`<span style="color:var(--primary);font-weight:600;">⏳ ${txt}</span>`)}</div>`;
+        }
+        if (est === 'subido') {
+            return `<div style="padding:10px 0;border-bottom:1px solid var(--border);">${fila('<span style="color:var(--success);font-weight:600;">✅ Subido</span>')}</div>`;
+        }
+        if (est === 'desactualizado') {
+            return `<div style="padding:10px 0;border-bottom:1px solid var(--border);">
+                ${fila('<span style="color:var(--accent);font-weight:600;">⚠️ Cambios sin subir</span>')}
+                <p style="font-size:0.78rem;color:var(--text);margin-top:4px;">Tu portafolio todavía tiene la versión anterior. Reintentamos solos; también puedes hacerlo ahora.</p>
+                <div style="display:flex;gap:8px;margin-top:8px;">
+                    <button class="btn btn-secondary" style="flex:1;font-size:0.8rem;" onclick="reintentarSubidaAlineacion()">🔄 Subir versión actualizada</button>
+                </div>
             </div>`;
         }
-        if (documentosDescargados[key]) {
+        if (est === 'descargado') {
             return `<div style="padding:10px 0;border-bottom:1px solid var(--border);">
-                <div style="display:flex;justify-content:space-between;align-items:center;">
-                    <span>${label}</span><span style="color:var(--accent);font-weight:600;">📥 Descargado</span>
-                </div>
+                ${fila('<span style="color:var(--accent);font-weight:600;">📥 Descargado</span>')}
                 <p style="font-size:0.78rem;color:var(--text);margin-top:4px;">Guardado en tu dispositivo — puedes avanzar. Seguimos reintentando subirlo a tu portafolio en la nube.</p>
                 <div style="display:flex;gap:8px;margin-top:8px;">
-                    <button class="btn btn-secondary" style="flex:1;font-size:0.8rem;" onclick="reintentarSubidaAlineacion('${key}')">🔄 Reintentar subida</button>
+                    <button class="btn btn-secondary" style="flex:1;font-size:0.8rem;" onclick="reintentarSubidaAlineacion()">🔄 Reintentar subida</button>
                 </div>
             </div>`;
         }
         return `<div style="padding:10px 0;border-bottom:1px solid var(--border);">
-            <div style="display:flex;justify-content:space-between;align-items:center;">
-                <span>${label}</span><span style="color:var(--danger);font-weight:600;">❌ No subido</span>
-            </div>
+            ${fila('<span style="color:var(--danger);font-weight:600;">❌ No subido</span>')}
             <div style="display:flex;gap:8px;margin-top:8px;">
-                <button class="btn btn-secondary" style="flex:1;font-size:0.8rem;" onclick="reintentarSubidaAlineacion('${key}')">🔄 Reintentar subida</button>
+                <button class="btn btn-secondary" style="flex:1;font-size:0.8rem;" onclick="reintentarSubidaAlineacion()">🔄 Reintentar subida</button>
                 <button class="btn btn-secondary" style="flex:1;font-size:0.8rem;" onclick="descargarDocAlineacion('${key}')">⬇️ Descargar</button>
             </div>
         </div>`;
     }
 
-    async function subirDocumentosPendientesAlineacion(result) {
-        if (Auth._isBypassSession) return;
-        const pd = result.personalData;
-        for (const key of Object.keys(generatedDocsAlineacion)) {
-            if (documentosNextcloud[key]) continue;
-            const { blob, filename } = generatedDocsAlineacion[key];
-            const uploadResult = await subirDocumento('alineacion', filename, blob, pd.nombre, pd.curp);
-            if (uploadResult.success) documentosNextcloud[key] = uploadResult.path;
-        }
-        savePlanProgress();
-        await Auth.flushSync();
+    function pintarEstadoDocsAlineacion() {
+        const el = document.getElementById('estadoDocsAlineacion');
+        if (!el) return;
+        const huella = huellaDocsAlineacion();
+        el.innerHTML = DOCS_ALINEACION_ETIQUETAS.map(d => renderEstadoDoc(d.key, d.label, huella)).join('');
     }
 
-    async function reintentarSubidaAlineacion(key) {
-        const result = loadAutodiagnosticoResult();
-        const pd = result.personalData;
-        const { blob, filename } = generatedDocsAlineacion[key];
-        const uploadResult = await subirDocumento('alineacion', filename, blob, pd.nombre, pd.curp);
-        if (uploadResult.success) { documentosNextcloud[key] = uploadResult.path; savePlanProgress(); await Auth.flushSync(); }
-        await render();
+    async function reintentarSubidaAlineacion() {
+        try { await sincronizarDocsAlineacion({ soloSiYaGenerados: false }); }
+        catch (e) { console.error('Subida del Plan de Evaluación:', e); }
+        pintarEstadoDocsAlineacion();
     }
 
     async function descargarDocAlineacion(key) {
-        const { blob, filename } = generatedDocsAlineacion[key];
+        const { blob, filename } = docsAlineacionActuales(huellaDocsAlineacion())[key];
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url; a.download = filename;
@@ -692,7 +730,7 @@ const AUTODIAGNOSTICO_DATA = [
         documentosDescargados[key] = true;
         savePlanProgress();
         await Auth.flushSync();
-        await render();
+        pintarEstadoDocsAlineacion();
     }
 
     function loadAutodiagnosticoResult() {
@@ -728,15 +766,19 @@ const AUTODIAGNOSTICO_DATA = [
                 hasSignature = !!signatureDataUrl;
                 documentosNextcloud = saved.documentosNextcloud || {};
                 documentosDescargados = saved.documentosDescargados || {};
+                documentosHuella = saved.documentosHuella || {};
             }
         } catch (e) {}
     }
 
     function savePlanProgress() {
-        const data = { planData, signatureDataUrl, signatureTypedName, signatureMode, documentosNextcloud, documentosDescargados };
+        const data = { planData, signatureDataUrl, signatureTypedName, signatureMode, documentosNextcloud, documentosDescargados, documentosHuella };
         localStorage.setItem('planEvaluacionData', JSON.stringify(data));
         const result = loadAutodiagnosticoResult();
         if (result) Auth.syncToSupabase('plan_evaluacion_data', data, result.personalData.curp, result.personalData.nombre);
+        /* Si el plan ya se había generado, un cambio lo resube al NAS unos
+           segundos después de dejar de editar (documentos-nas.js). */
+        if (!guardandoEstadoSubida) DocumentosNas.programar('alineacion', () => sincronizarDocsAlineacion({ soloSiYaGenerados: true }), 8000);
     }
 
     function escapeHtml(str) {
@@ -1116,20 +1158,13 @@ const AUTODIAGNOSTICO_DATA = [
     }
 
     async function renderGeneratedState(app, result) {
-        if (!generatedDocsAlineacion.planEvaluacion) {
-            generatedDocsAlineacion = {
-                planEvaluacion: generatePDFBlob(),
-                acusePlanEvaluacion: generateAcusePlanEvaluacionPDFBlob()
-            };
-        }
-        await subirDocumentosPendientesAlineacion(result);
-
+        /* Se pinta de inmediato; la subida corre en segundo plano. */
         app.innerHTML = `
             <div class="success-box">
                 <h3>✅ Tu Plan de Evaluación está listo</h3>
                 <p style="color:var(--text);margin-bottom:20px;">Tu cita: <strong>${escapeHtml(formatFechaDDMMYYYY(planData.fechaEvaluacion))}${planData.horarioDesarrollo ? ', ' + escapeHtml(planData.horarioDesarrollo) : ''}</strong></p>
-                ${renderEstadoDoc('planEvaluacion', '📄 Plan de Evaluación')}
-                ${renderEstadoDoc('acusePlanEvaluacion', '📄 Acuse de Recibido')}
+                <div id="estadoDocsAlineacion"></div>
+                <p style="font-size:0.8rem;color:var(--text);margin-top:10px;">Si después corriges algo, se vuelven a subir solos con la versión actualizada.</p>
             </div>
             <div class="card" style="text-align:center;margin-top:20px;">
                 <a href="guion-maestro.html" class="btn btn-secondary btn-full" style="display:block;text-decoration:none;margin-bottom:14px;">📜 Guion Maestro — para tener a la mano durante tu sesión</a>
@@ -1137,6 +1172,11 @@ const AUTODIAGNOSTICO_DATA = [
                 <a href="success.html" style="color:var(--primary);text-decoration:none;font-size:0.9rem;">← Volver a mi confirmación de pago</a>
             </div>
         `;
+        pintarEstadoDocsAlineacion();
+        sincronizarDocsAlineacion({ soloSiYaGenerados: false }).catch(e => {
+            console.error('Subida del Plan de Evaluación:', e);
+            pintarEstadoDocsAlineacion();
+        });
         const flowSteps = await FlowStatus.getSteps();
         CrmShell.mount({ currentPageId: 'plan-evaluacion', steps: flowSteps });
     }
@@ -1412,6 +1452,7 @@ const AUTODIAGNOSTICO_DATA = [
     window.addEventListener('load', () => {
         loadPlanProgress();
         render();
+        setTimeout(() => sincronizarDocsAlineacion({ soloSiYaGenerados: true }).catch(e => console.warn('Resubida al NAS:', e)), 1500);
     });
     </script>
 </body>

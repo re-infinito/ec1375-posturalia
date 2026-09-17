@@ -15,6 +15,7 @@
     <script src="protect.js"></script>
     <script src="flow-status.js"></script>
     <script src="firma-candidato.js"></script>
+    <script src="documentos-nas.js"></script>
     <script src="crm-shell.js" data-crm-page="encuesta"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -128,6 +129,8 @@
     let documentosNextcloud = {};
     let documentosDescargados = {};
     let generatedDocEncuesta = null;
+    let documentosHuella = {};
+    let guardandoEstadoSubida = false;   /* true mientras se guarda el resultado de una subida */
 
     function loadAutodiagnosticoResult() {
         try {
@@ -149,15 +152,19 @@
                 hasSignature = !!signatureDataUrl;
                 documentosNextcloud = saved.documentosNextcloud || {};
                 documentosDescargados = saved.documentosDescargados || {};
+                documentosHuella = saved.documentosHuella || {};
             }
         } catch (e) {}
     }
 
     function saveProgress() {
-        const data = { respuestas, comentarios, signatureDataUrl, signatureTypedName, signatureMode, documentosNextcloud, documentosDescargados };
+        const data = { respuestas, comentarios, signatureDataUrl, signatureTypedName, signatureMode, documentosNextcloud, documentosDescargados, documentosHuella };
         localStorage.setItem('encuestaSatisfaccionData', JSON.stringify(data));
         const result = loadAutodiagnosticoResult();
         if (result) Auth.syncToSupabase('encuesta_data', data, result.personalData.curp, result.personalData.nombre);
+        /* Si la encuesta ya se había generado, un cambio la resube al NAS unos
+           segundos después de dejar de editar (documentos-nas.js). */
+        if (!guardandoEstadoSubida) DocumentosNas.programar('encuesta', () => sincronizarEncuesta({ soloSiYaGenerados: true }), 8000);
     }
 
     function documentosFaseCompletos(jsonbData, requiredKeys) {
@@ -176,67 +183,98 @@
         });
     }
 
-    async function subirDocumento(fase, filename, blob, nombre, curp) {
-        try {
-            const session = await Auth.getSession();
-            if (!session) return { success: false, error: 'Sin sesión activa' };
-            const fileBase64 = await new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onloadend = () => resolve(reader.result.split(',')[1]);
-                reader.onerror = reject;
-                reader.readAsDataURL(blob);
-            });
-            const resp = await fetch('/api/subir-portafolio', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-                body: JSON.stringify({ email: session.user.email, fase, nombre, curp, filename, fileBase64 })
-            });
-            const data = await resp.json();
-            if (!resp.ok || !data.success) return { success: false, error: data.error || 'Error desconocido' };
-            return { success: true, path: data.path };
-        } catch (e) {
-            return { success: false, error: e.message || 'Error de red' };
+    /* =========================================================
+       SUBIDA AL NAS CON VERSIÓN (documentos-nas.js, 17 sep)
+       La huella cubre respuestas, comentarios, firma y el nombre del
+       candidato, más la versión de plantilla: una corrección la resube.
+    ========================================================= */
+    const VERSION_DOC_ENCUESTA = '2026-09-17';
+    const DOCS_ENCUESTA = ['encuesta'];
+
+    function estadoDocsEncuesta() { return { documentosNextcloud, documentosDescargados, documentosHuella }; }
+    function huellaEncuesta() {
+        return DocumentosNas.huella({ v: VERSION_DOC_ENCUESTA, respuestas, comentarios, signatureDataUrl, signatureTypedName, signatureMode, candidato: loadAutodiagnosticoResult() });
+    }
+    function encuestaCompleta() {
+        const hasSig = signatureMode === 'draw' ? hasSignature : (signatureTypedName && signatureTypedName.trim().length > 3);
+        return PREGUNTAS.every((_, idx) => respuestas[idx]) && !!hasSig;
+    }
+    function docEncuestaActual(huella) {
+        if (!generatedDocEncuesta || generatedDocEncuesta._huella !== huella) {
+            generatedDocEncuesta = Object.assign(generatePDFBlob(), { _huella: huella });
         }
+        return generatedDocEncuesta;
     }
 
-    function renderEstadoDoc(key, label) {
-        const val = documentosNextcloud[key];
-        if (val) {
+    /* opts.soloSiYaGenerados: resubida automática (al cargar o tras editar),
+       solo si ya se había generado y sigue completa. */
+    async function sincronizarEncuesta(opts) {
+        opts = opts || {};
+        if (Auth._isBypassSession !== false && await Auth.isBypassSession()) return;
+        const result = loadAutodiagnosticoResult();
+        if (!result || !(await Auth.getSession())) return;
+        if (opts.soloSiYaGenerados && !DocumentosNas.yaGenerado(DOCS_ENCUESTA, estadoDocsEncuesta())) return;
+        if (!encuestaCompleta()) return;
+        const huella = huellaEncuesta();
+        const r = await DocumentosNas.sincronizar({
+            grupo: 'encuesta', fase: 'evaluacion', claves: DOCS_ENCUESTA, huella, estado: estadoDocsEncuesta(),
+            nombre: result.personalData.nombre, curp: result.personalData.curp,
+            generar: () => ({ encuesta: docEncuestaActual(huella) }),
+            alCambiar: () => pintarEstadoEncuesta()
+        });
+        if (r.subidos.length) {
+            guardandoEstadoSubida = true;
+            try { saveProgress(); } finally { guardandoEstadoSubida = false; }
+            await Auth.flushSync();
+        }
+        pintarEstadoEncuesta();
+    }
+
+    function renderEstadoDoc(key, label, huella) {
+        const est = DocumentosNas.estadoDoc(key, estadoDocsEncuesta(), huella);
+        if (est === 'subiendo') {
+            const txt = DocumentosNas.subido(documentosNextcloud[key]) ? 'actualizando…' : 'subiendo…';
+            return `<p style="color:var(--primary);font-weight:600;margin-bottom:10px;">⏳ ${label}: ${txt}</p>`;
+        }
+        if (est === 'subido') {
             return `<p style="color:var(--success);font-weight:600;margin-bottom:10px;">✅ ${label} subido</p>`;
         }
-        if (documentosDescargados[key]) {
+        if (est === 'desactualizado') {
+            return `<div style="margin-bottom:14px;">
+                <p style="color:var(--accent);font-weight:600;margin-bottom:4px;">⚠️ ${label}: cambios sin subir</p>
+                <p style="font-size:0.78rem;color:var(--text);margin-bottom:8px;">Tu portafolio todavía tiene la versión anterior. Reintentamos solos; también puedes hacerlo ahora.</p>
+                <div style="display:flex;gap:8px;">
+                    <button class="btn btn-secondary" style="flex:1;font-size:0.8rem;" onclick="reintentarSubidaEncuesta()">🔄 Subir versión actualizada</button>
+                </div>
+            </div>`;
+        }
+        if (est === 'descargado') {
             return `<div style="margin-bottom:14px;">
                 <p style="color:var(--accent);font-weight:600;margin-bottom:4px;">📥 ${label} descargado</p>
                 <p style="font-size:0.78rem;color:var(--text);margin-bottom:8px;">Guardado en tu dispositivo — puedes avanzar. Seguimos reintentando subirlo a tu portafolio en la nube.</p>
                 <div style="display:flex;gap:8px;">
-                    <button class="btn btn-secondary" style="flex:1;font-size:0.8rem;" onclick="reintentarSubidaEncuesta('${key}')">🔄 Reintentar subida</button>
+                    <button class="btn btn-secondary" style="flex:1;font-size:0.8rem;" onclick="reintentarSubidaEncuesta()">🔄 Reintentar subida</button>
                 </div>
             </div>`;
         }
         return `<div style="margin-bottom:14px;">
             <p style="color:var(--danger);font-weight:600;margin-bottom:8px;">❌ ${label} no subido</p>
             <div style="display:flex;gap:8px;">
-                <button class="btn btn-secondary" style="flex:1;font-size:0.8rem;" onclick="reintentarSubidaEncuesta('${key}')">🔄 Reintentar subida</button>
+                <button class="btn btn-secondary" style="flex:1;font-size:0.8rem;" onclick="reintentarSubidaEncuesta()">🔄 Reintentar subida</button>
                 <button class="btn btn-secondary" style="flex:1;font-size:0.8rem;" onclick="generatePDF()">⬇️ Descargar</button>
             </div>
         </div>`;
     }
 
-    async function subirDocumentoPendienteEncuesta(result) {
-        if (Auth._isBypassSession) return;
-        const pd = result.personalData;
-        if (documentosNextcloud.encuesta) return;
-        const { blob, filename } = generatedDocEncuesta;
-        const uploadResult = await subirDocumento('evaluacion', filename, blob, pd.nombre, pd.curp);
-        if (uploadResult.success) documentosNextcloud.encuesta = uploadResult.path;
-        saveProgress();
-        await Auth.flushSync();
+    function pintarEstadoEncuesta() {
+        const el = document.getElementById('estadoDocEncuesta');
+        if (el) el.innerHTML = renderEstadoDoc('encuesta', 'Encuesta de Satisfacción', huellaEncuesta());
     }
 
-    async function reintentarSubidaEncuesta(key) {
-        const result = loadAutodiagnosticoResult();
-        await subirDocumentoPendienteEncuesta(result);
-        renderGeneratedState(document.getElementById('app'), result);
+    async function reintentarSubidaEncuesta() {
+        try { await sincronizarEncuesta({ soloSiYaGenerados: false }); }
+        catch (e) { console.error('Subida de la Encuesta:', e); }
+        pintarEstadoEncuesta();
     }
 
     function escapeHtml(str) {
@@ -477,7 +515,7 @@
     async function generateEncuesta() { generated = true; saveProgress(); await render(); }
 
     async function generatePDF() {
-        const { blob, filename } = generatePDFBlob();
+        const { blob, filename } = docEncuestaActual(huellaEncuesta());
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url; a.download = filename;
@@ -486,17 +524,15 @@
         documentosDescargados.encuesta = true;
         saveProgress();
         await Auth.flushSync();
-        await renderGeneratedState(document.getElementById('app'), loadAutodiagnosticoResult());
+        pintarEstadoEncuesta();
     }
 
     async function renderGeneratedState(app, result) {
-        if (!generatedDocEncuesta) generatedDocEncuesta = generatePDFBlob();
-        await subirDocumentoPendienteEncuesta(result);
-
+        /* Se pinta de inmediato; la subida corre en segundo plano. */
         app.innerHTML = `
             <div class="success-box">
                 <h3>🎉 ¡Ya tienes tu Encuesta lista!</h3>
-                ${renderEstadoDoc('encuesta', 'Encuesta de Satisfacción')}
+                <div id="estadoDocEncuesta"></div>
                 <button class="btn btn-whatsapp btn-full" onclick="notifyWhatsApp()">📱 AVISAR AL EQUIPO POR WHATSAPP</button>
             </div>
             <div class="card" style="text-align:center;margin-top:20px;">
@@ -504,6 +540,11 @@
             </div>
             <div id="flowNextStepCta"></div>
         `;
+        pintarEstadoEncuesta();
+        sincronizarEncuesta({ soloSiYaGenerados: false }).catch(e => {
+            console.error('Subida de la Encuesta:', e);
+            pintarEstadoEncuesta();
+        });
         const flowSteps = await FlowStatus.getSteps();
         CrmShell.mount({ currentPageId: 'encuesta', steps: flowSteps });
         FlowStatus.renderNextStepCTA(flowSteps, 'encuesta', document.getElementById('flowNextStepCta'));
@@ -664,7 +705,11 @@
         return { blob: doc.output('blob'), filename: `Encuesta_Satisfaccion_EC1375_${(pd.nombre || 'candidato').replace(/\s+/g, '_')}.pdf` };
     }
 
-    window.addEventListener('load', () => { loadProgress(); render(); });
+    window.addEventListener('load', () => {
+        loadProgress();
+        render();
+        setTimeout(() => sincronizarEncuesta({ soloSiYaGenerados: true }).catch(e => console.warn('Resubida al NAS:', e)), 1500);
+    });
     </script>
 </body>
 </html>

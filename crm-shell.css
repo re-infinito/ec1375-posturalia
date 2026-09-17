@@ -297,3 +297,8 @@ a.crm-item:hover { background: rgba(255,255,255,0.08); }
 
 .crm-sidebtn-install { background: #FFD700; color: #050a1a; border-color: transparent; }
 .crm-sidebtn-install:hover { background: #ffe14d; }
+
+/* Fecha y hora: todo el campo abre el selector (crm-shell.js) y el icono se
+   ve en tema claro y oscuro (el color-scheme lo da html[data-theme]). */
+input[type="date"], input[type="time"], input[type="datetime-local"], input[type="month"], input[type="week"] { cursor: pointer; }
+input::-webkit-calendar-picker-indicator { cursor: pointer; opacity: 0.9; }

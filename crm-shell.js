@@ -848,6 +848,19 @@
         return '<div class="crm-skel crm-skel-hero"></div><div class="crm-grid">' + cardSk + cardSk + cardSk + cardSk + '</div>';
     }
 
+    /* Fecha y hora (17 sep, reporte de Fernando: "no despliega nada"). En
+       Chrome de escritorio el calendario/reloj solo abría tocando el iconito
+       de la orilla — que en tema claro ni se veía —, así que al tocar el campo
+       parecía no pasar nada. Ahora cualquier clic en el campo lo abre, en
+       todas las páginas que cargan el shell. */
+    function abrirSelectorFechaHora(ev) {
+        var el = ev.target;
+        if (!el || el.tagName !== 'INPUT' || !/^(date|time|datetime-local|month|week)$/.test(el.type)) return;
+        if (el.disabled || el.readOnly || typeof el.showPicker !== 'function') return;
+        try { el.showPicker(); } catch (e) { /* sin soporte o bloqueado: queda el comportamiento nativo */ }
+    }
+    if (typeof document !== 'undefined') document.addEventListener('click', abrirSelectorFechaHora);
+
     var CrmShell = {
         icon: icon,
         skeleton: skeleton,

@@ -14,6 +14,7 @@
     <script src="auth.js"></script>
     <script src="protect.js"></script>
     <script src="flow-status.js"></script>
+    <script src="documentos-nas.js"></script>
     <script src="crm-shell.js" data-crm-page="documentos-sesion"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -59,9 +60,10 @@
             width: 100%; padding: 12px 14px; background: var(--dark);
             border: 1px solid var(--border); border-radius: 8px;
             color: var(--text-bright); font-size: 0.92rem; font-family: inherit;
-            color-scheme: dark;
         }
-        .field-group input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(1); cursor: pointer; }
+        /* Sin color-scheme fijo: lo hereda del tema (crm-shell.js). Antes era
+           'dark' siempre y en tema claro el reloj de la hora salía blanco
+           sobre blanco y el calendario/reloj se abría en oscuro. */
         .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
         @media (max-width: 600px) { .field-row { grid-template-columns: 1fr; } }
 
@@ -125,6 +127,21 @@
         .section-checkpoint.checked { background: rgba(0,255,136,0.08); border-color: var(--success); }
         .section-checkpoint.checked label { color: var(--success) !important; }
         .prep-progress { font-size: 0.85rem; color: var(--text-bright); font-weight: 700; margin-bottom: 10px; }
+
+        /* Aviso de Privacidad (paso 'privacidad'): el documento que el guion pide presentar */
+        .aviso-doc { background: var(--dark); border: 1px solid var(--border); border-radius: 10px; padding: 20px 22px; font-size: 0.88rem; line-height: 1.65; color: var(--text-bright); }
+        .aviso-doc h3 { font-size: 1rem; text-align: center; letter-spacing: 0.5px; margin-bottom: 14px; color: var(--text-bright); }
+        .aviso-doc h4 { font-size: 0.85rem; margin: 14px 0 4px; color: var(--primary-light); }
+        .aviso-doc p { margin-bottom: 6px; color: var(--text-bright); }
+        .aviso-doc ul { margin: 4px 0 6px 20px; }
+        .aviso-doc li { margin-bottom: 3px; }
+        .aviso-doc .vacio { color: var(--danger); font-weight: 600; }
+
+        /* Ficha de Registro: cada pregunta del guion con su campo justo debajo */
+        .pregunta-campo { background: var(--dark-light); border: 1px solid var(--border); border-radius: 10px; padding: 14px 14px 2px; margin-bottom: 14px; }
+        .pregunta-campo .item-dialogo { margin-bottom: 12px; }
+        .pregunta-campo .field-group { margin-bottom: 12px; }
+        .doc-actualizando { color: var(--primary); font-weight: 600; }
     </style>
 </head>
 <body>
@@ -160,7 +177,10 @@
     };
 
     /* Guion por paso — mismo esquema de items que guion-maestro.html:
-       t: 'accion' | 'dialogo' | 'usuario' | 'nota' | 'subtitulo' | 'lista' */
+       t: 'accion' | 'dialogo' | 'usuario' | 'nota' | 'subtitulo' | 'lista'
+       `campos` (solo en 'ficha', 17 sep): claves de FICHA_CAMPOS que se pintan
+       JUSTO DEBAJO de esa pregunta, para llenar mientras se pregunta sin
+       tener que bajar y subir por la página. Lo ignora renderGuionPanel. */
     const PASO_GUION = {
         recepcion: { seccionNum: 2, items: [
             { t: 'dialogo', x: 'Buenos días. Bienvenido.' },
@@ -192,16 +212,16 @@
         ]},
         ficha: { seccionNum: 5, items: [
             { t: 'dialogo', x: 'Vamos a completar su ficha de registro. Le voy a solicitar algunos datos y antecedentes necesarios para su atención.' },
-            { t: 'accion', x: 'Recabar la información de manera verbal y presencial.' },
+            { t: 'accion', x: 'Recabar la información de manera verbal y presencial.', campos: ['@datosGenerales'] },
             { t: 'subtitulo', x: 'Preguntas naturales de ejemplo' },
-            { t: 'dialogo', x: '¿Actualmente lo atiende algún médico o profesional de la salud?' },
-            { t: 'dialogo', x: '¿Tiene algún antecedente físico o alguna condición que considere importante mencionar?' },
-            { t: 'dialogo', x: '¿Existen enfermedades importantes dentro de sus antecedentes familiares?' },
-            { t: 'dialogo', x: '¿Padece alguna enfermedad crónica o degenerativa?' },
-            { t: 'dialogo', x: '¿Tiene alguna alergia conocida?' },
-            { t: 'dialogo', x: 'Cuénteme un poco sobre sus hábitos de alimentación y sueño.' },
-            { t: 'dialogo', x: '¿Realiza alguna actividad física?' },
-            { t: 'dialogo', x: '¿Consume actualmente algún medicamento o alguna otra sustancia que debamos registrar?' },
+            { t: 'dialogo', x: '¿Actualmente lo atiende algún médico o profesional de la salud?', campos: ['medicoTratante', 'resultadosLaboratorio'] },
+            { t: 'dialogo', x: '¿Tiene algún antecedente físico o alguna condición que considere importante mencionar?', campos: ['fisiologicos', 'socioemocionales'] },
+            { t: 'dialogo', x: '¿Existen enfermedades importantes dentro de sus antecedentes familiares?', campos: ['heredofamiliares'] },
+            { t: 'dialogo', x: '¿Padece alguna enfermedad crónica o degenerativa?', campos: ['enfermedadesCronicas'] },
+            { t: 'dialogo', x: '¿Tiene alguna alergia conocida?', campos: ['alergias'] },
+            { t: 'dialogo', x: 'Cuénteme un poco sobre sus hábitos de alimentación y sueño.', campos: ['habitosAlimentacionSueno'] },
+            { t: 'dialogo', x: '¿Realiza alguna actividad física?', campos: ['deportivos'] },
+            { t: 'dialogo', x: '¿Consume actualmente algún medicamento o alguna otra sustancia que debamos registrar?', campos: ['consumoSustancias', 'informacionToxicologica'] },
             { t: 'accion', x: 'Registrar las respuestas.' },
             { t: 'dialogo', x: 'Quiero señalarle también que los servicios tradicionales y complementarios que ofrecemos no cubren ni sustituyen las indicaciones de su médico tratante o profesional de la salud.' }
         ]},
@@ -316,6 +336,8 @@
         usuarioNombre: '', usuarioEdad: '', usuarioFechaNacimiento: '', usuarioDomicilio: '',
         usuarioTelefono: '', usuarioCorreo: '', contactoEmergencia: '',
         fisiologicos: '', socioemocionales: '', heredofamiliares: '', deportivos: '', consumoSustancias: '',
+        enfermedadesCronicas: '', alergias: '', habitosAlimentacionSueno: '',
+        avisoResponsable: '', avisoDomicilio: '', avisoContacto: '',
         medicoTratante: '', informacionToxicologica: '', resultadosLaboratorio: '',
         presionArterial: '', pulso: '', temperatura: '', oxigenacion: '', peso: '', estatura: '',
         observacionPostural: '', frecuenciaRespiratoria: '', sintomasNecesidades: '',
@@ -338,6 +360,7 @@
     let generatedPdfs = {};
     let documentosNextcloud = {};
     let documentosDescargados = {};
+    let documentosHuella = {};
 
     function todayISOSession() { return new Date().toISOString().split('T')[0]; }
 
@@ -366,15 +389,19 @@
                 signatures = Object.assign(signatures, saved.signatures || {});
                 documentosNextcloud = saved.documentosNextcloud || {};
                 documentosDescargados = saved.documentosDescargados || {};
+                documentosHuella = saved.documentosHuella || {};
             }
         } catch (e) {}
     }
 
     function saveProgress() {
-        const data = { sessionData, sesionesSeguimiento, signatures, documentosNextcloud, documentosDescargados };
+        const data = { sessionData, sesionesSeguimiento, signatures, documentosNextcloud, documentosDescargados, documentosHuella };
         localStorage.setItem('documentosSesionData', JSON.stringify(data));
         const result = loadAutodiagnosticoResult();
         if (result) Auth.syncToSupabase('documentos_sesion_data', data, result.personalData.curp, result.personalData.nombre);
+        /* Si los 4 documentos ya se habían generado, un cambio los resube al
+           NAS unos segundos después de dejar de escribir (documentos-nas.js). */
+        DocumentosNas.programar('sesion', () => sincronizarDocsSesion({ soloSiYaGenerados: true }), 8000);
     }
 
     function documentosFaseCompletos(jsonbData, requiredKeys) {
@@ -393,42 +420,96 @@
         });
     }
 
-    async function subirDocumento(fase, filename, blob, nombre, curp) {
-        try {
-            const session = await Auth.getSession();
-            if (!session) return { success: false, error: 'Sin sesión activa' };
-            const fileBase64 = await new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onloadend = () => resolve(reader.result.split(',')[1]);
-                reader.onerror = reject;
-                reader.readAsDataURL(blob);
-            });
-            const resp = await fetch('/api/subir-portafolio', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-                body: JSON.stringify({ email: session.user.email, fase, nombre, curp, filename, fileBase64 })
-            });
-            const data = await resp.json();
-            if (!resp.ok || !data.success) return { success: false, error: data.error || 'Error desconocido' };
-            return { success: true, path: data.path };
-        } catch (e) {
-            return { success: false, error: e.message || 'Error de red' };
+    /* =========================================================
+       SUBIDA AL NAS CON VERSIÓN (documentos-nas.js, 17 sep)
+       La huella cubre todo lo que entra a los 4 PDF — incluidos nombre y
+       firma del candidato, que vienen del Autodiagnóstico — más la versión
+       de plantilla: si se corrige cualquier dato, o cambia el formato de
+       un PDF (subir VERSION_DOCS_SESION), se vuelven a subir.
+    ========================================================= */
+    const VERSION_DOCS_SESION = '2026-09-17-aviso-privacidad';
+    const DOCS_SESION = ['ficha', 'consentimiento', 'plan_sesion', 'plan_seguimiento'];
+
+    function estadoDocsSesion() { return { documentosNextcloud, documentosDescargados, documentosHuella }; }
+    function huellaDocsSesion() {
+        return DocumentosNas.huella({ v: VERSION_DOCS_SESION, sessionData, sesionesSeguimiento, signatures, candidato: loadAutodiagnosticoResult() });
+    }
+    /* PDF al día con la huella actual; se regeneran solo si algo cambió. */
+    function docsSesionActuales(huella, result) {
+        if (!generatedPdfs.ficha || generatedPdfs._huella !== huella) {
+            generatedPdfs = {
+                _huella: huella,
+                ficha: generateFichaPDF(result),
+                consentimiento: generateConsentimientoPDF(result),
+                plan_sesion: generatePlanSesionPDF(result),
+                plan_seguimiento: generatePlanSeguimientoPDF(result)
+            };
         }
+        return generatedPdfs;
+    }
+    /* 'prep' es un checklist del espacio que vive solo en este navegador y
+       no entra a ningún PDF: no debe impedir resubir desde otro dispositivo. */
+    function todosLosPasosSesionValidos() {
+        return STEPS.slice(1, STEPS.length - 1).filter(st => st !== 'prep').every(isStepValid);
     }
 
-    function renderEstadoDoc(key, label) {
-        const val = documentosNextcloud[key];
-        if (val) {
+    /* opts.soloSiYaGenerados: resubida automática (al cargar o tras editar) —
+       solo si los documentos ya existían; la primera vez los genera el
+       candidato con "Generar Documentos". */
+    async function sincronizarDocsSesion(opts) {
+        opts = opts || {};
+        if (Auth._isBypassSession !== false && await Auth.isBypassSession()) return;
+        const result = loadAutodiagnosticoResult();
+        if (!result || !(await Auth.getSession())) return;
+        if (opts.soloSiYaGenerados && !DocumentosNas.yaGenerado(DOCS_SESION, estadoDocsSesion())) return;
+        if (!todosLosPasosSesionValidos()) return;
+        const huella = huellaDocsSesion();
+        const pd = result.personalData;
+        const r = await DocumentosNas.sincronizar({
+            grupo: 'sesion', fase: 'evaluacion', claves: DOCS_SESION, huella, estado: estadoDocsSesion(),
+            nombre: pd.nombre, curp: pd.curp,
+            generar: () => docsSesionActuales(huella, result),
+            alCambiar: () => pintarEstadoDocsSesion()
+        });
+        if (r.subidos.length) { persistirSinReprogramar(); await Auth.flushSync(); }
+        pintarEstadoDocsSesion();
+    }
+    /* Guarda el estado de subida sin volver a programar otra resubida. */
+    function persistirSinReprogramar() {
+        const data = { sessionData, sesionesSeguimiento, signatures, documentosNextcloud, documentosDescargados, documentosHuella };
+        localStorage.setItem('documentosSesionData', JSON.stringify(data));
+        const result = loadAutodiagnosticoResult();
+        if (result) Auth.syncToSupabase('documentos_sesion_data', data, result.personalData.curp, result.personalData.nombre);
+    }
+
+    function renderEstadoDoc(key, label, huella) {
+        const est = DocumentosNas.estadoDoc(key, estadoDocsSesion(), huella);
+        if (est === 'subiendo') {
+            const txt = DocumentosNas.subido(documentosNextcloud[key]) ? 'Actualizando…' : 'Subiendo…';
+            return `<div class="doc-download-item"><span>${label}</span><span class="doc-actualizando">⏳ ${txt}</span></div>`;
+        }
+        if (est === 'subido') {
             return `<div class="doc-download-item"><span>${label}</span><span style="color:var(--success);font-weight:600;">✅ Subido</span></div>`;
         }
-        if (documentosDescargados[key]) {
+        if (est === 'desactualizado') {
+            return `<div class="doc-download-item" style="flex-direction:column;align-items:stretch;gap:8px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <span>${label}</span><span style="color:var(--accent);font-weight:600;">⚠️ Cambios sin subir</span>
+                </div>
+                <p style="font-size:0.78rem;color:var(--text);">Tu portafolio todavía tiene la versión anterior. Reintentamos solos; también puedes hacerlo ahora.</p>
+                <div style="display:flex;gap:8px;">
+                    <button class="btn btn-secondary" style="flex:1;font-size:0.8rem;" onclick="reintentarSubidaSesion()">🔄 Subir versión actualizada</button>
+                </div>
+            </div>`;
+        }
+        if (est === 'descargado') {
             return `<div class="doc-download-item" style="flex-direction:column;align-items:stretch;gap:8px;">
                 <div style="display:flex;justify-content:space-between;align-items:center;">
                     <span>${label}</span><span style="color:var(--accent);font-weight:600;">📥 Descargado</span>
                 </div>
                 <p style="font-size:0.78rem;color:var(--text);">Guardado en tu dispositivo — puedes avanzar. Seguimos reintentando subirlo a tu portafolio en la nube.</p>
                 <div style="display:flex;gap:8px;">
-                    <button class="btn btn-secondary" style="flex:1;font-size:0.8rem;" onclick="reintentarSubidaSesion('${key}')">🔄 Reintentar subida</button>
+                    <button class="btn btn-secondary" style="flex:1;font-size:0.8rem;" onclick="reintentarSubidaSesion()">🔄 Reintentar subida</button>
                 </div>
             </div>`;
         }
@@ -437,32 +518,29 @@
                 <span>${label}</span><span style="color:var(--danger);font-weight:600;">❌ No subido</span>
             </div>
             <div style="display:flex;gap:8px;">
-                <button class="btn btn-secondary" style="flex:1;font-size:0.8rem;" onclick="reintentarSubidaSesion('${key}')">🔄 Reintentar subida</button>
+                <button class="btn btn-secondary" style="flex:1;font-size:0.8rem;" onclick="reintentarSubidaSesion()">🔄 Reintentar subida</button>
                 <button class="btn btn-secondary" style="flex:1;font-size:0.8rem;" onclick="downloadDoc('${key}')">⬇️ Descargar</button>
             </div>
         </div>`;
     }
 
-    async function subirDocumentosPendientesSesion(result) {
-        if (Auth._isBypassSession) return;
-        const pd = result.personalData;
-        for (const key of Object.keys(generatedPdfs)) {
-            if (documentosNextcloud[key]) continue;
-            const { blob, filename } = generatedPdfs[key];
-            const uploadResult = await subirDocumento('evaluacion', filename, blob, pd.nombre, pd.curp);
-            if (uploadResult.success) documentosNextcloud[key] = uploadResult.path;
-        }
-        saveProgress();
-        await Auth.flushSync();
+    const DOCS_SESION_ETIQUETAS = [
+        { key: 'ficha', label: '📋 Ficha de Registro de Atención' },
+        { key: 'consentimiento', label: '📝 Carta de Consentimiento Informado' },
+        { key: 'plan_sesion', label: '📅 Plan de Sesión' },
+        { key: 'plan_seguimiento', label: '📞 Plan de Seguimiento' }
+    ];
+    function pintarEstadoDocsSesion() {
+        const el = document.getElementById('estadoDocsSesion');
+        if (!el) return;
+        const huella = huellaDocsSesion();
+        el.innerHTML = DOCS_SESION_ETIQUETAS.map(d => renderEstadoDoc(d.key, d.label, huella)).join('');
     }
 
-    async function reintentarSubidaSesion(key) {
-        const result = loadAutodiagnosticoResult();
-        const pd = result.personalData;
-        const { blob, filename } = generatedPdfs[key];
-        const uploadResult = await subirDocumento('evaluacion', filename, blob, pd.nombre, pd.curp);
-        if (uploadResult.success) { documentosNextcloud[key] = uploadResult.path; saveProgress(); await Auth.flushSync(); }
-        await renderResultado(document.getElementById('app'), result);
+    async function reintentarSubidaSesion() {
+        try { await sincronizarDocsSesion({ soloSiYaGenerados: false }); }
+        catch (e) { console.error('Subida de documentos de sesión:', e); }
+        pintarEstadoDocsSesion();
     }
 
     function escapeHtml(str) {
@@ -579,13 +657,13 @@
         return '';
     }
 
-    function renderGuionPanel(stepKey) {
+    function renderGuionPanel(stepKey, renderItem) {
         const g = PASO_GUION[stepKey];
         if (!g) return '';
         return `
             <div class="guion-panel">
                 <div class="guion-panel-label">📜 Guion — Sección ${g.seccionNum} <a href="guion-maestro.html#seccion-${g.seccionNum}" target="_blank" style="margin-left:auto;color:var(--primary-light);font-size:0.72rem;text-transform:none;letter-spacing:0;">Ver guion completo ↗</a></div>
-                ${g.items.map(renderGuionItem).join('')}
+                ${g.items.map(renderItem || renderGuionItem).join('')}
                 ${checkboxRow('checkpoint-' + g.seccionNum, '🎬 Video de esta sección grabado', 'section-checkpoint')}
             </div>
         `;
@@ -698,7 +776,7 @@
         if (step === 'prep') { app.innerHTML = renderPrep(); attachNav(); applyChecklistState(); return; }
         if (step === 'recepcion') { app.innerHTML = renderRecepcion(); attachRecepcionListeners(); attachNav(); applyChecklistState(); return; }
         if (step === 'explicacion') { app.innerHTML = renderSoloGuion('explicacion', 'Explicación Inicial y Documentación'); attachNav(); applyChecklistState(); return; }
-        if (step === 'privacidad') { app.innerHTML = renderSoloGuion('privacidad', 'Aviso de Privacidad e Identificación'); attachNav(); applyChecklistState(); return; }
+        if (step === 'privacidad') { app.innerHTML = renderPrivacidad(result); attachPrivacidadListeners(result); attachNav(); applyChecklistState(); return; }
         if (step === 'ficha') { app.innerHTML = renderFicha(); attachFichaListeners(); attachNav(); applyChecklistState(); return; }
         if (step === 'peso_estatura') { app.innerHTML = renderPesoEstatura(); attachPesoEstaturaListeners(); attachNav(); applyChecklistState(); return; }
         if (step === 'spo2_pulso') { app.innerHTML = renderSpo2Pulso(); attachSpo2PulsoListeners(); attachNav(); applyChecklistState(); return; }
@@ -792,37 +870,144 @@
         `;
     }
 
-    function renderFicha() {
+    /* =========================================================
+       AVISO DE PRIVACIDAD (paso 'privacidad', 17 sep)
+       El guion pide "presentar el Aviso de Privacidad" y recabar la firma de
+       enterado, pero el paso no mostraba ningún aviso. Texto modelo de aviso
+       simplificado con los datos del candidato como responsable; se muestra
+       aquí (para compartir pantalla o leerlo) y va completo en la Carta de
+       Consentimiento, que es donde el EC1375 exige que "contenga el Aviso de
+       Privacidad". La firma de enterado queda en la Ficha y en la Carta.
+    ========================================================= */
+    function avisoDatos(result) {
+        const s = sessionData;
+        const pd = (result && result.personalData) || {};
+        return {
+            responsable: (s.avisoResponsable || pd.nombre || '').trim(),
+            domicilio: (s.avisoDomicilio || pd.domicilio || '').trim(),
+            contacto: (s.avisoContacto || [pd.telefonoCelular, pd.email].filter(Boolean).join(' · ')).trim()
+        };
+    }
+    /* Bloques [{t:'titulo'|'h'|'p'|'li', x}] — los mismos para pantalla y PDF. */
+    function avisoPrivacidadBloques(d) {
+        const faltante = '__________';
+        return [
+            { t: 'titulo', x: 'AVISO DE PRIVACIDAD SIMPLIFICADO' },
+            { t: 'p', x: `${d.responsable || faltante}, con domicilio en ${d.domicilio || faltante}, es responsable del tratamiento de los datos personales que usted proporcione, conforme a la Ley Federal de Protección de Datos Personales en Posesión de Particulares.` },
+            { t: 'h', x: '¿Qué datos recabamos?' },
+            { t: 'p', x: 'Datos de identificación y contacto (nombre, edad, fecha de nacimiento, domicilio, teléfono, correo electrónico y familiar a quien avisar) y datos sobre su salud (antecedentes, signos vitales, observación postural y evolución), que la ley considera datos personales sensibles.' },
+            { t: 'h', x: '¿Para qué los usamos?' },
+            { t: 'li', x: 'Integrar su ficha de registro y su expediente de atención.' },
+            { t: 'li', x: 'Verificar que no exista impedimento para recibir el servicio, brindarle la atención y darle seguimiento.' },
+            { t: 'li', x: 'Contactarle para programar y dar seguimiento a sus sesiones.' },
+            { t: 'li', x: 'Integrar la grabación de esta sesión y los documentos de su atención al portafolio de evidencias con el que quien le atiende se evalúa en el Estándar de Competencia EC1375 ante el Centro Evaluador (SEP-CONOCER).' },
+            { t: 'h', x: '¿Con quién los compartimos?' },
+            { t: 'p', x: 'Solo con el Centro Evaluador, para la finalidad anterior, y con las autoridades que lo requieran conforme a la ley. No vendemos ni cedemos sus datos personales.' },
+            { t: 'h', x: 'Sus derechos' },
+            { t: 'p', x: `Usted puede acceder a sus datos, rectificarlos, cancelarlos u oponerse a su uso (derechos ARCO), así como revocar su consentimiento, solicitándolo a: ${d.contacto || faltante}.` },
+            { t: 'h', x: 'Consentimiento' },
+            { t: 'p', x: 'Al firmar de enterado, usted manifiesta que se le informó este aviso y otorga su consentimiento expreso para el tratamiento de sus datos personales, incluidos los sensibles, para las finalidades descritas.' }
+        ];
+    }
+    function avisoPrivacidadHtml(d) {
+        const marcar = txt => escapeHtml(txt).replace(/_{10}/g, '<span class="vacio">__________</span>');
+        let html = '', lista = false;
+        avisoPrivacidadBloques(d).forEach(b => {
+            if (b.t === 'li' && !lista) { html += '<ul>'; lista = true; }
+            if (b.t !== 'li' && lista) { html += '</ul>'; lista = false; }
+            if (b.t === 'titulo') html += `<h3>${marcar(b.x)}</h3>`;
+            else if (b.t === 'h') html += `<h4>${marcar(b.x)}</h4>`;
+            else if (b.t === 'li') html += `<li>${marcar(b.x)}</li>`;
+            else html += `<p>${marcar(b.x)}</p>`;
+        });
+        return html + (lista ? '</ul>' : '');
+    }
+    function renderPrivacidad(result) {
+        const d = avisoDatos(result);
+        return `
+            <div class="hero"><div class="hero-icon">📜</div><h1 class="hero-title">Aviso de Privacidad e Identificación</h1></div>
+            ${renderGuionPanel('privacidad')}
+            <div class="card">
+                <div class="section-label">Tus datos como responsable</div>
+                <p class="desc">Ya vienen de tu Autodiagnóstico; ajústalos si atiendes en otro domicilio o con otro contacto. El aviso de abajo se actualiza solo.</p>
+                <div class="field-group"><label>Nombre del responsable</label><input type="text" id="f_avisoResponsable" value="${escapeHtml(d.responsable)}"></div>
+                <div class="field-group"><label>Domicilio donde atiendes</label><input type="text" id="f_avisoDomicilio" value="${escapeHtml(d.domicilio)}" placeholder="Calle, número, colonia, ciudad"></div>
+                <div class="field-group"><label>Contacto para derechos ARCO</label><input type="text" id="f_avisoContacto" value="${escapeHtml(d.contacto)}" placeholder="Correo o teléfono"></div>
+            </div>
+            <div class="card">
+                <div class="section-label">Aviso de Privacidad — preséntalo a tu usuario</div>
+                <p class="desc">Compártelo en pantalla durante tu Zoom o léelo en voz alta. Va completo en la Carta de Consentimiento, y la firma de enterado de tu usuario queda en la Ficha de Registro (paso "Verificación y Firma") y en la Carta.</p>
+                <div class="aviso-doc" id="avisoDoc">${avisoPrivacidadHtml(d)}</div>
+            </div>
+        `;
+    }
+    function attachPrivacidadListeners(result) {
+        ['avisoResponsable', 'avisoDomicilio', 'avisoContacto'].forEach(field => {
+            const el = document.getElementById('f_' + field);
+            if (!el) return;
+            el.addEventListener('input', () => {
+                sessionData[field] = el.value;
+                saveProgress();
+                const doc = document.getElementById('avisoDoc');
+                if (doc) doc.innerHTML = avisoPrivacidadHtml(avisoDatos(result));
+            });
+        });
+    }
+
+    /* Ficha de Registro: cada pregunta del guion lleva su campo justo debajo
+       (pedido de Fernando, 17 sep) — el candidato pregunta y anota sin
+       desplazarse. Los campos de cada pregunta están en PASO_GUION.ficha. */
+    const FICHA_CAMPOS = {
+        medicoTratante: { label: 'Médico tratante / profesional de la salud que lo atiende', placeholder: "Nombre, o 'Ninguno' si no aplica" },
+        resultadosLaboratorio: { label: 'Resumen de resultados de laboratorio y gabinete (si aplica)', tipo: 'textarea', placeholder: 'Ej. No cuenta con estudios recientes' },
+        fisiologicos: { label: 'Antecedentes fisiológicos', tipo: 'textarea' },
+        socioemocionales: { label: 'Antecedentes socioemocionales', tipo: 'textarea' },
+        heredofamiliares: { label: 'Antecedentes heredofamiliares', tipo: 'textarea' },
+        enfermedadesCronicas: { label: 'Enfermedades crónicas o degenerativas', placeholder: 'Ej. Ninguna / Hipertensión' },
+        alergias: { label: 'Alergias', placeholder: 'Ej. Ninguna conocida / Penicilina' },
+        habitosAlimentacionSueno: { label: 'Hábitos de alimentación y sueño', tipo: 'textarea', placeholder: 'Ej. 3 comidas al día, duerme 7 horas' },
+        deportivos: { label: 'Actividad física', placeholder: 'Ej. Camina 30 min diario / Ninguna' },
+        consumoSustancias: { label: 'Medicamentos o sustancias que consume', placeholder: 'Ej. No / Tabaco ocasional' },
+        informacionToxicologica: { label: 'Información toxicológica', placeholder: 'Ej. Sin antecedentes toxicológicos' }
+    };
+    const FICHA_CAMPOS_GENERALES = ['usuarioNombre', 'usuarioEdad', 'usuarioFechaNacimiento', 'usuarioDomicilio', 'usuarioTelefono', 'usuarioCorreo', 'contactoEmergencia'];
+
+    function campoFicha(key) {
+        const c = FICHA_CAMPOS[key];
+        const v = escapeHtml(sessionData[key]);
+        const ph = c.placeholder ? ` placeholder="${escapeHtml(c.placeholder)}"` : '';
+        const input = c.tipo === 'textarea'
+            ? `<textarea id="f_${key}" rows="2"${ph}>${v}</textarea>`
+            : `<input type="text" id="f_${key}" value="${v}"${ph}>`;
+        return `<div class="field-group"><label for="f_${key}">${escapeHtml(c.label)}</label>${input}</div>`;
+    }
+    function camposDatosGenerales() {
         const s = sessionData;
         return `
-            <div class="hero"><div class="hero-icon">👤</div><h1 class="hero-title">Ficha de Registro</h1></div>
-            ${renderGuionPanel('ficha')}
-            <div class="card">
-                <div class="section-label">Datos generales del usuario</div>
-                <div class="field-group"><label>Nombre completo *</label><input type="text" id="f_usuarioNombre" value="${escapeHtml(s.usuarioNombre)}"></div>
-                <div class="field-row">
-                    <div class="field-group"><label>Edad</label><input type="text" id="f_usuarioEdad" value="${escapeHtml(s.usuarioEdad)}"></div>
-                    <div class="field-group"><label>Fecha de nacimiento</label><input type="date" id="f_usuarioFechaNacimiento" value="${s.usuarioFechaNacimiento}"></div>
-                </div>
-                <div class="field-group"><label>Domicilio</label><input type="text" id="f_usuarioDomicilio" value="${escapeHtml(s.usuarioDomicilio)}"></div>
-                <div class="field-row">
-                    <div class="field-group"><label>Teléfono</label><input type="tel" id="f_usuarioTelefono" value="${escapeHtml(s.usuarioTelefono)}"></div>
-                    <div class="field-group"><label>Correo electrónico</label><input type="email" id="f_usuarioCorreo" value="${escapeHtml(s.usuarioCorreo)}"></div>
-                </div>
-                <div class="field-group"><label>Nombre de familiar o responsable a avisar</label><input type="text" id="f_contactoEmergencia" value="${escapeHtml(s.contactoEmergencia)}"></div>
-
-                <div class="section-label">Antecedentes</div>
-                <div class="field-group"><label>Fisiológicos</label><textarea id="f_fisiologicos" rows="2">${escapeHtml(s.fisiologicos)}</textarea></div>
-                <div class="field-group"><label>Socioemocionales</label><textarea id="f_socioemocionales" rows="2">${escapeHtml(s.socioemocionales)}</textarea></div>
-                <div class="field-group"><label>Heredofamiliares</label><textarea id="f_heredofamiliares" rows="2">${escapeHtml(s.heredofamiliares)}</textarea></div>
-                <div class="field-group"><label>Actividad deportiva</label><input type="text" id="f_deportivos" value="${escapeHtml(s.deportivos)}"></div>
-                <div class="field-group"><label>Consumo de sustancias</label><input type="text" id="f_consumoSustancias" value="${escapeHtml(s.consumoSustancias)}" placeholder="Ej. No / Tabaco ocasional"></div>
-
-                <div class="section-label">Información médica adicional</div>
-                <div class="field-group"><label>Médico tratante / profesional de la salud que lo atiende</label><input type="text" id="f_medicoTratante" value="${escapeHtml(s.medicoTratante)}" placeholder="Nombre, o 'Ninguno' si no aplica"></div>
-                <div class="field-group"><label>Información toxicológica</label><input type="text" id="f_informacionToxicologica" value="${escapeHtml(s.informacionToxicologica)}" placeholder="Ej. Sin antecedentes toxicológicos"></div>
-                <div class="field-group"><label>Resumen de resultados de laboratorio y gabinete (si aplica)</label><textarea id="f_resultadosLaboratorio" rows="2" placeholder="Ej. No cuenta con estudios recientes">${escapeHtml(s.resultadosLaboratorio)}</textarea></div>
+            <div class="section-label">Datos generales del usuario</div>
+            <div class="field-group"><label for="f_usuarioNombre">Nombre completo *</label><input type="text" id="f_usuarioNombre" value="${escapeHtml(s.usuarioNombre)}"></div>
+            <div class="field-row">
+                <div class="field-group"><label for="f_usuarioEdad">Edad</label><input type="text" id="f_usuarioEdad" value="${escapeHtml(s.usuarioEdad)}"></div>
+                <div class="field-group"><label for="f_usuarioFechaNacimiento">Fecha de nacimiento</label><input type="date" id="f_usuarioFechaNacimiento" value="${escapeHtml(s.usuarioFechaNacimiento)}"></div>
             </div>
+            <div class="field-group"><label for="f_usuarioDomicilio">Domicilio</label><input type="text" id="f_usuarioDomicilio" value="${escapeHtml(s.usuarioDomicilio)}"></div>
+            <div class="field-row">
+                <div class="field-group"><label for="f_usuarioTelefono">Teléfono</label><input type="tel" id="f_usuarioTelefono" value="${escapeHtml(s.usuarioTelefono)}"></div>
+                <div class="field-group"><label for="f_usuarioCorreo">Correo electrónico</label><input type="email" id="f_usuarioCorreo" value="${escapeHtml(s.usuarioCorreo)}"></div>
+            </div>
+            <div class="field-group"><label for="f_contactoEmergencia">Nombre de familiar o responsable a avisar</label><input type="text" id="f_contactoEmergencia" value="${escapeHtml(s.contactoEmergencia)}"></div>
+        `;
+    }
+    function renderItemFicha(item) {
+        if (!item.campos) return renderGuionItem(item);
+        const campos = item.campos[0] === '@datosGenerales' ? camposDatosGenerales() : item.campos.map(campoFicha).join('');
+        return `<div class="pregunta-campo">${renderGuionItem(item)}${campos}</div>`;
+    }
+
+    function renderFicha() {
+        return `
+            <div class="hero"><div class="hero-icon">👤</div><h1 class="hero-title">Ficha de Registro</h1></div>
+            ${renderGuionPanel('ficha', renderItemFicha)}
         `;
     }
 
@@ -1177,9 +1362,7 @@
 
     function attachRecepcionListeners() { bindFields(['temperatura']); }
     function attachFichaListeners() {
-        bindFields(['usuarioNombre', 'usuarioEdad', 'usuarioFechaNacimiento', 'usuarioDomicilio', 'usuarioTelefono', 'usuarioCorreo',
-            'contactoEmergencia', 'fisiologicos', 'socioemocionales', 'heredofamiliares', 'deportivos', 'consumoSustancias',
-            'medicoTratante', 'informacionToxicologica', 'resultadosLaboratorio']);
+        bindFields(FICHA_CAMPOS_GENERALES.concat(Object.keys(FICHA_CAMPOS)));
     }
     function attachPesoEstaturaListeners() { bindFields(['peso', 'estatura']); }
     function attachSpo2PulsoListeners() { bindFields(['oxigenacion', 'pulso']); }
@@ -1360,6 +1543,9 @@ const LOGO_CONOCER_BASE64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAA
                 ['Fisiológicos', s.fisiologicos || '—'],
                 ['Socioemocionales', s.socioemocionales || '—'],
                 ['Heredofamiliares', s.heredofamiliares || '—'],
+                ['Enfermedades crónicas o degenerativas', s.enfermedadesCronicas || '—'],
+                ['Alergias', s.alergias || '—'],
+                ['Hábitos de alimentación y sueño', s.habitosAlimentacionSueno || '—'],
                 ['Actividad deportiva', s.deportivos || '—'],
                 ['Consumo de sustancias', s.consumoSustancias || '—']
             ]
@@ -1400,7 +1586,10 @@ const LOGO_CONOCER_BASE64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAA
 
         doc.setFont(undefined, 'italic'); doc.setFontSize(8);
         const nota = doc.splitTextToSize('Nota importante: Los servicios tradicionales y complementarios que se ofrecen no cubren, ni sustituyen las indicaciones del médico tratante.', 180);
-        doc.text(nota, 14, y); y += nota.length * 4 + 12;
+        doc.text(nota, 14, y); y += nota.length * 4 + 4;
+        const enterado = doc.splitTextToSize('El usuario manifiesta que se le presentó el Aviso de Privacidad, conforme a la Ley Federal de Protección de Datos Personales en Posesión de Particulares, y firma de enterado.', 180);
+        doc.text(enterado, 14, y); y += enterado.length * 4 + 12;
+        doc.setFont(undefined, 'normal');
 
         if (y > 240) { doc.addPage(); addOfficialLogos(doc); y = 30; }
         drawSignatureBlock(doc, y, 'Nombre completo y firma del usuario:', 'usuarioFicha', 'Nombre y firma del candidato/a:', {
@@ -1446,12 +1635,28 @@ const LOGO_CONOCER_BASE64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAA
         });
         y = doc.lastAutoTable.finalY + 8;
 
-        doc.setFontSize(9); doc.setFont(undefined, 'bold');
-        doc.text('Aviso de Privacidad:', 14, y); y += 5;
-        doc.setFont(undefined, 'normal');
-        const avisoPrivacidad = 'Sus datos personales están protegidos conforme a la Ley Federal de Protección de Datos Personales en Posesión de Particulares. Con la firma del presente documento manifiesta estar enterado(a) de dicho aviso.';
-        let avisoLines = doc.splitTextToSize(avisoPrivacidad, 180);
-        doc.text(avisoLines, 14, y); y += avisoLines.length * 5 + 8;
+        /* Aviso completo (el mismo que se presenta en el paso 'privacidad'):
+           el EC1375 pide que la carta "contenga el Aviso de Privacidad". */
+        const bloquesAviso = avisoPrivacidadBloques(avisoDatos(result));
+        const medirBloque = b => {
+            const esTitulo = b.t === 'titulo', esH = b.t === 'h';
+            doc.setFontSize(esTitulo ? 9.5 : 8.5);
+            doc.setFont(undefined, esTitulo || esH ? 'bold' : 'normal');
+            const lineas = doc.splitTextToSize(b.t === 'li' ? '• ' + b.x : b.x, b.t === 'li' ? 176 : 180);
+            return { lineas, alto: lineas.length * 4 + (esTitulo || esH ? 1.5 : 1) + (esH ? 1.5 : 0) };
+        };
+        bloquesAviso.forEach((b, i) => {
+            const esEncabezado = b.t === 'titulo' || b.t === 'h';
+            const sig = esEncabezado && bloquesAviso[i + 1] ? medirBloque(bloquesAviso[i + 1]).alto : 0;
+            const { lineas, alto } = medirBloque(b);   /* al final: deja la fuente de este bloque */
+            /* Un título nunca se queda solo al pie: cabe con su bloque siguiente o salta de página. */
+            if (y + alto + sig > 280) { doc.addPage(); addOfficialLogos(doc); y = 30; }
+            if (b.t === 'h') y += 1.5;
+            doc.text(lineas, b.t === 'li' ? 18 : 14, y);
+            y += alto - (b.t === 'h' ? 1.5 : 0);
+        });
+        y += 6;
+        doc.setFontSize(9);
 
         doc.setFont(undefined, 'normal');
         const consentText = `Yo, ${s.usuarioNombre || '[nombre del usuario]'}, expreso mi libre voluntad para autorizar el procedimiento señalado en este documento después de haberme proporcionado la información completa sobre padecimiento o estado actual, la cual fue realizada en forma amplia, precisa y suficiente en un lenguaje claro y sencillo, informándome sobre posibles riesgos, complicaciones y secuelas de igual forma los beneficios. El especialista informó métodos alternativos, el derecho de cambiar mi decisión en cualquier momento y manifestarla antes de cualquier procedimiento. Con el propósito de que mi atención sea adecuada, me comprometo a proporcionar información completa y veraz, así como seguir las indicaciones del especialista. Otorgo mi autorización al personal asistente auxiliar, así como al profesional que brinda los servicios tradicionales y complementarios la atención de contingencias y urgencias derivadas del procedimiento señalado, atendiendo al principio de libertad prescriptiva.`;
@@ -1572,41 +1777,33 @@ const LOGO_CONOCER_BASE64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAA
     }
 
     async function renderResultado(app, result) {
-        if (!generatedPdfs.ficha) {
-            generatedPdfs = {
-                ficha: generateFichaPDF(result),
-                consentimiento: generateConsentimientoPDF(result),
-                plan_sesion: generatePlanSesionPDF(result),
-                plan_seguimiento: generatePlanSeguimientoPDF(result)
-            };
-        }
-        await subirDocumentosPendientesSesion(result);
-
-        const docs = [
-            { key: 'ficha', label: '📋 Ficha de Registro de Atención' },
-            { key: 'consentimiento', label: '📝 Carta de Consentimiento Informado' },
-            { key: 'plan_sesion', label: '📅 Plan de Sesión' },
-            { key: 'plan_seguimiento', label: '📞 Plan de Seguimiento' }
-        ];
-
+        /* Se pinta de inmediato y la subida corre en segundo plano: antes la
+           pantalla no aparecía hasta terminar de subir los 4 PDF, y con el
+           NAS lento parecía que el botón no hacía nada. */
         app.innerHTML = `
             <div class="success-box">
                 <h3 style="color:var(--success);margin-bottom:10px;">✅ Tus 4 documentos están listos</h3>
-                <p style="color:var(--text);margin-bottom:20px;">Se suben automáticamente a tu portafolio.</p>
-                ${docs.map(d => renderEstadoDoc(d.key, d.label)).join('')}
+                <p style="color:var(--text);margin-bottom:20px;">Se suben automáticamente a tu portafolio. Si después corriges algo, se vuelven a subir solos con la versión actualizada.</p>
+                <div id="estadoDocsSesion"></div>
             </div>
             <div class="card" style="text-align:center;margin-top:20px;">
                 <a href="plan-evaluacion.html" style="color:var(--primary);text-decoration:none;font-size:0.9rem;">← Volver a mi Plan de Evaluación</a>
             </div>
             <div id="flowNextStepCta"></div>
         `;
+        pintarEstadoDocsSesion();
+        sincronizarDocsSesion({ soloSiYaGenerados: false }).catch(e => {
+            console.error('Subida de documentos de sesión:', e);
+            pintarEstadoDocsSesion();
+        });
         const flowSteps = await FlowStatus.getSteps();
         CrmShell.mount({ currentPageId: 'documentos-sesion', steps: flowSteps });
         FlowStatus.renderNextStepCTA(flowSteps, 'documentos-sesion', document.getElementById('flowNextStepCta'));
     }
 
     async function downloadDoc(key) {
-        const { blob, filename } = generatedPdfs[key];
+        const result = loadAutodiagnosticoResult();
+        const { blob, filename } = docsSesionActuales(huellaDocsSesion(), result)[key];
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url; a.download = filename;
@@ -1615,11 +1812,12 @@ const LOGO_CONOCER_BASE64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAA
         documentosDescargados[key] = true;
         saveProgress();
         await Auth.flushSync();
-        await renderResultado(document.getElementById('app'), loadAutodiagnosticoResult());
+        pintarEstadoDocsSesion();
     }
 
     window.addEventListener('load', () => {
         loadProgress();
+        setTimeout(() => sincronizarDocsSesion({ soloSiYaGenerados: true }).catch(e => console.warn('Resubida al NAS:', e)), 1500);
         renderStep().catch(e => {
             console.error('Error en renderStep():', e);
             document.getElementById('app').innerHTML = `

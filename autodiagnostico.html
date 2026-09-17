@@ -16,6 +16,7 @@
     <script src="protect.js"></script>
     <script src="flow-status.js"></script>
     <script src="firma-candidato.js"></script>
+    <script src="documentos-nas.js"></script>
     <script src="crm-shell.js" data-crm-page="autodiagnostico"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -140,13 +141,9 @@
             color: var(--text-bright);
             font-size: 0.95rem;
             font-family: inherit;
-            color-scheme: dark;
         }
-
-        .field-group input[type="date"]::-webkit-calendar-picker-indicator {
-            filter: invert(1);
-            cursor: pointer;
-        }
+        /* Sin color-scheme fijo ni filtro invertido: el tema (crm-shell.js)
+           ya da el color-scheme correcto y el calendario se ve en claro y oscuro. */
 
         .field-group input:focus,
         .field-group textarea:focus,
@@ -505,7 +502,8 @@
        trabado por un problema de infraestructura que no depende de él. */
     let documentosDescargados = {};
     let generatedDocsRegistro = {};
-    let autoUploadIntentado = false;
+    let documentosHuella = {};
+    let guardandoEstadoSubida = false;   /* true mientras se guarda el resultado de una subida */
 
     /* =========================================================
        PERSISTENCE
@@ -522,6 +520,10 @@
                 signatureDataUrl = saved.signatureDataUrl || null;
                 signatureTypedName = saved.signatureTypedName || '';
                 signatureMode = saved.signatureMode || 'draw';
+                /* Solo existen 'draw' y 'type'. Datos de prueba viejos traían
+                   'typed' con un nombre ficticio, que contaba como firmado sin
+                   serlo: se trata como sin firma para que se firme de verdad. */
+                if (signatureMode !== 'draw' && signatureMode !== 'type') { signatureMode = 'draw'; signatureTypedName = ''; }
                 triptychAccepted = saved.triptychAccepted || false;
                 hasSignature = !!signatureDataUrl;
                 ndaAccepted = saved.ndaAccepted || false;
@@ -529,9 +531,11 @@
                 ndaSignatureDataUrl = saved.ndaSignatureDataUrl || null;
                 ndaSignatureTypedName = saved.ndaSignatureTypedName || '';
                 ndaSignatureMode = saved.ndaSignatureMode || 'draw';
+                if (ndaSignatureMode !== 'draw' && ndaSignatureMode !== 'type') { ndaSignatureMode = 'draw'; ndaSignatureTypedName = ''; }
                 ndaHasSignature = !!ndaSignatureDataUrl;
                 documentosNextcloud = saved.documentosNextcloud || {};
                 documentosDescargados = saved.documentosDescargados || {};
+                documentosHuella = saved.documentosHuella || {};
                 return true;
             }
         } catch (e) { console.warn('No se pudo cargar progreso previo'); }
@@ -543,10 +547,14 @@
             personalData, certificados, sinCertificadosPrevios, fotoCandidato, answers,
             signatureDataUrl, signatureTypedName, signatureMode, triptychAccepted,
             ndaAccepted, ndaSignedAt, ndaSignatureDataUrl, ndaSignatureTypedName, ndaSignatureMode,
-            documentosNextcloud, documentosDescargados
+            documentosNextcloud, documentosDescargados, documentosHuella
         };
         localStorage.setItem('autodiagnosticoData', JSON.stringify(data));
         Auth.syncToSupabase('autodiagnostico_data', data, personalData.curp, personalData.nombre);
+        /* Si los documentos de Registro ya existían, una corrección los resube
+           al NAS unos segundos después de dejar de editar (documentos-nas.js). */
+        if (!guardandoEstadoSubida) DocumentosNas.programar('registro', () => sincronizarDocsRegistro({ soloSiYaGenerados: true }), 8000);
+        return data;
     }
 
     /* =========================================================
@@ -665,7 +673,7 @@
             ${hasSaved ? `
             <div class="resume-box">
                 <p style="color: var(--success); font-weight: 600; margin-bottom: 10px;">✓ Encontramos un avance guardado</p>
-                <button class="btn btn-primary" onclick="resumeDiagnostico()">Continuar donde me quedé</button>
+                <button class="btn btn-primary" id="btnResume" onclick="resumeDiagnostico()">Continuar donde me quedé</button>
             </div>` : ''}
 
             <div class="info-box">
@@ -730,19 +738,35 @@
     }
 
     async function resumeDiagnostico() {
-        for (let i = 1; i < STEPS.length - 1; i++) {
-            /* Saber si un Elemento está completo exige los reactivos, que al
-               volver a la página todavía no se han pedido (sin esto, "Continuar
-               donde me quedé" tronaba en countAnsweredInElemento y no avanzaba). */
-            if (STEPS[i].startsWith('e') && !(await cargarReactivos())) return;
-            if (!isStepValid(STEPS[i])) {
-                currentStepIndex = i;
-                renderStep();
-                return;
+        const btn = document.getElementById('btnResume');
+        if (btn) { btn.disabled = true; btn.textContent = 'Abriendo tu avance…'; }
+        try {
+            currentStepIndex = STEPS.length - 1;
+            for (let i = 1; i < STEPS.length - 1; i++) {
+                /* Saber si un Elemento está completo exige los reactivos, que al
+                   volver a la página todavía no se han pedido (sin esto, "Continuar
+                   donde me quedé" tronaba en countAnsweredInElemento y no avanzaba). */
+                if (STEPS[i].startsWith('e') && !(await cargarReactivos())) return;
+                if (!isStepValid(STEPS[i])) { currentStepIndex = i; break; }
             }
-        }
-        currentStepIndex = STEPS.length - 1;
-        renderStep();
+            await renderStep();
+        } catch (e) { mostrarErrorPaso(e); }
+    }
+
+    /* Antes un error al abrir un paso se perdía en la consola y el botón
+       parecía no hacer nada. */
+    function mostrarErrorPaso(e) {
+        console.error('Error al abrir el paso:', e);
+        const app = document.getElementById('app');
+        const navBar = document.getElementById('navBar');
+        if (navBar) navBar.style.display = 'none';
+        app.innerHTML = `
+            <div class="card" style="text-align:center;">
+                <h2>⚠️ No pudimos abrir tu avance</h2>
+                <p style="color:var(--text);margin:10px 0 18px;">Recarga la página e intenta de nuevo. Si vuelve a pasar, escríbenos por WhatsApp.</p>
+                <button class="btn btn-primary" onclick="window.location.reload()">🔄 Recargar</button>
+                <p style="margin-top:14px;font-size:0.85rem;"><a href="https://wa.me/528115026729" target="_blank" style="color:var(--primary);">Escribir por WhatsApp</a></p>
+            </div>`;
     }
 
     function restartDiagnostico() {
@@ -1529,81 +1553,123 @@
         updateNavButtons();
     }
 
-    async function subirDocumento(fase, filename, blob, nombre, curp) {
-        try {
-            const session = await Auth.getSession();
-            if (!session) return { success: false, error: 'Sin sesión activa' };
-            const fileBase64 = await new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onloadend = () => resolve(reader.result.split(',')[1]);
-                reader.onerror = reject;
-                reader.readAsDataURL(blob);
-            });
-            const resp = await fetch('/api/subir-portafolio', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-                body: JSON.stringify({ email: session.user.email, fase, nombre, curp, filename, fileBase64 })
-            });
-            const data = await resp.json();
-            if (!resp.ok || !data.success) return { success: false, error: data.error || 'Error desconocido' };
-            return { success: true, path: data.path };
-        } catch (e) {
-            return { success: false, error: e.message || 'Error de red' };
+    /* =========================================================
+       SUBIDA AL NAS CON VERSIÓN (documentos-nas.js, 17 sep)
+       La huella cubre todo lo que entra a los 4 PDF de Registro, más la
+       versión de plantilla (subir VERSION_DOCS_REGISTRO si cambia el
+       formato de alguno): cualquier corrección los vuelve a subir.
+    ========================================================= */
+    const VERSION_DOCS_REGISTRO = '2026-09-17';
+    const DOCS_REGISTRO = ['autodiagnostico', 'fichaRegistro', 'acuseTriptico', 'acuseNda'];
+    const DOCS_REGISTRO_ETIQUETAS = [
+        { key: 'autodiagnostico', label: '📄 Autodiagnóstico EC1375' },
+        { key: 'fichaRegistro', label: '🪪 Ficha de Registro' },
+        { key: 'acuseTriptico', label: '📄 Acuse de Recibido — Tríptico' },
+        { key: 'acuseNda', label: '🔒 Acuerdo de Confidencialidad (NDA)' }
+    ];
+
+    function estadoDocsRegistro() { return { documentosNextcloud, documentosDescargados, documentosHuella }; }
+    function huellaDocsRegistro() {
+        return DocumentosNas.huella({
+            v: VERSION_DOCS_REGISTRO, personalData, certificados, sinCertificadosPrevios, fotoCandidato, answers,
+            signatureDataUrl, signatureTypedName, signatureMode, triptychAccepted,
+            ndaAccepted, ndaSignedAt, ndaSignatureDataUrl, ndaSignatureTypedName, ndaSignatureMode
+        });
+    }
+    function docsRegistroActuales(huella) {
+        if (!generatedDocsRegistro.autodiagnostico || generatedDocsRegistro._huella !== huella) {
+            generatedDocsRegistro = {
+                _huella: huella,
+                autodiagnostico: generatePDFBlob(),
+                fichaRegistro: generateFichaRegistroPDFBlob(),
+                acuseTriptico: generateAcuseTripticoPDFBlob(),
+                acuseNda: generateAcuseNdaPDFBlob()
+            };
         }
+        return generatedDocsRegistro;
     }
 
-    function renderEstadoDoc(key, label) {
-        const val = documentosNextcloud[key];
-        if (val) {
-            return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);">
-                <span>${label}</span><span style="color:var(--success);font-weight:600;">✅ Subido</span>
+    /* opts.soloSiYaGenerados: resubida automática (al cargar o tras editar),
+       solo si los documentos ya existían y el Autodiagnóstico está completo. */
+    async function sincronizarDocsRegistro(opts) {
+        opts = opts || {};
+        if (Auth._isBypassSession !== false && await Auth.isBypassSession()) return;
+        if (!(await Auth.getSession())) return;
+        if (opts.soloSiYaGenerados && !DocumentosNas.yaGenerado(DOCS_REGISTRO, estadoDocsRegistro())) return;
+        const huella = huellaDocsRegistro();
+        if (!DocumentosNas.pendientes(DOCS_REGISTRO, estadoDocsRegistro(), huella).length) { pintarEstadoDocsRegistro(); return; }
+        /* Los PDF y la validación de los 4 elementos necesitan los 142
+           reactivos (viven en Supabase): sin ellos cada elemento "tiene 0". */
+        if (!AUTODIAGNOSTICO_DATA.length) AUTODIAGNOSTICO_DATA = await Contenido.cargar('autodiagnostico:reactivos');
+        if (!STEPS.slice(2, STEPS.indexOf('resultado')).every(isStepValid)) return;
+        const r = await DocumentosNas.sincronizar({
+            grupo: 'registro', fase: 'registro', claves: DOCS_REGISTRO, huella, estado: estadoDocsRegistro(),
+            nombre: personalData.nombre, curp: personalData.curp,
+            generar: () => docsRegistroActuales(huella),
+            alCambiar: () => pintarEstadoDocsRegistro()
+        });
+        if (r.subidos.length) {
+            guardandoEstadoSubida = true;
+            try { saveProgress(); } finally { guardandoEstadoSubida = false; }
+            await Auth.flushSync();
+        }
+        pintarEstadoDocsRegistro();
+    }
+
+    function renderEstadoDoc(key, label, huella) {
+        const est = DocumentosNas.estadoDoc(key, estadoDocsRegistro(), huella);
+        const fila = (derecha) => `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+                <span>${label}</span>${derecha}
+            </div>`;
+        if (est === 'subiendo') {
+            const txt = DocumentosNas.subido(documentosNextcloud[key]) ? 'Actualizando…' : 'Subiendo…';
+            return `<div style="padding:10px 0;border-bottom:1px solid var(--border);">${fila(`<span style="color:var(--primary);font-weight:600;">⏳ ${txt}</span>`)}</div>`;
+        }
+        if (est === 'subido') {
+            return `<div style="padding:10px 0;border-bottom:1px solid var(--border);">${fila('<span style="color:var(--success);font-weight:600;">✅ Subido</span>')}</div>`;
+        }
+        if (est === 'desactualizado') {
+            return `<div style="padding:10px 0;border-bottom:1px solid var(--border);">
+                ${fila('<span style="color:var(--accent);font-weight:600;">⚠️ Cambios sin subir</span>')}
+                <p style="font-size:0.78rem;color:var(--text);margin-top:4px;">Tu portafolio todavía tiene la versión anterior. Reintentamos solos; también puedes hacerlo ahora.</p>
+                <div style="display:flex;gap:8px;margin-top:8px;">
+                    <button class="btn btn-secondary" style="flex:1;font-size:0.8rem;" onclick="reintentarSubidaRegistro()">🔄 Subir versión actualizada</button>
+                </div>
             </div>`;
         }
-        if (documentosDescargados[key]) {
+        if (est === 'descargado') {
             return `<div style="padding:10px 0;border-bottom:1px solid var(--border);">
-                <div style="display:flex;justify-content:space-between;align-items:center;">
-                    <span>${label}</span><span style="color:var(--accent);font-weight:600;">📥 Descargado</span>
-                </div>
+                ${fila('<span style="color:var(--accent);font-weight:600;">📥 Descargado</span>')}
                 <p style="font-size:0.78rem;color:var(--text);margin-top:4px;">Guardado en tu dispositivo — puedes avanzar. Seguimos reintentando subirlo a tu portafolio en la nube.</p>
                 <div style="display:flex;gap:8px;margin-top:8px;">
-                    <button class="btn btn-secondary" style="flex:1;font-size:0.8rem;" onclick="reintentarSubidaRegistro('${key}')">🔄 Reintentar subida</button>
+                    <button class="btn btn-secondary" style="flex:1;font-size:0.8rem;" onclick="reintentarSubidaRegistro()">🔄 Reintentar subida</button>
                 </div>
             </div>`;
         }
         return `<div style="padding:10px 0;border-bottom:1px solid var(--border);">
-            <div style="display:flex;justify-content:space-between;align-items:center;">
-                <span>${label}</span><span style="color:var(--danger);font-weight:600;">❌ No subido</span>
-            </div>
+            ${fila('<span style="color:var(--danger);font-weight:600;">❌ No subido</span>')}
             <div style="display:flex;gap:8px;margin-top:8px;">
-                <button class="btn btn-secondary" style="flex:1;font-size:0.8rem;" onclick="reintentarSubidaRegistro('${key}')">🔄 Reintentar subida</button>
+                <button class="btn btn-secondary" style="flex:1;font-size:0.8rem;" onclick="reintentarSubidaRegistro()">🔄 Reintentar subida</button>
                 <button class="btn btn-secondary" style="flex:1;font-size:0.8rem;" onclick="descargarDocRegistro('${key}')">⬇️ Descargar</button>
             </div>
         </div>`;
     }
 
-    async function subirDocumentosPendientesRegistro() {
-        if (Auth._isBypassSession) return;
-        const pd = personalData;
-        for (const key of Object.keys(generatedDocsRegistro)) {
-            if (documentosNextcloud[key]) continue;
-            const { blob, filename } = generatedDocsRegistro[key];
-            const result = await subirDocumento('registro', filename, blob, pd.nombre, pd.curp);
-            if (result.success) documentosNextcloud[key] = result.path;
-        }
-        saveProgress();
-        await Auth.flushSync();
+    function pintarEstadoDocsRegistro() {
+        const el = document.getElementById('estadoDocsRegistro');
+        if (!el) return;
+        const huella = huellaDocsRegistro();
+        el.innerHTML = DOCS_REGISTRO_ETIQUETAS.map(d => renderEstadoDoc(d.key, d.label, huella)).join('');
     }
 
-    async function reintentarSubidaRegistro(key) {
-        const pd = personalData;
-        const { blob, filename } = generatedDocsRegistro[key];
-        const result = await subirDocumento('registro', filename, blob, pd.nombre, pd.curp);
-        if (result.success) { documentosNextcloud[key] = result.path; saveProgress(); await Auth.flushSync(); }
-        await renderResultado(document.getElementById('app'));
+    async function reintentarSubidaRegistro() {
+        try { await sincronizarDocsRegistro({ soloSiYaGenerados: false }); }
+        catch (e) { console.error('Subida de documentos de Registro:', e); }
+        pintarEstadoDocsRegistro();
     }
 
     async function descargarDocRegistro(key) {
-        const { blob, filename } = generatedDocsRegistro[key];
+        const { blob, filename } = docsRegistroActuales(huellaDocsRegistro())[key];
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url; a.download = filename;
@@ -1612,7 +1678,7 @@
         documentosDescargados[key] = true;
         saveProgress();
         await Auth.flushSync();
-        await renderResultado(document.getElementById('app'));
+        pintarEstadoDocsRegistro();
     }
 
     /* CURP mexicana: posición 11 = sexo (H/M), posiciones 5-10 = AAMMDD de
@@ -1784,19 +1850,9 @@
         const score = calculateScore();
         const isReady = score.percentage >= 90;
 
-        if (!generatedDocsRegistro.autodiagnostico) {
-            generatedDocsRegistro = {
-                autodiagnostico: generatePDFBlob(),
-                fichaRegistro: generateFichaRegistroPDFBlob(),
-                acuseTriptico: generateAcuseTripticoPDFBlob(),
-                acuseNda: generateAcuseNdaPDFBlob()
-            };
-        }
-        if (!autoUploadIntentado) {
-            autoUploadIntentado = true;
-            await subirDocumentosPendientesRegistro();
-        }
-
+        /* La pantalla se pinta de inmediato y la subida corre en segundo plano:
+           antes se esperaba a subir los 4 PDF antes de mostrar nada y, con el
+           NAS lento, "Continuar donde me quedé" parecía no hacer nada. */
         app.innerHTML = `
             <div class="resultado-hero">
                 <div class="score-circle ${isReady ? 'high' : 'low'}">
@@ -1814,11 +1870,8 @@
 
             <div class="card">
                 <h2>📥 Tus documentos de Registro</h2>
-                <p style="margin-bottom: 16px; color: var(--text); font-size: 0.9rem;">Se suben automáticamente a tu portafolio. Aquí puedes ver su estado, o descargarlos como respaldo.</p>
-                ${renderEstadoDoc('autodiagnostico', '📄 Autodiagnóstico EC1375')}
-                ${renderEstadoDoc('fichaRegistro', '🪪 Ficha de Registro')}
-                ${renderEstadoDoc('acuseTriptico', '📄 Acuse de Recibido — Tríptico')}
-                ${renderEstadoDoc('acuseNda', '🔒 Acuerdo de Confidencialidad (NDA)')}
+                <p style="margin-bottom: 16px; color: var(--text); font-size: 0.9rem;">Se suben automáticamente a tu portafolio. Si después corriges algo, se vuelven a subir solos con la versión actualizada.</p>
+                <div id="estadoDocsRegistro"></div>
             </div>
 
             <div class="card">
@@ -1837,6 +1890,11 @@
                 <a href="success.html" style="color: var(--primary); text-decoration:none; font-size: 0.9rem;">← Volver a mi confirmación de pago</a>
             </div>
         `;
+        pintarEstadoDocsRegistro();
+        sincronizarDocsRegistro({ soloSiYaGenerados: false }).catch(e => {
+            console.error('Subida de documentos de Registro:', e);
+            pintarEstadoDocsRegistro();
+        });
         const flowSteps = await FlowStatus.getSteps();
         CrmShell.mount({ currentPageId: 'autodiagnostico', steps: flowSteps });
     }
@@ -2441,7 +2499,8 @@
             // expirada) — nunca debe quedar a medio wizard sin poder sincronizar.
             currentStepIndex = STEPS.indexOf('auth');
         }
-        renderStep();
+        renderStep().catch(mostrarErrorPaso);
+        if (session) setTimeout(() => sincronizarDocsRegistro({ soloSiYaGenerados: true }).catch(e => console.warn('Resubida al NAS:', e)), 1500);
     });
     </script>
 </body>
