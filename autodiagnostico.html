@@ -577,21 +577,27 @@
     /* =========================================================
        RENDER
     ========================================================= */
+    /* Proyecto 4: los 142 reactivos viven en Supabase (contenido_ec1375,
+       fase Registro) y se piden solo cuando un paso los necesita — los
+       pasos previos al login no los usan. El bloque inline, si aún existe,
+       evita la consulta. Regresa false (y deja el error en pantalla) si no
+       se pudieron cargar. */
+    async function cargarReactivos() {
+        if (AUTODIAGNOSTICO_DATA.length) return true;
+        const app = document.getElementById('app');
+        const navBar = document.getElementById('navBar');
+        app.innerHTML = '<p class="spinner" style="text-align:center;padding:40px;color:var(--text);">Cargando tu cuestionario…</p>';
+        try { AUTODIAGNOSTICO_DATA = await Contenido.cargar('autodiagnostico:reactivos'); return true; }
+        catch (eCont) { app.innerHTML = Contenido.errorHtml(eCont); if (navBar) navBar.style.display = 'none'; return false; }
+    }
+
     async function renderStep() {
         const app = document.getElementById('app');
         const step = STEPS[currentStepIndex];
         const navBar = document.getElementById('navBar');
         const topBarStep = document.getElementById('topBarStep');
 
-        /* Proyecto 4: los 142 reactivos viven en Supabase (contenido_ec1375,
-           fase Registro) y se piden solo cuando un paso los necesita — los
-           pasos previos al login no los usan. El bloque inline, si aún existe,
-           evita la consulta. */
-        if (['e1', 'e2', 'e3', 'e4', 'firma', 'resultado'].includes(step) && !AUTODIAGNOSTICO_DATA.length) {
-            app.innerHTML = '<p class="spinner" style="text-align:center;padding:40px;color:var(--text);">Cargando tu cuestionario…</p>';
-            try { AUTODIAGNOSTICO_DATA = await Contenido.cargar('autodiagnostico:reactivos'); }
-            catch (eCont) { app.innerHTML = Contenido.errorHtml(eCont); if (navBar) navBar.style.display = 'none'; return; }
-        }
+        if (['e1', 'e2', 'e3', 'e4', 'firma', 'resultado'].includes(step) && !(await cargarReactivos())) return;
 
         window.scrollTo(0, 0);
 
@@ -723,8 +729,12 @@
         resumeDiagnostico();
     }
 
-    function resumeDiagnostico() {
+    async function resumeDiagnostico() {
         for (let i = 1; i < STEPS.length - 1; i++) {
+            /* Saber si un Elemento está completo exige los reactivos, que al
+               volver a la página todavía no se han pedido (sin esto, "Continuar
+               donde me quedé" tronaba en countAnsweredInElemento y no avanzaba). */
+            if (STEPS[i].startsWith('e') && !(await cargarReactivos())) return;
             if (!isStepValid(STEPS[i])) {
                 currentStepIndex = i;
                 renderStep();
