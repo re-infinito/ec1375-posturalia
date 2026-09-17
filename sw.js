@@ -1,10 +1,12 @@
 /* sw.js — service worker de la app instalable (PWA), 15 sep 2026.
    Cachea SOLO la aplicación (páginas, JS, CSS, logo, iconos). NUNCA el
    contenido protegido ni nada de Supabase/Vercel API (decisión de Diego:
-   el contenido se sirve siempre en línea, con sesión). HTML: red primero
-   con respaldo en caché; estáticos: caché primero con actualización en
-   segundo plano. Sin conexión y sin caché → página offline mínima. */
-var VERSION = 'paideia-app-v2';
+   el contenido se sirve siempre en línea, con sesión). TODO va red primero
+   con respaldo en caché (16 sep: los estáticos eran caché primero, y tras
+   cada deploy una visita recibía HTML nuevo con JS/CSS viejo — p. ej. la
+   búsqueda de la Biblioteca no funcionaba hasta recargar). La caché solo se
+   usa sin conexión. Sin conexión y sin caché → página offline mínima. */
+var VERSION = 'paideia-app-v3';
 var SHELL = ['/panel.html', '/crm-shell.js', '/crm-shell.css', '/auth.js', '/flow-status.js', '/protect.js', '/contenido.js', '/visor-diapositivas.js', '/visor-diapositivas.css',
              '/Logos/Logo%20Paideia%20Tech%20-%20trimmed.png', '/icons/icon-192.png', '/icons/icon-512.png', '/manifest.json'];
 
@@ -36,11 +38,10 @@ self.addEventListener('fetch', function (ev) {
         }));
         return;
     }
-    ev.respondWith(caches.match(req).then(function (hit) {
-        var red = fetch(req).then(function (res) {
-            if (res && res.ok) { var copia = res.clone(); caches.open(VERSION).then(function (c) { c.put(req, copia); }); }
-            return res;
-        }).catch(function () { return hit; });
-        return hit || red;
+    ev.respondWith(fetch(req).then(function (res) {
+        if (res && res.ok) { var copia = res.clone(); caches.open(VERSION).then(function (c) { c.put(req, copia); }); }
+        return res;
+    }).catch(function () {
+        return caches.match(req).then(function (hit) { return hit || Response.error(); });
     }));
 });
