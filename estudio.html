@@ -664,7 +664,7 @@
       '<div class="es-stat"><b>' + hechos + ' / ' + gs.length + '</b><span>temas reforzados</span></div>' +
       '<div class="es-stat ' + (pendObl.length ? 'alarm' : 'ok') + '"><b>' + pendObl.length + '</b><span>obligatorios pendientes</span></div>' +
       '</div></div>' +
-      '<div class="es-card"><div class="es-k">Paso 1 de 3</div><h3>Refuerza tus temas</h3><p>' + (pendObl.length ? 'Empieza por el tema resaltado. Al terminar sus pantallas queda marcado como reforzado.' : (d.approved ? 'Puedes repasar cualquier tema cuando quieras.' : 'Tus temas obligatorios ya están listos. Los <b>recomendados</b> son opcionales: puedes repasarlos ahora o dar el visto bueno.')) + '</p><div class="es-lista">' + filas + '</div></div>' +
+      '<div class="es-card"><div class="es-k">Paso 1 de 3</div><h3>Refuerza tus temas</h3>' + (gs.length ? '<p>' + (pendObl.length ? 'Empieza por el tema resaltado. Al terminar sus pantallas queda marcado como reforzado.' : (d.approved ? 'Puedes repasar cualquier tema cuando quieras.' : 'Tus temas obligatorios ya están listos. Los <b>recomendados</b> son opcionales: puedes repasarlos ahora o dar el visto bueno.')) + '</p>' : '') + '<div class="es-lista">' + filas + '</div></div>' +
       voboHtml;
 
     var G = { k: 'Reforzamiento · ' + (info ? 'Paso ' + info.n + ' de ' + info.total + ' de tu proceso' : ''), titulo: d.approved ? 'Reforzamiento terminado' : (pendObl.length ? 'Refuerza tus temas obligatorios' : 'Da el visto bueno a tu Autodiagnóstico'),
@@ -672,14 +672,14 @@
         { txt: etapa > 1 ? '✓' : '1', hecho: etapa > 1, estado: etapa === 1 ? 'cur' : '', title: 'Reforzar temas obligatorios' },
         { txt: etapa > 2 ? '✓' : '2', hecho: etapa > 2, estado: etapa === 2 ? 'cur' : '', title: 'Dar visto bueno' },
         { txt: '3', estado: etapa === 3 ? 'cur' : '', title: 'Continuar a Alineación' }],
-        txt: ['Reforzar temas (' + (obl.length - pendObl.length) + ' de ' + obl.length + ' obligatorios)', 'Dar visto bueno', 'Continuar con tu proceso'][etapa - 1] },
+        txt: [gs.length ? 'Reforzar temas (' + (obl.length - pendObl.length) + ' de ' + obl.length + ' obligatorios)' : 'Sin temas por reforzar', 'Dar visto bueno', 'Continuar con tu proceso'][etapa - 1] },
       instrTitulo: 'Qué hacer aquí',
       instr: ['Toca <b>«Empezar este tema»</b> y recorre sus pantallas.', 'Al terminar cada tema, toca <b>«Terminé este tema»</b>.', 'Con los obligatorios listos, toca <b>«Dar visto bueno»</b> y sigue a Alineación.'] };
     var btn;
     if (siguiente && !d.approved) btn = { lg: 'Empezar: ' + corto(siguiente.titulo, 34), sm: 'Empezar tema', fn: function () { abrirTema(siguiente); } };
     else if (!d.approved && gv.ok) btn = { lg: 'Dar visto bueno', sm: 'Visto bueno', fn: darVoBo, fin: true };
     else if (d.approved) { var sp = botonSiguientePaso('reforzamiento'); btn = { lg: sp.txt, sm: 'Siguiente paso', fn: function () { location.href = sp.href; }, fin: true }; }
-    mostrarPanel(html, G, { pos: (obl.length - pendObl.length) + ' de ' + obl.length + ' obligatorios reforzados', sig: hechos + ' de ' + gs.length + ' temas en total', btn: btn });
+    mostrarPanel(html, G, { pos: gs.length ? (obl.length - pendObl.length) + ' de ' + obl.length + ' obligatorios reforzados' : 'Sin temas por reforzar', sig: gs.length ? hechos + ' de ' + gs.length + ' temas en total' : '', btn: btn });
     var r = $('temaResaltado'); if (r && r.scrollIntoView) r.scrollIntoView({ block: 'center' });
   }
   function abrirTema(g) {
