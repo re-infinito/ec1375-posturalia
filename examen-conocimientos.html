@@ -12,6 +12,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="auth.js"></script>
     <script src="contenido.js"></script>
+    <script src="visor-diapositivas.js"></script>
     <script src="protect.js"></script>
     <script src="flow-status.js"></script>
     <script src="crm-shell.js" data-crm-page="examen"></script>
@@ -123,31 +124,11 @@
 
     let REACTIVOS = []; /* contenido en Supabase — publicar_contenido.py */
 
-    /* tema (como está escrito arriba, en REACTIVOS) -> código de criterio del
-       motor de estudio (ruta-estudio.html, window.EC1375_DATA.criterios) —
-       verificado uno por uno contra los 34 criterios reales y contra
-       EC1375.routes.criterion(cid) (todos devuelven pantallas reales, no
-       listas vacías). "Biomecánica"/"Movimientos del Cuerpo" y "Cuadrantes
-       Abdominales" caen en el mismo criterio E2·C3 (biomecánica/anatomía
-       topográfica) porque ahí es donde vive ese contenido en la Biblioteca,
-       aunque en el examen sean temas separados. Usado por
-       linkBibliotecaParaTema() de abajo — si algún tema no aparece aquí, el
-       botón cae a la Biblioteca completa sin filtrar (ver esa función). */
-    const TEMA_A_CRITERIO = {
-        'Técnicas de Atención Tradicional y Complementaria': 'E1·C1',
-        'Desinfección y Sanitización': 'E1·C2',
-        'Manejo de Residuos Peligrosos (NOM-087-ECOL-SSA1-2002)': 'E1·C3',
-        'Signos Vitales': 'E2·C1',
-        'Goniometría': 'E2·C2',
-        'Biomecánica': 'E2·C3',
-        'Movimientos del Cuerpo': 'E2·C3',
-        'Cuadrantes Abdominales': 'E2·C3',
-        'Higiene de Columna': 'E2·C4',
-        'Pruebas Funcionales de Daniels': 'E2·C5'
-    };
+    /* Liga a la Biblioteca filtrada al criterio del tema fallado. El mapa
+       tema→criterio vive en visor-diapositivas.js (VisorDiap.TEMA_A_CRITERIO),
+       compartido con biblioteca.html para sus recomendaciones. */
     function linkBibliotecaParaTema(tema) {
-        const crit = TEMA_A_CRITERIO[tema];
-        return crit ? `ruta-estudio.html?boot=library&crit=${encodeURIComponent(crit)}` : 'biblioteca.html';
+        return VisorDiap.urlBiblioteca(tema);
     }
 
     let examState = null; // { order: [{qIndex, optionOrder}], currentIndex, answers, firstAttemptCorrect, submitted, score, correctas, fecha }

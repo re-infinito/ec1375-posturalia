@@ -50,6 +50,10 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_
 window.supabaseClient = supabaseClient;
 
 const Auth = {
+    /* Orden oficial de los 142 reactivos (n = índice + 1). Lo usa biblioteca.html
+       para "Recomendados para ti"; ruta-estudio.html conserva su copia propia. */
+    REACTIVO_KEYS: REACTIVO_KEYS_REALES,
+
     _session: null,
     _syncTimer: null,
     _pendingEmail: null,
@@ -701,7 +705,8 @@ const Auth = {
     DEMO_NOMBRE: 'Ana Sofía Demo Ramírez',
     DEMO_CURP: 'DERA900515MNLMMN08',
     DEMO_LOCAL_KEYS: ['autodiagnosticoData', 'planEvaluacionData', 'documentosSesionData',
-                      'encuestaSatisfaccionData', 'evidenciasData', 'examenConocimientosData', 'ec1375-state', 'guionChecklistState'],
+                      'encuestaSatisfaccionData', 'evidenciasData', 'examenConocimientosData', 'ec1375-state', 'guionChecklistState',
+                      'ec1375-biblioteca-vistas'],
 
     /* Foto de credencial ficticia (silueta) generada en canvas → JPEG real,
        para que el paso "personal" del Autodiagnóstico la acepte y jsPDF la

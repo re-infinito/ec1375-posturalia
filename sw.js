@@ -4,8 +4,8 @@
    el contenido se sirve siempre en línea, con sesión). HTML: red primero
    con respaldo en caché; estáticos: caché primero con actualización en
    segundo plano. Sin conexión y sin caché → página offline mínima. */
-var VERSION = 'paideia-app-v1';
-var SHELL = ['/panel.html', '/crm-shell.js', '/crm-shell.css', '/auth.js', '/flow-status.js', '/protect.js', '/contenido.js',
+var VERSION = 'paideia-app-v2';
+var SHELL = ['/panel.html', '/crm-shell.js', '/crm-shell.css', '/auth.js', '/flow-status.js', '/protect.js', '/contenido.js', '/visor-diapositivas.js', '/visor-diapositivas.css',
              '/Logos/Logo%20Paideia%20Tech%20-%20trimmed.png', '/icons/icon-192.png', '/icons/icon-512.png', '/manifest.json'];
 
 self.addEventListener('install', function (ev) {

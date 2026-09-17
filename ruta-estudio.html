@@ -3556,6 +3556,14 @@ window.EC1375.version='4.4';
     location.replace('panel.html');
     return;
   }
+  /* La Biblioteca ya no vive en el motor (backlog #18, 16 sep 2026): es
+     biblioteca.html, visor propio. Ligas viejas con boot=library se
+     redirigen conservando &crit= y el #sid. */
+  if (boot === 'library') {
+    var critViejo = new URLSearchParams(location.search).get('crit');
+    location.replace('biblioteca.html' + (critViejo ? '?crit=' + encodeURIComponent(critViejo) : '') + location.hash);
+    return;
+  }
 
   var result = loadAutodiagnosticoResult();
   if (!result || !result.completo) {
@@ -3622,15 +3630,8 @@ window.EC1375.version='4.4';
     asistida: 'evaluacion', 'asistida-empezar': 'evaluacion' };
   var FASE_DESTINO = { alineacion: 'alineacion.html', evaluacion: 'documentos-sesion.html' };
 
-  /* La Biblioteca (boot=library) vive dentro de la fase Alineación, y la
-     Práctica (boot=practice) se movió al final del proceso — después de
+  /* La Práctica (boot=practice) se movió al final del proceso — después de
      Documentos de Sesión — así que exige la fase Evaluación ya pagada. */
-  if (boot === 'library' && !fasePagada.alineacion) {
-    blockedScreen('🔒', 'Primero completa tu pago de Alineación',
-      'La biblioteca es material de estudio de la fase de Alineación.',
-      'alineacion.html', '🎓 Ir a mi Alineación');
-    return;
-  }
   if (boot === 'practice' && !fasePagada.evaluacion) {
     blockedScreen('🔒', 'Primero completa tus Documentos de Sesión',
       'La Práctica final se habilita después de tu Evaluación (Documentos de Sesión y video).',
@@ -3755,19 +3756,8 @@ window.EC1375.version='4.4';
        slideshow por su cuenta (o directo con el botón "Empezar"/"Continuar
        donde iba" si su autodiagnóstico original no estaba
        completo, aunque en este punto del flujo real siempre lo está). */
-    /* boot=library&crit=E2·C4 — arranca la Biblioteca ya filtrada a un solo
-       criterio, en vez de las 121 pantallas completas. Lo usa el botón "Ir a
-       la Biblioteca a repasar este tema" de examen-conocimientos.html (ver
-       TEMA_A_CRITERIO en ese archivo) para llevar directo a las pantallas
-       del tema que el candidato falló, igual que boot=remedial ya hace con
-       las brechas del Autodiagnóstico. Si el criterio no existe o no tiene
-       pantallas (typo, dato viejo), se cae a la Biblioteca completa en vez
-       de abrir una lista vacía. */
-    var critParam = new URLSearchParams(location.search).get('crit');
-    var critLista = (boot === 'library' && critParam) ? window.EC1375.routes.criterion(critParam) : null;
     var openResult = boot === 'remedial'
       ? (window.EC1375.enterReinforcement ? window.EC1375.enterReinforcement() : window.EC1375.enterDiagnostic())
-      : (critLista && critLista.length) ? window.EC1375.open('library', critLista)
       : window.EC1375.open(boot);
     /* Si el motor bloqueó la vista (ej. boot=practice sin haber dado el
        visto bueno en Reforzamiento todavía), NO dejar la pantalla a medias
@@ -3848,39 +3838,16 @@ window.EC1375.version='4.4';
   if (actions) {
     var exitLink = document.createElement('a');
     exitLink.className = 'tbtn';
-    /* Si la Biblioteca se abrió DESDE el Examen de Conocimientos (el botón
-       "Ir a la Biblioteca a repasar este tema" agrega &crit=), "Volver"
-       tiene que regresar al examen. Antes mandaba a alineacion.html y el
-       candidato quedaba sin camino de vuelta a la pregunta que estaba
-       contestando — reportado por Fernando: "repasas y te lleva al panel,
-       no puedes regresar a la pregunta". El examen guarda sus respuestas
-       en localStorage, así que al volver retoma donde se quedó. */
-    var vieneDelExamen = boot === 'library' && !!new URLSearchParams(location.search).get('crit');
-    exitLink.href = boot === 'practice' ? 'documentos-sesion.html'
-      : vieneDelExamen ? 'examen-conocimientos.html' : 'alineacion.html';
-    exitLink.innerHTML = '<span class="lbl">' + (vieneDelExamen ? '← Volver al examen' : '← Volver') + '</span>';
+    exitLink.href = boot === 'practice' ? 'documentos-sesion.html' : 'alineacion.html';
+    exitLink.innerHTML = '<span class="lbl">← Volver</span>';
     actions.insertBefore(exitLink, actions.firstChild);
-
-    /* La Biblioteca (este motor, 121 pantallas) es para buscar/consultar
-       un tema puntual — no tiene los videos reales ni el Módulo 7 "Tu
-       video práctico" que sí tiene ruta-alineacion.html (57 pantallas).
-       Se agrega una liga directa y visible desde el arranque de la
-       Biblioteca para que profundizar en el contenido completo con
-       video no dependa de adivinar que existe otra página. */
-    if (boot === 'library') {
-      var fullLink = document.createElement('a');
-      fullLink.className = 'tbtn';
-      fullLink.href = 'ruta-alineacion.html';
-      fullLink.innerHTML = '<span class="lbl">🎓 Ruta de Alineación completa (con video)</span>';
-      actions.insertBefore(fullLink, exitLink.nextSibling);
-    }
 
     /* Siguiente lleva href normal (funciona sin JS / clic derecho para
        abrir en pestaña nueva), pero el click real espera flushSync() antes
        de navegar — si no, el vobo/progreso que se acaba de guardar puede
        perderse en el debounce de 800ms si el candidato navega de inmediato
        (el mismo bug que ya se corrigió para los documentos subidos). */
-    if (boot === 'remedial' || boot === 'library') {
+    if (boot === 'remedial') {
       var nextLink = document.createElement('a');
       nextLink.className = 'tbtn';
       nextLink.href = 'alineacion.html';
