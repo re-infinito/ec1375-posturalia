@@ -137,6 +137,8 @@ kpi-dashboard-live.html   ⚠️ Versión vieja del dashboard de KPIs — SIN ga
                            la URL, y ya no está enlazada desde ningún lado del sitio. Redundante con admin-kpis.html
                            (que sí está gateado) — candidato a retirar, ver backlog #13.
 
+firma-candidato.js        "Usar la misma firma de mi Autodiagnóstico" (17 sep) — módulo compartido, ver sección
+                           "Firma reutilizable del candidato". Pruebas: tests/firma-candidato.test.js.
 auth.js                   Supabase Auth (email+password) + sync + gates + admin bypass — módulo compartido
 flow-status.js            Fuente única de los 10 pasos del flujo y de qué cuenta como "completo" en cada uno —
                            módulo compartido (ver "Progreso del candidato" abajo)
@@ -265,6 +267,21 @@ Tablas: `sesiones_alineacion` (columna `zoom_link`, renombrada de `google_meet_l
 En el paso "personal" del Autodiagnóstico, el candidato escribe el nombre de cada certificación tal cual aparece en su certificado y sube el archivo (PDF/imagen, máx. 10MB) — obligatorio marcar "no tengo ninguno" o subir al menos uno. Archivos en bucket privado de Supabase Storage `certificados-previos` (RLS por `user_id`, primer segmento de la ruta). `Auth.uploadCertificado(file, path)` en `auth.js`. El campo "Escolaridad/Certificaciones" del PDF oficial se llena desde estos nombres.
 
 **✅ Listo (16 sep):** bucket privado `certificados-previos` (creado el 9 sep) con sus 2 políticas RLS, que Diego volvió a correr con `drop policy if exists` por precaución. **Verificado con una prueba real** igual que `fotos-candidato`: carpeta propia permitida, carpeta ajena bloqueada. (Las políticas no se pueden leer desde la API — PostgREST no expone `pg_policies` —, por eso se prueba el comportamiento.)
+
+---
+
+## Firma reutilizable del candidato (`firma-candidato.js`, 17 sep)
+
+Pedido de Diego: que el candidato pueda replicar la firma que ya usó en el Autodiagnóstico en los demás lugares donde se le pide firma. Arriba de cada recuadro de firma aparece **"¿Usar la misma firma de tu Autodiagnóstico?"** con la vista previa de esa firma y el botón **"Usar esta firma"**. Es opcional: puede seguir dibujando o escribiendo otra, y si no existe firma que reutilizar no aparece nada.
+
+- **Dónde aparece:** Plan de Evaluación, Encuesta de Satisfacción, Evidencias y el paso "Firma" del propio Autodiagnóstico. En ese paso la fuente es la firma del **Acuerdo de Confidencialidad**, que se firma antes (orden de `STEPS`: `personal` → `nda` → reactivos → `firma`). En las demás páginas la fuente es la firma principal del Autodiagnóstico o, si todavía no existe, la del Acuerdo.
+- **Dónde NO aparece, a propósito:** `documentos-sesion.html`. Sus 3 recuadros (`usuarioFicha`, `usuarioConsentimiento`, `usuarioSeguimiento`) son del **usuario/paciente**; ofrecer ahí la firma del candidato permitiría firmar como otra persona en documentos que van a la SEP. La firma del candidato en esos PDFs ya se toma sola del Autodiagnóstico (`loadAutodiagnosticoResult()`).
+- **Qué copia:** un duplicado de `mode` + `dataUrl` (dibujada) o `typedName` (escrita) al estado propio de la página, que lo guarda como si el candidato hubiera firmado ahí. No es un vínculo vivo: cambiar después la firma del Autodiagnóstico no altera documentos ya firmados.
+- **De dónde la lee:** primero `localStorage['autodiagnosticoData']`; si ese dispositivo nunca abrió el Autodiagnóstico, la fila de Supabase vía `FlowStatus.getRow()` (que también cubre la cuenta demo).
+- **Seguridad:** una firma "dibujada" solo cuenta si es `data:image/…` y el nombre escrito se escapa en la vista previa (probado con `<b>` en el nombre: sale como texto).
+- **Módulo compartido** porque la regla de qué firma cuenta y dónde vive no debe copiarse en cada página. Cada página solo agrega `<div id="usarFirmaAuto">`, la llamada a `FirmaCandidato.ofrecer(...)` tras renderizar y una función `usarFirmaAutodiagnostico(f)`. Está en el precache de `sw.js` (`paideia-app-v4`). Suite completa: `node --test tests/*.test.js` (40).
+- **Verificado en navegador:** firma dibujada en las 3 páginas (vista previa idéntica, lienzo con la firma, "✓ Completado", se guarda), firma escrita, paso "Firma" desde el Acuerdo, caso sin firma (no aparece nada) y móvil 375px (0px de desborde).
+- **⚠️ Al probar con la cuenta demo:** el guardado sí ocurre, pero el siguiente `render()` llama a `Auth.ensureAdminPlaceholderData()`, que ve el objeto guardado sin `_demo` y lo reemplaza con los datos ficticios. Queda registrado en qué orden pasa (el `savePlanProgress` con la firma, luego la resiembra desde `auth.js`). Solo afecta a la cuenta demo; un candidato real no tiene resiembra.
 
 ---
 

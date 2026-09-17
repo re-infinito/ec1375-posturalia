@@ -15,6 +15,7 @@
     <script src="contenido.js"></script>
     <script src="protect.js"></script>
     <script src="flow-status.js"></script>
+    <script src="firma-candidato.js"></script>
     <script src="crm-shell.js" data-crm-page="autodiagnostico"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -623,6 +624,14 @@
             topBarStep.textContent = 'Firma';
             app.innerHTML = renderFirmaStep();
             setTimeout(initSignatureCanvas, 50);
+            /* Aquí la fuente es solo la firma del Acuerdo de Confidencialidad
+               (se firmó en el paso 'nda'): la principal es la que se captura aquí. */
+            FirmaCandidato.ofrecer(document.getElementById('usarFirmaAuto'), {
+                fuente: FirmaCandidato.firmaDeAutodiagnostico({
+                    ndaSignatureMode, ndaSignatureDataUrl, ndaSignatureTypedName
+                }),
+                onUsar: usarFirmaAutodiagnostico
+            });
         } else if (step === 'resultado') {
             navBar.style.display = 'none';
             topBarStep.textContent = 'Resultado';
@@ -1217,6 +1226,7 @@
                         ${hasSignature || (signatureMode === 'type' && signatureTypedName && signatureTypedName.trim().length > 0) ? '✓ Completado' : '○ Pendiente'}
                     </span>
                 </label>
+                <div id="usarFirmaAuto"></div>
                 <div class="signature-tabs">
                     <button class="sig-tab-btn ${signatureMode === 'draw' ? 'active' : ''}" onclick="setSignatureMode('draw')">✍️ Dibujar firma</button>
                     <button class="sig-tab-btn ${signatureMode === 'type' ? 'active' : ''}" onclick="setSignatureMode('type')">⌨️ Escribir mi nombre</button>
@@ -1250,6 +1260,14 @@
 
     function setSignatureMode(mode) {
         signatureMode = mode;
+        saveProgress();
+        renderStep();
+    }
+
+    function usarFirmaAutodiagnostico(f) {
+        signatureMode = f.mode;
+        if (f.mode === 'draw') { signatureDataUrl = f.dataUrl; hasSignature = true; }
+        else signatureTypedName = f.typedName;
         saveProgress();
         renderStep();
     }

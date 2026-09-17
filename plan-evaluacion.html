@@ -14,6 +14,7 @@
     <script src="auth.js"></script>
     <script src="protect.js"></script>
     <script src="flow-status.js"></script>
+    <script src="firma-candidato.js"></script>
     <script src="crm-shell.js" data-crm-page="plan-evaluacion"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -922,6 +923,7 @@ const AUTODIAGNOSTICO_DATA = [
                         </span>
                     </label>
                 </div>
+                <div id="usarFirmaAuto"></div>
                 <div class="signature-tabs">
                     <button class="sig-tab-btn ${signatureMode === 'draw' ? 'active' : ''}" onclick="setSignatureMode('draw')">✍️ Dibujar firma</button>
                     <button class="sig-tab-btn ${signatureMode === 'type' ? 'active' : ''}" onclick="setSignatureMode('type')">⌨️ Escribir mi nombre</button>
@@ -944,6 +946,7 @@ const AUTODIAGNOSTICO_DATA = [
 
         attachFieldListeners();
         if (signatureMode === 'draw') setTimeout(initSignatureCanvas, 50);
+        FirmaCandidato.ofrecer(document.getElementById('usarFirmaAuto'), { onUsar: usarFirmaAutodiagnostico });
         updateGenerateButton();
     }
 
@@ -973,6 +976,14 @@ const AUTODIAGNOSTICO_DATA = [
 
     function setSignatureMode(mode) {
         signatureMode = mode;
+        savePlanProgress();
+        render();
+    }
+
+    function usarFirmaAutodiagnostico(f) {
+        signatureMode = f.mode;
+        if (f.mode === 'draw') { signatureDataUrl = f.dataUrl; hasSignature = true; }
+        else signatureTypedName = f.typedName;
         savePlanProgress();
         render();
     }

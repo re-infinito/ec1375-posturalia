@@ -14,6 +14,7 @@
     <script src="auth.js"></script>
     <script src="protect.js"></script>
     <script src="flow-status.js"></script>
+    <script src="firma-candidato.js"></script>
     <script src="crm-shell.js" data-crm-page="evidencias"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -481,6 +482,7 @@
                     <textarea id="f_notas" rows="2" placeholder="Ej. Subí 2 videos por límite de tamaño">${escapeHtml(planData.notas)}</textarea>
                 </div>
 
+                <div id="usarFirmaAuto"></div>
                 <div class="signature-tabs">
                     <button class="sig-tab-btn ${signatureMode === 'draw' ? 'active' : ''}" onclick="setSignatureMode('draw')">✍️ Dibujar firma</button>
                     <button class="sig-tab-btn ${signatureMode === 'type' ? 'active' : ''}" onclick="setSignatureMode('type')">⌨️ Escribir mi nombre</button>
@@ -505,12 +507,19 @@
         if (notasEl) notasEl.addEventListener('input', () => { planData.notas = notasEl.value; saveProgress(); });
 
         if (signatureMode === 'draw') setTimeout(initSignatureCanvas, 50);
+        FirmaCandidato.ofrecer(document.getElementById('usarFirmaAuto'), { onUsar: usarFirmaAutodiagnostico });
         updateGenerateButton();
     }
 
     function toggleConfirm(el) { planData.evidenciasConfirmadas = el.checked; saveProgress(); updateGenerateButton(); }
     function updateVideoLink(value) { planData.videoLink = value; saveProgress(); updateGenerateButton(); }
     function setSignatureMode(mode) { signatureMode = mode; saveProgress(); render(); }
+    function usarFirmaAutodiagnostico(f) {
+        signatureMode = f.mode;
+        if (f.mode === 'draw') { signatureDataUrl = f.dataUrl; hasSignature = true; }
+        else signatureTypedName = f.typedName;
+        saveProgress(); render();
+    }
     function updateTypedSignature(value) { signatureTypedName = value; saveProgress(); updateGenerateButton(); }
 
     function updateGenerateButton() {
