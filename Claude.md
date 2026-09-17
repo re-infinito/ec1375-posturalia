@@ -7,6 +7,58 @@
 
 ---
 
+## 🎯 Prueba definitiva — expediente real de Diego (`de.minconsciente@outlook.com`)
+
+**Qué es:** Diego recorre el flujo completo con su **documentación real** y el portafolio resultante se entrega a la SEP, que debe aprobarlo. Es la primera corrida real de punta a punta desde que el contenido vive en Supabase, y la **primera ejecución de `assemble_expediente.py` contra un candidato real**. Todo lo de esta sección se verificó el 16 sep por la noche.
+
+### ✅ Ya verificado — listo para empezar
+- **La cuenta va por el flujo real**, aunque sea admin. La única exclusión de sincronización/subida es la cuenta demo, y compara contra un **correo exacto**: `is_current_user_flow_bypass_admin()` hace `auth.jwt()->>'email' = 'paideia.tech@outlook.com'` y `auth.js` usa `CANDIDATE_FLOW_BYPASS_EMAIL`. `isAdmin` no aparece en ninguna subida ni sincronización. Sus documentos se sincronizan con Supabase y suben a Nextcloud.
+- **Políticas RLS de Storage** (`fotos-candidato`, `certificados-previos`): probadas subiendo archivos reales con una sesión de usuario — guardar y leer en la carpeta propia **permitido**, guardar en la carpeta de otro usuario **bloqueado** ("new row violates row-level security policy"). Los archivos de prueba se borraron.
+- `api/subir-portafolio` vivo en producción; plantilla del IEC limpia; todas las migraciones de `02-sql/` aplicadas.
+
+### Estado de la cuenta ANTES de empezar
+- Usuario de Auth confirmado. **La fila de `candidatos_ec1375` trae datos de pruebas anteriores** (actualizada el 15 sep): autodiagnóstico, plan de evaluación, documentos de sesión, encuesta, examen y ruta de estudio, más 2 PDFs viejos en Nextcloud (`Portafolios/Diego_Eugenio_Garza_Arroyo_<CURP>/02-Alineacion/`: Plan de Evaluación y su Acuse).
+- `candidatos_precio.estado = 'administrador'` y el correo está en `admins`.
+- Fases autorizadas a mano: registro, alineación, evaluación **y entrega** (esta última desde el 26 ago).
+
+### Pasos de Diego antes de empezar
+1. **Arrancar limpio — los dos lados, no solo uno.** `_flushPendingSync()` sube a Supabase la columna que cada página guarda, y `autodiagnostico.html` baja la nube al navegador cuando no hay progreso local. Si se limpia solo la base, el navegador vuelve a subir los datos viejos; si se limpia solo el navegador, la nube los vuelve a bajar.
+   - **a) Base** (SQL Editor):
+     ```sql
+     -- 1) respaldo: copiar el resultado antes de borrar
+     select * from candidatos_ec1375
+     where user_id = (select id from auth.users where email = 'de.minconsciente@outlook.com');
+
+     -- 2) vaciar el progreso (conserva la fila, nombre y CURP)
+     update candidatos_ec1375 set
+       autodiagnostico_data = null, plan_evaluacion_data = null, documentos_sesion_data = null,
+       encuesta_data = null, evidencias_data = null, examen_conocimientos_data = null,
+       ruta_estudio_data = null, updated_at = now()
+     where user_id = (select id from auth.users where email = 'de.minconsciente@outlook.com');
+     ```
+   - **b) Navegador:** borrar los datos del sitio `sepconocer.paideiatech.com` (almacenamiento local) en **cada** navegador y celular donde se haya usado esa cuenta, **antes** de volver a entrar.
+2. **Decidir sobre Entrega.** Está preautorizada; a un candidato real la libera el evaluador después de revisar. Para que la prueba refleje el flujo real (recomendado), revocarla hasta la aprobación:
+   ```sql
+   delete from candidatos_fase_pagos where email = 'de.minconsciente@outlook.com' and fase = 'entrega';
+   ```
+3. **Escribir nombre y CURP exactamente como en los documentos oficiales**: la carpeta de Nextcloud se nombra con ellos. Si cambian respecto a la prueba vieja se crea una carpeta nueva (el script lee las rutas de la base, así que no se mezclan; la vieja queda huérfana y se puede archivar).
+
+### Diferencias conscientes vs. un candidato real (no afectan documentos)
+Por ser admin: `protect.js` no se activa (sin marca de agua ni bloqueo de copia), aparece "Volver al panel de administrador" en el sidebar, y la cuenta queda fuera de KPIs y utilidades.
+
+### Durante y después — orden
+1. Recorrer los 10 pasos con los documentos reales.
+2. En el panel, confirmar que los 15 documentos marquen **"subido"**, no solo "descargado": el script solo ensambla lo que está en Nextcloud.
+3. El evaluador revisa el video y llena Cédula de Evaluación e IEC; liberar Entrega.
+4. `python3 assemble_expediente.py "Nombre Completo"` desde `_internal_no_publicar/01-scripts/`.
+5. **Revisar el PDF ensamblado página por página** contra `PORTAFOLIO HUMBERTO LOT 1375  .pdf` antes de entregarlo.
+
+### ⚠️ Puede afectar la aprobación de la SEP — confirmar con el evaluador ANTES de ensamblar
+- **Foto para el diploma y certificados de formación** se suben a Nextcloud, pero `assemble_expediente.py` **no los incluye en el PDF final**; su ubicación en el expediente oficial nunca se confirmó. Si la SEP los pide dentro del portafolio, hay que ajustar el script antes de generar el expediente.
+- Cédula de Evaluación e IEC los llena el evaluador; el script inserta el IEC en blanco.
+
+---
+
 ## Stack
 
 - HTML5 + CSS3 + JS vanilla, **sin build step, sin framework**. Convención del proyecto: **páginas estáticas sin módulos compartidos** — cada `.html` es autocontenida. Tres excepciones deliberadas: `auth.js` (sesión/RLS), `flow-status.js` (los 10 pasos reales del flujo y qué cuenta como "completo" en cada uno) y `crm-shell.js` + `crm-shell.css` (sidebar/encabezado/tema del panel tipo CRM que envuelve cada página del flujo en tiempo de ejecución — un sidebar copiado 12 veces se desincroniza) — los tres son justo el tipo de lógica donde una copia desincronizada entre páginas es el modo de falla a evitar (ya pasó más de una vez). Orden de carga: `auth.js` → `flow-status.js` → `crm-shell.js` → script propio de cada página; ver secciones "Progreso del candidato" y "Shell CRM del candidato" abajo.
@@ -161,7 +213,7 @@ Documento oficial de autorización de publicación de datos en el RENAP (Registr
 - `generateFichaRegistroPDFBlob()` genera el PDF; se sube a Nextcloud junto con el resto de los documentos de Registro (mismo mecanismo `subirDocumento('registro', ...)` que el Autodiagnóstico) y aparece en el checklist de resultado como "🪪 Ficha de Registro".
 - En `assemble_expediente.py`: slot dedicado `ficha_registro_candidato` (detectado por palabras clave "ficha de registro"/"renap", distinto del slot preexistente `ficha_registro_paciente`), insertado justo después del separador inicial, antes de CURP/INE — orden verificado contra un expediente real.
 
-**⚠️ Pendiente que Diego haga en Supabase (único SQL que de verdad falta, 16 sep):** correr `_internal_no_publicar/02-sql/supabase_setup_v7_foto_candidato_storage.sql` (2 políticas RLS sobre `storage.objects`). El bucket privado `fotos-candidato` **ya se creó** el 16 sep vía la API de Storage con la service role key — lo que no se puede hacer por API es el `CREATE POLICY`, que es DDL y exige el SQL Editor. Sin esas políticas, `Auth.uploadFotoCandidato()` falla con error de row-level security, pero **no bloquea al candidato**: la foto ya va incrustada en el PDF y la subida es solo respaldo (`auth.js:159-167` devuelve el error sin lanzarlo).
+**✅ Listo (16 sep):** el bucket privado `fotos-candidato` se creó vía la API de Storage y Diego corrió las 2 políticas RLS de `supabase_setup_v7_foto_candidato_storage.sql` en el SQL Editor. **Verificado con una prueba real**, no solo leyendo configuración: con sesión de usuario, guardar y leer en la carpeta propia está permitido, y guardar en la carpeta de otro usuario lo bloquea RLS. La subida sigue siendo respaldo — la foto va incrustada en el PDF — pero ya no falla.
 
 ---
 
@@ -202,7 +254,7 @@ Tablas: `sesiones_alineacion` (columna `zoom_link`, renombrada de `google_meet_l
 
 En el paso "personal" del Autodiagnóstico, el candidato escribe el nombre de cada certificación tal cual aparece en su certificado y sube el archivo (PDF/imagen, máx. 10MB) — obligatorio marcar "no tengo ninguno" o subir al menos uno. Archivos en bucket privado de Supabase Storage `certificados-previos` (RLS por `user_id`, primer segmento de la ruta). `Auth.uploadCertificado(file, path)` en `auth.js`. El campo "Escolaridad/Certificaciones" del PDF oficial se llena desde estos nombres.
 
-**Estado (verificado 16 sep):** el bucket privado `certificados-previos` **ya existe** (creado el 9 sep). Las 2 políticas RLS de `supabase_setup_v6_certificados_storage.sql` **no se pueden verificar desde la API** (PostgREST no expone `pg_policies`), así que quedan como incógnita: si la subida de un certificado falla con error de row-level security, ese es el SQL que falta correr.
+**✅ Listo (16 sep):** bucket privado `certificados-previos` (creado el 9 sep) con sus 2 políticas RLS, que Diego volvió a correr con `drop policy if exists` por precaución. **Verificado con una prueba real** igual que `fotos-candidato`: carpeta propia permitida, carpeta ajena bloqueada. (Las políticas no se pueden leer desde la API — PostgREST no expone `pg_policies` —, por eso se prueba el comportamiento.)
 
 ---
 
