@@ -94,6 +94,16 @@
     }
 
     async function handleVerified(session) {
+        /* Si el login empezó en otra página (p. ej. la Biblioteca), regresar
+           ahí. Solo rutas del mismo sitio: empiezan con "/" y no con "//". */
+        try {
+            const volver = sessionStorage.getItem('paideia-volver');
+            sessionStorage.removeItem('paideia-volver');
+            if (volver && volver.charAt(0) === '/' && volver.charAt(1) !== '/' && volver.indexOf('/panel.html') !== 0) {
+                location.replace(volver);
+                return;
+            }
+        } catch (e) { /* sin storage */ }
         const app = document.getElementById('app');
         if (await Auth.isBypassSession()) {
             Auth.ensureAdminPlaceholderData();

@@ -90,6 +90,83 @@ body.pres .bib-idx{display:none}
   .bib-idx.open{transform:none}
   .bib-backdrop.open{display:block;position:fixed;inset:0;background:rgba(7,14,24,.5);z-index:225}
 }
+/* ── Navegación guiada (17 sep): barra inferior, guía de repaso, ayuda, fin ── */
+.bib .tbtn.bib-keep .lbl{display:inline}
+.bib .nav{position:sticky;bottom:0;z-index:30;display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;
+  padding:12px clamp(12px,2.4vw,26px);background:var(--surface);border-top:1px solid var(--line);margin-top:16px}
+.bib .nbtn{min-height:48px;padding:10px 18px;font-size:14px;border-radius:12px;justify-content:center}
+.bib .nbtn.primary{min-width:190px}
+.bib .nbtn.fin{background:var(--ok);border-color:var(--ok);color:#fff}
+.bib .nbtn.fin:hover:not(:disabled){background:var(--ok);border-color:var(--ok);color:#fff;filter:brightness(1.08)}
+.bib-navinfo{min-width:0;text-align:center;display:grid;gap:2px}
+.bib-navinfo b{font:700 13px/1.2 var(--body);color:var(--ink)}
+.bib-navinfo span{font:500 12px/1.3 var(--body);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bib-guia{width:min(1240px,100%);border:1.5px solid var(--accent);background:var(--accent-pale);border-radius:var(--r);
+  padding:14px 16px;margin-bottom:12px;display:grid;gap:10px}
+.bib-guia[hidden]{display:none}
+.bib-guia-top{display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap}
+.bib-guia-k{font:700 10.5px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--accent-dk)}
+.bib-guia h2{font:800 17px/1.25 var(--display);color:var(--ink);margin:3px 0 0}
+.bib-guia-salir{margin-left:auto;font:600 12.5px/1 var(--body);color:var(--mid);border:1px solid var(--line);background:var(--surface);
+  border-radius:999px;padding:9px 13px;cursor:pointer;min-height:38px}
+.bib-guia-salir:hover{border-color:var(--accent);color:var(--accent)}
+.bib-pasos{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.bib-paso{min-width:36px;height:36px;border-radius:999px;border:1.5px solid var(--line);background:var(--surface);color:var(--mid);
+  font:700 13px/1 var(--mono);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;padding:0 8px}
+.bib-paso.vista{border-color:var(--ok);color:var(--ok)}
+.bib-paso.cur{background:var(--navy-900);border-color:var(--navy-900);color:#fff}
+:root[data-theme="dark"] .bib-paso.cur{background:var(--accent);border-color:var(--accent);color:#04121F}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .bib-paso.cur{background:var(--accent);border-color:var(--accent);color:#04121F}}
+.bib-pasos-txt{font:500 12.5px/1.3 var(--body);color:var(--mid);margin-left:4px}
+.bib-instr{margin:0;padding-left:20px;display:grid;gap:3px;font:500 13px/1.45 var(--body);color:var(--ink)}
+.bib-modal{position:fixed;inset:0;z-index:300;background:rgba(7,14,24,.62);display:grid;place-items:center;padding:18px}
+.bib-modal[hidden]{display:none}
+.bib-modal .box{width:min(520px,100%);max-height:90vh;overflow:auto;background:var(--surface);border:1px solid var(--line);
+  border-radius:var(--r);box-shadow:var(--shadow);padding:24px}
+.bib-modal h2{font:800 20px/1.25 var(--display);color:var(--ink);margin:0 0 6px}
+.bib-modal p{color:var(--mid);font:500 14px/1.5 var(--body);margin:0 0 14px}
+.bib-modal ol{margin:0 0 16px;padding-left:22px;display:grid;gap:8px;color:var(--ink);font:500 14px/1.45 var(--body)}
+.bib-modal .kbd{font:600 11px/1 var(--mono);border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:2px 6px;color:var(--mid)}
+.bib-acciones{display:grid;gap:9px}
+.bib-btn{display:flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:12px 16px;border-radius:12px;
+  font:700 14.5px/1.2 var(--body);text-decoration:none;cursor:pointer;border:1.5px solid var(--line);background:var(--surface);color:var(--ink)}
+.bib-btn:hover{border-color:var(--accent);color:var(--accent)}
+.bib-btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.bib-btn.primary:hover{color:#fff;filter:brightness(1.07)}
+.bib-btn.ok{background:var(--ok);border-color:var(--ok);color:#fff}
+.bib-btn.ok:hover{color:#fff;filter:brightness(1.07)}
+.bib-fin-ic{width:56px;height:56px;border-radius:50%;background:var(--ok-pale);color:var(--ok);display:grid;place-items:center;
+  font-size:28px;margin-bottom:12px;border:1.5px solid var(--ok-line)}
+.bib-toast{position:fixed;left:50%;bottom:92px;transform:translateX(-50%);z-index:250;background:var(--navy-900);color:#fff;
+  border-radius:12px;padding:10px 12px 10px 16px;display:flex;gap:12px;align-items:center;box-shadow:var(--shadow);
+  font:600 13px/1.3 var(--body);max-width:calc(100vw - 32px)}
+.bib-toast[hidden]{display:none}
+.bib-toast button{background:#fff;color:var(--navy-900);border:0;border-radius:999px;padding:8px 12px;font:700 12.5px/1 var(--body);cursor:pointer;white-space:nowrap}
+.bib-toast .x{background:transparent;color:#fff;padding:6px 8px}
+.bib-idx-tip{font:500 11.5px/1.3 var(--body);color:var(--muted)}
+body.pres .bib-guia,body.pres .bib-toast{display:none}
+body.pres .bib .nav{position:fixed}
+details.bib-como{font:500 13px/1.45 var(--body);color:var(--ink)}
+details.bib-como summary{cursor:pointer;font-weight:700;color:var(--accent-dk);list-style:none;display:inline-flex;gap:6px;align-items:center;min-height:30px}
+details.bib-como summary::-webkit-details-marker{display:none}
+details.bib-como summary::before{content:'▸';transition:transform .15s}
+details.bib-como[open] summary::before{transform:rotate(90deg)}
+details.bib-como .bib-instr{margin-top:6px}
+.bib .sm{display:none}
+@media (max-width:760px){
+  .bib .sm{display:inline}.bib .lg{display:none}
+  .bib .counter,.bib #btn-pres{display:none}
+  .bib .topbar{gap:8px}
+  .bib[data-repaso] .frame{display:none}
+  .bib-guia{padding:11px 12px;gap:8px}
+  .bib-guia-salir{padding:7px 10px;min-height:34px;font-size:12px}
+  .bib-paso{min-width:34px;height:34px}
+  .bib .nav{grid-template-columns:1fr 1fr;padding:10px 12px 10px 76px}
+  .bib-navinfo{grid-column:1/-1;order:-1;text-align:left}
+  .bib .nbtn.primary{min-width:0}
+  .bib-guia h2{font-size:15.5px}
+  .bib-instr{font-size:12.5px}
+}
 @media (max-width:620px){ .ruta-tag{display:none} .brand-sub{display:none} }
 </style>
 </head>
@@ -104,8 +181,9 @@ body.pres .bib-idx{display:none}
     <div class="spacer"></div>
     <div class="tb-actions">
       <span class="counter" id="counter">—</span>
-      <a class="tbtn" id="btn-back" href="panel.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 5l-7 7 7 7"/></svg><span class="lbl" id="back-lbl">Panel</span></a>
-      <button class="tbtn bib-idxbtn" id="btn-index" aria-controls="bibIdx" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg><span class="lbl">Índice</span></button>
+      <a class="tbtn bib-keep" id="btn-back" href="panel.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 5l-7 7 7 7"/></svg><span class="lbl" id="back-lbl">Panel</span></a>
+      <button class="tbtn bib-idxbtn bib-keep" id="btn-index" aria-controls="bibIdx" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg><span class="lbl">Índice</span></button>
+      <button class="tbtn" id="btn-help" title="Cómo usar la Biblioteca"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.3 2.37c-.5.18-.8.65-.8 1.18V14M12 17.5h.01"/></svg><span class="lbl">Ayuda</span></button>
       <button class="tbtn presbtn" id="btn-pres"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 4h18v12H3z M8 20h8 M12 16v4"/></svg><span class="lbl">Presentación</span></button>
       <button class="tbtn" id="btn-theme" title="Cambiar a modo claro"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg><span class="lbl" id="theme-lbl">Modo claro</span></button>
     </div>
@@ -122,6 +200,7 @@ body.pres .bib-idx{display:none}
           <select class="bib-sel" id="modSel" aria-label="Filtrar por módulo"><option value="">Todos los módulos</option></select>
         </div>
         <div class="bib-crit" id="critBanner" hidden></div>
+        <div class="bib-idx-tip">Toca una pantalla para abrirla · ✓ ya la viste · <i class="bib-dot"></i> recomendada para ti</div>
       </div>
       <div class="bib-list" id="idxlist" role="list"></div>
       <div class="bib-idx-foot"><span id="vistasTxt">0 vistas</span><span class="bar"><i id="vistasBar"></i></span></div>
@@ -131,6 +210,7 @@ body.pres .bib-idx{display:none}
     <div class="bib-main">
       <main class="stagewrap">
         <div class="view v-route">
+          <section class="bib-guia" id="guia" hidden aria-live="polite"></section>
           <div class="frame r-library" id="frame"></div>
           <div class="stage" id="stage"><div class="bib-loading">Cargando la Biblioteca…</div></div>
           <div class="metabar">
@@ -140,14 +220,31 @@ body.pres .bib-idx{display:none}
           <div class="pnotes" id="pnotes"></div>
         </div>
       </main>
-      <nav class="nav">
-        <button class="nbtn" id="prev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M15 5l-7 7 7 7"/></svg>Anterior</button>
-        <span class="hint">← → navegar · / buscar · N notas · P presentación</span>
-        <button class="nbtn primary" id="next">Siguiente<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 5l7 7-7 7"/></svg></button>
+      <nav class="nav" aria-label="Navegación entre pantallas">
+        <button class="nbtn" id="prev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M15 5l-7 7 7 7"/></svg><span>Anterior</span></button>
+        <div class="bib-navinfo"><b id="navPos">—</b><span id="navNext"></span></div>
+        <button class="nbtn primary" id="next"><span id="nextLbl"><span class="lg">Siguiente pantalla</span><span class="sm">Siguiente</span></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 5l7 7-7 7"/></svg></button>
       </nav>
     </div>
   </div>
 </div>
+
+<div class="bib-modal" id="ayuda" hidden role="dialog" aria-modal="true" aria-labelledby="ayudaTit"><div class="box">
+  <h2 id="ayudaTit">Cómo usar la Biblioteca</h2>
+  <p>Aquí está todo el material de estudio del EC1375. Consultarlo no cambia tu avance: puedes entrar las veces que quieras.</p>
+  <ol>
+    <li><b>Avanza con los botones de abajo:</b> «Siguiente pantalla» y «Anterior». Si una pantalla tiene más contenido, desliza dentro de ella.</li>
+    <li><b>Abre el Índice</b> para saltar a cualquier tema. En el índice puedes <b>buscar</b> una palabra (por ejemplo «goniómetro») o filtrar por módulo.</li>
+    <li><b>«Para ti»</b> muestra solo las pantallas de los reactivos que marcaste NO y de los temas que fallaste en el examen.</li>
+    <li>Las pantallas que ya viste llevan <b>✓</b>. Si sales, la próxima vez <b>retomas donde te quedaste</b>.</li>
+  </ol>
+  <p style="font-size:12.5px">En computadora: <span class="kbd">←</span> <span class="kbd">→</span> cambiar pantalla · <span class="kbd">/</span> buscar · <span class="kbd">N</span> notas · <span class="kbd">P</span> presentación · <span class="kbd">?</span> esta ayuda</p>
+  <div class="bib-acciones"><button type="button" class="bib-btn primary" id="ayudaOk">Entendido, empezar</button></div>
+</div></div>
+
+<div class="bib-modal" id="fin" hidden role="dialog" aria-modal="true" aria-labelledby="finTit"><div class="box" id="finBox"></div></div>
+
+<div class="bib-toast" id="toast" hidden role="status"></div>
 
 <script>
 (async function () {
@@ -167,7 +264,9 @@ body.pres .bib-idx{display:none}
   /* ── acceso: sesión + Alineación pagada (bypass y admins exentos) ── */
   var session = await Auth.getSession();
   if (!session) {
-    pantallaBloqueo('Inicia sesión para abrir la Biblioteca', 'La Biblioteca es parte de tu proceso de certificación y se carga con tu cuenta.', 'panel.html', 'Iniciar sesión');
+    /* panel.html regresa aquí después de iniciar sesión (ver handleVerified). */
+    try { sessionStorage.setItem('paideia-volver', location.pathname + location.search + location.hash); } catch (e) { /* sin storage */ }
+    pantallaBloqueo('Inicia sesión para abrir la Biblioteca', 'La Biblioteca es parte de tu proceso de certificación y se carga con tu cuenta. Al entrar te regresamos aquí.', 'panel.html', 'Iniciar sesión');
     return;
   }
   var email = session.user.email;
@@ -226,7 +325,9 @@ body.pres .bib-idx{display:none}
   var lista = [], pos = 0, vistas = {};
   try { (JSON.parse(localStorage.getItem(VISTAS_KEY) || '[]') || []).forEach(function (s) { vistas[s] = 1; }); } catch (e) { /* sin storage */ }
 
-  if (f.crit) { $('btn-back').href = 'examen-conocimientos.html'; $('back-lbl').textContent = 'Volver al examen'; }
+  var URL_EXAMEN = 'examen-conocimientos.html?reintentar=1';
+  var ULTIMA_KEY = 'ec1375-biblioteca-ultima', GUIA_KEY = 'ec1375-biblioteca-guia';
+  if (f.crit) { $('btn-back').href = URL_EXAMEN; $('back-lbl').textContent = 'Volver al examen'; }
   $('numTodo').textContent = cat.length;
   $('numRec').textContent = Object.keys(rec).length;
   if (!Object.keys(rec).length) $('chipRec').title = 'No tienes pantallas recomendadas: respondiste SÍ a todo tu Autodiagnóstico y no fallaste temas en el examen.';
@@ -248,10 +349,7 @@ body.pres .bib-idx{display:none}
     var c = criterios[f.crit];
     b.hidden = false;
     b.innerHTML = '<div><b>Tema del examen · ' + esc(f.crit) + '</b>' + esc(c ? c.titulo : '') + '</div><button type="button" id="critX">Ver todo</button>';
-    $('critX').onclick = function () {
-      f.crit = ''; history.replaceState(null, '', location.pathname + location.hash);
-      aplicaFiltros(lista[pos] && lista[pos].sid);
-    };
+    $('critX').onclick = salirRepaso;
   }
 
   function pintaIndice() {
@@ -280,6 +378,94 @@ body.pres .bib-idx{display:none}
     $('vistasBar').style.width = (nv / cat.length * 100) + '%';
   }
 
+  /* ── modo repaso: llegó desde el examen (?crit=) o eligió «Para ti» ── */
+  function modoRepaso() { return f.crit ? 'examen' : (f.soloRecomendados && lista.length ? 'parati' : null); }
+  function temaRepaso() {
+    if (f.crit) { var c = criterios[f.crit]; return c ? c.titulo : f.crit; }
+    return 'Tus pantallas recomendadas';
+  }
+  function corto(t, n) { t = String(t || ''); return t.length > n ? t.slice(0, n - 1) + '…' : t; }
+
+  function pintaNav() {
+    var ultimo = pos === lista.length - 1, repaso = modoRepaso();
+    prevB.disabled = pos === 0;
+    $('navPos').textContent = (repaso ? 'Repaso · ' : '') + 'Pantalla ' + (pos + 1) + ' de ' + lista.length;
+    if (!ultimo) {
+      $('navNext').textContent = 'Sigue: ' + corto(lista[pos + 1].titulo, 70);
+      $('nextLbl').innerHTML = '<span class="lg">Siguiente pantalla</span><span class="sm">Siguiente</span>';
+      nextB.classList.remove('fin'); nextB.disabled = false;
+    } else if (repaso) {
+      $('navNext').textContent = 'Es la última pantalla de este repaso';
+      $('nextLbl').innerHTML = '<span class="lg">Terminé el repaso</span><span class="sm">Terminé</span>';
+      nextB.classList.add('fin'); nextB.disabled = false;
+    } else {
+      $('navNext').textContent = 'Llegaste al final · abre el Índice para ir a otro tema';
+      $('nextLbl').textContent = 'Fin de la lista';
+      nextB.classList.remove('fin'); nextB.disabled = true;
+    }
+  }
+
+  function pintaGuia() {
+    var g = $('guia'), repaso = modoRepaso();
+    if (repaso) app.setAttribute('data-repaso', repaso); else app.removeAttribute('data-repaso');
+    if (!repaso) { g.hidden = true; return; }
+    var vistasRep = lista.filter(function (e) { return vistas[e.sid]; }).length;
+    g.hidden = false;
+    g.innerHTML = '<div class="bib-guia-top"><div><div class="bib-guia-k">' +
+      (repaso === 'examen' ? 'Repaso del tema que fallaste en el examen' : 'Repaso recomendado para ti') + '</div>' +
+      '<h2>' + esc(temaRepaso()) + '</h2></div>' +
+      '<button type="button" class="bib-guia-salir" data-salir>Ver toda la Biblioteca</button></div>' +
+      '<div class="bib-pasos" role="list">' + lista.map(function (e, k) {
+        return '<button type="button" role="listitem" class="bib-paso' + (k === pos ? ' cur' : '') + (vistas[e.sid] ? ' vista' : '') +
+          '" data-paso="' + k + '" title="' + esc(e.titulo) + '"' + (k === pos ? ' aria-current="step"' : '') +
+          ' aria-label="Pantalla ' + (k + 1) + ': ' + esc(e.titulo) + (vistas[e.sid] ? ' (vista)' : '') + '">' +
+          (vistas[e.sid] && k !== pos ? '✓' : (k + 1)) + '</button>';
+      }).join('') + '<span class="bib-pasos-txt">' + vistasRep + ' de ' + lista.length + ' vistas</span></div>' +
+      '<details class="bib-como"' + (pos === 0 || !window.matchMedia('(max-width:760px)').matches ? ' open' : '') + '><summary>Cómo repasar</summary>' +
+      '<ol class="bib-instr">' +
+        '<li>Lee la pantalla completa; si tiene más contenido, desliza dentro de ella.</li>' +
+        '<li>Toca <b>«Siguiente pantalla»</b> abajo, o un número para saltar.</li>' +
+        (repaso === 'examen'
+          ? '<li>Al terminar, toca <b>«Terminé el repaso»</b> y vuelve a contestar la pregunta del examen.</li>'
+          : '<li>Al terminar, toca <b>«Terminé el repaso»</b>.</li>') +
+      '</ol></details>';
+  }
+
+  function salirRepaso() {
+    var sid = lista[pos] && lista[pos].sid;
+    f.crit = ''; f.soloRecomendados = false;
+    history.replaceState(null, '', location.pathname + (sid ? '#' + sid : ''));
+    $('btn-back').href = 'panel.html'; $('back-lbl').textContent = 'Panel';
+    cierraModal('fin');
+    aplicaFiltros(sid);
+  }
+
+  function abreModal(id) { $(id).hidden = false; var b = $(id).querySelector('button, a'); if (b) b.focus(); }
+  function cierraModal(id) { $(id).hidden = true; }
+
+  function mostrarFin() {
+    var repaso = modoRepaso(), n = lista.length;
+    $('finBox').innerHTML = '<div class="bib-fin-ic" aria-hidden="true">✓</div>' +
+      '<h2 id="finTit">¡Repaso completo!</h2>' +
+      (repaso === 'examen'
+        ? '<p>Terminaste las ' + n + ' pantallas de <b>' + esc(temaRepaso()) + '</b>. Ahora regresa al examen: la pregunta queda lista para que la contestes otra vez.</p>' +
+          '<div class="bib-acciones"><a class="bib-btn ok" href="' + URL_EXAMEN + '">Volver a contestar el examen</a>' +
+          '<button type="button" class="bib-btn" data-otra>Repasar otra vez desde la primera pantalla</button>' +
+          '<button type="button" class="bib-btn" data-salir>Explorar toda la Biblioteca</button></div>'
+        : '<p>Terminaste tus ' + n + ' pantallas recomendadas. Puedes volver a tu panel para seguir con tu proceso.</p>' +
+          '<div class="bib-acciones"><a class="bib-btn ok" href="panel.html">Volver a mi panel</a>' +
+          '<button type="button" class="bib-btn" data-otra>Repasar otra vez desde la primera pantalla</button>' +
+          '<button type="button" class="bib-btn" data-salir>Explorar toda la Biblioteca</button></div>');
+    abreModal('fin');
+  }
+
+  var tToast;
+  function toast(html, ms) {
+    var t = $('toast'); t.innerHTML = html; t.hidden = false;
+    clearTimeout(tToast); tToast = setTimeout(function () { t.hidden = true; }, ms || 7000);
+    var x = t.querySelector('.x'); if (x) x.onclick = function () { t.hidden = true; };
+  }
+
   function nombreElem(e) { var n = (e.crit[0] || '').slice(1, 2); return n ? 'Elemento ' + n : ''; }
 
   function pinta() {
@@ -287,6 +473,7 @@ body.pres .bib-idx{display:none}
     [].forEach.call(stage.querySelectorAll('.slide.on'), function (s) { s.classList.remove('on'); });
     var e = lista[pos];
     if (!e) {
+      $('navPos').textContent = 'Sin pantallas'; $('navNext').textContent = 'Borra la búsqueda o cambia el filtro'; $('guia').hidden = true;
       frame.innerHTML = ''; counter.textContent = '0 / 0'; pfill.style.width = '0'; prevB.disabled = nextB.disabled = true;
       rxWrap.innerHTML = ''; notesBtn.style.display = 'none'; notesBox.classList.remove('show');
       stage.setAttribute('data-vacio', '1'); pintaIndice(); return;
@@ -297,8 +484,9 @@ body.pres .bib-idx{display:none}
     marcaVista(e.sid);
     counter.textContent = String(pos + 1).padStart(3, '0') + ' / ' + lista.length;
     pfill.style.width = ((pos + 1) / lista.length * 100) + '%';
-    prevB.disabled = pos === 0;
-    nextB.disabled = pos === lista.length - 1;
+    pintaNav();
+    pintaGuia();
+    if (!modoRepaso()) { try { localStorage.setItem(ULTIMA_KEY, e.sid); } catch (err) { /* sin storage */ } }
     var c = criterios[e.crit[0]];
     var motivos = rec[e.sid] ? rec[e.sid].map(function (m) { return m === 'examen' ? 'tema del examen' : 'reactivo en NO'; }).join(' · ') : '';
     frame.innerHTML = '<span class="f-k">Biblioteca</span>' +
@@ -332,8 +520,9 @@ body.pres .bib-idx{display:none}
     var k = -1;
     for (var i = 0; i < lista.length; i++) if (lista[i].sid === sidPreferido) { k = i; break; }
     pos = k >= 0 ? k : 0;
-    $('chipTodo').setAttribute('aria-pressed', String(!f.soloRecomendados));
-    $('chipRec').setAttribute('aria-pressed', String(f.soloRecomendados));
+    $('chipTodo').setAttribute('aria-pressed', String(!f.soloRecomendados && !f.crit));
+    $('chipRec').setAttribute('aria-pressed', String(f.soloRecomendados && !f.crit));
+    $('rutaTag').textContent = (f.crit || f.soloRecomendados) ? 'Modo repaso' : 'Consulta libre';
     pintaBanner();
     pinta();
   }
@@ -361,18 +550,39 @@ body.pres .bib-idx{display:none}
   $('btn-index').onclick = function () { abreIndice(!idx.classList.contains('open')); };
   $('bibBackdrop').onclick = function () { abreIndice(false); };
   prevB.onclick = function () { ir(pos - 1); };
-  nextB.onclick = function () { ir(pos + 1); };
+  nextB.onclick = function () {
+    if (pos < lista.length - 1) { ir(pos + 1); return; }
+    if (modoRepaso()) mostrarFin();
+  };
+  $('guia').addEventListener('click', function (ev) {
+    var b = ev.target.closest('[data-paso]'); if (b) { ir(+b.getAttribute('data-paso')); return; }
+    if (ev.target.closest('[data-salir]')) salirRepaso();
+  });
+  $('fin').addEventListener('click', function (ev) {
+    if (ev.target === $('fin')) { cierraModal('fin'); return; }
+    if (ev.target.closest('[data-otra]')) { cierraModal('fin'); ir(0); return; }
+    if (ev.target.closest('[data-salir]')) salirRepaso();
+  });
+  function cierraAyuda() { cierraModal('ayuda'); try { localStorage.setItem(GUIA_KEY, '1'); } catch (e) { /* sin storage */ } }
+  $('btn-help').onclick = function () { abreModal('ayuda'); };
+  $('ayudaOk').onclick = cierraAyuda;
+  $('ayuda').addEventListener('click', function (ev) { if (ev.target === $('ayuda')) cierraAyuda(); });
   notesBtn.onclick = function () { notesBox.classList.toggle('show'); };
   $('btn-pres').onclick = function () { V.presentacion(!document.body.classList.contains('pres')); };
   V.enlazarBotonTema($('btn-theme'), $('theme-lbl'));
   document.addEventListener('keydown', function (e) {
+    if (!$('ayuda').hidden || !$('fin').hidden) {
+      if (e.key === 'Escape') { if (!$('ayuda').hidden) cierraAyuda(); cierraModal('fin'); }
+      return;
+    }
     if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName || '')) {
       if (e.key === 'Escape' && e.target === qIn) { qIn.blur(); }
       return;
     }
-    if (e.key === 'ArrowRight' || e.key === 'PageDown') { e.preventDefault(); ir(pos + 1); }
+    if (e.key === 'ArrowRight' || e.key === 'PageDown') { e.preventDefault(); nextB.click(); }
     else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); ir(pos - 1); }
     else if (e.key === '/') { e.preventDefault(); if (window.matchMedia('(max-width:1100px)').matches) abreIndice(true); qIn.focus(); }
+    else if (e.key === '?') abreModal('ayuda');
     else if (e.key === 'n' || e.key === 'N') notesBox.classList.toggle('show');
     else if (e.key === 'p' || e.key === 'P') $('btn-pres').click();
     else if (e.key === 'Home') ir(0);
@@ -389,13 +599,24 @@ body.pres .bib-idx{display:none}
     if (!sid || !SL[sid] || (lista[pos] && lista[pos].sid === sid)) return;
     var k = lista.map(function (e) { return e.sid; }).indexOf(sid);
     if (k >= 0) { ir(k); return; }
-    f.q = ''; qIn.value = ''; f.mod = ''; modSel.value = ''; f.soloRecomendados = false; f.crit = '';
-    history.replaceState(null, '', location.pathname + '#' + sid);
-    aplicaFiltros(sid);
+    f.q = ''; qIn.value = ''; f.mod = ''; modSel.value = '';
+    lista = [{ sid: sid }]; pos = 0;
+    salirRepaso();
   });
 
   /* ── arranque: ?crit= filtra; #sid abre esa pantalla ── */
-  aplicaFiltros(location.hash.slice(1));
+  var inicio = location.hash.slice(1), retomo = false;
+  if (!inicio && !f.crit) {
+    try { var ult = localStorage.getItem(ULTIMA_KEY); if (ult && SL[ult] && ult !== cat[0].sid) { inicio = ult; retomo = true; } } catch (e) { /* sin storage */ }
+  }
+  aplicaFiltros(inicio);
+  if (retomo) {
+    toast('Retomaste donde te quedaste<button type="button" id="tInicio">Ir al inicio</button><button type="button" class="x" aria-label="Cerrar">✕</button>');
+    $('tInicio').onclick = function () { $('toast').hidden = true; ir(0); };
+  }
+  var guiaVista = false;
+  try { guiaVista = localStorage.getItem(GUIA_KEY) === '1'; } catch (e) { guiaVista = true; }
+  if (!guiaVista && !f.crit) abreModal('ayuda');
 })();
 </script>
 </body>

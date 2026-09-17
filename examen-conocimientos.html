@@ -231,6 +231,17 @@
         }
 
         examState = loadExamState();
+        /* ?reintentar=1 — viene de «Volver a contestar el examen» en la
+           Biblioteca: si la pregunta actual quedó contestada mal, se borra
+           esa respuesta para que aparezca lista para intentarla otra vez. */
+        if (new URLSearchParams(location.search).get('reintentar') === '1') {
+            const actual = examState.order[examState.currentIndex];
+            if (!examState.submitted && actual && examState.answers[actual.qIndex] !== undefined
+                && REACTIVOS[actual.qIndex] && examState.answers[actual.qIndex] !== REACTIVOS[actual.qIndex].correcta) {
+                delete examState.answers[actual.qIndex];
+            }
+            history.replaceState(null, '', location.pathname);
+        }
         saveExamState();
 
         if (examState.submitted) {
@@ -243,10 +254,11 @@
 
     /* Una pregunta por pantalla. Al responder, se muestra de inmediato si
        fue correcta o incorrecta: si acierta, botón para avanzar; si falla,
-       se revela la respuesta correcta, una liga a la Biblioteca (en pestaña
-       nueva, para no perder el avance del examen) y un botón "Regresar a
-       contestar" que borra esa respuesta y deja la misma pregunta lista
-       para intentarla de nuevo — no se avanza hasta acertar. */
+       se revela la respuesta correcta, una liga a la Biblioteca (misma
+       pestaña desde el 17 sep: el avance vive en localStorage, y al terminar
+       el repaso la Biblioteca regresa con ?reintentar=1, que deja la misma
+       pregunta lista para contestar) y un botón "Contestar de nuevo sin
+       repasar" que borra esa respuesta — no se avanza hasta acertar. */
     function renderExamen(app) {
         const idx = examState.currentIndex;
         const entry = examState.order[idx];
@@ -281,8 +293,9 @@
                 <p style="color:var(--danger);font-weight:700;margin-bottom:8px;">❌ Incorrecto</p>
                 <p style="color:var(--text-bright);font-size:0.88rem;margin-bottom:4px;">Respuesta correcta: <strong>${escapeHtml(r.opciones[r.correcta])}</strong></p>
                 <p style="color:var(--text);font-size:0.82rem;margin-bottom:14px;">Tema: ${escapeHtml(r.tema)}</p>
-                <a href="${linkBibliotecaParaTema(r.tema)}" target="_blank" class="btn btn-primary btn-full">📚 Ir a la Biblioteca a repasar este tema</a>
-                <button class="btn btn-secondary btn-full" onclick="reintentarPregunta(${entry.qIndex})">🔁 Regresar a contestar</button>
+                <a href="${linkBibliotecaParaTema(r.tema)}" class="btn btn-primary btn-full">📚 Repasar este tema en la Biblioteca</a>
+                <p style="color:var(--text);font-size:0.8rem;margin:8px 0 12px;text-align:center;">Tu avance se guarda. Al terminar el repaso, un botón te regresa a esta misma pregunta.</p>
+                <button class="btn btn-secondary btn-full" onclick="reintentarPregunta(${entry.qIndex})">🔁 Contestar de nuevo sin repasar</button>
             </div>
         `;
 
@@ -362,7 +375,7 @@
             <div class="card" style="background:rgba(255,215,0,0.06);border:1px solid var(--accent);">
                 <h3 style="color:var(--accent);margin-bottom:10px;">📚 Temas que repasaste durante el examen</h3>
                 <ul style="margin:0 0 14px 18px;color:var(--text-bright);">
-                    ${temasRepasados.map(t => `<li style="margin-bottom:4px;"><a href="${linkBibliotecaParaTema(t)}" target="_blank" style="color:var(--primary-light);">${escapeHtml(t)}</a></li>`).join('')}
+                    ${temasRepasados.map(t => `<li style="margin-bottom:4px;"><a href="${linkBibliotecaParaTema(t)}" style="color:var(--primary-light);">${escapeHtml(t)}</a></li>`).join('')}
                 </ul>
                 <p style="color:var(--text);font-size:0.85rem;">
                     Vale la pena repasar estos temas una vez más en tu Biblioteca antes de tu evaluación real.
