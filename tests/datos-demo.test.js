@@ -132,7 +132,7 @@ test('DEMO_COLUMNAS cubre exactamente lo que se siembra', () => {
 test('cada página guarda lo sembrado y enseguida llama syncToSupabase con su columna', () => {
     const { Auth } = cargarAuth();
     const paginas = ['autodiagnostico.html', 'plan-evaluacion.html', 'documentos-sesion.html',
-                     'encuesta-satisfaccion.html', 'evidencias.html', 'examen-conocimientos.html'];
+                     'encuesta-satisfaccion.html', 'evidencias.html', 'estudio.html'];  /* el Examen vive en estudio.html desde el 17 sep */
     const vistas = {};
     for (const pagina of paginas) {
         const src = fs.readFileSync(path.join(RAIZ, pagina), 'utf8');
