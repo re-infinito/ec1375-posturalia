@@ -90,9 +90,17 @@ autodiagnostico.html      142 reactivos EC1375, wizard de pasos, login+password 
 alineacion.html           Gate fase Alineación · reserva de sesión en vivo (Google Calendar) · CTAs a ruta-alineacion.html / ruta-estudio.html
 ruta-alineacion.html      57 pantallas curadas con video real de YouTube — presentación de Alineación (carga auth.js/
                            flow-status.js/crm-shell.js en <head> y un bloque al final para el rail del shell — si se
-                           regenera desde el pipeline, volver a insertarlos, ver Tarea 7 del plan del shell CRM)
-ruta-estudio.html         Motor de estudio de 5.4MB (state machine "V4.4", API pública window.EC1375) — biblioteca/práctica/reforzamiento
-reforzamiento.html, practica.html, biblioteca.html   Stubs (`location.replace('ruta-estudio.html?boot=X')`) — no tienen contenido propio
+                           regenera desde el pipeline, volver a insertarlos, ver Tarea 7 del plan del shell CRM). Desde el
+                           16 sep sus estilos viven en visor-diapositivas.css y sus videos/tema/presentación usan
+                           visor-diapositivas.js (ver "Biblioteca" abajo)
+ruta-estudio.html         Motor de estudio (state machine "V4.4", API pública window.EC1375; 287 KB en cascarón, contenido en
+                           Supabase) — Reforzamiento (boot=remedial) y Práctica (boot=practice). boot=library redirige a
+                           biblioteca.html conservando &crit= y #sid
+biblioteca.html           Biblioteca EC1375, visor propio (16 sep, backlog #18) — ver sección "Biblioteca" abajo
+visor-diapositivas.css/.js   Compartidos por biblioteca.html y ruta-alineacion.html: estilos de diapositiva (extraídos verbatim
+                           del <style> del pipeline) + catálogo/recomendados/filtros (lógica pura, tests/visor-diapositivas.test.js)
+                           + videos/quizzes/presentación/tema. El .js también trae TEMA_A_CRITERIO (lo usa el examen).
+reforzamiento.html, practica.html   Stubs (`location.replace('ruta-estudio.html?boot=X')`) — no tienen contenido propio
 guion-maestro.html        Guion de apoyo para la sesión real con el usuario (abrir en otra pestaña o imprimir) —
                            enlazado desde plan-evaluacion.html, sin PDF ni gate de fase propio
 examen-conocimientos.html Autoevaluación de práctica, 39 reactivos (100% de EC-1375-reactivos - actualizado.docx),
@@ -137,7 +145,9 @@ contenido.js              Carga del contenido protegido desde Supabase (proyecto
                            (`puede_leer_contenido(fase)`). `Contenido.cargar(clave, {fallback})`, `imagenes()`, `errorHtml()`.
                            Publica `_internal_no_publicar/01-scripts/publicar_contenido.py` (extraer → publicar → shell).
                            Ver sección "Contenido al servidor" abajo. Pruebas: tests/contenido.test.js.
-manifest.json, sw.js, icons/   PWA instalable: el service worker cachea SOLO la app (nunca contenido, Supabase ni /api/);
+manifest.json, sw.js, icons/   PWA instalable: el service worker cachea SOLO la app (nunca contenido, Supabase ni /api/),
+                           TODO red primero — la caché solo se usa sin conexión (16 sep; antes JS/CSS iban caché primero y
+                           la primera visita tras un deploy mezclaba HTML nuevo con JS viejo);
                            botón "Instalar aplicación" en el sidebar (crm-shell.js). Iconos generados del logo con PIL.
 protect.js                Disuasión de copia/captura (15 sep): marca de agua en mosaico con correo+fecha, bloqueo de
                            selección/copiar/arrastrar/clic derecho (no en campos de formulario), atajos F12/Ctrl+Shift+I-J-C-K/
@@ -339,7 +349,7 @@ Diego pidió **invertir la decisión del 15 sep** ("esas páginas siempre son os
 - **Dos bugs previos que salieron al probar y quedaron corregidos:** (a) `crm-shell.css` ponía `body.crm-active{background:var(--dark)}`, pero estas dos páginas no definen `--dark` → el `var()` quedaba inválido y el body transparente, con el canvas **blanco** detrás del contenido oscuro; ahora esa regla excluye el modo rail (`body.crm-active:not(.crm-rail)`) y cada página pinta su fondo con su propio `--page`. (b) El topbar no cabía en una línea entre ~900px y ~1500px (en modo boot se le inyectan "Volver" y "Ruta de Alineación completa (con video)") y, como `.tb-actions` no encoge, empujaba scroll horizontal a TODA la página (medido: 1426px de contenido en 1185px de viewport, ya desbordaba 120px antes de agregar el botón de tema) — ahora envuelve antes de desbordar.
 - **Si se regeneran estas páginas desde el pipeline externo** hay que volver a aplicar, además de lo ya documentado (Módulo 7, ligas de compra, scripts de shell/protect/contenido): el `<script>` anti-flash del `<head>`, el bloque `:root[data-theme="light"]`, el botón `#btn-theme` del topbar con sus funciones de tema, el grupo "MÓDULO 7" del índice de la Biblioteca y los ajustes responsivos del topbar.
 
-**⚠️ Al probar cambios de CSS/JS en local:** el Service Worker de la PWA cachea la app agresivamente y sirve copias viejas **aunque** se use `Network.setCacheDisabled`, `fetch(..., {cache:'no-store'})` o `Network.setBypassServiceWorker` — más de una vez pareció que un arreglo "no funcionaba" cuando el navegador nunca había visto el archivo nuevo. Lo que sí funciona: `page.route('**/sw.js', r => r.abort())` + `unregister()` + `caches.delete()`, o un `?cb=<random>` en la URL de la página.
+**⚠️ Al probar cambios de CSS/JS en local:** (histórico — desde el 16 sep `sw.js` va red primero para JS/CSS, así que esto ya no debería pasar; si pasa, revisar que el SW activo sea `paideia-app-v3` o posterior) el Service Worker de la PWA cachea la app agresivamente y sirve copias viejas **aunque** se use `Network.setCacheDisabled`, `fetch(..., {cache:'no-store'})` o `Network.setBypassServiceWorker` — más de una vez pareció que un arreglo "no funcionaba" cuando el navegador nunca había visto el archivo nuevo. Lo que sí funciona: `page.route('**/sw.js', r => r.abort())` + `unregister()` + `caches.delete()`, o un `?cb=<random>` en la URL de la página.
 
 ---
 
@@ -372,6 +382,21 @@ El contenido valioso ya no debe viajar en el HTML: Ruta de estudio (datos, media
 **Credenciales del script:** viven en `_internal_no_publicar/01-scripts/.env` (gitignored). Las variables Sensitive de Vercel NO se pueden bajar con `vercel env pull` (deja `[SENSITIVE]`): se pegaron a mano la service role key de Supabase y las de Nextcloud/Cloudflare (documentos cifrados de Humberto `PAIDEIA_EC1375_nube_tokens.docx` / `PAIDEIA_EC1375_almacenamiento.docx`, en la raíz, ignorados por git). Si se regeneran `ruta-estudio`/`ruta-alineacion` desde el pipeline externo: volver a correr `todo` y re-aplicar los cambios manuales documentados (Módulo 7, ligas de compra, scripts del shell/protect/contenido, loader del final de `ruta-alineacion`). Para republicar contenido editado: `extraer` requiere las páginas CON bloque inline (restaurarlas con `git show <commit-anterior-al-shell>:<pagina>` o editar el paquete JSON en `_internal_no_publicar/contenido/` directamente y correr solo `publicar`).
 
 **Realtime:** `admin-crm.html` escucha `candidatos_fase_pagos`, `inscripciones_alineacion` y `utilidades_pagos` (el mismo SQL las agrega a la publicación `supabase_realtime`).
+
+---
+
+## Biblioteca (`biblioteca.html`, 16 sep — backlog #18)
+
+Visor propio de la Biblioteca, separado del motor `ruta-estudio.html`. **Decisiones de Diego:** alcance "solo visor" (Reforzamiento y Práctica NO cambian: siguen en el motor con sus mismas condiciones de hecho, `diagnostic.approved` y `practice.completed`) y acceso **desde Alineación pagada, como antes** (admins y cuenta bypass exentos). Diego pidió además simplificar lo duplicado sin perder lógica.
+
+- **Qué muestra:** 133 pantallas = las 121 de `ruta-estudio:slides` + las 12 que SOLO existen en `ruta-alineacion:slides` (5 de introducción SEP/CONOCER/SCIAN y las 7 del Módulo 7 "Tu video práctico"), en 8 módulos con nombre (tomado de `ruta-alineacion:data`). `VisorDiap.catalogo()` las inserta en su lugar. Sin sesión → aviso; sin Alineación → aviso con liga a `alineacion.html`.
+- **Índice lateral** (≥1100px columna fija; menos → cajón desde la derecha con botón "Índice"): búsqueda sin acentos en título, módulo, criterio, nombre del criterio, `#reactivo` **y el texto completo de cada diapositiva**; filtro por módulo; chips "Todo" / "Para ti"; ✓ en pantallas ya vistas y contador "X de 133 vistas" (`localStorage['ec1375-biblioteca-vistas']`, informativo, NO es gate ni se sincroniza; está en `Auth.DEMO_LOCAL_KEYS`).
+- **"Para ti":** pantallas cuyo `rx` incluye un reactivo que el candidato marcó NO en el Autodiagnóstico (`Auth.REACTIVO_KEYS`, n = índice+1) o cuyo criterio corresponde a un tema que falló al primer intento en el Examen (`examen_conocimientos_data.firstAttemptCorrect` + `examen:reactivos`, que solo carga con fase Evaluación; sin ella, solo cuenta el Autodiagnóstico). Datos vía `FlowStatus.getRow()` (fila real o localStorage de la cuenta bypass). El marco muestra "Para ti" y los reactivos en NO van resaltados.
+- **Desde el examen:** `examen-conocimientos.html` liga a `biblioteca.html?crit=E2·C4` (`VisorDiap.urlBiblioteca`); se muestra solo ese criterio (misma regla que `EC1375.routes.criterion`: route remedial/both) con aviso "Tema del examen" y botón "Ver todo"; "Volver" regresa al examen. `#sid` abre una pantalla y se sigue al navegar (también con `hashchange`).
+- **Videos, quizzes, notas del presentador, presentación (P) y tema claro/oscuro** con las utilidades de `visor-diapositivas.js`; rail del shell con "Biblioteca" resaltada en Recursos (`currentPageId: 'biblioteca'`).
+- **Simplificación hecha:** `ruta-alineacion.html` 85 KB → 24 KB (estilos a `visor-diapositivas.css`, sus funciones de videos/presentación/tema a `visor-diapositivas.js`, misma API `EC1375Alineacion` y mismos eventos); `ruta-estudio.html` perdió sus ramas de `boot=library` (gate, `crit`, "Volver al examen", liga a Alineación completa); `TEMA_A_CRITERIO` ya no está copiado en el examen; `Auth.REACTIVO_KEYS` expone la lista que ya existía en `auth.js` en vez de crear otra copia. El índice estático de la Biblioteca DENTRO del motor sigue ahí (es parte del HTML del pipeline y lo usan Reforzamiento/Práctica).
+- **Si el pipeline regenera `ruta-alineacion.html`:** reemplazar `visor-diapositivas.css` con el `<style>` nuevo y dejar en la página solo el `<link>`; volver a cambiar sus funciones `montaMedios`/`pausaMedios`/`pres`/tema por las llamadas a `VisorDiap` (o dejar las copias del pipeline: también funcionan, solo duplican). `biblioteca.html` no depende del HTML de esas páginas, solo de los bloques publicados en Supabase.
+- **Verificado en producción (16 sep, cuenta bypass):** 133 pantallas con las 19 imágenes firmadas, 0 peticiones fallidas; filtro `?crit=E2·C4` = las mismas 4 pantallas que el motor; búsqueda ("goniometro" → 2, "#61" → 6, sin resultados → aviso); Módulo 7; quiz; video con selector de 3 y pausa al cambiar de pantalla; tema claro; móvil 375px sin scroll horizontal con cajón sobre el botón flotante; "Para ti" simulando 2 reactivos en NO → 11 pantallas (datos demo restaurados); `ruta-alineacion.html` tras el refactor (videos + evento `media-play`, tema, índice, `#vp-7`); ligas del examen; redirect de `ruta-estudio.html?boot=library&crit=…#sid`. Pruebas: `node --test tests/*.test.js` (33).
 
 ---
 
@@ -528,7 +553,7 @@ Landing (`index.html`) sigue un arco emocional Vocación→Miedo→Transformaci�
 13. `kpi-dashboard-live.html` sigue público (sin gate) y ya es redundante con `admin-kpis.html` (misma función, sí gateado) — lo más simple es retirar/redirigir la versión vieja en vez de agregarle un gate.
 14. Replicar webhook de Mercado Pago en modo productivo.
 16. ~~Contenido al servidor (proyecto 4)~~ — completo y en producción el 16 sep (ver sección "Contenido al servidor").
-18. **Biblioteca como presentación maestra independiente** (pregunta de Diego, 15 sep): hoy `ruta-estudio.html` (motor generado por el pipeline) cumple tres funciones — Reforzamiento (`boot=remedial`: diapositivas de los reactivos marcados NO + visto bueno `diagnostic.approved`), Práctica (`boot=practice`: objetivos, `practice.completed`) y Biblioteca (`boot=library&crit=`: consulta por criterio, enlazada desde el examen). Con el contenido ya en Supabase es viable un visor propio y ligero (~300 líneas) de la Biblioteca con búsqueda, filtro por criterio y "recomendados para ti" (reactivos NO del autodiagnóstico), y redefinir Reforzamiento/Práctica como "vio las diapositivas recomendadas" — decisión de producto pendiente.
+18. ~~**Biblioteca como presentación maestra independiente**~~ — **resuelto 16 sep** con alcance "solo visor" (decisión de Diego): ver sección "Biblioteca". Reforzamiento y Práctica siguen en el motor sin cambios. Texto original (15 sep): hoy `ruta-estudio.html` (motor generado por el pipeline) cumple tres funciones — Reforzamiento (`boot=remedial`: diapositivas de los reactivos marcados NO + visto bueno `diagnostic.approved`), Práctica (`boot=practice`: objetivos, `practice.completed`) y Biblioteca (`boot=library&crit=`: consulta por criterio, enlazada desde el examen). Con el contenido ya en Supabase es viable un visor propio y ligero (~300 líneas) de la Biblioteca con búsqueda, filtro por criterio y "recomendados para ti" (reactivos NO del autodiagnóstico), y redefinir Reforzamiento/Práctica como "vio las diapositivas recomendadas" — decisión de producto pendiente.
 17. Refactorizar `admin-kpis`/`admin-utilidades`/`admin-precios` para usar `admin-data.js` (hoy conservan su copia local de las fórmulas); retirar `kpi-dashboard-live.html` (#13).
 15. Calendario de citas en `plan-evaluacion.html` sigue en placeholder (`GOOGLE_CALENDAR_BOOKING_URL` vacío, fallback a WhatsApp) — el candidato pidió horarios fijos recurrentes, no un Calendly en tiempo real.
 
