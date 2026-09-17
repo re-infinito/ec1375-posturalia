@@ -453,7 +453,7 @@
     try { ex = JSON.parse(localStorage.getItem('examenConocimientosData') || 'null'); } catch (e) { ex = null; }
     if (!ex && fila) ex = fila.examen_conocimientos_data;
     var fallo = ex && ex.firstAttemptCorrect && Object.keys(ex.firstAttemptCorrect).some(function (k) { return ex.firstAttemptCorrect[k] === false; });
-    var listo = fallo ? Contenido.cargar('examen:reactivos').then(function (rs) { critsExamen = V.criteriosFallados(ex, rs); }).catch(function () { /* sin fase Evaluación */ }) : Promise.resolve();
+    var listo = fallo ? Contenido.cargar('examen:reactivos').then(function (rs) { critsExamen = V.criteriosFallados(E.examen.migrar(ex, rs), rs); }).catch(function () { /* sin fase Evaluación */ }) : Promise.resolve();
 
     return listo.then(asegurarDiapositivas).then(function () {
       rec = V.recomendados(cat, NO, critsExamen);
@@ -838,29 +838,58 @@
 
   /* ════════════════ EXAMEN DE CONOCIMIENTOS ════════════════ */
   var X = E.examen, EX = null;
+  /* Preguntas de relacionar: lo elegido en cada renglón antes de comprobar
+     (se conserva al volver a pintar) e imágenes firmadas del banco. */
+  var EXSEL = {}, IMG_EXAMEN = {};
+  panel.addEventListener('change', function (ev) {
+    var t = ev.target;
+    if (!t || !t.hasAttribute || !t.hasAttribute('data-rel') || !EX) return;
+    var q = X.actual(EX).qIndex;
+    (EXSEL[q] = EXSEL[q] || [])[+t.getAttribute('data-rel')] = t.value === '' ? null : +t.value;
+  });
   function guardarExamen() {
     try { localStorage.setItem('examenConocimientosData', JSON.stringify(EX)); } catch (e) { /* sin storage */ }
     Auth.syncToSupabase('examen_conocimientos_data', EX, curp, adNombre);
   }
-  function iniciarExamen() {
+  async function iniciarExamen() {
+    var rutasImg = REACTIVOS.filter(function (r) { return r.imagen; }).map(function (r) { return r.imagen; });
+    if (rutasImg.length) { try { IMG_EXAMEN = await Contenido.imagenes(rutasImg); } catch (e) { IMG_EXAMEN = {}; } }
     tituloAyuda('<p>El Examen de Conocimientos es una autoevaluación de ' + REACTIVOS.length + ' reactivos, una pregunta a la vez.</p><ol>' +
       '<li>Elige una respuesta: se revisa al instante.</li>' +
       '<li>Si fallas, ves la respuesta correcta y puedes <b>repasar el tema aquí mismo</b>; al terminar el repaso vuelves a la misma pregunta.</li>' +
       '<li>No avanzas hasta acertar, así que todos terminan con el 100 %. No es un juicio de competencia.</li></ol>');
     try { EX = JSON.parse(localStorage.getItem('examenConocimientosData') || 'null'); } catch (e) { EX = null; }
     if (!EX && fila) EX = fila.examen_conocimientos_data;
+    EX = X.migrar(EX, REACTIVOS);   /* examen guardado con el banco anterior de 39 */
     if (!X.valido(EX, REACTIVOS)) EX = X.nuevo(REACTIVOS);
     if (params.get('reintentar') === '1') { X.limpiarIncorrecta(EX, REACTIVOS); history.replaceState(null, '', location.pathname + '?modo=examen'); }
     guardarExamen();
     if (EX.submitted) resultadoExamen(); else preguntaExamen();
   }
   function critDeTema(tema) { var c = V.TEMA_A_CRITERIO[tema]; return c && V.porCriterio(cat, c).length ? c : null; }
+  var LETRAS = 'abcdefghijklmnopqrstuvwxyz';
   function preguntaExamen() {
-    var i = EX.currentIndex, a = X.actual(EX), r = REACTIVOS[a.qIndex], sel = EX.answers[a.qIndex], resp = sel !== undefined, ok = resp && sel === r.correcta;
-    var ops = '<div class="es-opciones">' + a.optionOrder.map(function (oi, k) {
-      var cls = 'es-op' + (resp && oi === r.correcta ? ' ok' : '') + (resp && oi === sel && !ok ? ' bad' : '');
-      return '<button type="button" class="' + cls + '"' + (resp ? ' disabled' : '') + ' data-accion="' + accion('exOp' + k, function () { X.responder(EX, a.qIndex, oi, REACTIVOS); guardarExamen(); preguntaExamen(); }) + '"><span class="l">' + 'ABCDEF'[k] + '</span><span>' + esc(r.opciones[oi]) + '</span></button>';
-    }).join('') + '</div>';
+    var i = EX.currentIndex, a = X.actual(EX), r = REACTIVOS[a.qIndex], sel = EX.answers[a.qIndex], resp = sel !== undefined, ok = resp && X.esCorrecta(r, sel);
+    var rel = r.tipo === 'relacionar';
+    var ops;
+    if (rel) {
+      /* Relacionar, tal cual viene en el documento de reactivos: cada renglón
+         con su selector y un solo "Comprobar" para todos. */
+      if (resp && !ok) EXSEL[a.qIndex] = sel.map(function (v, k) { return v === r.correctas[k] ? v : null; });
+      var elegidas = resp ? sel : (EXSEL[a.qIndex] || []);
+      ops = (r.imagen ? '<div class="es-rel-img"><figure class="es-ex-img"><img src="' + esc(IMG_EXAMEN[r.imagen] || '') + '" alt="' + esc(r.imagenAlt || '') + '"></figure>' : '') +
+        '<div class="es-pares es-rel">' + r.items.map(function (it, k) {
+          var v = elegidas[k], cls = resp ? (v === r.correctas[k] ? ' class="ok"' : ' class="bad"') : '';
+          return '<div class="pl">' + (r.itemsConLetra ? '<b>' + LETRAS[k] + ')</b> ' : '( ) ') + esc(it) + '</div>' +
+            '<select data-rel="' + k + '"' + cls + (resp ? ' disabled' : '') + ' aria-label="Respuesta para ' + esc(it) + '"><option value="">— elige —</option>' +
+            a.optionOrder.map(function (oi) { return '<option value="' + oi + '"' + (v === oi ? ' selected' : '') + '>' + esc(r.opciones[oi]) + '</option>'; }).join('') + '</select>';
+        }).join('') + '</div>' + (r.imagen ? '</div>' : '');
+    } else {
+      ops = '<div class="es-opciones">' + a.optionOrder.map(function (oi, k) {
+        var cls = 'es-op' + (resp && oi === r.correcta ? ' ok' : '') + (resp && oi === sel && !ok ? ' bad' : '');
+        return '<button type="button" class="' + cls + '"' + (resp ? ' disabled' : '') + ' data-accion="' + accion('exOp' + k, function () { X.responder(EX, a.qIndex, oi, REACTIVOS); guardarExamen(); preguntaExamen(); }) + '"><span class="l">' + 'ABCDEF'[k] + '</span><span>' + esc(r.opciones[oi]) + '</span></button>';
+      }).join('') + '</div>';
+    }
     var fb = '', acciones = [], btn;
     var ultimo = i + 1 >= REACTIVOS.length, crit = critDeTema(r.tema);
     if (resp && ok) {
@@ -869,10 +898,16 @@
       btn = { lg: ultimo ? 'Ver resultados' : 'Siguiente pregunta', sm: ultimo ? 'Resultados' : 'Siguiente', fn: avanzarExamen, fin: ultimo };
     } else if (resp) {
       var nP = crit ? V.porCriterio(cat, crit).length : 0;
-      fb = '<div class="es-fb bad"><div class="h">Incorrecto</div><div class="x">Respuesta correcta: <b>' + esc(r.opciones[r.correcta]) + '</b></div><div class="tema">Tema: ' + esc(r.tema) + '. Repasa el tema aquí mismo; al terminar vuelves a esta pregunta lista para contestar.</div></div>';
+      var correcta = rel
+        ? '<ul class="es-rel-ok">' + r.items.map(function (it, k) { return sel[k] === r.correctas[k] ? '' : '<li>' + esc(it) + ' → <b>' + esc(r.opciones[r.correctas[k]]) + '</b></li>'; }).join('') + '</ul>'
+        : '<b>' + esc(r.opciones[r.correcta]) + '</b>';
+      fb = '<div class="es-fb bad"><div class="h">Incorrecto</div><div class="x">' + (rel ? 'Renglones que no coinciden y su respuesta correcta:' : 'Respuesta correcta: ') + correcta + '</div><div class="tema">Tema: ' + esc(r.tema) + '. Repasa el tema aquí mismo; al terminar vuelves a esta pregunta lista para contestar.</div></div>';
       if (crit) acciones.push({ txt: 'Repasar este tema aquí · ' + nP + ' pantalla' + (nP > 1 ? 's' : ''), tipo: 'primary', id: accion('exRep', function () { repasoExamen(crit, r.tema, true); }) });
       acciones.push({ txt: 'Contestar de nuevo sin repasar', id: accion('exOtra', function () { X.reintentar(EX, a.qIndex); guardarExamen(); preguntaExamen(); }) });
       btn = crit ? { lg: 'Repasar este tema', sm: 'Repasar', fn: function () { repasoExamen(crit, r.tema, true); } } : { lg: 'Contestar de nuevo', fn: function () { X.reintentar(EX, a.qIndex); guardarExamen(); preguntaExamen(); } };
+    } else if (rel) {
+      acciones = [{ txt: 'Comprobar mi respuesta', tipo: 'primary', id: accion('exRel', comprobarRelacion) }];
+      btn = { lg: 'Comprobar', fn: comprobarRelacion };
     } else {
       btn = { lg: 'Elige una respuesta', disabled: true };
     }
@@ -882,9 +917,19 @@
       k: 'Examen de Conocimientos · ' + (info ? 'Paso ' + info.n + ' de ' + info.total + ' de tu proceso' : ''), titulo: 'Reactivo ' + (i + 1) + ' de ' + REACTIVOS.length,
       barra: { valor: i / REACTIVOS.length, txt: i + ' de ' + REACTIVOS.length + ' contestados' },
       instrTitulo: 'Cómo funciona', abiertas: i === 0 && !resp,
-      instr: ['Elige una respuesta: se revisa al instante.', 'Si fallas, toca <b>«Repasar este tema aquí»</b>; al terminar vuelves a esta misma pregunta.', 'No avanzas hasta acertar.']
+      instr: rel
+        ? ['Elige una opción en cada renglón.', 'Toca <b>«Comprobar»</b>: se revisan todos a la vez.', 'Si alguno no coincide, te decimos cuál y puedes <b>repasar el tema aquí</b>; al volver conservas los renglones correctos.']
+        : ['Elige una respuesta: se revisa al instante.', 'Si fallas, toca <b>«Repasar este tema aquí»</b>; al terminar vuelves a esta misma pregunta.', 'No avanzas hasta acertar.']
     }, { pos: 'Reactivo ' + (i + 1) + ' de ' + REACTIVOS.length, sig: resp ? '' : corto(r.tema, 60), btn: btn });
     enfocarRespuesta(resp);
+  }
+  function comprobarRelacion() {
+    var a = X.actual(EX), r = REACTIVOS[a.qIndex];
+    var sels = [].slice.call(panel.querySelectorAll('select[data-rel]'));
+    if (sels.length !== r.items.length || sels.some(function (x) { return x.value === ''; })) { toast('Elige una opción en cada renglón antes de comprobar.'); return; }
+    var respuesta = sels.map(function (x) { return +x.value; });
+    delete EXSEL[a.qIndex];
+    X.responder(EX, a.qIndex, respuesta, REACTIVOS); guardarExamen(); preguntaExamen();
   }
   /* Tras contestar, lleva la vista al resultado (en celular quedaba abajo del
      pliegue); en una pregunta nueva, arriba. */
@@ -953,7 +998,7 @@
     else if (modo === 'alineacion') await iniciarAlineacion();
     else if (modo === 'reforzamiento') iniciarReforzamiento();
     else if (modo === 'practica') iniciarPractica();
-    else if (modo === 'examen') iniciarExamen();
+    else if (modo === 'examen') await iniciarExamen();
   } catch (e) {
     console.error(e);
     app.innerHTML = Contenido.errorHtml(e);

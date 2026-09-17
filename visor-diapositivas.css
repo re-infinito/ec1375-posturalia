@@ -136,11 +136,13 @@ b,strong{font-weight:600;color:var(--ink)}
 em{font-style:italic}
 
 /* ═══ REJILLAS ═══ */
-/* columnas a toda altura: el texto arranca arriba y la figura se centra en su
-   celda; centrar ambas dejaba el título flotando a media diapositiva */
+/* columnas a toda altura. 17 sep (pedido de Diego: "todo debe verse centrado"):
+   antes el texto arrancaba arriba y dejaba hueco abajo — muy visible en
+   presentación —; ahora el contenido de cada columna se centra en vertical.
+   Las diapositivas que lo necesitan arriba usan .cols.c-top. */
 .cols{display:grid;grid-template-columns:1fr 1fr;gap:clamp(18px,3.4cqi,44px);
   align-items:stretch;height:100%}
-.cols>.stackx{align-content:start}
+.cols>.stackx{align-content:center}
 .cols.c-55{grid-template-columns:1.22fr 1fr}
 .cols.c-45{grid-template-columns:1fr 1.22fr}
 .cols.c-top{align-items:start}
@@ -400,6 +402,10 @@ table.t .n{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space
    — reducirlo aumenta el scroll interno, porque el SVG se reescala a la
    caja. El arreglo del encimado es el position:static de abajo. */
 .pad,.pad-t{position:relative;padding-bottom:clamp(56px,7cqi,92px)}
+/* 17 sep: una diapositiva centrada (pad-t con justify-content:center) SIN pie
+   no necesita esa reserva abajo; con ella el contenido quedaba cargado hacia
+   arriba. Medido en las 133 pantallas: centra 4 y no agrega scroll a ninguna. */
+.pad-t[style*="justify-content:center"]:not(:has(>.sfoot)){padding-bottom:clamp(18px,3.4cqi,42px)}
 /* 16 sep — mismo arreglo que en ruta-estudio.html: el pie absoluto anclado
    al fondo se encimaba sobre el contenido cuando traía "IMAGEN SUGERIDA" +
    fuente técnica, porque medía más que el hueco reservado. En flujo normal
@@ -871,20 +877,28 @@ svg .skin{fill:var(--surface-2);stroke:var(--mid);stroke-width:2;stroke-linejoin
   color:#e2e8f0;font:500 clamp(9.5px,1.15cqi,12.5px)/1.4 var(--body)}
 .fbcap b{color:#fff}
 
-/* ── presentación ── */
+/* ── presentación ──
+   17 sep (reporte de Diego): la diapositiva ocupaba 100vw × 100vh, así que en
+   pantallas que no son 16:9 quedaba estirada, con el contenido pegado arriba
+   y hueco abajo; además la barra lateral del shell seguía visible y el
+   escenario se cortaba a la derecha. Ahora la diapositiva conserva su 16:9,
+   ocupa lo más que cabe y queda centrada con franjas negras; la barra lateral,
+   el encabezado y el marco de arriba se ocultan, y los botones de navegación
+   solo aparecen al pasar el mouse (las flechas del teclado siguen sirviendo). */
+body.pres{background:#000;overflow:hidden}
+body.pres.crm-rail{padding-left:0!important}
+body.pres .crm-shell,body.pres .crm-sidebar,body.pres .crm-fab,body.pres .crm-backdrop{display:none!important}
 body.pres .topbar,body.pres .metabar,body.pres .acciones,body.pres .stepper,
-body.pres .progress,body.pres .rutas{display:none}
-body.pres .frame .f-w,body.pres .frame .f-back{display:none}
+body.pres .progress,body.pres .rutas,body.pres .frame,body.pres .pnotes{display:none!important}
 body.pres .stagewrap{padding:0}
-body.pres .stage{width:100vw;max-width:none;height:100vh;max-height:100vh;
+body.pres .stage{position:fixed;inset:0;margin:auto;z-index:4;
+  width:min(100vw,calc(100vh * 16 / 9));height:min(100vh,calc(100vw * 9 / 16));
+  max-width:none;max-height:none;min-height:0;aspect-ratio:16/9;
   border-radius:0;border:none;box-shadow:none}
-body.pres .frame{position:fixed;top:0;left:0;right:0;width:100%;margin:0;border-radius:0;
-  border-left-width:0;border-top:none;background:transparent;opacity:.72;z-index:5;
-  pointer-events:none;padding:6px 16px}
 body.pres .nav{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);
   background:var(--surface);border:1px solid var(--line);border-radius:999px;
-  padding:6px 8px;opacity:.18;transition:opacity .2s;z-index:6}
-body.pres .nav:hover{opacity:1}
+  padding:6px 8px;opacity:0;transition:opacity .2s;z-index:6}
+body.pres .nav:hover,body.pres .nav:focus-within{opacity:1}
 body.pres .app{height:100vh;overflow:hidden}
 
 /* ── herramientas y matriz ── */

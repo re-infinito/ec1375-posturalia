@@ -145,3 +145,51 @@ test('examen: responder, reintentar, limpiar incorrecta, avanzar y finalizar', (
     assert.strictEqual(X.valido({ order: [] }, R), false);
     assert.strictEqual(X.valido({ order: [], submitted: true }, R), true, 'examen demo ya presentado');
 });
+
+test('examen: pregunta de relacionar — todas las parejas deben coincidir; opciones en el orden del documento', () => {
+    const R = [{ tema: 'Pruebas Funcionales de Daniels', tipo: 'relacionar', opciones: ['0', '1', '2'], items: ['Ausencia', 'Contracción', 'Parcial'], correctas: [0, 1, 2] }];
+    const X = E.examen;
+    const st = X.nuevo(R, () => 0.5);
+    assert.deepStrictEqual(st.order[0].optionOrder, [0, 1, 2], 'no se barajan');
+    assert.strictEqual(X.esCorrecta(R[0], [0, 1, 2]), true);
+    assert.strictEqual(X.esCorrecta(R[0], [0, 2, 1]), false);
+    assert.strictEqual(X.esCorrecta(R[0], [0, 1]), false, 'incompleta no cuenta');
+    assert.strictEqual(X.esCorrecta(R[0], 0), false);
+    assert.strictEqual(X.responder(st, 0, [0, 2, 1], R), false);
+    assert.strictEqual(X.limpiarIncorrecta(st, R), true);
+    assert.strictEqual(X.responder(st, 0, [0, 1, 2], R), true);
+    assert.strictEqual(st.firstAttemptCorrect[0], false);
+    assert.strictEqual(X.limpiarIncorrecta(st, R), false);
+});
+
+test('examen: migrar un examen del banco anterior (39) al nuevo con preguntas juntadas', () => {
+    const X = E.examen;
+    // banco anterior: 0 igual, 1 y 2 se juntan en una de relacionar, 3 igual; el banco nuevo agrega una al final
+    const nuevo = [
+        { tema: 'A', opciones: ['x', 'y'], correcta: 1, v1: [0] },
+        { tema: 'Daniels', tipo: 'relacionar', opciones: ['0', '1'], items: ['p', 'q'], correctas: [1, 0], v1: [1, 2] },
+        { tema: 'C', opciones: ['x', 'y', 'z'], correcta: 2, v1: [3] },
+        { tema: 'Cuadrantes', tipo: 'relacionar', opciones: ['1', '2'], items: ['r', 's'], correctas: [0, 1], v1: [] }
+    ];
+    const enCurso = { order: [0, 1, 2, 3].map(q => ({ qIndex: q, optionOrder: q === 3 ? [2, 0, 1] : [1, 0] })), currentIndex: 3,
+        answers: { 0: 1, 1: 0, 2: 1, 3: 0 }, firstAttemptCorrect: { 0: true, 1: false, 2: true, 3: true }, submitted: false, score: null, correctas: null, fecha: null };
+    const m = X.migrar(enCurso, nuevo);
+    assert.notStrictEqual(m, enCurso, 'regresa un objeto nuevo');
+    assert.strictEqual(enCurso.banco, undefined, 'no toca el original');
+    assert.strictEqual(m.banco, X.BANCO);
+    assert.strictEqual(X.valido(m, nuevo), true);
+    assert.deepStrictEqual(m.answers, { 0: 1, 2: 0 }, 'se conservan las respuestas de preguntas que no cambiaron');
+    assert.deepStrictEqual(m.firstAttemptCorrect, { 0: true, 1: false, 2: true }, 'de la juntada solo queda que se falló');
+    assert.deepStrictEqual(m.order[2].optionOrder, [2, 0, 1], 'conserva el orden de opciones que ya vio');
+    assert.deepStrictEqual(m.order[1].optionOrder, [0, 1]);
+    assert.strictEqual(m.currentIndex, 1, 'regresa a la primera pregunta sin contestar bien');
+    assert.strictEqual(X.migrar(m, nuevo), m, 'ya traducido no cambia');
+
+    const presentado = X.migrar({ order: [], currentIndex: 0, answers: {}, firstAttemptCorrect: { 2: false }, submitted: true, score: 100, correctas: 39, fecha: '2026-09-16' }, nuevo);
+    assert.deepStrictEqual([presentado.submitted, presentado.correctas, presentado.score, presentado.fecha], [true, 4, 100, '2026-09-16']);
+    assert.deepStrictEqual(X.temasRepasados(presentado, nuevo), ['Daniels']);
+
+    const bancoViejo = [{ tema: 'A', opciones: ['x'], correcta: 0 }];
+    const st = { order: [], answers: {}, firstAttemptCorrect: {} };
+    assert.strictEqual(X.migrar(st, bancoViejo), st, 'con el banco anterior (sin v1) no se traduce nada');
+});

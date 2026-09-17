@@ -208,6 +208,17 @@ details.bib-como .bib-instr{margin-top:6px}
 .es-pares select{min-height:44px;border-radius:10px;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);font:500 14px/1.2 var(--body);padding:8px}
 .es-pares select.ok{border-color:var(--ok)}
 .es-pares select.bad{border-color:var(--bad)}
+/* Examen: preguntas de relacionar (17 sep) — renglón ancho y selector a la derecha */
+.es-rel{grid-template-columns:1fr minmax(150px,230px);margin-top:4px}
+.es-rel .pl{font-weight:500;padding:6px 0;border-bottom:1px solid var(--line-soft,var(--line))}
+.es-rel .pl b{font-family:var(--mono);color:var(--accent)}
+/* Con imagen: imagen a la izquierda y renglones a la derecha; en celular, apilados */
+.es-rel-img{display:grid;grid-template-columns:minmax(200px,320px) 1fr;gap:18px;align-items:start;margin-top:6px}
+.es-ex-img{margin:0}
+.es-ex-img img{display:block;width:100%;max-width:360px;height:auto;margin:0 auto;border-radius:10px;border:1px solid var(--line);background:#fff}
+@media (max-width:760px){.es-rel-img{grid-template-columns:1fr}.es-ex-img img{max-width:320px}}
+.es-rel-ok{margin:6px 0 0 18px}
+.es-rel-ok li{margin:2px 0}
 .es-fb{margin-top:14px;border-radius:12px;padding:14px 16px;border:1.5px solid var(--line)}
 .es-fb.ok{border-color:var(--ok);background:var(--ok-pale)}
 .es-fb.bad{border-color:var(--bad);background:var(--bad-pale)}

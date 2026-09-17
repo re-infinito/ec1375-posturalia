@@ -862,7 +862,7 @@ const Auth = {
             examenConocimientosData: {
                 _demo: true,
                 order: [], currentIndex: 0, answers: {}, firstAttemptCorrect: {},
-                submitted: true, score: 100, correctas: 39, fecha: hoy
+                submitted: true, score: 100, correctas: 35, fecha: hoy, banco: 2
             }
         };
     },

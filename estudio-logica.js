@@ -324,28 +324,86 @@
     }
 
     /* ── Examen de Conocimientos (antes examen-conocimientos.html) ── */
+    /* 17 sep: además de opción múltiple (`correcta`: índice), el banco admite
+       preguntas de relacionar tal cual vienen en el documento de reactivos
+       (`tipo: 'relacionar'`, `items`, `opciones`, `correctas`: índice de la
+       opción que va en cada item; `imagen` opcional). Su respuesta se guarda
+       como arreglo (uno por item).
+       BANCO_EXAMEN sube cuando cambia el orden del banco. Cada reactivo del
+       banco nuevo trae `v1`: los índices que ocupaba en el banco anterior de
+       39 (vacío si es nuevo; varios si se juntaron), y migrar() traduce con eso
+       los exámenes guardados, sin índices fijos en el código. */
+    var BANCO_EXAMEN = 2;
+    function esCorrecta(r, resp) {
+        if (!r) return false;
+        if (r.tipo === 'relacionar') {
+            return Array.isArray(resp) && resp.length === r.correctas.length &&
+                r.correctas.every(function (c, i) { return resp[i] === c; });
+        }
+        return resp === r.correcta;
+    }
     var examen = {
+        BANCO: BANCO_EXAMEN,
+        esCorrecta: esCorrecta,
         nuevo: function (reactivos, rng) {
-            return { order: reactivos.map(function (r, qIndex) { return { qIndex: qIndex, optionOrder: barajar(r.opciones.map(function (_, i) { return i; }), rng) }; }),
-                currentIndex: 0, answers: {}, firstAttemptCorrect: {}, submitted: false, score: null, correctas: null, fecha: null };
+            return { order: reactivos.map(function (r, qIndex) {
+                    var ids = r.opciones.map(function (_, i) { return i; });
+                    /* relacionar: las opciones van en el orden del documento (a, b, c…) */
+                    return { qIndex: qIndex, optionOrder: r.tipo === 'relacionar' ? ids : barajar(ids, rng) };
+                }),
+                currentIndex: 0, answers: {}, firstAttemptCorrect: {}, submitted: false, score: null, correctas: null, fecha: null, banco: BANCO_EXAMEN };
         },
         /* Un examen ya presentado se respeta aunque su `order` venga vacío (así
            lo siembra la cuenta demo); uno en curso necesita un orden completo. */
         valido: function (st, reactivos) {
             return !!(st && Array.isArray(st.order) && (st.submitted || st.order.length === reactivos.length));
         },
+        /* Traduce un examen guardado con el banco anterior. Regresa un objeto
+           nuevo (no toca el original). Sin `v1` en el banco, o ya traducido,
+           regresa el mismo estado. */
+        migrar: function (st, reactivos) {
+            if (!st || !Array.isArray(reactivos) || st.banco === BANCO_EXAMEN) return st;
+            if (!reactivos.some(function (r) { return Array.isArray(r.v1); })) return st;
+            var respPrev = st.answers || {}, facPrev = st.firstAttemptCorrect || {}, ordenPrev = {};
+            (st.order || []).forEach(function (o) { if (o) ordenPrev[o.qIndex] = o.optionOrder; });
+            var out = {};
+            Object.keys(st).forEach(function (k) { out[k] = st[k]; });
+            out.order = []; out.answers = {}; out.firstAttemptCorrect = {}; out.banco = BANCO_EXAMEN;
+            reactivos.forEach(function (r, n) {
+                var previos = Array.isArray(r.v1) ? r.v1 : [];
+                var mismo = r.tipo !== 'relacionar' && previos.length === 1;
+                if (mismo && respPrev[previos[0]] !== undefined) out.answers[n] = respPrev[previos[0]];
+                var fac = previos.map(function (o) { return facPrev[o]; }).filter(function (v) { return v !== undefined; });
+                if (mismo && fac.length) out.firstAttemptCorrect[n] = fac[0];
+                /* Pregunta que cambió de forma: solo se conserva que ese tema se falló
+                   (para "Temas que repasaste" y "Para ti"); su primer intento nuevo cuenta. */
+                else if (!mismo && fac.indexOf(false) >= 0) out.firstAttemptCorrect[n] = false;
+                var ids = r.opciones.map(function (_, i) { return i; });
+                var prev = mismo ? ordenPrev[previos[0]] : null;
+                out.order.push({ qIndex: n, optionOrder: Array.isArray(prev) && prev.length === ids.length ? prev : ids });
+            });
+            if (st.submitted) {
+                out.correctas = reactivos.length;
+            } else {
+                var i = 0;
+                while (i < reactivos.length - 1 && esCorrecta(reactivos[i], out.answers[i])) i++;
+                out.currentIndex = i;
+            }
+            return out;
+        },
         actual: function (st) { return st.order[st.currentIndex]; },
-        responder: function (st, qIndex, opt, reactivos) {
-            if (st.firstAttemptCorrect[qIndex] === undefined) st.firstAttemptCorrect[qIndex] = opt === reactivos[qIndex].correcta;
-            st.answers[qIndex] = opt;
-            return opt === reactivos[qIndex].correcta;
+        responder: function (st, qIndex, resp, reactivos) {
+            var ok = esCorrecta(reactivos[qIndex], resp);
+            if (st.firstAttemptCorrect[qIndex] === undefined) st.firstAttemptCorrect[qIndex] = ok;
+            st.answers[qIndex] = resp;
+            return ok;
         },
         reintentar: function (st, qIndex) { delete st.answers[qIndex]; return st; },
         /* La pregunta actual quedó mal contestada: se limpia para intentarla
            otra vez (regreso de un repaso). */
         limpiarIncorrecta: function (st, reactivos) {
             var a = st.order[st.currentIndex];
-            if (!st.submitted && a && st.answers[a.qIndex] !== undefined && reactivos[a.qIndex] && st.answers[a.qIndex] !== reactivos[a.qIndex].correcta) {
+            if (!st.submitted && a && st.answers[a.qIndex] !== undefined && reactivos[a.qIndex] && !esCorrecta(reactivos[a.qIndex], st.answers[a.qIndex])) {
                 delete st.answers[a.qIndex]; return true;
             }
             return false;

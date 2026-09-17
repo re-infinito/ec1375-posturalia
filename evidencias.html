@@ -166,13 +166,17 @@
        Nextcloud — cualquier falla futura del NAS cae aquí en vez de
        bloquear al candidato en este paso. */
     const EVIDENCIAS_FORM_FALLBACK_URL = 'https://forms.gle/NsPV3UbrJ36jN8Nh6';
+    /* Una sola lista (17 sep): antes había una tarjeta "Evidencias Requeridas"
+       con la descripción y otra "Sube tus archivos" con los mismos 6 renglones
+       repetidos. Ahora cada evidencia trae su descripción y, ahí mismo, su
+       botón de subida (key/accept/multiple) o el campo de la liga. */
     const EVIDENCIAS_REQUERIDAS = [
-        { icon: '📸', titulo: 'Capturas de tu sesión Zoom', desc: 'Fotos/capturas de pantalla que muestren tu sesión en vivo con el usuario. Se suben directo a tu portafolio con el botón de abajo.', required: true },
+        { key: 'zoom', accept: 'image/*', multiple: true, icon: '📸', titulo: 'Capturas de tu sesión Zoom', desc: 'Fotos/capturas de pantalla que muestren tu sesión en vivo con el usuario. Puedes subir varias.', required: true },
         { icon: '🔗', titulo: 'Liga al video completo (YouTube u otra plataforma)', desc: 'Sube tu grabación completa a YouTube (puede ser \"oculto/no listado\") u otra plataforma, y pega la liga en el campo de abajo. Tu evaluador la revisa para calificar el Instrumento de Evaluación.', required: true, isLink: true },
-        { icon: '🪪', titulo: 'Identificación oficial (INE/Pasaporte)', desc: 'Copia legible de tu identificación vigente, frente y reverso.', required: true },
-        { icon: '📄', titulo: 'Comprobante CURP', desc: 'Constancia o copia de tu CURP.', required: true },
-        { icon: '📸', titulo: 'Foto para tu diploma', desc: 'De frente, fondo blanco, sin texturas, formal y nítida (JPG, BMP o PNG). Mujeres: frente y orejas descubiertas, sin maquillaje ni aretes, blusa clara y lisa. Hombres: orejas descubiertas, pelo corto, sin barba/bigote, camisa clara y lisa. Sin retoques. No mayor a 2 meses de antigüedad.', required: true },
-        { icon: '🎓', titulo: 'Certificados / diplomas de formación', desc: 'Respaldo adicional de tus especialidades (opcional — ya capturaste lo principal en tu Autodiagnóstico).', required: false }
+        { key: 'ine', accept: 'image/*,application/pdf', icon: '🪪', titulo: 'Identificación oficial (INE/Pasaporte)', desc: 'Copia legible de tu identificación vigente, frente y reverso.', required: true },
+        { key: 'curp', accept: 'image/*,application/pdf', icon: '📄', titulo: 'Comprobante CURP', desc: 'Constancia o copia de tu CURP.', required: true },
+        { key: 'fotoDiploma', accept: 'image/*', icon: '📸', titulo: 'Foto para tu diploma', desc: 'De frente, fondo blanco, sin texturas, formal y nítida (JPG, BMP o PNG). Mujeres: frente y orejas descubiertas, sin maquillaje ni aretes, blusa clara y lisa. Hombres: orejas descubiertas, pelo corto, sin barba/bigote, camisa clara y lisa. Sin retoques. No mayor a 2 meses de antigüedad.', required: true },
+        { key: 'certificados', accept: 'image/*,application/pdf', multiple: true, icon: '🎓', titulo: 'Certificados / diplomas de formación', desc: 'Respaldo adicional de tus especialidades (opcional — ya capturaste lo principal en tu Autodiagnóstico).', required: false }
     ];
 
     let planData = { evidenciasConfirmadas: false, notas: '', videoLink: '' };
@@ -425,49 +429,25 @@
             </div>
 
             <div class="card">
-                <h2>✅ Evidencias Requeridas</h2>
-                <p class="desc">Prepara estos archivos antes de subirlos en el formulario de abajo.</p>
-                ${EVIDENCIAS_REQUERIDAS.map(e => `
+                <h2>📤 Tus evidencias</h2>
+                <p class="desc">Cada archivo se guarda en tu portafolio en cuanto lo seleccionas.</p>
+                ${EVIDENCIAS_REQUERIDAS.map(e => {
+                    const estadoId = e.key ? 'estado' + e.key.charAt(0).toUpperCase() + e.key.slice(1) : '';
+                    const control = e.isLink
+                        ? `<input type="text" id="f_videoLink" value="${escapeHtml(planData.videoLink)}" placeholder="https://youtube.com/..." oninput="updateVideoLink(this.value)" style="width:100%;margin-top:10px;padding:10px 12px;background:var(--dark);border:1px solid var(--border);border-radius:6px;color:var(--text-bright);font-size:0.85rem;">`
+                        : `<input type="file" id="f_${e.key}" accept="${e.accept}"${e.multiple ? ' multiple' : ''} aria-label="${escapeHtml(e.titulo)}" onchange="handleFileUpload('${e.key}', this.files, ${e.multiple ? 'true' : 'false'})" style="display:block;margin-top:10px;max-width:100%;">
+                           <div id="${estadoId}">${renderEstadoArchivo(e.key)}</div>`;
+                    return `
                     <div class="evidence-item">
                         <div class="evidence-icon">${e.icon}</div>
-                        <div style="flex:1;">
+                        <div style="flex:1;min-width:0;">
                             <div class="evidence-title">${e.titulo}</div>
                             <div class="evidence-desc">${e.desc}</div>
-                            ${e.required ? '<span class="evidence-tag required">OBLIGATORIO</span>' : ''}
-                            ${e.isLink ? `<input type="text" id="f_videoLink" value="${escapeHtml(planData.videoLink)}" placeholder="https://youtube.com/..." oninput="updateVideoLink(this.value)" style="width:100%;margin-top:10px;padding:10px 12px;background:var(--dark);border:1px solid var(--border);border-radius:6px;color:var(--text-bright);font-size:0.85rem;">` : ''}
+                            ${e.required ? '<span class="evidence-tag required">OBLIGATORIO</span>' : '<span class="evidence-tag" style="background:var(--surface-2);color:var(--text);">OPCIONAL</span>'}
+                            ${control}
                         </div>
-                    </div>
-                `).join('')}
-            </div>
-
-            <div class="card">
-                <h2>📤 Sube tus archivos</h2>
-                <p class="desc">Se guardan automáticamente en tu portafolio en cuanto los seleccionas.</p>
-                <div class="field-group">
-                    <label>📸 Capturas de tu sesión Zoom (puedes subir varias)</label>
-                    <input type="file" id="f_zoom" accept="image/*" multiple onchange="handleFileUpload('zoom', this.files, true)">
-                    <div id="estadoZoom">${renderEstadoArchivo('zoom')}</div>
-                </div>
-                <div class="field-group">
-                    <label>🪪 Identificación oficial (INE/Pasaporte)</label>
-                    <input type="file" id="f_ine" accept="image/*,application/pdf" onchange="handleFileUpload('ine', this.files, false)">
-                    <div id="estadoIne">${renderEstadoArchivo('ine')}</div>
-                </div>
-                <div class="field-group">
-                    <label>📄 Comprobante CURP</label>
-                    <input type="file" id="f_curp" accept="image/*,application/pdf" onchange="handleFileUpload('curp', this.files, false)">
-                    <div id="estadoCurp">${renderEstadoArchivo('curp')}</div>
-                </div>
-                <div class="field-group">
-                    <label>📸 Foto para tu diploma</label>
-                    <input type="file" id="f_fotoDiploma" accept="image/*" onchange="handleFileUpload('fotoDiploma', this.files, false)">
-                    <div id="estadoFotoDiploma">${renderEstadoArchivo('fotoDiploma')}</div>
-                </div>
-                <div class="field-group">
-                    <label>🎓 Certificados / diplomas de formación (opcional)</label>
-                    <input type="file" id="f_certificados" accept="image/*,application/pdf" multiple onchange="handleFileUpload('certificados', this.files, true)">
-                    <div id="estadoCertificados">${renderEstadoArchivo('certificados')}</div>
-                </div>
+                    </div>`;
+                }).join('')}
             </div>
 
             <div class="card">
@@ -475,7 +455,7 @@
                 <p class="desc">Esto es solo para avisarle a tu equipo que ya subiste todo — tus evidencias reales (no esta confirmación) son las que se integran a tu expediente final.</p>
                 <div class="checkbox-row">
                     <input type="checkbox" id="confirmCheck" ${planData.evidenciasConfirmadas ? 'checked' : ''} onchange="toggleConfirm(this)">
-                    <label for="confirmCheck">Confirmo que subí todas mis evidencias obligatorias en el formulario de arriba</label>
+                    <label for="confirmCheck">Confirmo que subí todas mis evidencias obligatorias</label>
                 </div>
                 <div class="field-group">
                     <label>Notas adicionales (opcional)</label>
