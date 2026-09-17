@@ -143,8 +143,10 @@
         return repaso.length ? repaso : toca;
     }
 
-    /* f = {q, mod, soloRecomendados, recomendados, crit}; criterios = mapa de
-       títulos (ruta-estudio:data.criterios) para buscar por nombre de tema. */
+    /* f = {q, mod, soloRecomendados, recomendados, crit, textos}; criterios =
+       mapa de títulos (ruta-estudio:data.criterios) para buscar por nombre de
+       tema; f.textos = {sid: texto de la diapositiva} para buscar dentro del
+       contenido (no solo en el título). */
     function filtrar(cat, f, criterios) {
         f = f || {};
         var lista = f.crit ? porCriterio(cat, f.crit) : (cat || []).slice();
@@ -155,7 +157,7 @@
             lista = lista.filter(function (e) {
                 var txt = [e.titulo, e.modulo, e.sid].concat(e.crit).concat(e.crit.map(function (c) {
                     return criterios && criterios[c] ? criterios[c].titulo : '';
-                })).concat(e.rx.map(function (n) { return '#' + n; })).join(' ');
+                })).concat(e.rx.map(function (n) { return '#' + n; })).concat([f.textos && f.textos[e.sid] || '']).join(' ');
                 return q.split(/\s+/).every(function (w) { return normaliza(txt).indexOf(w) >= 0; });
             });
         }

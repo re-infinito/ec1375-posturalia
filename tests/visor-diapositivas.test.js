@@ -82,6 +82,8 @@ test('filtrar: búsqueda sin acentos por título, criterio, nombre de criterio y
     const rec = V.recomendados(cat, [20], []);
     assert.deepStrictEqual(V.filtrar(cat, { soloRecomendados: true, recomendados: rec }).map(e => e.sid), ['v3-8']);
     assert.strictEqual(V.filtrar(cat, {}).length, cat.length);
+    const textos = { 'v3-71': 'Cómo usar el goniómetro al medir la flexión' };
+    assert.deepStrictEqual(V.filtrar(cat, { q: 'goniometro flexion', textos }).map(e => e.sid), ['v3-71'], 'busca dentro del texto de la diapositiva');
 });
 
 test('seccionesPorSid: corta el HTML publicado por data-sid', () => {
