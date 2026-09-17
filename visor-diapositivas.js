@@ -1,15 +1,15 @@
 /* visor-diapositivas.js — piezas compartidas de los visores de diapositivas
-   (biblioteca.html y ruta-alineacion.html) + el mapa tema→criterio que usa
-   examen-conocimientos.html. 16 sep 2026.
+   (estudio.html, el visor unificado) + el mapa tema→criterio del Examen de
+   Conocimientos. 16 sep 2026; desde el 17 sep solo lo usa estudio.html.
 
    Dos mitades:
    - Lógica pura (sin DOM, probada en Node: tests/visor-diapositivas.test.js):
      catálogo combinado de la Biblioteca, recomendados, filtros, cortes del HTML.
    - Utilidades de DOM: videos, quizzes, presentación y botón de tema — antes
-     vivían copiadas dentro de ruta-alineacion.html.
+     vivían copiadas dentro de ruta-alineacion.html (hoy una redirección).
 
    No tiene efectos al cargarse: nada corre hasta que una página lo llama.
-   ruta-estudio.html (motor completo generado por el pipeline) NO lo usa. */
+   La lógica de Reforzamiento/Práctica/Examen está en estudio-logica.js. */
 (function (root) {
     'use strict';
 
@@ -37,7 +37,7 @@
 
     function urlBiblioteca(tema) {
         var crit = TEMA_A_CRITERIO[tema];
-        return crit ? 'biblioteca.html?crit=' + encodeURIComponent(crit) : 'biblioteca.html';
+        return crit ? 'estudio.html?modo=biblioteca&crit=' + encodeURIComponent(crit) : 'estudio.html?modo=biblioteca';
     }
 
     function esc(s) {
@@ -107,7 +107,7 @@
     }
 
     /* Criterios de los temas que el candidato falló al primer intento en el
-       Examen de Conocimientos (estado de examen-conocimientos.html). */
+       Examen de Conocimientos (estado examenConocimientosData). */
     function criteriosFallados(examen, reactivos) {
         var vistos = {}, out = [];
         var fac = (examen && examen.firstAttemptCorrect) || {};

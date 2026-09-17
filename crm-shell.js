@@ -429,7 +429,7 @@
                 '<a class="' + panelCls + '" href="panel.html" title="Panel"><span class="crm-ico">' + icon(ICONOS.panel) + '</span><span class="crm-label">Panel</span></a>' +
                 steps.map(function (s) { return itemHtml(s, currentPageId, degraded); }).join('') +
                 '<div class="crm-nav-label">Recursos</div>' +
-                '<a class="crm-item' + (currentPageId === 'biblioteca' ? ' is-current is-here' : '') + '" href="biblioteca.html" title="Biblioteca"><span class="crm-ico">' + icon('book') + '</span><span class="crm-label">Biblioteca</span></a>' +
+                '<a class="crm-item' + (currentPageId === 'biblioteca' ? ' is-current is-here' : '') + '" href="estudio.html?modo=biblioteca" title="Biblioteca"><span class="crm-ico">' + icon('book') + '</span><span class="crm-label">Biblioteca</span></a>' +
                 '<a class="crm-item" href="guion-maestro.html" title="Guion Maestro"><span class="crm-ico">' + icon('file') + '</span><span class="crm-label">Guion Maestro</span></a>' +
             '</nav>' +
             '<div class="crm-user">' +

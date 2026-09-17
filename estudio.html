@@ -1,0 +1,964 @@
+<!doctype html>
+<html lang="es-MX">
+<head>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="auth.js"></script>
+<script src="contenido.js"></script>
+<script src="visor-diapositivas.js"></script>
+<script src="estudio-logica.js"></script>
+<script src="protect.js"></script>
+<script src="flow-status.js"></script>
+<script src="crm-shell.js" data-crm-mode="rail"></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" href="favicon-32x32.png" type="image/png" sizes="32x32">
+<link rel="icon" href="favicon-16x16.png" type="image/png" sizes="16x16">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<title>EC1375 · Estudio · Paideia Tech</title>
+<script>(function(){try{var t=localStorage.getItem('paideia-theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="visor-diapositivas.css">
+<link rel="stylesheet" href="estudio.css">
+<!--
+  estudio.html — visor de estudio unificado (17 sep 2026). Un solo visor con la
+  misma navegación guiada para: ?modo=biblioteca | alineacion | reforzamiento |
+  practica | examen. Reemplaza a biblioteca.html, ruta-alineacion.html,
+  ruta-estudio.html (motor V4.4), reforzamiento.html, practica.html y
+  examen-conocimientos.html, que ahora solo redirigen aquí.
+  Lógica pura: estudio-logica.js (paridad verificada contra el motor V4.4) y
+  visor-diapositivas.js. Estilos: visor-diapositivas.css + estudio.css.
+  Spec: docs/superpowers/specs/2026-09-17-visor-estudio-unificado-design.md
+-->
+</head>
+<body>
+
+<div class="app ali bib" id="app" data-view="route" data-vista="panel">
+  <header class="topbar">
+    <div class="brand"><svg class="brand-mk" viewBox="0 0 32 32" aria-hidden="true"><rect x="5" y="5" width="6" height="22" rx="1.5" fill="none" stroke="var(--accent)" stroke-width="2.2"/><rect x="13" y="5" width="6" height="22" rx="1.5" fill="none" stroke="var(--accent)" stroke-width="2.2"/><path d="M21.5 6.5l5 1.3-4.6 19.2-5-1.3z" fill="none" stroke="var(--cyan)" stroke-width="2.2" stroke-linejoin="round"/></svg>
+      <div><div class="brand-tx" id="brandTx">ESTUDIO</div><div class="brand-sub">Paideia Tech · EC1375</div></div>
+    </div>
+    <span class="ruta-tag" id="rutaTag">Cargando…</span>
+    <div class="spacer"></div>
+    <div class="tb-actions">
+      <span class="counter" id="counter"></span>
+      <a class="tbtn bib-keep" id="btn-back" href="panel.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 5l-7 7 7 7"/></svg><span class="lbl" id="back-lbl">Panel</span></a>
+      <button class="tbtn bib-idxbtn bib-keep" id="btn-index" aria-controls="bibIdx" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg><span class="lbl">Índice</span></button>
+      <button class="tbtn" id="btn-help" title="Cómo funciona"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.3 2.37c-.5.18-.8.65-.8 1.18V14M12 17.5h.01"/></svg><span class="lbl">Ayuda</span></button>
+      <button class="tbtn presbtn" id="btn-pres"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 4h18v12H3z M8 20h8 M12 16v4"/></svg><span class="lbl">Presentación</span></button>
+      <button class="tbtn" id="btn-theme" title="Cambiar a modo claro"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg><span class="lbl" id="theme-lbl">Modo claro</span></button>
+    </div>
+  </header>
+  <div class="progress"><div class="progress-fill" id="pfill"></div></div>
+
+  <div class="bib-body" id="bibBody">
+    <aside class="bib-idx" id="bibIdx" aria-label="Índice de la Biblioteca">
+      <div class="bib-idx-head">
+        <input class="bib-q" id="q" type="search" placeholder="Buscar palabra, tema o #reactivo" autocomplete="off" aria-label="Buscar en la Biblioteca">
+        <div class="bib-row">
+          <button class="bib-chip" id="chipTodo" aria-pressed="true">Todo <span class="num" id="numTodo"></span></button>
+          <button class="bib-chip" id="chipRec" aria-pressed="false" title="Pantallas de los reactivos que marcaste NO y de los temas que fallaste en el examen">Para ti <span class="num" id="numRec"></span></button>
+          <select class="bib-sel" id="modSel" aria-label="Filtrar por módulo"><option value="">Todos los módulos</option></select>
+        </div>
+        <div class="bib-crit" id="critBanner" hidden></div>
+        <div class="bib-idx-tip">Toca una pantalla para abrirla · ✓ ya la viste · <i class="bib-dot"></i> recomendada para ti</div>
+      </div>
+      <div class="bib-list" id="idxlist" role="list"></div>
+      <div class="bib-idx-foot"><span id="vistasTxt">0 vistas</span><span class="bar"><i id="vistasBar"></i></span></div>
+    </aside>
+    <div class="bib-backdrop" id="bibBackdrop"></div>
+
+    <div class="bib-main">
+      <main class="stagewrap">
+        <div class="view v-route">
+          <section class="bib-guia" id="guia" hidden aria-live="polite"></section>
+          <div class="es-panel" id="panel"><div class="bib-loading">Cargando…</div></div>
+          <div class="frame r-library" id="frame"></div>
+          <div class="stage" id="stage"></div>
+          <div class="metabar">
+            <div class="rx" id="rxwrap"></div><div class="spacer"></div>
+            <button class="notes-btn" id="notesbtn">Notas del presentador</button>
+          </div>
+          <div class="pnotes" id="pnotes"></div>
+        </div>
+      </main>
+      <nav class="nav" aria-label="Navegación">
+        <button class="nbtn" id="prev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M15 5l-7 7 7 7"/></svg><span>Anterior</span></button>
+        <div class="bib-navinfo"><b id="navPos">—</b><span id="navNext"></span></div>
+        <button class="nbtn primary" id="next"><span id="nextLbl">Siguiente</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 5l7 7-7 7"/></svg></button>
+      </nav>
+    </div>
+  </div>
+</div>
+
+<div class="bib-modal" id="ayuda" hidden role="dialog" aria-modal="true" aria-labelledby="ayudaTit"><div class="box">
+  <h2 id="ayudaTit">Cómo funciona</h2>
+  <div id="ayudaCuerpo"></div>
+  <p style="font-size:12.5px">En computadora: <span class="kbd">←</span> <span class="kbd">→</span> cambiar pantalla · <span class="kbd">N</span> notas · <span class="kbd">P</span> presentación · <span class="kbd">?</span> esta ayuda</p>
+  <div class="bib-acciones"><button type="button" class="bib-btn primary" id="ayudaOk">Entendido</button></div>
+</div></div>
+
+<div class="bib-modal" id="fin" hidden role="dialog" aria-modal="true" aria-labelledby="finTit"><div class="box" id="finBox"></div></div>
+
+<div class="bib-toast" id="toast" hidden role="status"></div>
+
+<script>
+(async function () {
+  'use strict';
+  var V = window.VisorDiap, E = window.EstudioLogica, esc = V.esc;
+  var $ = function (id) { return document.getElementById(id); };
+  var app = $('app'), stage = $('stage'), frame = $('frame'), counter = $('counter'), pfill = $('pfill'), panel = $('panel');
+  var prevB = $('prev'), nextB = $('next'), rxWrap = $('rxwrap'), notesBtn = $('notesbtn'), notesBox = $('pnotes');
+  var idx = $('bibIdx'), idxList = $('idxlist'), qIn = $('q'), modSel = $('modSel');
+  var params = new URLSearchParams(location.search);
+
+  /* ── modos ── */
+  var MODOS = {
+    biblioteca: { titulo: 'Biblioteca', pagina: 'biblioteca', fase: 'alineacion' },
+    alineacion: { titulo: 'Ruta de Alineación', pagina: 'alineacion', fase: 'alineacion' },
+    reforzamiento: { titulo: 'Reforzamiento', pagina: 'reforzamiento', fase: 'registro', autodiag: 'completo' },
+    practica: { titulo: 'Práctica', pagina: 'practica', fase: 'evaluacion', autodiag: 'completo' },
+    examen: { titulo: 'Examen de Conocimientos', pagina: 'examen', fase: 'evaluacion', autodiag: 'nombre' }
+  };
+  var modo = MODOS[params.get('modo')] ? params.get('modo') : 'biblioteca';
+  var MODO = MODOS[modo];
+  document.title = 'EC1375 · ' + MODO.titulo + ' · Paideia Tech';
+  $('brandTx').textContent = MODO.titulo.toUpperCase();
+  app.setAttribute('data-modo', modo);
+  if (modo !== 'biblioteca') app.setAttribute('data-sin-indice', '1');
+
+  /* ── utilidades de interfaz ── */
+  function corto(t, n) { t = String(t || ''); return t.length > n ? t.slice(0, n - 1) + '…' : t; }
+  function pantallaBloqueo(titulo, texto, href, label) {
+    app.removeAttribute('data-sin-indice');
+    app.innerHTML = '<div class="bib-gate"><div class="box"><div style="font-size:2.2rem;margin-bottom:10px">🔒</div>' +
+      '<h1>' + esc(titulo) + '</h1><p>' + esc(texto) + '</p><a href="' + href + '">' + esc(label) + '</a></div></div>';
+  }
+  function abreModal(id) { $(id).hidden = false; var b = $(id).querySelector('button, a'); if (b) b.focus(); }
+  function cierraModal(id) { $(id).hidden = true; }
+  var tToast;
+  function toast(html, ms) {
+    var t = $('toast'); t.innerHTML = html; t.hidden = false;
+    clearTimeout(tToast); tToast = setTimeout(function () { t.hidden = true; }, ms || 6000);
+    var x = t.querySelector('.x'); if (x) x.onclick = function () { t.hidden = true; };
+  }
+  function btnHtml(b) {
+    if (!b) return '';
+    var cls = 'bib-btn' + (b.tipo ? ' ' + b.tipo : '');
+    return b.href ? '<a class="' + cls + '" href="' + b.href + '">' + esc(b.txt) + '</a>'
+      : '<button type="button" class="' + cls + '" data-accion="' + b.id + '">' + esc(b.txt) + '</button>';
+  }
+  /* Acciones de los paneles y del modal final: data-accion="id" → ACCIONES[id]() */
+  var ACCIONES = {};
+  function accion(id, fn) { ACCIONES[id] = fn; return id; }
+  document.addEventListener('click', function (ev) {
+    var b = ev.target.closest && ev.target.closest('[data-accion]');
+    if (!b || !ACCIONES[b.getAttribute('data-accion')]) return;
+    ev.preventDefault();
+    ACCIONES[b.getAttribute('data-accion')](b);
+  });
+  function mostrarFin(icono, titulo, texto, botones) {
+    $('finBox').innerHTML = '<div class="bib-fin-ic" aria-hidden="true">' + icono + '</div><h2 id="finTit">' + esc(titulo) + '</h2>' +
+      '<p>' + texto + '</p><div class="bib-acciones">' + botones.map(btnHtml).join('') + '</div>';
+    abreModal('fin');
+  }
+  accion('cerrarFin', function () { cierraModal('fin'); });
+
+  /* ── guía superior (misma pieza en todos los modos) ──
+     G = { k, titulo, salir:{txt,fn}, pasos:{items:[{txt,estado,title,fn}], txt}, barra:{valor,txt}, instr:[html], abiertas } */
+  var GUIA_FN = {};
+  function pintaGuia(G) {
+    var g = $('guia');
+    if (!G) { g.hidden = true; return; }
+    GUIA_FN = {};
+    var h = '<div class="bib-guia-top"><div><div class="bib-guia-k">' + esc(G.k) + '</div><h2>' + esc(G.titulo) + '</h2></div>' +
+      (G.salir ? '<button type="button" class="bib-guia-salir" data-guia="salir">' + esc(G.salir.txt) + '</button>' : '') + '</div>';
+    if (G.salir) GUIA_FN.salir = G.salir.fn;
+    if (G.pasos && G.pasos.items.length) {
+      h += '<div class="bib-pasos" role="list">' + G.pasos.items.map(function (p, k) {
+        if (p.fn) GUIA_FN['p' + k] = p.fn;
+        return '<button type="button" role="listitem" class="bib-paso' + (p.estado === 'cur' ? ' cur' : '') + (p.hecho ? ' vista' : '') + '"' +
+          (p.fn ? ' data-guia="p' + k + '"' : ' disabled') + ' title="' + esc(p.title || '') + '"' + (p.estado === 'cur' ? ' aria-current="step"' : '') +
+          ' aria-label="' + esc(p.title || p.txt) + (p.hecho ? ' (hecho)' : '') + '">' + esc(p.txt) + '</button>';
+      }).join('') + (G.pasos.txt ? '<span class="bib-pasos-txt">' + esc(G.pasos.txt) + '</span>' : '') + '</div>';
+    }
+    if (G.barra) {
+      h += '<div style="display:grid;gap:5px"><div class="es-barra"><i style="width:' + Math.round(G.barra.valor * 100) + '%"></i></div>' +
+        '<span class="bib-pasos-txt" style="margin:0">' + esc(G.barra.txt) + '</span></div>';
+    }
+    if (G.instr && G.instr.length) {
+      var abierto = G.abiertas || !window.matchMedia('(max-width:760px)').matches;
+      h += '<details class="bib-como"' + (abierto ? ' open' : '') + '><summary>' + esc(G.instrTitulo || 'Qué hacer aquí') + '</summary>' +
+        '<ol class="bib-instr">' + G.instr.map(function (li) { return '<li>' + li + '</li>'; }).join('') + '</ol></details>';
+    }
+    g.innerHTML = h; g.hidden = false;
+  }
+  $('guia').addEventListener('click', function (ev) {
+    var b = ev.target.closest('[data-guia]'); if (!b) return;
+    var fn = GUIA_FN[b.getAttribute('data-guia')]; if (fn) fn();
+  });
+
+  /* ── barra inferior ── N = { prev:{fn,disabled}|null, pos, sig, btn:{lg,sm,fn,disabled,fin} } */
+  var NAV = {};
+  function pintaNav(N) {
+    NAV = N || {};
+    prevB.style.visibility = NAV.prev ? 'visible' : 'hidden';
+    prevB.disabled = !NAV.prev || !!NAV.prev.disabled;
+    $('navPos').textContent = NAV.pos || '';
+    $('navNext').textContent = NAV.sig || '';
+    var b = NAV.btn;
+    nextB.style.visibility = b ? 'visible' : 'hidden';
+    if (b) {
+      $('nextLbl').innerHTML = '<span class="lg">' + esc(b.lg) + '</span><span class="sm">' + esc(b.sm || b.lg) + '</span>';
+      nextB.disabled = !!b.disabled;
+      nextB.classList.toggle('fin', !!b.fin);
+    }
+  }
+  prevB.onclick = function () { if (NAV.prev && NAV.prev.fn) NAV.prev.fn(); };
+  nextB.onclick = function () { if (NAV.btn && NAV.btn.fn && !NAV.btn.disabled) NAV.btn.fn(); };
+
+  function tituloAyuda(html) { $('ayudaCuerpo').innerHTML = html; }
+  $('btn-help').onclick = function () { abreModal('ayuda'); };
+  $('ayudaOk').onclick = function () { cierraModal('ayuda'); try { localStorage.setItem('ec1375-biblioteca-guia', '1'); } catch (e) { /* sin storage */ } };
+  $('ayuda').addEventListener('click', function (ev) { if (ev.target === $('ayuda')) $('ayudaOk').onclick(); });
+  $('fin').addEventListener('click', function (ev) { if (ev.target === $('fin')) cierraModal('fin'); });
+  $('btn-pres').onclick = function () { V.presentacion(!document.body.classList.contains('pres')); };
+  notesBtn.onclick = function () { notesBox.classList.toggle('show'); };
+  V.enlazarBotonTema($('btn-theme'), $('theme-lbl'));
+
+  /* ── acceso ── */
+  var session = await Auth.getSession();
+  if (!session) {
+    try { sessionStorage.setItem('paideia-volver', location.pathname + location.search + location.hash); } catch (e) { /* sin storage */ }
+    pantallaBloqueo('Inicia sesión para continuar', 'Tu ' + MODO.titulo + ' se carga con tu cuenta. Al entrar te regresamos aquí.', 'panel.html', 'Iniciar sesión');
+    return;
+  }
+  var email = session.user.email;
+  var esBypass = await Auth.isBypassSession();
+  var exento = esBypass || (await Auth.isAdmin(email));
+  var fila = null;
+  try { fila = await FlowStatus.getRow(); } catch (e) { fila = null; }
+
+  var AD = null;
+  try { AD = JSON.parse(localStorage.getItem('autodiagnosticoData') || 'null'); } catch (e) { AD = null; }
+  if (!AD && fila && fila.autodiagnostico_data) AD = fila.autodiagnostico_data;
+  var adNombre = AD && AD.personalData && AD.personalData.nombre;
+  if (MODO.autodiag === 'completo') {
+    if (!AD || !adNombre || Object.keys(AD.answers || {}).length !== 142) {
+      pantallaBloqueo('Primero completa tu Autodiagnóstico', 'Tus respuestas del Autodiagnóstico arman tu ruta de estudio.', 'autodiagnostico.html', 'Ir al Autodiagnóstico'); return;
+    }
+    if (!AD.ndaAccepted) {
+      pantallaBloqueo('Falta firmar tu Acuerdo de Confidencialidad', 'Es un paso corto dentro de tu Autodiagnóstico.', 'autodiagnostico.html', 'Firmar mi Acuerdo'); return;
+    }
+  }
+  if (MODO.autodiag === 'nombre' && !adNombre) {
+    pantallaBloqueo('Primero completa tu Autodiagnóstico', 'Necesitamos tus datos del Autodiagnóstico para tu comprobante.', 'autodiagnostico.html', 'Ir al Autodiagnóstico'); return;
+  }
+  if (!exento && !(await Auth.isPhaseAuthorized(email, MODO.fase))) {
+    if (MODO.fase === 'registro') pantallaBloqueo('Tu correo no está autorizado todavía', 'Si ya pagaste tu registro, escríbenos por WhatsApp y lo activamos.', 'https://wa.me/528115026729', 'Escribir por WhatsApp');
+    else if (MODO.fase === 'alineacion') pantallaBloqueo('Primero completa tu pago de Alineación', MODO.titulo + ' se abre junto con la fase de Alineación.', 'alineacion.html', 'Ir a Alineación');
+    else pantallaBloqueo('Primero completa tus Documentos de Sesión', MODO.titulo + ' se habilita con la fase de Evaluación.', 'documentos-sesion.html', 'Ir a Documentos de Sesión');
+    return;
+  }
+
+  var STEPS = [];
+  try { STEPS = await FlowStatus.getSteps(); } catch (e) { STEPS = []; }
+  try { CrmShell.mount({ mode: 'rail', currentPageId: MODO.pagina, steps: STEPS }); } catch (e) { console.warn('Rail CRM no disponible:', e); }
+  function pasoInfo(id) {
+    var i = STEPS.map(function (s) { return s.id; }).indexOf(id);
+    return i < 0 ? null : { n: i + 1, total: STEPS.length, sig: STEPS[i + 1] || null };
+  }
+  function botonSiguientePaso(id, tipo) {
+    var p = pasoInfo(id);
+    if (!p || !p.sig) return { txt: 'Volver a mi panel', href: 'panel.html', tipo: tipo || 'ok' };
+    return { txt: 'Siguiente paso: ' + p.sig.label, href: p.sig.href, tipo: tipo || 'ok' };
+  }
+  var info = pasoInfo(MODO.pagina);
+  $('rutaTag').textContent = info ? 'Paso ' + info.n + ' de ' + info.total : 'Consulta libre';
+
+  /* ── contenido ── */
+  var D = null, A = null, M = {}, SLIDES_E = null, SLIDES_A = null, REACTIVOS = null;
+  try {
+    var pide = [];
+    if (modo !== 'alineacion') pide.push(Contenido.cargar('ruta-estudio:data').then(function (x) { D = x; }), Contenido.cargar('ruta-estudio:media').then(function (x) { M = Object.assign({}, M, x || {}); }));
+    if (modo === 'biblioteca' || modo === 'alineacion') pide.push(Contenido.cargar('ruta-alineacion:data').then(function (x) { A = x; M = Object.assign({}, x.media || {}, M); }));
+    if (modo === 'examen') pide.push(Contenido.cargar('examen:reactivos').then(function (x) { REACTIVOS = x; }));
+    await Promise.all(pide);
+  } catch (e) { app.innerHTML = Contenido.errorHtml(e); return; }
+  var criterios = (D && D.criterios) || {};
+  var cat = modo === 'alineacion' ? V.catalogo(null, A) : V.catalogo(D, modo === 'biblioteca' ? A : null);
+  var porSid = {}; cat.forEach(function (e) { porSid[e.sid] = e; });
+
+  /* Diapositivas: se cargan al primer recorrido (en Examen/Práctica/Reforzamiento
+     puede que nunca haga falta). */
+  var SL = {}, cargaSlides = null, textos = {};
+  function asegurarDiapositivas() {
+    if (cargaSlides) return cargaSlides;
+    cargaSlides = (async function () {
+      var partes = [];
+      if (modo !== 'alineacion') partes.push(Contenido.cargar('ruta-estudio:slides').then(function (x) { SLIDES_E = V.seccionesPorSid(x.html); }));
+      if (modo === 'biblioteca' || modo === 'alineacion') partes.push(Contenido.cargar('ruta-alineacion:slides').then(function (x) { SLIDES_A = V.seccionesPorSid(x.html); }));
+      await Promise.all(partes);
+      var html = cat.map(function (e) { return ((e.fuente === 'estudio' ? SLIDES_E : SLIDES_A) || {})[e.sid] || ''; }).join('\n');
+      var mapa = await Contenido.imagenes(Contenido.rutasEnHtml(html));
+      stage.innerHTML = Contenido.reemplazarImagenes(html, mapa);
+      [].forEach.call(stage.querySelectorAll('.slide'), function (s) { SL[s.getAttribute('data-sid')] = s; });
+      Object.keys(SL).forEach(function (sid) { textos[sid] = (SL[sid].textContent || '').replace(/\s+/g, ' '); });
+      V.activarQuizzes(stage);
+    })();
+    return cargaSlides;
+  }
+
+  /* ── recorrido de diapositivas (mismo visor para todos los modos) ──
+     R = { lista:[entradas del catálogo], pos, guia(R)→G, fin:{lg,sm}, alTerminar(), marcoK, marcoCls, vistasKey, hash, alPintar() } */
+  var R = null;
+  var VISTAS = {};
+  function vistas(key) {
+    if (!VISTAS[key]) { VISTAS[key] = {}; try { (JSON.parse(localStorage.getItem(key) || '[]') || []).forEach(function (s) { VISTAS[key][s] = 1; }); } catch (e) { /* sin storage */ } }
+    return VISTAS[key];
+  }
+  function marcaVista(key, sid) {
+    var v = vistas(key); if (v[sid]) return; v[sid] = 1;
+    try { localStorage.setItem(key, JSON.stringify(Object.keys(v))); } catch (e) { /* sin storage */ }
+  }
+  function nombreElem(e) { var n = (e.crit[0] || '').slice(1, 2); return n ? 'Elemento ' + n : ''; }
+
+  async function abrirRecorrido(cfg) {
+    await asegurarDiapositivas();
+    R = cfg; R.pos = R.pos || 0;
+    app.setAttribute('data-vista', 'slides');
+    window.scrollTo(0, 0);
+    pintaSlide();
+  }
+  function ir(k) { if (!R || k < 0 || k >= R.lista.length) return; R.pos = k; pintaSlide(); }
+  function pintaSlide() {
+    V.pausarMedios(stage, M);
+    [].forEach.call(stage.querySelectorAll('.slide.on'), function (s) { s.classList.remove('on'); });
+    var e = R.lista[R.pos];
+    if (!e) {
+      stage.setAttribute('data-vacio', '1'); frame.innerHTML = ''; rxWrap.innerHTML = ''; counter.textContent = '0 / 0'; pfill.style.width = '0';
+      notesBtn.style.display = 'none'; notesBox.classList.remove('show');
+      pintaGuia(R.guia ? R.guia(R) : null);
+      pintaNav({ pos: 'Sin pantallas', sig: 'Borra la búsqueda o cambia el filtro', btn: null });
+      if (R.alPintar) R.alPintar();
+      return;
+    }
+    stage.removeAttribute('data-vacio');
+    var s = SL[e.sid]; s.classList.add('on'); s.scrollTop = 0;
+    marcaVista(R.vistasKey || 'ec1375-biblioteca-vistas', e.sid);
+    var n = R.lista.length, ultimo = R.pos === n - 1;
+    counter.textContent = String(R.pos + 1).padStart(3, '0') + ' / ' + n;
+    pfill.style.width = ((R.pos + 1) / n * 100) + '%';
+    var c = criterios[e.crit[0]];
+    frame.className = 'frame ' + (R.marcoCls || 'r-library');
+    frame.innerHTML = '<span class="f-k">' + esc(R.marcoK || MODO.titulo) + '</span>' +
+      (e.risk === 'critico' ? '<span class="f-crit">Punto eliminatorio</span>' : '') +
+      (R.etiqueta ? R.etiqueta(e) : '') +
+      '<span class="f-w"><b>' + esc(c ? c.titulo : e.modulo) + '</b>' + (nombreElem(e) ? ' · ' + nombreElem(e) : '') + '</span>' +
+      '<span class="f-pos">Pantalla ' + (R.pos + 1) + ' de ' + n + '</span>';
+    rxWrap.innerHTML = e.rx.length
+      ? '<span class="rx-lb">Reactivos EC1375</span>' + e.rx.map(function (nn) {
+          var r = ((D && D.rx) || (A && A.reactivos) || {})[nn] || {};
+          return '<span class="rx-b' + (NO_SET[nn] ? ' no' : '') + '" title="' + esc(r.cod || '') + (r.critico ? ' · punto eliminatorio' : '') +
+            (NO_SET[nn] ? ' · lo marcaste NO' : '') + '">' + nn + '</span>';
+        }).join('')
+      : '<span class="rx-lb">Sin reactivo propio · encuadre</span>';
+    var nt = s.getAttribute('data-notes') || '';
+    notesBtn.style.display = nt ? '' : 'none';
+    notesBox.innerHTML = nt ? '<b>Notas del presentador</b>' + nt : '';
+    notesBox.classList.remove('show');
+    V.montarMedios(s, M);
+    if (R.hash && location.hash.slice(1) !== e.sid) history.replaceState(null, '', location.pathname + location.search + '#' + e.sid);
+    pintaGuia(R.guia ? R.guia(R) : null);
+    pintaNav({
+      prev: { fn: function () { ir(R.pos - 1); }, disabled: R.pos === 0 },
+      pos: (R.posPrefijo || '') + 'Pantalla ' + (R.pos + 1) + ' de ' + n,
+      sig: ultimo ? (R.alTerminar ? (R.finTexto || 'Es la última pantalla') : 'Llegaste al final · abre el Índice para ir a otro tema') : 'Sigue: ' + corto(R.lista[R.pos + 1].titulo, 70),
+      btn: ultimo
+        ? (R.alTerminar ? { lg: R.fin.lg, sm: R.fin.sm, fn: R.alTerminar, fin: true } : { lg: 'Fin de la lista', disabled: true })
+        : { lg: 'Siguiente pantalla', sm: 'Siguiente', fn: function () { ir(R.pos + 1); } }
+    });
+    if (R.alPintar) R.alPintar();
+  }
+  function pasosDeRecorrido(R2, key) {
+    var v = vistas(key || R2.vistasKey || 'ec1375-biblioteca-vistas');
+    return {
+      items: R2.lista.map(function (e, k) {
+        return { txt: (v[e.sid] && k !== R2.pos) ? '✓' : String(k + 1), hecho: !!v[e.sid], estado: k === R2.pos ? 'cur' : '', title: e.titulo, fn: function () { ir(k); } };
+      }),
+      txt: R2.lista.filter(function (e) { return v[e.sid]; }).length + ' de ' + R2.lista.length + ' vistas'
+    };
+  }
+  function mostrarPanel(html, G, N) {
+    V.pausarMedios(stage, M);
+    R = null;
+    app.setAttribute('data-vista', 'panel');
+    counter.textContent = ''; pfill.style.width = '0';
+    panel.innerHTML = html;
+    pintaGuia(G);
+    pintaNav(N);
+  }
+
+  document.addEventListener('keydown', function (e) {
+    if (!$('ayuda').hidden || !$('fin').hidden) {
+      if (e.key === 'Escape') { cierraModal('ayuda'); cierraModal('fin'); }
+      return;
+    }
+    if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName || '')) { if (e.key === 'Escape') e.target.blur(); return; }
+    if (e.key === '?') { abreModal('ayuda'); return; }
+    if (app.getAttribute('data-vista') !== 'slides') return;
+    if (e.key === 'ArrowRight' || e.key === 'PageDown') { e.preventDefault(); nextB.click(); }
+    else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); prevB.click(); }
+    else if (e.key === 'n' || e.key === 'N') notesBox.classList.toggle('show');
+    else if (e.key === 'p' || e.key === 'P') $('btn-pres').click();
+    else if (e.key === 'Escape') { if (document.body.classList.contains('pres')) V.presentacion(false); else abreIndice(false); }
+    else if (e.key === '/' && modo === 'biblioteca') { e.preventDefault(); if (window.matchMedia('(max-width:1100px)').matches) abreIndice(true); qIn.focus(); }
+  });
+  function abreIndice(on) {
+    idx.classList.toggle('open', on);
+    $('bibBackdrop').classList.toggle('open', on);
+    $('btn-index').setAttribute('aria-expanded', String(on));
+  }
+
+  /* ── datos del candidato ── */
+  var NO = V.reactivosNo(AD && AD.answers, Auth.REACTIVO_KEYS), NO_SET = {};
+  NO.forEach(function (n) { NO_SET[n] = true; });
+  var curp = AD && AD.personalData ? AD.personalData.curp : null;
+
+  /* Estado V4.4 (Reforzamiento/Práctica): mismo objeto de siempre. */
+  var L = D ? E.crear(D, M) : null, S = null;
+  function cargarEstado() {
+    var raw = fila && fila.ruta_estudio_data;
+    if (esBypass) { try { raw = JSON.parse(localStorage.getItem('ec1375-state') || 'null') || raw; } catch (e) { /* sin storage */ } }
+    var semilla = E.semillaDesdeAutodiagnostico(AD && AD.answers, Auth.REACTIVO_KEYS);
+    if (raw && raw.diagnosticOriginal && Object.keys(raw.diagnosticOriginal.answers || {}).length) return L.normaliza(raw);
+    if (raw) { raw = JSON.parse(JSON.stringify(raw)); raw.answeredYes = semilla.answeredYes; raw.answeredNo = semilla.answeredNo; delete raw.diagnosticOriginal; return L.normaliza(raw); }
+    return L.normaliza(semilla);
+  }
+  function guardarEstado() {
+    L.recalcula(S);
+    try { localStorage.setItem('ec1375-state', JSON.stringify(S)); } catch (e) { /* sin storage */ }
+    Auth.syncToSupabase('ruta_estudio_data', S, curp, adNombre);
+  }
+
+  /* ════════════════ BIBLIOTECA ════════════════ */
+  function iniciarBiblioteca() {
+    tituloAyuda('<p>Aquí está todo el material de estudio del EC1375. Consultarlo no cambia tu avance.</p><ol>' +
+      '<li><b>Avanza con los botones de abajo:</b> «Siguiente pantalla» y «Anterior».</li>' +
+      '<li><b>Abre el Índice</b> para saltar a cualquier tema, <b>buscar</b> una palabra o filtrar por módulo.</li>' +
+      '<li><b>«Para ti»</b> muestra las pantallas de los reactivos que marcaste NO y de los temas que fallaste en el examen.</li>' +
+      '<li>Las pantallas vistas llevan <b>✓</b> y la próxima vez <b>retomas donde te quedaste</b>.</li></ol>');
+    var rec = {}, critsExamen = [];
+    var ex = null;
+    try { ex = JSON.parse(localStorage.getItem('examenConocimientosData') || 'null'); } catch (e) { ex = null; }
+    if (!ex && fila) ex = fila.examen_conocimientos_data;
+    var fallo = ex && ex.firstAttemptCorrect && Object.keys(ex.firstAttemptCorrect).some(function (k) { return ex.firstAttemptCorrect[k] === false; });
+    var listo = fallo ? Contenido.cargar('examen:reactivos').then(function (rs) { critsExamen = V.criteriosFallados(ex, rs); }).catch(function () { /* sin fase Evaluación */ }) : Promise.resolve();
+
+    return listo.then(asegurarDiapositivas).then(function () {
+      rec = V.recomendados(cat, NO, critsExamen);
+      var f = { q: '', mod: '', soloRecomendados: false, recomendados: rec, crit: params.get('crit') || '', textos: textos };
+      if (f.crit && !V.porCriterio(cat, f.crit).length) f.crit = '';
+      var KEY = 'ec1375-biblioteca-vistas', ULTIMA = 'ec1375-biblioteca-ultima';
+      $('numTodo').textContent = cat.length;
+      $('numRec').textContent = Object.keys(rec).length;
+      if (!Object.keys(rec).length) $('chipRec').title = 'No tienes pantallas recomendadas: respondiste SÍ a todo tu Autodiagnóstico y no fallaste temas en el examen.';
+      var mods = [];
+      cat.forEach(function (e) { if (!mods[e.mod]) mods[e.mod] = e.modulo; });
+      modSel.insertAdjacentHTML('beforeend', mods.map(function (n, m) { return n ? '<option value="' + m + '">' + (m ? 'M' + m + ' · ' : '') + esc(n) + '</option>' : ''; }).join(''));
+
+      function repaso() { return f.crit ? 'examen' : (f.soloRecomendados ? 'parati' : null); }
+      function temaRepaso() { if (f.crit) { var c = criterios[f.crit]; return c ? c.titulo : f.crit; } return 'Tus pantallas recomendadas'; }
+      function pintaBanner() {
+        var b = $('critBanner');
+        if (!f.crit) { b.hidden = true; return; }
+        var c = criterios[f.crit];
+        b.hidden = false;
+        b.innerHTML = '<div><b>Tema del examen · ' + esc(f.crit) + '</b>' + esc(c ? c.titulo : '') + '</div><button type="button" id="critX">Ver todo</button>';
+        $('critX').onclick = salir;
+      }
+      function pintaIndice() {
+        var v = vistas(KEY), lista = R ? R.lista : [], pos = R ? R.pos : 0;
+        if (!lista.length) {
+          idxList.innerHTML = '<div class="bib-empty">' + (f.soloRecomendados && !Object.keys(rec).length
+            ? 'No tienes pantallas recomendadas. Explora la Biblioteca completa en “Todo”.' : 'Nada coincide con tu búsqueda.') + '</div>';
+        } else {
+          var h = '', modActual = -1, cur = lista[pos] && lista[pos].sid;
+          lista.forEach(function (e, k) {
+            if (e.mod !== modActual) { if (modActual !== -1) h += '</div>'; modActual = e.mod; h += '<div class="idx-mod">' + (e.mod ? 'Módulo ' + e.mod + ' · ' : '') + esc(e.modulo) + '</div><div class="idx-l">'; }
+            h += '<button class="idx-i' + (e.sid === cur ? ' cur' : '') + '" data-k="' + k + '" role="listitem"' + (e.sid === cur ? ' aria-current="true"' : '') +
+              '><span class="n">' + String(e.pos + 1).padStart(3, '0') + '</span><span>' + esc(e.titulo) + '</span><span class="k">' +
+              (rec[e.sid] ? '<i class="bib-dot" title="Recomendada para ti"></i>' : '') + (v[e.sid] ? '<span class="bib-ok" title="Ya la viste">✓</span>' : '') + '</span></button>';
+          });
+          idxList.innerHTML = h + '</div>';
+        }
+        var nv = cat.filter(function (e) { return v[e.sid]; }).length;
+        $('vistasTxt').textContent = nv + ' de ' + cat.length + ' vistas';
+        $('vistasBar').style.width = (nv / cat.length * 100) + '%';
+        var curB = idxList.querySelector('.idx-i.cur'); if (curB && curB.scrollIntoView) curB.scrollIntoView({ block: 'nearest' });
+      }
+      function terminar() {
+        var rp = repaso(), n = R.lista.length;
+        if (rp === 'examen') {
+          mostrarFin('✓', '¡Repaso completo!', 'Terminaste las ' + n + ' pantallas de <b>' + esc(temaRepaso()) + '</b>. Ahora regresa al examen: la pregunta queda lista para contestarla otra vez.', [
+            { txt: 'Volver a contestar el examen', href: 'estudio.html?modo=examen&reintentar=1', tipo: 'ok' },
+            { txt: 'Repasar otra vez desde la primera pantalla', id: accion('bibOtra', function () { cierraModal('fin'); ir(0); }) },
+            { txt: 'Explorar toda la Biblioteca', id: accion('bibSalir', function () { cierraModal('fin'); salir(); }) }]);
+        } else {
+          mostrarFin('✓', '¡Repaso completo!', 'Terminaste tus ' + n + ' pantallas recomendadas.', [
+            { txt: 'Volver a mi panel', href: 'panel.html', tipo: 'ok' },
+            { txt: 'Repasar otra vez desde la primera pantalla', id: accion('bibOtra', function () { cierraModal('fin'); ir(0); }) },
+            { txt: 'Explorar toda la Biblioteca', id: accion('bibSalir', function () { cierraModal('fin'); salir(); }) }]);
+        }
+      }
+      function aplicar(sidPreferido) {
+        var lista = V.filtrar(cat, f, criterios), k = -1;
+        for (var i = 0; i < lista.length; i++) if (lista[i].sid === sidPreferido) { k = i; break; }
+        $('chipTodo').setAttribute('aria-pressed', String(!f.soloRecomendados && !f.crit));
+        $('chipRec').setAttribute('aria-pressed', String(f.soloRecomendados && !f.crit));
+        var rp = repaso() && lista.length ? repaso() : null;
+        $('rutaTag').textContent = rp ? 'Modo repaso' : 'Consulta libre';
+        if (rp) app.setAttribute('data-repaso', rp); else app.removeAttribute('data-repaso');
+        pintaBanner();
+        abrirRecorrido({
+          lista: lista, pos: k >= 0 ? k : 0, vistasKey: KEY, hash: true, marcoK: 'Biblioteca',
+          posPrefijo: rp ? 'Repaso · ' : '',
+          etiqueta: function (e) { return rec[e.sid] ? '<span class="f-rec" title="Recomendada para ti">Para ti</span>' : ''; },
+          guia: rp ? function (R2) {
+            return { k: rp === 'examen' ? 'Repaso del tema que fallaste en el examen' : 'Repaso recomendado para ti', titulo: temaRepaso(),
+              salir: { txt: 'Ver toda la Biblioteca', fn: salir }, pasos: pasosDeRecorrido(R2, KEY), instrTitulo: 'Cómo repasar', abiertas: R2.pos === 0,
+              instr: ['Lee la pantalla completa; si tiene más contenido, desliza dentro de ella.', 'Toca <b>«Siguiente pantalla»</b> abajo, o un número para saltar.',
+                rp === 'examen' ? 'Al terminar, toca <b>«Terminé el repaso»</b> y vuelve a contestar la pregunta del examen.' : 'Al terminar, toca <b>«Terminé el repaso»</b>.'] };
+          } : null,
+          fin: { lg: 'Terminé el repaso', sm: 'Terminé' }, finTexto: 'Es la última pantalla de este repaso',
+          alTerminar: rp ? terminar : null,
+          alPintar: function () {
+            pintaIndice();
+            if (!rp && R && R.lista[R.pos]) { try { localStorage.setItem(ULTIMA, R.lista[R.pos].sid); } catch (e) { /* sin storage */ } }
+          }
+        });
+      }
+      function salir() {
+        var sid = R && R.lista[R.pos] && R.lista[R.pos].sid;
+        f.crit = ''; f.soloRecomendados = false;
+        history.replaceState(null, '', location.pathname + '?modo=biblioteca' + (sid ? '#' + sid : ''));
+        aplicar(sid);
+      }
+      idxList.addEventListener('click', function (ev) {
+        var b = ev.target.closest('.idx-i'); if (!b) return;
+        ir(+b.getAttribute('data-k'));
+        if (window.matchMedia('(max-width:1100px)').matches) abreIndice(false);
+      });
+      var tq;
+      qIn.addEventListener('input', function () { clearTimeout(tq); tq = setTimeout(function () { f.q = qIn.value; aplicar(R && R.lista[R.pos] && R.lista[R.pos].sid); }, 120); });
+      modSel.onchange = function () { f.mod = modSel.value; aplicar(R && R.lista[R.pos] && R.lista[R.pos].sid); };
+      $('chipTodo').onclick = function () { f.soloRecomendados = false; aplicar(R && R.lista[R.pos] && R.lista[R.pos].sid); };
+      $('chipRec').onclick = function () { f.soloRecomendados = true; aplicar(R && R.lista[R.pos] && R.lista[R.pos].sid); };
+      $('btn-index').onclick = function () { abreIndice(!idx.classList.contains('open')); };
+      $('bibBackdrop').onclick = function () { abreIndice(false); };
+      window.addEventListener('hashchange', function () {
+        var sid = location.hash.slice(1);
+        if (!sid || !SL[sid] || (R && R.lista[R.pos] && R.lista[R.pos].sid === sid)) return;
+        var k = R ? R.lista.map(function (e) { return e.sid; }).indexOf(sid) : -1;
+        if (k >= 0) { ir(k); return; }
+        f.q = ''; qIn.value = ''; f.mod = ''; modSel.value = ''; f.crit = ''; f.soloRecomendados = false;
+        aplicar(sid);
+      });
+
+      var inicio = location.hash.slice(1), retomo = false;
+      if (!inicio && !f.crit) {
+        try { var ult = localStorage.getItem(ULTIMA); if (ult && SL[ult] && ult !== cat[0].sid) { inicio = ult; retomo = true; } } catch (e) { /* sin storage */ }
+      }
+      aplicar(inicio);
+      if (retomo) {
+        toast('Retomaste donde te quedaste<button type="button" id="tInicio">Ir al inicio</button><button type="button" class="x" aria-label="Cerrar">✕</button>');
+        $('tInicio').onclick = function () { $('toast').hidden = true; ir(0); };
+      }
+      var vista = false;
+      try { vista = localStorage.getItem('ec1375-biblioteca-guia') === '1'; } catch (e) { vista = true; }
+      if (!vista && !f.crit) abreModal('ayuda');
+    });
+  }
+
+  /* ════════════════ RUTA DE ALINEACIÓN ════════════════ */
+  function iniciarAlineacion() {
+    var KEY = 'ec1375-alineacion-vistas';
+    tituloAyuda('<p>La Ruta de Alineación muestra, pantalla por pantalla, lo que tendrás que demostrar el día de tu evaluación.</p><ol>' +
+      '<li>Avanza con <b>«Siguiente pantalla»</b>. Si una pantalla trae video, tócalo para verlo.</li>' +
+      '<li>Arriba ves los <b>módulos</b>: tócalos para saltar. Un módulo con ✓ ya lo recorriste completo.</li>' +
+      '<li>Al final toca <b>«Terminé la ruta»</b>: si te faltó alguna pantalla, te llevamos a ella.</li></ol>');
+    var mods = [];
+    cat.forEach(function (e, k) { if (!mods.some(function (m) { return m.mod === e.mod; })) mods.push({ mod: e.mod, nombre: e.modulo, primera: k }); });
+    function terminar() {
+      var v = vistas(KEY), faltan = cat.filter(function (e) { return !v[e.sid]; });
+      if (!faltan.length) {
+        mostrarFin('✓', '¡Ruta de Alineación completa!', 'Recorriste las ' + cat.length + ' pantallas. Ya sabes qué vas a demostrar en tu evaluación.', [
+          botonSiguientePaso('alineacion'),
+          { txt: 'Volver a Alineación (sesión en vivo y materiales)', href: 'alineacion.html' },
+          { txt: 'Repasar desde la primera pantalla', id: accion('aliOtra', function () { cierraModal('fin'); ir(0); }) }]);
+      } else {
+        mostrarFin('!', 'Te faltan ' + faltan.length + ' pantalla' + (faltan.length > 1 ? 's' : ''), 'Para terminar tu ruta recorre también: <b>' + esc(corto(faltan[0].titulo, 80)) + '</b>' + (faltan.length > 1 ? ' y ' + (faltan.length - 1) + ' más.' : '.'), [
+          { txt: 'Ir a la primera que falta', tipo: 'primary', id: accion('aliFalta', function () { cierraModal('fin'); ir(cat.indexOf(faltan[0])); }) },
+          { txt: 'Terminar después', id: 'cerrarFin' }]);
+      }
+    }
+    var ini = 0, h = location.hash.slice(1);
+    cat.forEach(function (e, k) { if (e.sid === h) ini = k; });
+    return abrirRecorrido({
+      lista: cat, pos: ini, vistasKey: KEY, hash: true, marcoK: 'Alineación', marcoCls: 'r-alignment',
+      fin: { lg: 'Terminé la ruta', sm: 'Terminé' }, finTexto: 'Última pantalla de la ruta', alTerminar: terminar,
+      guia: function (R2) {
+        var v = vistas(KEY), e = R2.lista[R2.pos];
+        return { k: 'Ruta de Alineación · ' + (info ? 'Paso ' + info.n + ' de ' + info.total : ''), titulo: 'Módulo ' + e.mod + ' · ' + e.modulo,
+          pasos: { items: mods.map(function (m) {
+            var delMod = cat.filter(function (x) { return x.mod === m.mod; }), hecho = delMod.every(function (x) { return v[x.sid]; });
+            return { txt: hecho && m.mod !== e.mod ? '✓' : 'M' + m.mod, hecho: hecho, estado: m.mod === e.mod ? 'cur' : '', title: m.nombre, fn: function () { ir(m.primera); } };
+          }), txt: cat.filter(function (x) { return v[x.sid]; }).length + ' de ' + cat.length + ' pantallas vistas' },
+          instrTitulo: 'Cómo recorrer la ruta', abiertas: R2.pos === 0,
+          instr: ['Lee cada pantalla y toca <b>«Siguiente pantalla»</b>. Los videos se abren al tocarlos.', 'Toca un módulo (M0…M7) para saltar a él.', 'Al final toca <b>«Terminé la ruta»</b>.'] };
+      }
+    });
+  }
+
+  /* ════════════════ REFORZAMIENTO ════════════════ */
+  function iniciarReforzamiento() {
+    S = cargarEstado();
+    tituloAyuda('<p>Reforzamiento convierte tu Autodiagnóstico en una lista de temas por repasar.</p><ol>' +
+      '<li>Cada tema tiene sus pantallas. Tócalo, recórrelas y al final toca <b>«Terminé este tema»</b>.</li>' +
+      '<li>Los temas <b>Obligatorio</b> y <b>Punto eliminatorio</b> deben quedar reforzados; los <b>Recomendado</b> son opcionales.</li>' +
+      '<li>Con los obligatorios listos, da el <b>visto bueno</b> a tu Autodiagnóstico y sigue a Alineación.</li></ol>');
+    hubReforzamiento();
+  }
+  function hubReforzamiento(resaltarCriterio) {
+    var gs = L.brechas(S), obl = gs.filter(function (g) { return g.obligatorio || g.critico; });
+    var pendObl = L.pendientesObligatorios(S), gv = L.gateVobo(S), d = S.diagnostic;
+    var hechos = gs.filter(function (g) { return g.hecho; }).length;
+    /* El siguiente paso siempre es el que desbloquea el proceso: primero los
+       obligatorios; después el visto bueno. Los recomendados son opcionales. */
+    var siguiente = d.approved ? null : gs.filter(function (g) { return !g.hecho && (g.obligatorio || g.critico); })[0];
+    var etapa = !pendObl.length ? (d.approved ? 3 : 2) : 1;
+    var filas = gs.length ? gs.map(function (g, i) {
+      var sig = siguiente && g.criterio === siguiente.criterio;
+      return '<div class="es-tema' + (g.hecho ? ' hecho' : '') + (sig ? ' siguiente' : '') + '"' + (resaltarCriterio === g.criterio ? ' id="temaResaltado"' : '') + '>' +
+        '<span class="es-num">' + (g.hecho ? '✓' : (i + 1)) + '</span>' +
+        '<div class="t"><b>' + esc(g.titulo) + '</b><span>Elemento ' + g.elem + ' · ' + g.rx.length + ' reactivo' + (g.rx.length > 1 ? 's' : '') + ' en NO · ' + g.pantallas.length + ' pantalla' + (g.pantallas.length > 1 ? 's' : '') +
+        (g.origen === 'demonstrated_gap' ? ' · detectado en la práctica' : '') + '</span>' +
+        '<div class="es-badges">' + (g.critico ? '<span class="es-badge crit">Punto eliminatorio</span>' : '<span class="es-badge' + (g.obligatorio ? ' obl">Obligatorio' : '">Recomendado') + '</span>') +
+        (g.hecho ? '<span class="es-badge ok">Reforzado</span>' : '') + '</div></div>' +
+        btnHtml({ txt: g.hecho ? 'Repasar' : (sig ? 'Empezar este tema' : 'Reforzar este tema'), tipo: g.hecho ? '' : (sig ? 'primary' : ''), id: accion('tema-' + g.criterio, function () { abrirTema(g); }) }) +
+        '</div>';
+    }).join('') : '<div class="es-aviso ok">Respondiste SÍ a todos los reactivos: no tienes temas por reforzar. Da el visto bueno para continuar.</div>';
+
+    var voboHtml = '<div class="es-card"><div class="es-k">Paso 2 de 3</div><h3>Visto bueno de tu Autodiagnóstico</h3>' +
+      (d.approved
+        ? '<div class="es-aviso ok"><b>Visto bueno registrado</b> el ' + new Date(d.approvedAt).toLocaleString('es-MX') + '. Ya puedes seguir con tu proceso.</div>' +
+          '<div class="es-acciones">' + btnHtml(botonSiguientePaso('reforzamiento')) + '</div>'
+        : '<p>Al dar el visto bueno cierras esta etapa. Tus respuestas del Autodiagnóstico no cambian: lo que se pide es haber reforzado los temas obligatorios.</p>' +
+          (gv.ok ? '' : '<div class="es-aviso warn">' + esc(E.MOTIVO[gv.reason] || '') + (gv.reason === 'remediation_required' ? ' Te faltan <b>' + pendObl.length + '</b>.' : '') + '</div>') +
+          '<div class="es-acciones">' + btnHtml({ txt: 'Dar visto bueno a mi Autodiagnóstico', tipo: gv.ok ? 'ok' : '', id: accion('vobo', darVoBo) }).replace('<button', gv.ok ? '<button' : '<button disabled') + '</div>') +
+      '</div>';
+
+    var html = '<div class="es-card"><div class="es-k">Tu resultado</div><div class="es-stats">' +
+      '<div class="es-stat ' + (d.thresholdMet ? 'ok' : 'alarm') + '"><b>' + d.score.toFixed(2) + '</b><span>puntos de 100.08 · referencia ' + E.UMBRAL_DIAGNOSTICO + '</span></div>' +
+      '<div class="es-stat"><b>' + L.respuestas(S, 'no').length + '</b><span>reactivos en NO</span></div>' +
+      '<div class="es-stat"><b>' + hechos + ' / ' + gs.length + '</b><span>temas reforzados</span></div>' +
+      '<div class="es-stat ' + (pendObl.length ? 'alarm' : 'ok') + '"><b>' + pendObl.length + '</b><span>obligatorios pendientes</span></div>' +
+      '</div></div>' +
+      '<div class="es-card"><div class="es-k">Paso 1 de 3</div><h3>Refuerza tus temas</h3><p>' + (pendObl.length ? 'Empieza por el tema resaltado. Al terminar sus pantallas queda marcado como reforzado.' : (d.approved ? 'Puedes repasar cualquier tema cuando quieras.' : 'Tus temas obligatorios ya están listos. Los <b>recomendados</b> son opcionales: puedes repasarlos ahora o dar el visto bueno.')) + '</p><div class="es-lista">' + filas + '</div></div>' +
+      voboHtml;
+
+    var G = { k: 'Reforzamiento · ' + (info ? 'Paso ' + info.n + ' de ' + info.total + ' de tu proceso' : ''), titulo: d.approved ? 'Reforzamiento terminado' : (pendObl.length ? 'Refuerza tus temas obligatorios' : 'Da el visto bueno a tu Autodiagnóstico'),
+      pasos: { items: [
+        { txt: etapa > 1 ? '✓' : '1', hecho: etapa > 1, estado: etapa === 1 ? 'cur' : '', title: 'Reforzar temas obligatorios' },
+        { txt: etapa > 2 ? '✓' : '2', hecho: etapa > 2, estado: etapa === 2 ? 'cur' : '', title: 'Dar visto bueno' },
+        { txt: '3', estado: etapa === 3 ? 'cur' : '', title: 'Continuar a Alineación' }],
+        txt: ['Reforzar temas (' + (obl.length - pendObl.length) + ' de ' + obl.length + ' obligatorios)', 'Dar visto bueno', 'Continuar con tu proceso'][etapa - 1] },
+      instrTitulo: 'Qué hacer aquí',
+      instr: ['Toca <b>«Empezar este tema»</b> y recorre sus pantallas.', 'Al terminar cada tema, toca <b>«Terminé este tema»</b>.', 'Con los obligatorios listos, toca <b>«Dar visto bueno»</b> y sigue a Alineación.'] };
+    var btn;
+    if (siguiente && !d.approved) btn = { lg: 'Empezar: ' + corto(siguiente.titulo, 34), sm: 'Empezar tema', fn: function () { abrirTema(siguiente); } };
+    else if (!d.approved && gv.ok) btn = { lg: 'Dar visto bueno', sm: 'Visto bueno', fn: darVoBo, fin: true };
+    else if (d.approved) { var sp = botonSiguientePaso('reforzamiento'); btn = { lg: sp.txt, sm: 'Siguiente paso', fn: function () { location.href = sp.href; }, fin: true }; }
+    mostrarPanel(html, G, { pos: (obl.length - pendObl.length) + ' de ' + obl.length + ' obligatorios reforzados', sig: hechos + ' de ' + gs.length + ' temas en total', btn: btn });
+    var r = $('temaResaltado'); if (r && r.scrollIntoView) r.scrollIntoView({ block: 'center' });
+  }
+  function abrirTema(g) {
+    var gs = L.brechas(S), i = gs.map(function (x) { return x.criterio; }).indexOf(g.criterio);
+    var lista = g.pantallas.map(function (sid) { return porSid[sid]; }).filter(Boolean);
+    abrirRecorrido({
+      lista: lista, marcoK: 'Reforzamiento', marcoCls: 'r-remedial', posPrefijo: 'Tema ' + (i + 1) + ' de ' + gs.length + ' · ',
+      fin: { lg: 'Terminé este tema', sm: 'Terminé' }, finTexto: 'Última pantalla de este tema',
+      alTerminar: function () {
+        var antes = g.hecho;
+        L.marcarReforzado(S, [g.criterio]); guardarEstado();
+        hubReforzamiento(g.criterio);
+        var pend = L.pendientesObligatorios(S);
+        if (!antes) toast('✓ Tema reforzado: ' + esc(corto(g.titulo, 50)) + (pend.length ? ' · te faltan ' + pend.length + ' obligatorio' + (pend.length > 1 ? 's' : '') : ' · ya puedes dar el visto bueno') + '<button type="button" class="x" aria-label="Cerrar">✕</button>');
+      },
+      guia: function (R2) {
+        return { k: 'Reforzamiento · tema ' + (i + 1) + ' de ' + gs.length + (g.critico ? ' · punto eliminatorio' : (g.obligatorio ? ' · obligatorio' : ' · recomendado')), titulo: g.titulo,
+          salir: { txt: 'Volver a mis temas', fn: function () { hubReforzamiento(g.criterio); } }, pasos: pasosDeRecorrido(R2), instrTitulo: 'Cómo reforzar', abiertas: R2.pos === 0,
+          instr: ['Lee cada pantalla; si tiene más contenido, desliza dentro de ella.', 'Toca <b>«Siguiente pantalla»</b> abajo, o un número para saltar.', 'En la última toca <b>«Terminé este tema»</b>: queda marcado como reforzado.'] };
+      }
+    });
+  }
+  function darVoBo() {
+    if (!L.darVoBo(S)) { toast(esc(E.MOTIVO[L.gateVobo(S).reason] || 'Todavía no puedes dar el visto bueno.')); return; }
+    guardarEstado();
+    hubReforzamiento();
+    var sp = botonSiguientePaso('reforzamiento');
+    mostrarFin('✓', '¡Visto bueno registrado!', 'Cerraste tu Reforzamiento. Tus respuestas del Autodiagnóstico quedan tal como las contestaste.', [sp, { txt: 'Quedarme aquí', id: 'cerrarFin' }]);
+  }
+
+  /* ════════════════ PRÁCTICA ════════════════ */
+  var P = null;
+  function iniciarPractica() {
+    S = cargarEstado();
+    tituloAyuda('<p>La Práctica tiene ' + S.practice.requiredObjectives + ' temas. Cada uno se completa al acertar una pregunta.</p><ol>' +
+      '<li>Elige una respuesta: se revisa al instante y ves la explicación.</li>' +
+      '<li>Si fallas, toca <b>«Repasar este tema»</b>: recorres sus pantallas y al final te espera una <b>pregunta de verificación</b> distinta.</li>' +
+      '<li>Fallar no penaliza: el tema se completa en cuanto aciertes.</li></ol>');
+    if (!L.gatePractica(S).ok) {
+      mostrarPanel('<div class="es-card"><div class="es-k">Todavía no</div><h2>Primero da el visto bueno en Reforzamiento</h2><p>La Práctica usa tu ruta de Reforzamiento. Cuando des el visto bueno a tu Autodiagnóstico, vuelve aquí.</p><div class="es-acciones">' +
+        btnHtml({ txt: 'Ir a Reforzamiento', href: 'estudio.html?modo=reforzamiento', tipo: 'primary' }) + '</div></div>',
+        { k: 'Práctica', titulo: 'Falta un paso anterior' }, { btn: { lg: 'Ir a Reforzamiento', fn: function () { location.href = 'estudio.html?modo=reforzamiento'; } } });
+      return;
+    }
+    if (!S.alignment.completed) L.precargarAlineacion(S);
+    siguientePregunta();
+  }
+  function siguientePregunta(oid, voluntaria) {
+    var pend = L.objetivosPendientes(S);
+    if (!voluntaria && !pend.length) { panelPracticaCompleta(); return; }
+    var objs = Object.keys(D.objetivos);
+    oid = oid || (voluntaria ? objs[Math.floor(Math.random() * objs.length)] : pend[0]);
+    var fase = voluntaria ? 'voluntaria' : L.fasePara(S, oid);
+    var q = L.variante(S, oid);
+    P = { oid: oid, q: q, fase: fase, prep: E.prepararPregunta(q), respondida: false, ok: null, elegida: null, pares: null };
+    pintaPregunta();
+  }
+  function pintaPregunta() {
+    var q = P.q, o = D.objetivos[P.oid], req = S.practice.requiredObjectives, comp = S.practice.completedObjectives;
+    var etiqueta = P.fase === 'verificacion' ? 'Pregunta de verificación' : (P.fase === 'voluntaria' ? 'Práctica voluntaria · no cambia tu avance' : 'Pregunta');
+    var cuerpo;
+    if (P.prep.tipo === 'col') {
+      cuerpo = '<div class="es-pares">' + P.prep.pares.map(function (p, i) {
+        var val = P.pares ? P.pares[i] : '';
+        var cls = P.respondida ? (val === p[1] ? ' class="ok"' : ' class="bad"') : '';
+        return '<div class="pl">' + esc(p[0]) + '</div><select data-par="' + i + '"' + cls + (P.respondida ? ' disabled' : '') + ' aria-label="Respuesta para ' + esc(p[0]) + '"><option value="">— elige —</option>' +
+          P.prep.derecha.map(function (d2) { return '<option' + (val === d2 ? ' selected' : '') + '>' + esc(d2) + '</option>'; }).join('') + '</select>';
+      }).join('') + '</div>' + (P.respondida ? '' : '<div class="es-acciones">' + btnHtml({ txt: 'Comprobar mi respuesta', tipo: 'primary', id: accion('colok', comprobarPares) }) + '</div>');
+    } else {
+      cuerpo = '<div class="es-opciones">' + P.prep.orden.map(function (x, i) {
+        var cls = 'es-op' + (P.respondida && i === P.prep.correcta ? ' ok' : '') + (P.respondida && i === P.elegida && !P.ok ? ' bad' : '');
+        return '<button type="button" class="' + cls + '" data-accion="' + accion('op' + i, function () { responderOpcion(i); }) + '"' + (P.respondida ? ' disabled' : '') + '><span class="l">' + 'ABCDEF'[i] + '</span><span>' + x.t + '</span></button>';
+      }).join('') + '</div>';
+    }
+    var fb = '', acciones = [], btn = null;
+    var nPant = L.rutaObjetivo(P.oid).length, mins = Math.max(2, Math.round(nPant * 1.6));
+    if (P.respondida) {
+      var st = L.estadoObj(S, P.oid);
+      if (P.fase === 'voluntaria') {
+        fb = '<div class="es-fb ' + (P.ok ? 'ok' : 'bad') + '"><div class="h">' + (P.ok ? 'Correcto' : 'No es esa') + '</div><div class="x">' + q.explanation + '</div></div>';
+        acciones = [{ txt: 'Otra pregunta', tipo: 'primary', id: accion('volOtra', function () { siguientePregunta(null, true); }) }, { txt: 'Terminar práctica voluntaria', id: accion('volFin', panelPracticaCompleta) }];
+        btn = { lg: 'Otra pregunta', fn: function () { siguientePregunta(null, true); } };
+      } else if (P.ok) {
+        var listo = S.practice.completed;
+        fb = '<div class="es-fb ok"><div class="h">¡Correcto! Tema completado</div><div class="x">' + q.explanation + '</div><div class="tema"><b>' + esc(o.name) + '</b> · ' + S.practice.completedObjectives + ' de ' + req + ' temas completados.</div></div>';
+        acciones = listo ? [{ txt: 'Ver mi resultado de la Práctica', tipo: 'ok', id: accion('pracFin', panelPracticaCompleta) }] : [{ txt: 'Siguiente tema', tipo: 'primary', id: accion('pracSig', function () { siguientePregunta(); }) }];
+        btn = listo ? { lg: 'Ver mi resultado', fn: panelPracticaCompleta, fin: true } : { lg: 'Siguiente tema', fn: function () { siguientePregunta(); } };
+      } else {
+        var verif = P.fase === 'verificacion';
+        fb = '<div class="es-fb bad"><div class="h">' + (verif ? 'Todavía no es esa' : 'No es esa') + '</div><div class="x">' + q.explanation + '</div>' +
+          '<div class="tema">Repasa <b>' + esc(o.name) + '</b>. Al terminar el repaso te espera <b>una</b> pregunta de verificación distinta. Fallar no penaliza: el tema se completa en cuanto aciertes.</div>' +
+          (st.selfReportConflict ? '<div class="tema">Tu Autodiagnóstico marcaba este tema como cubierto; la sugerencia queda registrada y tus respuestas no cambian.</div>' : '') + '</div>';
+        acciones = [{ txt: 'Repasar este tema · ' + nPant + ' pantalla' + (nPant > 1 ? 's' : '') + ' · ' + mins + ' min', tipo: 'primary', id: accion('pracRep', refuerzo) }];
+        if (verif) acciones.push({ txt: 'Seguir con otro tema', id: accion('pracOtro', function () { siguientePregunta(L.objetivosPendientes(S).filter(function (x) { return x !== P.oid; })[0] || P.oid); }) });
+        btn = { lg: 'Repasar este tema', sm: 'Repasar', fn: refuerzo };
+      }
+    } else {
+      btn = { lg: P.prep.tipo === 'col' ? 'Comprobar' : 'Elige una respuesta', fn: P.prep.tipo === 'col' ? comprobarPares : null, disabled: P.prep.tipo !== 'col' };
+    }
+    var html = '<div class="es-card"><div class="es-k">' + esc(etiqueta) + '</div>' +
+      '<div class="es-pregunta">' + q.stem + '</div>' + cuerpo + fb +
+      (acciones.length ? '<div class="es-acciones">' + acciones.map(btnHtml).join('') + '</div>' : '') + '</div>';
+    var G = { k: 'Práctica · ' + (info ? 'Paso ' + info.n + ' de ' + info.total + ' de tu proceso' : ''), titulo: 'Tema: ' + o.name,
+      barra: { valor: req ? comp / req : 0, txt: comp + ' de ' + req + ' temas completados' + (P.fase === 'verificacion' ? ' · pregunta de verificación' : '') },
+      instrTitulo: 'Cómo funciona', abiertas: comp === 0 && !P.respondida,
+      instr: ['Elige una respuesta: se revisa al instante.', 'Si fallas, toca <b>«Repasar este tema»</b> y al terminar contesta una pregunta de verificación.', 'El tema se completa en cuanto aciertes.'] };
+    mostrarPanel(html, G, { pos: comp + ' de ' + req + ' temas', sig: P.respondida ? '' : 'Tema ' + (comp + 1) + ': ' + corto(o.name, 60), btn: btn });
+    enfocarRespuesta(P.respondida);
+  }
+  function responderOpcion(i) {
+    if (P.respondida) return;
+    P.elegida = i; P.ok = i === P.prep.correcta; P.respondida = true;
+    L.responderPractica(S, P.q, P.ok, P.fase);
+    if (P.fase !== 'voluntaria') guardarEstado();
+    pintaPregunta();
+  }
+  function comprobarPares() {
+    var sels = [].slice.call(panel.querySelectorAll('select[data-par]'));
+    if (sels.some(function (s) { return !s.value; })) { toast('Elige una opción en cada renglón antes de comprobar.'); return; }
+    P.pares = sels.map(function (s) { return s.value; });
+    P.ok = E.revisarPares(P.prep.pares, P.pares); P.respondida = true;
+    L.responderPractica(S, P.q, P.ok, P.fase);
+    if (P.fase !== 'voluntaria') guardarEstado();
+    pintaPregunta();
+  }
+  function refuerzo() {
+    var oid = P.oid, fallada = P.q.questionId, o = D.objetivos[oid];
+    L.iniciarRefuerzo(S, oid); guardarEstado();
+    var lista = L.rutaObjetivo(oid).map(function (sid) { return porSid[sid]; }).filter(Boolean);
+    abrirRecorrido({
+      lista: lista, marcoK: 'Repaso de práctica', marcoCls: 'r-objective', posPrefijo: 'Repaso · ',
+      fin: { lg: 'Ir a mi pregunta de verificación', sm: 'Continuar' }, finTexto: 'Al terminar te espera la pregunta de verificación',
+      alTerminar: function () {
+        L.terminarRefuerzo(S, oid); guardarEstado();
+        var q = L.preguntaVerificacion(S, oid, fallada);
+        P = { oid: oid, q: q, fase: 'verificacion', prep: E.prepararPregunta(q), respondida: false, ok: null, elegida: null, pares: null };
+        pintaPregunta();
+      },
+      guia: function (R2) {
+        return { k: 'Práctica · repaso del tema', titulo: o.name, salir: { txt: 'Volver a la pregunta', fn: pintaPregunta }, pasos: pasosDeRecorrido(R2),
+          instrTitulo: 'Cómo repasar', abiertas: R2.pos === 0,
+          instr: ['Recorre las pantallas del tema con <b>«Siguiente pantalla»</b>.', 'En la última toca <b>«Ir a mi pregunta de verificación»</b>.', 'La pregunta de verificación es distinta de la que fallaste.'] };
+      }
+    });
+  }
+  function panelPracticaCompleta() {
+    var req = S.practice.requiredObjectives, comp = S.practice.completedObjectives, listo = S.practice.completed;
+    if (!listo) { siguientePregunta(); return; }
+    var sp = botonSiguientePaso('practica');
+    mostrarPanel('<div class="es-card es-resultado"><div class="bib-fin-ic" style="margin:0 auto 10px" aria-hidden="true">✓</div><h2>¡Práctica completa!</h2><div class="big">' + comp + ' / ' + req + '</div>' +
+      '<p>Completaste los ' + req + ' temas uno por uno. Eso no equivale a un juicio de competencia: lo determina la evaluación oficial.</p>' +
+      '<div class="es-acciones">' + btnHtml(sp) + btnHtml({ txt: 'Práctica voluntaria (no cambia tu avance)', id: accion('volIni', function () { siguientePregunta(null, true); }) }) + '</div></div>',
+      { k: 'Práctica · ' + (info ? 'Paso ' + info.n + ' de ' + info.total + ' de tu proceso' : ''), titulo: 'Práctica terminada', barra: { valor: 1, txt: req + ' de ' + req + ' temas completados' } },
+      { pos: req + ' de ' + req + ' temas completados', sig: '', btn: { lg: sp.txt, sm: 'Siguiente paso', fn: function () { location.href = sp.href; }, fin: true } });
+  }
+
+  /* ════════════════ EXAMEN DE CONOCIMIENTOS ════════════════ */
+  var X = E.examen, EX = null;
+  function guardarExamen() {
+    try { localStorage.setItem('examenConocimientosData', JSON.stringify(EX)); } catch (e) { /* sin storage */ }
+    Auth.syncToSupabase('examen_conocimientos_data', EX, curp, adNombre);
+  }
+  function iniciarExamen() {
+    tituloAyuda('<p>El Examen de Conocimientos es una autoevaluación de ' + REACTIVOS.length + ' reactivos, una pregunta a la vez.</p><ol>' +
+      '<li>Elige una respuesta: se revisa al instante.</li>' +
+      '<li>Si fallas, ves la respuesta correcta y puedes <b>repasar el tema aquí mismo</b>; al terminar el repaso vuelves a la misma pregunta.</li>' +
+      '<li>No avanzas hasta acertar, así que todos terminan con el 100 %. No es un juicio de competencia.</li></ol>');
+    try { EX = JSON.parse(localStorage.getItem('examenConocimientosData') || 'null'); } catch (e) { EX = null; }
+    if (!EX && fila) EX = fila.examen_conocimientos_data;
+    if (!X.valido(EX, REACTIVOS)) EX = X.nuevo(REACTIVOS);
+    if (params.get('reintentar') === '1') { X.limpiarIncorrecta(EX, REACTIVOS); history.replaceState(null, '', location.pathname + '?modo=examen'); }
+    guardarExamen();
+    if (EX.submitted) resultadoExamen(); else preguntaExamen();
+  }
+  function critDeTema(tema) { var c = V.TEMA_A_CRITERIO[tema]; return c && V.porCriterio(cat, c).length ? c : null; }
+  function preguntaExamen() {
+    var i = EX.currentIndex, a = X.actual(EX), r = REACTIVOS[a.qIndex], sel = EX.answers[a.qIndex], resp = sel !== undefined, ok = resp && sel === r.correcta;
+    var ops = '<div class="es-opciones">' + a.optionOrder.map(function (oi, k) {
+      var cls = 'es-op' + (resp && oi === r.correcta ? ' ok' : '') + (resp && oi === sel && !ok ? ' bad' : '');
+      return '<button type="button" class="' + cls + '"' + (resp ? ' disabled' : '') + ' data-accion="' + accion('exOp' + k, function () { X.responder(EX, a.qIndex, oi, REACTIVOS); guardarExamen(); preguntaExamen(); }) + '"><span class="l">' + 'ABCDEF'[k] + '</span><span>' + esc(r.opciones[oi]) + '</span></button>';
+    }).join('') + '</div>';
+    var fb = '', acciones = [], btn;
+    var ultimo = i + 1 >= REACTIVOS.length, crit = critDeTema(r.tema);
+    if (resp && ok) {
+      fb = '<div class="es-fb ok"><div class="h">¡Correcto!</div></div>';
+      acciones = [{ txt: ultimo ? 'Ver resultados' : 'Siguiente pregunta', tipo: 'primary', id: accion('exSig', avanzarExamen) }];
+      btn = { lg: ultimo ? 'Ver resultados' : 'Siguiente pregunta', sm: ultimo ? 'Resultados' : 'Siguiente', fn: avanzarExamen, fin: ultimo };
+    } else if (resp) {
+      var nP = crit ? V.porCriterio(cat, crit).length : 0;
+      fb = '<div class="es-fb bad"><div class="h">Incorrecto</div><div class="x">Respuesta correcta: <b>' + esc(r.opciones[r.correcta]) + '</b></div><div class="tema">Tema: ' + esc(r.tema) + '. Repasa el tema aquí mismo; al terminar vuelves a esta pregunta lista para contestar.</div></div>';
+      if (crit) acciones.push({ txt: 'Repasar este tema aquí · ' + nP + ' pantalla' + (nP > 1 ? 's' : ''), tipo: 'primary', id: accion('exRep', function () { repasoExamen(crit, r.tema, true); }) });
+      acciones.push({ txt: 'Contestar de nuevo sin repasar', id: accion('exOtra', function () { X.reintentar(EX, a.qIndex); guardarExamen(); preguntaExamen(); }) });
+      btn = crit ? { lg: 'Repasar este tema', sm: 'Repasar', fn: function () { repasoExamen(crit, r.tema, true); } } : { lg: 'Contestar de nuevo', fn: function () { X.reintentar(EX, a.qIndex); guardarExamen(); preguntaExamen(); } };
+    } else {
+      btn = { lg: 'Elige una respuesta', disabled: true };
+    }
+    var html = '<div class="es-card"><div class="es-k">Reactivo ' + (i + 1) + ' de ' + REACTIVOS.length + ' · ' + esc(r.tema) + '</div>' +
+      '<div class="es-pregunta">' + esc(r.q) + '</div>' + ops + fb + (acciones.length ? '<div class="es-acciones">' + acciones.map(btnHtml).join('') + '</div>' : '') + '</div>';
+    mostrarPanel(html, {
+      k: 'Examen de Conocimientos · ' + (info ? 'Paso ' + info.n + ' de ' + info.total + ' de tu proceso' : ''), titulo: 'Reactivo ' + (i + 1) + ' de ' + REACTIVOS.length,
+      barra: { valor: i / REACTIVOS.length, txt: i + ' de ' + REACTIVOS.length + ' contestados' },
+      instrTitulo: 'Cómo funciona', abiertas: i === 0 && !resp,
+      instr: ['Elige una respuesta: se revisa al instante.', 'Si fallas, toca <b>«Repasar este tema aquí»</b>; al terminar vuelves a esta misma pregunta.', 'No avanzas hasta acertar.']
+    }, { pos: 'Reactivo ' + (i + 1) + ' de ' + REACTIVOS.length, sig: resp ? '' : corto(r.tema, 60), btn: btn });
+    enfocarRespuesta(resp);
+  }
+  /* Tras contestar, lleva la vista al resultado (en celular quedaba abajo del
+     pliegue); en una pregunta nueva, arriba. */
+  function enfocarRespuesta(respondida) {
+    var fbEl = panel.querySelector('.es-fb');
+    if (respondida && fbEl && fbEl.scrollIntoView) fbEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    else window.scrollTo(0, 0);
+  }
+  function avanzarExamen() {
+    if (X.siguiente(EX, REACTIVOS) === 'fin') { X.finalizar(EX, REACTIVOS); guardarExamen(); resultadoExamen(true); return; }
+    guardarExamen(); preguntaExamen();
+  }
+  function repasoExamen(crit, tema, desdePregunta) {
+    var lista = V.porCriterio(cat, crit), c = criterios[crit];
+    abrirRecorrido({
+      lista: lista, marcoK: 'Repaso del examen', marcoCls: 'r-remedial', posPrefijo: 'Repaso · ',
+      fin: desdePregunta ? { lg: 'Volver a contestar la pregunta', sm: 'Contestar' } : { lg: 'Terminé el repaso', sm: 'Terminé' },
+      finTexto: desdePregunta ? 'Al terminar vuelves a la pregunta' : 'Última pantalla del repaso',
+      alTerminar: function () {
+        if (desdePregunta) { X.limpiarIncorrecta(EX, REACTIVOS); guardarExamen(); preguntaExamen(); toast('✓ Repaso terminado · contesta otra vez la pregunta<button type="button" class="x" aria-label="Cerrar">✕</button>'); }
+        else resultadoExamen();
+      },
+      guia: function (R2) {
+        return { k: desdePregunta ? 'Repaso del tema que fallaste' : 'Repaso de un tema del examen', titulo: c ? c.titulo : tema,
+          salir: { txt: desdePregunta ? 'Volver a la pregunta' : 'Volver al resultado', fn: desdePregunta ? preguntaExamen : resultadoExamen },
+          pasos: pasosDeRecorrido(R2), instrTitulo: 'Cómo repasar', abiertas: R2.pos === 0,
+          instr: ['Lee cada pantalla y toca <b>«Siguiente pantalla»</b>.', desdePregunta ? 'En la última toca <b>«Volver a contestar la pregunta»</b>.' : 'En la última toca <b>«Terminé el repaso»</b>.'] };
+      }
+    });
+  }
+  function resultadoExamen(recienTerminado) {
+    var temas = X.temasRepasados(EX, REACTIVOS), sp = botonSiguientePaso('examen');
+    var html = '<div class="es-card es-resultado"><div class="bib-fin-ic" style="margin:0 auto 10px" aria-hidden="true">✓</div><h2>Examen completado</h2>' +
+      '<p>Respondiste correctamente las <b>' + REACTIVOS.length + ' / ' + REACTIVOS.length + '</b> preguntas.</p><div class="big">100%</div>' +
+      '<p style="font-size:13px">Es una autoevaluación de práctica: no determina si eres competente. Ese resultado lo emite tu Centro Evaluador con tu Plan de Evaluación, tus respuestas y el resto de tu expediente.</p>' +
+      '<div class="es-acciones">' + btnHtml(sp) + btnHtml({ txt: 'Descargar comprobante (PDF)', id: accion('exPdf', descargarPDF) }) + '</div></div>' +
+      (temas.length ? '<div class="es-card"><div class="es-k">Temas que repasaste</div><p>Vale la pena repasarlos una vez más antes de tu evaluación real.</p><div class="es-lista">' +
+        temas.map(function (t, k) {
+          var crit = critDeTema(t);
+          return '<div class="es-tema"><span class="es-num">' + (k + 1) + '</span><div class="t"><b>' + esc(t) + '</b></div>' +
+            (crit ? btnHtml({ txt: 'Repasar', id: accion('exTema' + k, function () { repasoExamen(crit, t, false); }) }) : '') + '</div>';
+        }).join('') + '</div></div>' : '') +
+      '<div class="es-card"><div class="es-acciones">' + btnHtml({ txt: 'Reintentar el examen completo', id: accion('exReset', function () {
+        if (!confirm('Vas a reiniciar el examen desde la primera pregunta. ¿Continuar?')) return;
+        EX = X.nuevo(REACTIVOS); guardarExamen(); preguntaExamen();
+      }) }) + '</div></div>';
+    mostrarPanel(html, { k: 'Examen de Conocimientos · ' + (info ? 'Paso ' + info.n + ' de ' + info.total + ' de tu proceso' : ''), titulo: 'Examen completado',
+      barra: { valor: 1, txt: REACTIVOS.length + ' de ' + REACTIVOS.length + ' contestados' } },
+      { pos: 'Examen completado · 100 %', sig: '', btn: { lg: sp.txt, sm: 'Siguiente paso', fn: function () { location.href = sp.href; }, fin: true } });
+    if (recienTerminado) mostrarFin('✓', '¡Examen completado!', 'Contestaste los ' + REACTIVOS.length + ' reactivos.', [sp, { txt: 'Ver mi resultado', id: 'cerrarFin' }]);
+  }
+  function cargarScript(src) {
+    return new Promise(function (ok, mal) { var s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = mal; document.head.appendChild(s); });
+  }
+  async function descargarPDF() {
+    try {
+      if (!window.jspdf) await cargarScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+      if (!window.ExamenPDF) await cargarScript('examen-pdf.js');
+      window.ExamenPDF.generar(EX, adNombre, REACTIVOS.length);
+    } catch (e) { toast('No se pudo generar el PDF. Revisa tu conexión e intenta de nuevo.'); }
+  }
+
+  /* ── arranque ── */
+  try {
+    if (modo === 'biblioteca') await iniciarBiblioteca();
+    else if (modo === 'alineacion') await iniciarAlineacion();
+    else if (modo === 'reforzamiento') iniciarReforzamiento();
+    else if (modo === 'practica') iniciarPractica();
+    else if (modo === 'examen') iniciarExamen();
+  } catch (e) {
+    console.error(e);
+    app.innerHTML = Contenido.errorHtml(e);
+  }
+})();
+</script>
+</body>
+</html>

@@ -3,15 +3,19 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reforzamiento - EC1375 Paideia Tech</title>
     <link rel="icon" href="favicon.ico" sizes="any">
     <link rel="icon" href="favicon-32x32.png" type="image/png" sizes="32x32">
     <link rel="icon" href="favicon-16x16.png" type="image/png" sizes="16x16">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<title>Reforzamiento EC1375 - Paideia Tech</title>
-<meta http-equiv="refresh" content="0; url=ruta-estudio.html?boot=remedial">
-<script>location.replace('ruta-estudio.html?boot=remedial');</script>
+<!-- Redirección (17 sep 2026): todo el estudio vive en estudio.html (visor unificado). Ver docs/superpowers/specs/2026-09-17-visor-estudio-unificado-design.md -->
+<meta http-equiv="refresh" content="0; url=estudio.html?modo=reforzamiento">
+<script>
+(function () {
+  var q = new URLSearchParams(location.search), h = location.hash;
+  location.replace('estudio.html?modo=reforzamiento');
+})();
+</script>
 </head>
-<body style="background:#050a1a;color:#D0D0D0;font-family:sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;">
-Redirigiendo a tu Reforzamiento…
-</body>
+<body style="font-family:sans-serif;text-align:center;padding:40px;">Abriendo tu Reforzamiento… <a href="estudio.html?modo=reforzamiento">Continuar</a></body>
 </html>

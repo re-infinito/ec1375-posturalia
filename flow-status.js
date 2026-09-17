@@ -18,12 +18,12 @@
 
 const FLOW_STEPS_META = [
     { id: 'autodiagnostico', label: 'Autodiagnóstico', href: 'autodiagnostico.html' },
-    { id: 'reforzamiento', label: 'Reforzamiento', href: 'reforzamiento.html' },
+    { id: 'reforzamiento', label: 'Reforzamiento', href: 'estudio.html?modo=reforzamiento' },
     { id: 'alineacion', label: 'Alineación', href: 'alineacion.html' },
     { id: 'plan-evaluacion', label: 'Plan de Evaluación', href: 'plan-evaluacion.html' },
     { id: 'documentos-sesion', label: 'Documentos de Sesión', href: 'documentos-sesion.html' },
-    { id: 'practica', label: 'Práctica', href: 'practica.html' },
-    { id: 'examen', label: 'Examen de Conocimientos', href: 'examen-conocimientos.html' },
+    { id: 'practica', label: 'Práctica', href: 'estudio.html?modo=practica' },
+    { id: 'examen', label: 'Examen de Conocimientos', href: 'estudio.html?modo=examen' },
     { id: 'encuesta', label: 'Encuesta de Satisfacción', href: 'encuesta-satisfaccion.html' },
     { id: 'evidencias', label: 'Evidencias', href: 'evidencias.html' },
     { id: 'entrega', label: 'Entrega', href: 'entrega.html' }

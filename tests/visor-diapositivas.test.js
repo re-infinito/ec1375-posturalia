@@ -95,6 +95,6 @@ test('seccionesPorSid: corta el HTML publicado por data-sid', () => {
 });
 
 test('urlBiblioteca: tema conocido filtra por criterio; desconocido abre la Biblioteca completa', () => {
-    assert.strictEqual(V.urlBiblioteca('Higiene de Columna'), 'biblioteca.html?crit=E2%C2%B7C4');
-    assert.strictEqual(V.urlBiblioteca('Otro'), 'biblioteca.html');
+    assert.strictEqual(V.urlBiblioteca('Higiene de Columna'), 'estudio.html?modo=biblioteca&crit=E2%C2%B7C4');
+    assert.strictEqual(V.urlBiblioteca('Otro'), 'estudio.html?modo=biblioteca');
 });

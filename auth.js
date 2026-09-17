@@ -17,9 +17,9 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 // Ver "Nota de seguridad" en docs/superpowers/specs/2026-09-12-admin-flow-bypass-design.md.
 const CANDIDATE_FLOW_BYPASS_EMAIL = 'paideia.tech@outlook.com';
 
-/* Copia exacta de REACTIVO_KEYS en ruta-estudio.html — el placeholder de
+/* Orden oficial de los 142 reactivos (antes copiado también en ruta-estudio.html) — el placeholder de
    Autodiagnóstico DEBE usar estas claves reales (no unas inventadas) para
-   que Reforzamiento las reconozca. ruta-estudio.html traduce el resultado
+   que Reforzamiento las reconozca. estudio.html traduce el resultado
    real del Autodiagnóstico a answeredYes/answeredNo buscando cada una de
    estas 142 claves en autodiagnosticoData.answers — con claves inventadas
    (admin_placeholder_N) ninguna coincide, así que ve 0/142 contestadas y
@@ -50,8 +50,8 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_
 window.supabaseClient = supabaseClient;
 
 const Auth = {
-    /* Orden oficial de los 142 reactivos (n = índice + 1). Lo usa biblioteca.html
-       para "Recomendados para ti"; ruta-estudio.html conserva su copia propia. */
+    /* Orden oficial de los 142 reactivos (n = índice + 1). Lo usa estudio.html
+       (Biblioteca "Para ti" y la semilla del estado de Reforzamiento/Práctica). */
     REACTIVO_KEYS: REACTIVO_KEYS_REALES,
 
     _session: null,
@@ -707,7 +707,8 @@ const Auth = {
     DEMO_CURP: 'DERA900515MNLMMN08',
     DEMO_LOCAL_KEYS: ['autodiagnosticoData', 'planEvaluacionData', 'documentosSesionData',
                       'encuestaSatisfaccionData', 'evidenciasData', 'examenConocimientosData', 'ec1375-state', 'guionChecklistState',
-                      'ec1375-biblioteca-vistas', 'ec1375-biblioteca-ultima', 'ec1375-biblioteca-guia'],
+                      'ec1375-biblioteca-vistas', 'ec1375-biblioteca-ultima', 'ec1375-biblioteca-guia',
+                      'ec1375-alineacion-vistas'],
 
     /* Foto de credencial ficticia (silueta) generada en canvas → JPEG real,
        para que el paso "personal" del Autodiagnóstico la acepte y jsPDF la
