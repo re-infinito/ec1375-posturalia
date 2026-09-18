@@ -1429,7 +1429,11 @@
     }
     function irAPaso(i) {
         const n = parseInt(i, 10);
-        if (!(n >= 1 && n <= pasoMaximoPermitido())) return;
+        if (!(n >= 1 && n <= pasoMaximoPermitido())) {
+            const sel = document.getElementById('saltarPaso');
+            if (sel) sel.value = String(currentStepIndex);   /* no se quede mostrando el paso rechazado */
+            return;
+        }
         currentStepIndex = n;
         renderStep();
         window.scrollTo(0, 0);

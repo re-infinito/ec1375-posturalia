@@ -2036,7 +2036,11 @@
     }
     function irASeccion(i) {
         const n = parseInt(i, 10);
-        if (!(n >= STEPS.indexOf('personal') && n <= seccionMaximaPermitida())) return;
+        if (!(n >= STEPS.indexOf('personal') && n <= seccionMaximaPermitida())) {
+            const sel = document.getElementById('saltarSeccion');
+            if (sel) sel.value = String(currentStepIndex);   /* no se quede mostrando la sección rechazada */
+            return;
+        }
         currentStepIndex = n;
         renderStep().catch(mostrarErrorPaso);
     }
