@@ -201,6 +201,9 @@
         }).join('');
         const fasesHtml = AdminData.FASES.map(f => `<li><span class="crm-st ${c.fases[f] ? 'crm-ok' : ''}">${ic(c.fases[f] ? 'check' : 'clock', 16)}</span><span>${FASE_LABEL[f]}<div class="crm-muted">${c.fases[f] ? (c.origenPagos[f] === 'mercadopago' ? 'Mercado Pago' : 'Liberada a mano') : 'Pendiente'}</div></span>
             <span class="crm-right"><button type="button" class="crm-btn crm-btn-sm ${c.fases[f] ? 'crm-btn-danger' : 'crm-btn-primary'}" data-fase="${f}">${c.fases[f] ? 'Revocar' : 'Liberar'}</button></span></li>`).join('');
+        const declHtml = '<ul class="crm-list">' + AdminData.declaraciones(c.row).map(d =>
+            `<li><span class="crm-st ${d.fecha ? 'crm-ok' : ''}">${ic(d.fecha ? 'check' : 'clock', 16)}</span><span>${esc(d.label)}<div class="crm-muted">${d.fecha ? 'Aceptada el ' + fechaCorta(d.fecha) : 'Pendiente'}</div></span></li>`
+        ).join('') + '</ul>';
         const pr = datosGlobal.precio.find(x => x.email === c.email) || {};
         const nota = c.notaInterna !== undefined ? c.notaInterna : (pr.nota_interna || '');
         drawer.innerHTML = `
@@ -218,6 +221,7 @@
             <div class="crm-card-h"><span class="crm-stat-ico">${ic('file', 18)}</span>Nota interna</div>
             <textarea id="notaInterna" rows="2" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:var(--dark);color:var(--text-bright);font-family:inherit;font-size:0.86rem;resize:vertical;" placeholder="Solo la ve el equipo (ej. acordó pagar en 3 partes, llamar el lunes…)">${esc(nota)}</textarea>
             <div style="display:flex;justify-content:flex-end;margin:6px 0 14px;"><button type="button" class="crm-btn crm-btn-sm crm-btn-primary" id="btnNota">Guardar nota</button></div>
+            <div class="crm-card-h"><span class="crm-stat-ico">${ic('check', 18)}</span>Declaraciones aceptadas</div>${declHtml}
             <div class="crm-card-h"><span class="crm-stat-ico">${ic('card', 18)}</span>Fases de pago</div><ul class="crm-list">${fasesHtml}</ul>
             <div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 14px;">
                 <a class="crm-btn crm-btn-sm crm-btn-ghost" style="border-color:var(--border);color:var(--text-bright);background:var(--surface-2);" href="admin-precios.html">${ic('dollar', 14)}Montos y precios</a>
