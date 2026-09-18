@@ -45,13 +45,13 @@ El SQL **no** trae el enlace ni la clave: se capturan desde admin (no quedan en 
 
 **`evaluaciones`** (ya existe) gana:
 - `limite_evidencia date` — extensión manual; si es null se usa la calculada.
-- `video jsonb` — `{ zoom: { uuid, file_id, inicio, bytes, share_url, clave }, nas: { ruta, bytes, fecha, por }, borrada_zoom: { fecha, por }, migracion: { upload_id, trozos_ok, total } }`.
+- `video jsonb` — `{ partes: [ { zoom: { uuid, file_id, inicio, bytes, share_url, clave }, nas: { ruta, bytes, fecha, por }, migracion: { upload_id, trozos_ok, total } } ], borrada_zoom: { fecha, por } }`.
 
 **RPC del candidato** (`security definer`, correo del JWT, nunca un parámetro):
 - `horarios_evidencia_disponibles()` → `[{ id, inicio, fin }]` futuros (inicio > ahora + 2 h), sin reserva activa. Exige fase `evaluacion` autorizada (admins y bypass exentos).
 - `reservar_horario_evidencia(p_horario uuid)` → misma exigencia; si ya tenía reserva activa la cancela, pero solo si faltan ≥ `horas_cambio` (si no: error "ya no se puede cambiar, escríbenos por WhatsApp"). El choque de dos reservas lo resuelve el índice único → error "ese horario acaba de ocuparse".
 - `cancelar_mi_horario_evidencia()` → misma regla de `horas_cambio`.
-- `mi_sala_evidencia()` → `{ reserva: { id, inicio, fin, estado } | null, limite: date | null, limite_extendido: bool, sala: { url, id, clave } | null, grabacion: { en_expediente: bool, fecha } }`. `sala` va **solo** si ahora ∈ [inicio − `minutos_antes`, fin] y la reserva está `reservada`/`asistio`. `limite` = `evaluaciones.limite_evidencia` o `candidatos_fase_pagos.autorizado_en (evaluacion)` + `dias_limite` (fecha en hora de México); null si Evaluación no está autorizada.
+- `mi_sala_evidencia()` → `{ reserva: { id, inicio, fin, estado } | null, limite: date | null, limite_extendido: bool, sala: { url, id, clave } | null, grabacion: { en_expediente: bool, fecha } }`. `sala` va **solo** si ahora ∈ [inicio − `minutos_antes`, fin] (Diego, 18 sep: "que solo les aparezca el enlace en el rango del horario seleccionado, para que no puedan meterse ni por accidente"; `minutos_antes = 0` lo abre justo al inicio) y la reserva está `reservada`/`asistio`. `limite` = `evaluaciones.limite_evidencia` o `candidatos_fase_pagos.autorizado_en (evaluacion)` + `dias_limite` (fecha en hora de México); null si Evaluación no está autorizada.
 
 Sin funciones nuevas de Vercel para la agenda.
 
@@ -113,10 +113,10 @@ Tarjeta **"🎥 Tu sala de evidencia"** arriba de `documentos-sesion.html` y de 
 
 **`admin-evaluacion.html` → tarjeta "Grabación de la sesión"** (admins y evaluadores):
 - Muestra su reserva (fecha, hora, estado) y su fecha límite con **"Extender fecha límite"** (escribe `evaluaciones.limite_evidencia`).
-- **"Buscar grabación en Zoom"**: lista las grabaciones de la sala entre inicio − 15 min y fin + 60 min de su reserva (con opción "buscar en otra fecha"), con duración, tamaño y participantes; el equipo elige una → se guardan `video.zoom` (incluidas `share_url` y clave de reproducción).
-- **"Copiar al expediente (NAS)"**: barra de avance; se reanuda si se interrumpe; al terminar verifica que el tamaño en el NAS sea igual al de Zoom y guarda `video.nas`. Destino: `Portafolios/{Nombre_CURP}/03-Evaluacion/Grabacion_Sesion_AAAA-MM-DD_HHMM.mp4` (misma carpeta que las evidencias del candidato).
+- **"Buscar grabación en Zoom"**: lista las grabaciones de la sala entre inicio − 15 min y fin + 60 min de su reserva (con opción "buscar en otra fecha"), con duración, tamaño y participantes; el equipo elige **una o varias** (si el candidato se desconectó y volvió a entrar, Zoom guarda grabaciones separadas) → se guardan en `video.zoom` como lista de partes (cada una con `share_url` y clave de reproducción).
+- **"Copiar al expediente (NAS)"**: barra de avance; se reanuda si se interrumpe; al terminar verifica que el tamaño en el NAS sea igual al de Zoom y guarda `video.nas`. Destino: `Portafolios/{Nombre_CURP}/03-Evaluacion/Grabacion_Sesion_AAAA-MM-DD_HHMM.mp4` (misma carpeta que las evidencias del candidato); con varias partes, `…_parte1.mp4`, `…_parte2.mp4`. Se copia el MP4 completo (video y audio) de cada parte.
 - **"Borrar de Zoom"**: solo con `video.nas` verificado **y** la etapa `entregado` marcada; manda la grabación a la papelera de Zoom (recuperable 30 días), con confirmación.
-- La liga del portafolio (`Evaluacion.planPortafolio`) usa `video.zoom.share_url` (+ clave); si no hay, `evidencias_data.planData.videoLink` como hoy. El aviso "Falta la liga al video" cambia a "Falta ligar la grabación de Zoom".
+- La liga del portafolio (`Evaluacion.planPortafolio`) usa la `share_url` (+ clave) de cada parte; si no hay, `evidencias_data.planData.videoLink` como hoy. El aviso "Falta la liga al video" cambia a "Falta ligar la grabación de Zoom".
 
 **Panel del equipo (`admin-crm.html`) → "Requieren atención"**: candidatos con fecha límite vencida o a ≤ 7 días sin Evidencias completas, y sesiones pasadas sin grabación copiada al NAS. Cálculo en `AdminData` (probado).
 
