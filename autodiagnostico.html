@@ -802,9 +802,17 @@
         goNext();
     }
 
+    /* CURP completa con el formato oficial (18 caracteres). Hasta el 18 sep
+       bastaba con que no estuviera vacía y una CURP con 17 caracteres llegó
+       a los documentos y al nombre de la carpeta del NAS. */
+    function curpValida(curp) {
+        return /^[A-Z]{4}\d{6}[HMX][A-Z]{5}[A-Z0-9]{2}$/.test(String(curp || '').trim().toUpperCase());
+    }
+
     function renderPersonalForm() {
         const isNombreComplete = personalData.nombre?.trim().length > 0;
-        const isCurpComplete = personalData.curp?.trim().length > 0;
+        const isCurpComplete = curpValida(personalData.curp);
+        const curpLargo = String(personalData.curp || '').trim().length;
         const isDomicilioComplete = personalData.domicilio?.trim().length > 0;
         const isEscolaridadComplete = sinCertificadosPrevios || certificadosCompletos();
         const isFotoComplete = !!fotoCandidato.previewDataUrl;
@@ -833,6 +841,7 @@
                         </span>
                     </label>
                     <input type="text" id="f_curp" value="${escapeHtml(personalData.curp)}" maxlength="18" style="text-transform:uppercase; border-color: ${isCurpComplete ? 'var(--success)' : 'var(--danger)'}; border-width: 2px;" placeholder="GOPM850101MDFNRR01">
+                    <p id="curpAviso" style="font-size:0.8rem;color:var(--danger);margin-top:6px;" ${curpLargo && !isCurpComplete ? '' : 'hidden'}>Revisa tu CURP: debe tener 18 caracteres exactamente como aparece en tu documento (la que escribiste tiene ${curpLargo}).</p>
                 </div>
                 <div class="field-group">
                     <label style="display: flex; justify-content: space-between;">
@@ -921,7 +930,16 @@
             const el = document.getElementById('f_' + field);
             if (el) {
                 el.addEventListener('input', () => {
-                    personalData[field] = el.value;
+                    personalData[field] = field === 'curp' ? el.value.trim().toUpperCase() : el.value;
+                    if (field === 'curp') {
+                        const ok = curpValida(personalData.curp), largo = personalData.curp.length;
+                        el.style.borderColor = ok ? 'var(--success)' : 'var(--danger)';
+                        const aviso = document.getElementById('curpAviso');
+                        if (aviso) {
+                            aviso.hidden = ok || !largo;
+                            aviso.textContent = 'Revisa tu CURP: debe tener 18 caracteres exactamente como aparece en tu documento (la que escribiste tiene ' + largo + ').';
+                        }
+                    }
                     saveProgress();
                     updateNavButtons();
                 });
@@ -1925,6 +1943,7 @@
         if (step === 'personal') {
             if (!personalData.nombre?.trim()) missing.push('Nombre completo');
             if (!personalData.curp?.trim()) missing.push('CURP');
+            else if (!curpValida(personalData.curp)) missing.push('CURP completa: 18 caracteres, como aparece en tu documento');
             if (!personalData.domicilio?.trim()) missing.push('Domicilio');
             const certificadosOk = sinCertificadosPrevios || certificadosCompletos();
             if (!certificadosOk) missing.push('Subir tus certificados de formación previa (o marcar que no tienes ninguno)');
@@ -1957,7 +1976,7 @@
         }
         if (step === 'personal') {
             const certificadosOk = sinCertificadosPrevios || certificadosCompletos();
-            return personalData.nombre && personalData.curp && personalData.domicilio &&
+            return personalData.nombre && curpValida(personalData.curp) && personalData.domicilio &&
                    personalData.escolaridad && personalData.telefonoCelular && personalData.email &&
                    personalData.fecha && certificadosOk && !!fotoCandidato.previewDataUrl;
         }
