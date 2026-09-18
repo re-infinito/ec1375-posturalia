@@ -79,3 +79,20 @@ test('ultimosPagos ordena por fecha y atencion detecta sin iniciar, inactivos y 
     assert.ok(at.some(i => i.tipo === 'inactivo' && i.email === 'a@x.com'));
     assert.ok(at.some(i => i.tipo === 'sesion'));
 });
+
+test('declaraciones: fecha de cada una o null, desde Plan y Evidencias', () => {
+    const row = {
+        plan_evaluacion_data: { planData: { declaraciones: { version: '2026-09-17', requisitos: '2026-09-17T15:00:00Z', material: '2026-09-17T15:01:00Z' } } },
+        evidencias_data: { planData: { declaracionAutenticidad: { version: '2026-09-17', fecha: '2026-09-18T10:00:00Z' } } }
+    };
+    const d = AdminData.declaraciones(row);
+    assert.deepEqual(d.map(x => x.id), ['requisitos', 'material', 'sinReembolsos', 'autenticidad']);
+    assert.deepEqual(d.map(x => x.fecha), ['2026-09-17T15:00:00Z', '2026-09-17T15:01:00Z', null, '2026-09-18T10:00:00Z']);
+    assert.ok(d.every(x => typeof x.label === 'string' && x.label.length > 5));
+});
+
+test('declaraciones: sin fila, sin datos o con valores raros → todas pendientes', () => {
+    for (const row of [null, {}, { plan_evaluacion_data: null }, { plan_evaluacion_data: { planData: { declaraciones: { requisitos: true } } } }]) {
+        assert.deepEqual(AdminData.declaraciones(row).map(x => x.fecha), [null, null, null, null]);
+    }
+});

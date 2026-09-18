@@ -264,10 +264,28 @@
         return datos;
     }
 
+    /* Declaraciones del candidato (17 sep): qué aceptó y cuándo. Viven en el
+       JSONB de Plan de Evaluación y de Evidencias (admin_lista_candidatos()
+       ya los regresa, sin firmas). fecha = ISO de cuando la marcó, o null. */
+    var DECLARACIONES = [
+        { id: 'requisitos', label: 'Cumple los requisitos del EC1375', col: 'plan_evaluacion_data', ruta: ['planData', 'declaraciones', 'requisitos'] },
+        { id: 'material', label: 'Dispone del material y equipo para su evaluación', col: 'plan_evaluacion_data', ruta: ['planData', 'declaraciones', 'material'] },
+        { id: 'sinReembolsos', label: 'Acepta que no aplican reembolsos', col: 'plan_evaluacion_data', ruta: ['planData', 'declaraciones', 'sinReembolsos'] },
+        { id: 'autenticidad', label: 'Declara auténticas sus evidencias', col: 'evidencias_data', ruta: ['planData', 'declaracionAutenticidad', 'fecha'] }
+    ];
+    function declaraciones(row) {
+        return DECLARACIONES.map(function (d) {
+            var v = row ? row[d.col] : null;
+            d.ruta.forEach(function (k) { v = v && typeof v === 'object' ? v[k] : null; });
+            return { id: d.id, label: d.label, fecha: typeof v === 'string' && v ? v : null };
+        });
+    }
+
     var AdminData = {
         FASES: FASES, FASE_LABEL: FASE_LABEL, SOCIOS: SOCIOS, PASOS_EXTRA: PASOS_EXTRA,
         cargar: cargar, kpis: kpis, utilidades: utilidades, utilidadesGlobal: utilidadesGlobal, lotes: lotes,
         candidatos: candidatos, porPaso: porPaso, ultimosPagos: ultimosPagos, proximasSesiones: proximasSesiones, atencion: atencion,
+        declaraciones: declaraciones,
         fmtMX: function (n) { return '$' + Math.round(n || 0).toLocaleString('es-MX'); }
     };
     if (typeof module !== 'undefined' && module.exports) module.exports = AdminData;
