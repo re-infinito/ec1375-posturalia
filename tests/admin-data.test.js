@@ -156,6 +156,71 @@ test('fichaCandidato: las dos tablas por candidato coinciden con la hoja', () =>
     assert.equal(f.reparto.diferencial, 2800);
 });
 
+// Hoja actualizada (18 sep): cada costo se genera en su fase.
+function datosFases(pagadas, extra) {
+    const d = datosHoja();
+    d.gastos = [
+        { id: 1, lote: null, concepto: 'Certificado (Centro Evaluador)', tipo: 'por_certificado', monto: 1200, para: 'real', fase: 'entrega' },
+        { id: 2, lote: null, concepto: 'Centro 1', tipo: 'por_certificado', monto: 1250, para: 'chris', fase: 'alineacion' },
+        { id: 3, lote: null, concepto: 'Centro 2', tipo: 'por_certificado', monto: 1250, para: 'chris', fase: 'evaluacion' },
+        { id: 4, lote: null, concepto: 'Certificado', tipo: 'por_certificado', monto: 1500, para: 'chris', fase: 'entrega' }
+    ];
+    d.pagos = pagadas.map(f => ({ email: 'a@x.com', fase: f }));
+    return Object.assign(d, extra || {});
+}
+
+test('costos por fase: con todo pagado da la hoja (Chris 5,375, socios 8,175, 2,725 c/u)', () => {
+    const d = datosFases(['registro', 'alineacion', 'evaluacion', 'entrega']);
+    d.reparto[0].porcentaje_diego = 16.67;
+    const u = AdminData.utilidades(d, 1);
+    assert.equal(u.neto, 13550);
+    assert.equal(u.reparto.chris, 5375);
+    assert.equal(u.reparto.pool, 8175);
+    assert.deepEqual(['fernando', 'lot', 'diego'].map(id => u.reparto.montos[id]), [2725, 2725, 2725]);
+});
+
+test('costos por fase: solo se descuenta lo de las fases ya pagadas', () => {
+    // Pagó Apartado y Alineación: entra Centro 1 (Chris); el certificado todavía no.
+    const u = AdminData.utilidades(datosFases(['registro', 'alineacion']), 1);
+    assert.equal(u.ingresos, 6250);
+    assert.equal(u.gastos.total, 0);
+    assert.equal(u.gastos.chris.total, 1250);
+    assert.equal(u.reparto.chris, Math.round((6250 - 1250) * 0.5));
+    assert.equal(u.reparto.pool, 6250 - 2500);
+    // Solo Apartado: ningún costo todavía.
+    const u2 = AdminData.utilidades(datosFases(['registro']), 1);
+    assert.equal(u2.gastos.total + u2.gastos.chris.total, 0);
+    assert.equal(u2.reparto.chris, 1000);
+});
+
+test('costos por fase: quien desistió después de pagar una fase sí genera su costo', () => {
+    const d = datosFases(['registro', 'alineacion']);
+    d.precio[0].estado = 'desistió';
+    const g = AdminData.gastosLote(d, 1);
+    assert.equal(g.pagaron.alineacion, 1);
+    assert.equal(g.chris.total, 1250);
+});
+
+test('porFaseLote: candidatos que pagaron, ingresos y costos de cada fase', () => {
+    const p = AdminData.porFaseLote(datosFases(['registro', 'alineacion', 'evaluacion', 'entrega']), 1);
+    assert.deepEqual(p.fases.map(f => [f.pagaron, f.ingresos, f.costoReal, f.costoChris]),
+        [[1, 2000, 0, 0], [1, 4250, 0, 1250], [1, 6000, 0, 1250], [1, 2500, 1200, 1500]]);
+    assert.equal(p.otrosReal + p.otrosChris, 0);
+});
+
+test('fichaCandidato: desglose por fase como la hoja y participación efectiva', () => {
+    const d = datosFases(['registro']);
+    d.reparto[0].porcentaje_diego = 16.67;
+    const f = AdminData.fichaCandidato(d, 1);
+    assert.deepEqual(f.porFase.map(x => x.baseChris), [2000, 3000, 4750, 1000]);   // suma 10,750
+    assert.deepEqual(f.porFase.map(x => x.neto), [2000, 4250, 6000, 1300]);        // suma 13,550
+    assert.deepEqual(f.porFase.map(x => x.chris), [1000, 1500, 2375, 500]);        // suma 5,375
+    assert.deepEqual(f.porFase.map(x => x.socios), [1000, 2750, 3625, 800]);       // suma 8,175
+    assert.equal(f.reparto.chris, 5375);
+    assert.equal(Math.round(f.participacion.chris), 40);
+    assert.equal(Math.round(f.participacion.fernando), 20);
+});
+
 test('candidatos: paso real con computeSteps, docs, nombre y fase pagada', () => {
     const lista = AdminData.candidatos(datos());
     const a = lista.find(c => c.email === 'a@x.com');

@@ -127,24 +127,42 @@
        se calcula la base de Chris (solo aplican en lotes con Chris).
        `total`/`items` son los REALES; `chris` trae los de Chris. */
     function gastosLote(datos, lote) {
-        var certificados = visibles(datos).filter(function (c) {
-            return (c.lote || 1) === lote && (c.estado || 'activo') === 'activo';
-        }).length;
+        var enLote = visibles(datos).filter(function (c) { return (c.lote || 1) === lote; });
+        var certificados = enLote.filter(function (c) { return (c.estado || 'activo') === 'activo'; }).length;
+        /* Candidatos que YA pagaron cada fase (activos, desistidos o cambio de
+           lote: igual que los ingresos, porque ese costo ya se generó). */
+        var pagaron = {};
+        FASES.forEach(function (f) { pagaron[f] = enLote.filter(function (c) { return tienePago(datos, c.email, f); }).length; });
         var items = (datos.gastos || []).filter(function (g) {
             return g.lote === null || g.lote === undefined || Number(g.lote) === Number(lote);
         }).map(function (g) {
             var monto = Number(g.monto) || 0;
-            var porCert = g.tipo === 'por_certificado';
-            var cantidad = porCert ? certificados : 1;
+            var porCand = g.tipo === 'por_certificado';
+            var fase = FASES.indexOf(g.fase) >= 0 ? g.fase : null;
+            var cantidad = !porCand ? 1 : (fase ? pagaron[fase] : certificados);
             return {
                 id: g.id, lote: (g.lote === null || g.lote === undefined) ? null : Number(g.lote), concepto: g.concepto || '',
-                tipo: g.tipo, para: g.para === 'chris' ? 'chris' : 'real', monto: monto, cantidad: cantidad, total: monto * cantidad
+                tipo: g.tipo, fase: porCand ? fase : null, para: g.para === 'chris' ? 'chris' : 'real', monto: monto, cantidad: cantidad, total: monto * cantidad
             };
         });
         var suma = function (l) { return l.reduce(function (a, g) { return a + g.total; }, 0); };
         var reales = items.filter(function (g) { return g.para === 'real'; });
         var deChris = items.filter(function (g) { return g.para === 'chris'; });
-        return { items: reales, certificados: certificados, total: suma(reales), chris: { items: deChris, total: suma(deChris) } };
+        return { items: reales, certificados: certificados, pagaron: pagaron, total: suma(reales), chris: { items: deChris, total: suma(deChris) } };
+    }
+
+    /* Lote por fase: cuántos pagaron cada fase, cuánto entró y qué costos generó.
+       Los costos sin fase (monto fijo o "por candidato activo") van en `otros`. */
+    function porFaseLote(datos, lote) {
+        var g = gastosLote(datos, lote);
+        var enLote = visibles(datos).filter(function (c) { return (c.lote || 1) === lote; });
+        var sumaFase = function (l, f) { return l.filter(function (i) { return i.fase === f; }).reduce(function (a, i) { return a + i.total; }, 0); };
+        var sinFase = function (l) { return l.filter(function (i) { return !i.fase; }).reduce(function (a, i) { return a + i.total; }, 0); };
+        var fases = FASES.map(function (f) {
+            var ingresos = enLote.reduce(function (a, c) { return tienePago(datos, c.email, f) ? a + (Number(c['monto_' + f]) || 0) : a; }, 0);
+            return { id: f, label: FASE_LABEL[f], pagaron: g.pagaron[f], ingresos: ingresos, costoReal: sumaFase(g.items, f), costoChris: sumaFase(g.chris.items, f) };
+        });
+        return { fases: fases, otrosReal: sinFase(g.items), otrosChris: sinFase(g.chris.items), gastos: g };
     }
 
     /* Reparto de un lote (función pura, la usa también la vista previa de
@@ -199,9 +217,10 @@
     }
 
     /* Las dos tablas de precios de UN candidato típico del lote (como la hoja de
-       Diego): precio promedio de los activos por fase, costos por certificado y
-       cómo se reparte ese candidato. Reusa repartir(), así que coincide con el
-       reparto real. Solo cuentan los gastos 'por_certificado' (los fijos son del lote). */
+       Diego): precio promedio de los activos por fase, costos por candidato y
+       cómo se reparte, fase por fase. Reusa repartir(), así que el total coincide
+       con el reparto real. Los costos de monto fijo son del lote, no entran aquí;
+       los "por candidato" sin fase se muestran en Dictamen (al final). */
     function fichaCandidato(datos, lote) {
         var config = configLote(datos, lote);
         var g = gastosLote(datos, lote);
@@ -210,16 +229,30 @@
         var fases = {};
         FASES.forEach(function (f) { fases[f] = prom('monto_' + f); });
         var precio = activos.length ? Math.round(activos.reduce(function (a, c) { return a + (Number(c.total_acordado) || 0); }, 0) / activos.length) : 0;
-        var porCert = function (l) { return l.filter(function (i) { return i.tipo === 'por_certificado'; }); };
+        var porCand = function (l) { return l.filter(function (i) { return i.tipo === 'por_certificado'; }); };
         var suma = function (l) { return l.reduce(function (a, i) { return a + i.monto; }, 0); };
-        var real = porCert(g.items), propios = porCert(g.chris.items);
+        var real = porCand(g.items), propios = porCand(g.chris.items);
+        var itemsChris = propios.length ? propios : real;
         var uno = { total: suma(real), chris: { items: propios, total: suma(propios) } };
         var r = repartir(precio, uno, config);
+        var conChris = config.incluir_chris !== false;
+        var pct = Number(config.porcentaje_chris) || 0;
+        var faseDe = function (i) { return i.fase || 'entrega'; };
+        var costoEn = function (l, f) { return l.filter(function (i) { return faseDe(i) === f; }); };
+        var porFase = FASES.map(function (f) {
+            var cr = costoEn(real, f), cc = costoEn(itemsChris, f);
+            var neto = fases[f] - suma(cr), baseChris = fases[f] - suma(cc);
+            var chris = conChris ? Math.round(baseChris * pct / 100) : 0;
+            return { id: f, label: FASE_LABEL[f], precio: fases[f], costosReal: cr, costoReal: suma(cr), costosChris: cc, costoChris: suma(cc), neto: neto, baseChris: baseChris, chris: chris, socios: neto - chris };
+        });
+        var netoReal = precio - suma(real);
+        var parte = function (m) { return netoReal > 0 ? (m / netoReal) * 100 : 0; };
         return {
-            activos: activos.length, precio: precio, fases: fases, config: config,
-            real: { items: real, total: suma(real), neto: precio - suma(real) },
-            chris: { items: propios.length ? propios : real, total: r.costoChris, neto: r.netoChris, propios: propios.length > 0 },
-            reparto: r
+            activos: activos.length, precio: precio, fases: fases, config: config, porFase: porFase,
+            real: { items: real, total: suma(real), neto: netoReal },
+            chris: { items: itemsChris, total: r.costoChris, neto: r.netoChris, propios: propios.length > 0 },
+            reparto: r,
+            participacion: { chris: parte(r.chris), fernando: parte(r.montos.fernando), lot: parte(r.montos.lot), diego: parte(r.montos.diego) }
         };
     }
 
@@ -383,7 +416,7 @@
 
     var AdminData = {
         FASES: FASES, FASE_LABEL: FASE_LABEL, SOCIOS: SOCIOS, PASOS_EXTRA: PASOS_EXTRA,
-        cargar: cargar, kpis: kpis, utilidades: utilidades, gastosLote: gastosLote, repartir: repartir, fichaCandidato: fichaCandidato, utilidadesGlobal: utilidadesGlobal, lotes: lotes,
+        cargar: cargar, kpis: kpis, utilidades: utilidades, gastosLote: gastosLote, repartir: repartir, fichaCandidato: fichaCandidato, porFaseLote: porFaseLote, utilidadesGlobal: utilidadesGlobal, lotes: lotes,
         candidatos: candidatos, porPaso: porPaso, ultimosPagos: ultimosPagos, proximasSesiones: proximasSesiones, atencion: atencion,
         declaraciones: declaraciones,
         fmtMX: function (n) { return '$' + Math.round(n || 0).toLocaleString('es-MX'); }

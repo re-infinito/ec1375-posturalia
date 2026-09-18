@@ -100,6 +100,18 @@
         .ficha-res .k { font-size: 0.72rem; text-transform: uppercase; color: var(--text); }
         .ficha-res .v { font-size: 1.25rem; font-weight: 700; color: var(--text-bright); }
         .scroll-x { overflow-x: auto; }
+        .fase-tabla { width: 100%; border-collapse: collapse; font-size: 0.88rem; min-width: 640px; }
+        .fase-tabla th { text-align: right; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.3px; color: var(--text); padding: 8px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+        .fase-tabla th:first-child, .fase-tabla td:first-child { text-align: left; }
+        .fase-tabla td { text-align: right; padding: 7px 10px; border-bottom: 1px solid var(--border); color: var(--text-bright); white-space: nowrap; }
+        .fase-tabla td.neg { color: var(--danger); }
+        .fase-tabla td.vacio { color: var(--text); opacity: 0.35; }
+        .fase-tabla tr.sec td { font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.4px; color: var(--primary-light); padding-top: 16px; border-bottom: none; font-weight: 700; }
+        .fase-tabla tr.sub td { font-weight: 700; border-top: 2px solid var(--border); }
+        .fase-tabla tr.gana td { font-weight: 700; color: var(--success); }
+        .fase-tabla td.col-total, .fase-tabla th.col-total { background: var(--surface-2); }
+        .fase-tabla .nota { display: block; font-size: 0.72rem; color: var(--text); font-weight: 400; }
+        .gasto-row select { width: 100%; padding: 6px 8px; background: var(--dark); border: 1px solid var(--border); border-radius: 8px; color: var(--text-bright); font-size: 0.8rem; margin-top: 4px; }
 
         .error { color: var(--danger); font-size: 0.85rem; margin-top: 4px; }
         .loading { text-align: center; padding: 40px; color: var(--text); }
@@ -287,9 +299,11 @@
                 </div>
                 ${reparto.neto < 0 ? `<p class="error">⚠️ El costo real supera lo cobrado por ${fmt(-reparto.neto)}: por ahora no hay utilidad que repartir en este lote.</p>` : ''}
                 ${config.incluir_chris ? `<p style="font-size:0.88rem;color:var(--text-bright);margin:6px 0;">Chris recibe <strong>${fmt(reparto.r.chris)}</strong> (${config.porcentaje_chris}% de ${fmt(Math.max(0, reparto.r.netoChris))} = ingresos − costos de Chris de ${fmt(reparto.r.costoChris)}${reparto.r.propiosChris ? '' : ', sin costos propios se usan los reales'}). Los socios reciben <strong>${fmt(reparto.r.pool)}</strong>${reparto.r.diferencial > 0 ? `, que incluye el diferencial de ${fmt(reparto.r.diferencial)} entre el costo de Chris y el real` : ''}.</p>` : ''}
-                <p style="font-size:0.85rem;color:var(--text);">Ingresos: pagos de candidatos activos, desistidos y cambio de lote (dinero ya cobrado) · excluye cuentas de Administrador</p>
+                ${renderLotePorFase(loteActivo, config.incluir_chris)}
+                <p style="font-size:0.85rem;color:var(--text);margin-top:10px;">Ingresos: pagos de candidatos activos, desistidos y cambio de lote (dinero ya cobrado) · excluye cuentas de Administrador. Cada costo por candidato se descuenta cuando el candidato paga la fase en que se genera.</p>
             </div>
 
+            ${renderFichaCard(loteActivo)}
             ${renderGastosCard(loteActivo)}
 
             <div class="card">
@@ -434,23 +448,56 @@
         gastos = data || [];
         gastosError = error ? (error.message || String(error)) : null;
     }
+    const FASE_UI = { registro: 'Apartado', alineacion: 'Alineación', evaluacion: 'Evaluación', entrega: 'Dictamen' };
+    const FASES_UI = ['registro', 'alineacion', 'evaluacion', 'entrega'];
+    const hayColumna = (col) => gastos.length > 0 && gastos.some(x => col in x);
+    const celda = (n, neg) => n ? `<td class="${neg ? 'neg' : ''}">${neg ? '−' : ''}${fmt(n)}</td>` : '<td class="vacio">—</td>';
+
+    /* Lote por fase: cuántos pagaron cada fase, cuánto entró y qué costos generó. */
+    function renderLotePorFase(lote, conChris) {
+        if (gastosError) return '';
+        const p = AdminData.porFaseLote(datosParaAdminData(), lote);
+        const otros = p.otrosReal > 0 || p.otrosChris > 0;
+        const tot = k => p.fases.reduce((a, f) => a + f[k], 0);
+        const fila = (label, k, neg, otrosVal) => `<tr><td>${label}</td>${p.fases.map(f => celda(f[k], neg)).join('')}${otros ? celda(otrosVal || 0, neg) : ''}<td class="col-total">${neg && (tot(k) + (otrosVal || 0)) ? '−' : ''}${fmt(tot(k) + (otrosVal || 0))}</td></tr>`;
+        return `
+            <h3 style="margin:18px 0 6px;font-size:0.95rem;color:var(--text-bright);">Por fase — todo el lote</h3>
+            <div class="scroll-x"><table class="fase-tabla">
+                <thead><tr><th></th>${p.fases.map(f => `<th>${FASE_UI[f.id]}</th>`).join('')}${otros ? '<th>Fijos / sin fase</th>' : ''}<th class="col-total">Total</th></tr></thead>
+                <tbody>
+                    <tr><td>Candidatos que pagaron</td>${p.fases.map(f => `<td>${f.pagaron}</td>`).join('')}${otros ? '<td class="vacio">—</td>' : ''}<td class="col-total"></td></tr>
+                    ${fila('Ingresos cobrados', 'ingresos', false)}
+                    ${fila('Costo real', 'costoReal', true, p.otrosReal)}
+                    ${conChris ? fila('Costo manejado con Chris', 'costoChris', true, p.otrosChris) : ''}
+                </tbody>
+            </table></div>`;
+    }
+
     function gastoFila(it) {
-        const porCert = it.tipo === 'por_certificado';
+        const porCand = it.tipo === 'por_certificado';
+        const conFase = hayColumna('fase');
+        const cuando = !porCand ? 'Monto fijo (una vez por lote)' : (it.fase ? `Por candidato · al pagar ${FASE_UI[it.fase]}` : 'Por candidato activo');
+        const selFase = porCand && conFase ? `<select data-gasto-fase="${it.id}" aria-label="Fase en que se genera">
+                ${FASES_UI.map(f => `<option value="${f}" ${it.fase === f ? 'selected' : ''}>Al pagar ${FASE_UI[f]}</option>`).join('')}
+                <option value="" ${!it.fase ? 'selected' : ''}>Cada candidato activo</option></select>` : '';
+        const calc = !porCand ? 'pago único' : `× ${it.cantidad} ${it.fase ? `pagaron ${FASE_UI[it.fase]}` : `activo${it.cantidad === 1 ? '' : 's'}`}`;
         return `
             <div class="gasto-row">
-                <div><strong>${escapeHtml(it.concepto)}</strong><div class="gasto-sub">${porCert ? 'Por certificado' : 'Monto fijo'} · ${it.lote === null ? 'todos los lotes' : 'solo Lote ' + it.lote}</div></div>
-                <div><input type="number" min="0" step="1" value="${it.monto}" data-gasto-monto="${it.id}" aria-label="Monto de ${escapeHtml(it.concepto)}"><div class="gasto-sub">${porCert ? 'MXN por certificado' : 'MXN'}</div></div>
-                <div class="gasto-calc">${porCert ? `× ${it.cantidad} certificado${it.cantidad === 1 ? '' : 's'}` : 'pago único'}</div>
+                <div><strong>${escapeHtml(it.concepto)}</strong><div class="gasto-sub">${cuando} · ${it.lote === null ? 'todos los lotes' : 'solo Lote ' + it.lote}</div>${selFase}</div>
+                <div><input type="number" min="0" step="1" value="${it.monto}" data-gasto-monto="${it.id}" aria-label="Monto de ${escapeHtml(it.concepto)}"><div class="gasto-sub">${porCand ? 'MXN por candidato' : 'MXN'}</div></div>
+                <div class="gasto-calc">${calc}</div>
                 <div class="gasto-total">−${fmt(it.total)}</div>
                 <div><button type="button" class="crm-btn crm-btn-danger" data-del-gasto="${it.id}">Eliminar</button></div>
             </div>`;
     }
     function gastoGrupo(titulo, hint, lista, total, vacio) {
+        const orden = i => (i.fase ? FASES_UI.indexOf(i.fase) : 9);
+        const ordenada = lista.slice().sort((x, y) => orden(x) - orden(y));
         return `
             <div class="gasto-grupo">
                 <h3>${titulo}</h3><div class="hint">${hint}</div>
-                <div class="resumen" style="background:var(--surface-2);border-color:var(--border);">${lista.length ? lista.map(gastoFila).join('') : `<p style="font-size:0.85rem;color:var(--text);">${vacio}</p>`}
-                    <div class="resumen-row" style="border-bottom:none;border-top:1px solid var(--border);padding-top:12px;margin-top:8px;"><div><strong>Total por candidato activo + fijos</strong></div><div></div><div class="resumen-valor" style="color:var(--danger);text-align:right;">−${fmt(total)}</div></div>
+                <div class="resumen" style="background:var(--surface-2);border-color:var(--border);">${ordenada.length ? ordenada.map(gastoFila).join('') : `<p style="font-size:0.85rem;color:var(--text);">${vacio}</p>`}
+                    <div class="resumen-row" style="border-bottom:none;border-top:1px solid var(--border);padding-top:12px;margin-top:8px;"><div><strong>Total generado en el lote</strong></div><div></div><div class="resumen-valor" style="color:var(--danger);text-align:right;">−${fmt(total)}</div></div>
                 </div>
             </div>`;
     }
@@ -458,62 +505,70 @@
         if (gastosError) {
             return `<div class="card"><h2>🧾 Costos — Lote ${lote}</h2><p style="font-size:0.85rem;color:var(--accent);margin-top:10px;">⚠️ Falta correr <code>2026-09-18-gastos-utilidades.sql</code> en Supabase para descontar costos (${escapeHtml(gastosError)}). Mientras tanto el reparto se calcula sobre el ingreso completo.</p></div>`;
         }
-        const u = AdminData.utilidades(datosParaAdminData(), lote);
-        const g = u.gastos;
-        const sinColumnaPara = gastos.length > 0 && !gastos.some(x => 'para' in x);
-        const aviso = sinColumnaPara ? `<p style="font-size:0.85rem;color:var(--accent);margin-bottom:10px;">⚠️ Para manejar costos distintos con Chris falta correr <code>2026-09-18-gastos-para-chris.sql</code> en Supabase.</p>` : '';
+        const g = AdminData.utilidades(datosParaAdminData(), lote).gastos;
+        const avisos = [];
+        if (gastos.length > 0 && !hayColumna('para')) avisos.push('Para manejar costos distintos con Chris falta correr <code>2026-09-18-gastos-para-chris.sql</code>.');
+        if (gastos.length > 0 && !hayColumna('fase')) avisos.push('Para que cada costo entre en su fase (Alineación, Evaluación, Dictamen) falta correr <code>2026-09-18-gastos-por-fase.sql</code>.');
         return `
             <div class="card">
                 <h2>🧾 Costos — Lote ${lote}</h2>
-                ${aviso}
-                <p style="font-size:0.82rem;color:var(--text);margin:-8px 0 4px;">Se descuentan antes de repartir. "Por certificado" se multiplica por los <strong>${g.certificados}</strong> candidato${g.certificados === 1 ? '' : 's'} activo${g.certificados === 1 ? '' : 's'} de este lote. Edita un monto y se guarda al salir del campo.</p>
-                ${gastoGrupo('Costo real — lo que cobra el Centro Evaluador', 'Reduce el total a repartir (tabla de los socios).', g.items, g.total, 'Aún no hay costos reales registrados.')}
-                ${gastoGrupo('Costo manejado con Chris', 'Solo aplica en lotes con Chris: su parte se calcula sobre ingresos − estos costos. Lo que excede al costo real (el diferencial) se queda con los socios. Si no hay ninguno, a Chris se le descuentan los reales.', g.chris.items, g.chris.total, 'Sin costos propios de Chris: se le descuentan los reales.')}
+                ${avisos.map(a => `<p style="font-size:0.85rem;color:var(--accent);margin-bottom:8px;">⚠️ ${a}</p>`).join('')}
+                <p style="font-size:0.82rem;color:var(--text);margin:-8px 0 4px;">Edita un monto o su fase y se guarda al instante. Un costo "por candidato" se cuenta por cada candidato que ya pagó la fase en que se genera.</p>
+                ${gastoGrupo('Costo real', 'Lo que de verdad se paga (Centro Evaluador). Reduce el total que se reparte.', g.items, g.total, 'Aún no hay costos reales registrados.')}
+                ${gastoGrupo('Costo manejado con Chris', 'Solo sirve para calcular la parte de Chris (solo en lotes con Chris). No es salida de dinero: lo que excede al costo real es el diferencial y se queda con los socios. Si no hay ninguno, a Chris se le descuentan los reales.', g.chris.items, g.chris.total, 'Sin costos propios de Chris: se le descuentan los reales.')}
                 <h3 style="margin:18px 0 8px;font-size:0.95rem;color:var(--text-bright);">Agregar costo</h3>
                 <form class="crm-form" id="formGasto">
                     <label>Concepto<input type="text" name="concepto" required maxlength="80" placeholder="Ej: Centro Evaluador"></label>
                     <label>Se descuenta a<select name="para"><option value="real">Real (reduce el total)</option><option value="chris">Solo a la base de Chris</option></select></label>
-                    <label>Tipo<select name="tipo"><option value="por_certificado">Por certificado</option><option value="fijo">Monto fijo</option></select></label>
+                    <label>Tipo<select name="tipo"><option value="por_certificado">Por candidato</option><option value="fijo">Monto fijo</option></select></label>
+                    <label>Se genera<select name="fase">${FASES_UI.map(f => `<option value="${f}" ${f === 'entrega' ? 'selected' : ''}>Al pagar ${FASE_UI[f]}</option>`).join('')}<option value="">Cada candidato activo</option></select></label>
                     <label>Monto (MXN)<input type="number" name="monto" min="0" step="1" required placeholder="0"></label>
                     <label>Aplica a<select name="alcance"><option value="todos">Todos los lotes</option><option value="lote">Solo el Lote ${lote}</option></select></label>
                     <button type="submit" class="crm-btn crm-btn-primary">➕ Agregar</button>
                 </form>
-            </div>
-            ${renderFichaCard(lote)}`;
+            </div>`;
     }
-    /* Las dos tablas de precios de un candidato típico del lote (como la hoja de Diego). */
+
+    /* Cómo se reparte UN candidato, fase por fase (la hoja de Diego). */
     function renderFichaCard(lote) {
         if (gastosError) return '';
         const f = AdminData.fichaCandidato(datosParaAdminData(), lote);
-        if (!f.activos) return `<div class="card"><h2>📋 Tabla por candidato — Lote ${lote}</h2><p style="font-size:0.85rem;color:var(--text);">Aún no hay candidatos activos en este lote.</p></div>`;
-        const fila = (it, signo) => `<tr><td>${escapeHtml(it.concepto)}</td><td class="neg">${signo}${fmt(it.monto)}</td></tr>`;
-        const tabla = (titulo, items, total, neto, extra) => `
-            <div><h3>${titulo}</h3>
-                <table class="ficha-tabla"><tbody>
-                    <tr><td>Precio</td><td>${fmt(f.precio)}</td></tr>
-                    ${items.map(i => fila(i, '−')).join('')}
-                    <tr class="total"><td>Neto</td><td>${fmt(neto)}</td></tr>
-                    ${extra || ''}
-                </tbody></table></div>`;
+        if (!f.activos) return `<div class="card"><h2>📋 Cómo se reparte un candidato — Lote ${lote}</h2><p style="font-size:0.85rem;color:var(--text);">Aún no hay candidatos activos en este lote.</p></div>`;
         const r = f.reparto;
         const conChris = f.config.incluir_chris;
-        const tablaChris = conChris ? tabla('Tabla Chris', f.chris.items, f.chris.total, f.chris.neto,
-            `<tr><td>Chris (${f.config.porcentaje_chris}%)</td><td>${fmt(r.chris)}</td></tr>`) : '';
+        const pf = f.porFase;
+        const pct = n => `${n.toFixed(1).replace('.0', '')}%`;
+        const filaCosto = (it) => `<tr><td>− ${escapeHtml(it.concepto)}</td>${pf.map(x => (x.id === (it.fase || 'entrega') ? `<td class="neg">−${fmt(it.monto)}</td>` : '<td class="vacio">—</td>')).join('')}<td class="col-total neg">−${fmt(it.monto)}</td></tr>`;
+        const filaValor = (label, k, cls, total) => `<tr class="${cls}"><td>${label}</td>${pf.map(x => `<td>${fmt(x[k])}</td>`).join('')}<td class="col-total">${fmt(total)}</td></tr>`;
+        const orden = i => FASES_UI.indexOf(i.fase || 'entrega');
+        const ord = l => l.slice().sort((x, y) => orden(x) - orden(y));
+        const diferencialTxt = conChris && r.diferencial > 0
+            ? `${ord(f.chris.items).map(i => fmt(i.monto)).join(' + ')} de Chris − ${fmt(f.real.total)} real`
+            : '';
         return `
             <div class="card">
-                <h2>📋 Tabla por candidato — Lote ${lote}</h2>
-                <p style="font-size:0.82rem;color:var(--text);margin:-8px 0 10px;">Candidato promedio de los ${f.activos} activo${f.activos === 1 ? '' : 's'} del lote. Solo entran los costos por certificado (los de monto fijo se descuentan a nivel lote).</p>
-                <div class="scroll-x"><table class="ficha-fases"><thead><tr><th>Apartado</th><th>Alineación</th><th>Evaluación</th><th>Dictamen</th><th>Total</th></tr></thead>
-                    <tbody><tr><td>${fmt(f.fases.registro)}</td><td>${fmt(f.fases.alineacion)}</td><td>${fmt(f.fases.evaluacion)}</td><td>${fmt(f.fases.entrega)}</td><td><strong>${fmt(f.precio)}</strong></td></tr></tbody></table></div>
-                <div class="ficha-grid">
-                    ${tabla('Tabla Socios (costo real)', f.real.items, f.real.total, f.real.neto)}
-                    ${tablaChris}
-                </div>
+                <h2>📋 Cómo se reparte un candidato — Lote ${lote}</h2>
+                <p style="font-size:0.82rem;color:var(--text);margin:-8px 0 10px;">Candidato ${f.activos === 1 ? 'del lote' : `promedio de los ${f.activos} activos del lote`}, si paga todas las fases. Cada costo aparece en la fase en que se genera.</p>
+                <div class="scroll-x"><table class="fase-tabla">
+                    <thead><tr><th></th>${pf.map(x => `<th>${FASE_UI[x.id]}</th>`).join('')}<th class="col-total">Total</th></tr></thead>
+                    <tbody>
+                        ${filaValor('Precio', 'precio', 'sub', f.precio)}
+                        ${conChris ? `
+                        <tr class="sec"><td colspan="6">Tabla Chris — costos manejados con Chris${f.chris.propios ? '' : ' (sin costos propios: se usan los reales)'}</td></tr>
+                        ${ord(f.chris.items).map(filaCosto).join('')}
+                        ${filaValor('= Base de Chris', 'baseChris', 'sub', f.chris.neto)}
+                        ${filaValor(`Chris (${f.config.porcentaje_chris}% de su base)`, 'chris', 'gana', r.chris)}` : ''}
+                        <tr class="sec"><td colspan="6">Tabla Socios — costo real</td></tr>
+                        ${ord(f.real.items).map(filaCosto).join('')}
+                        ${filaValor('= Valor real', 'neto', 'sub', f.real.neto)}
+                        ${filaValor(conChris ? 'Socios (valor real − Chris)' : 'Socios (todo el valor real)', 'socios', 'gana', r.pool)}
+                    </tbody>
+                </table></div>
                 <div class="ficha-res">
-                    ${conChris ? `<div><div class="k">Chris</div><div class="v">${fmt(r.chris)}</div></div>` : ''}
-                    <div><div class="k">Socios (total)</div><div class="v">${fmt(r.pool)}</div></div>
-                    <div><div class="k">Fer · Lot · Diego</div><div class="v" style="font-size:1rem;">${fmt(r.montos.fernando)} · ${fmt(r.montos.lot)} · ${fmt(r.montos.diego)}</div></div>
-                    ${conChris && r.diferencial > 0 ? `<div><div class="k">Diferencial (para socios)</div><div class="v">${fmt(r.diferencial)}</div></div>` : ''}
+                    ${conChris ? `<div><div class="k">Chris</div><div class="v">${fmt(r.chris)}</div><div class="gasto-sub">${pct(f.participacion.chris)} del valor real</div></div>` : ''}
+                    <div><div class="k">Socios (total)</div><div class="v">${fmt(r.pool)}</div><div class="gasto-sub">${pct(f.participacion.fernando + f.participacion.lot + f.participacion.diego)} del valor real</div></div>
+                    <div><div class="k">Fer · Lot · Diego</div><div class="v" style="font-size:1rem;">${fmt(r.montos.fernando)} · ${fmt(r.montos.lot)} · ${fmt(r.montos.diego)}</div><div class="gasto-sub">${pct(f.participacion.fernando)} · ${pct(f.participacion.lot)} · ${pct(f.participacion.diego)} del valor real</div></div>
+                    ${diferencialTxt ? `<div><div class="k">Diferencial (para socios)</div><div class="v">${fmt(r.diferencial)}</div><div class="gasto-sub">${diferencialTxt}</div></div>` : ''}
                 </div>
             </div>`;
     }
@@ -524,12 +579,22 @@
             ev.preventDefault();
             const fd = new FormData(form);
             const session = await Auth.getSession();
-            const { error } = await supabaseClient.from('gastos_utilidades').insert({
+            const fila = {
                 lote: fd.get('alcance') === 'lote' ? lote : null,
                 concepto: String(fd.get('concepto') || '').trim(), tipo: fd.get('tipo'), monto: Number(fd.get('monto')),
-                ...((fd.get('para') === 'chris' || gastos.some(x => 'para' in x)) ? { para: fd.get('para') } : {}),
+                para: fd.get('para'), fase: fd.get('tipo') === 'por_certificado' ? (fd.get('fase') || null) : null,
                 registrado_por: session && session.user ? session.user.email : null
-            });
+            };
+            let { error } = await supabaseClient.from('gastos_utilidades').insert(fila);
+            // Si aún no se corrió el SQL de alguna columna nueva, se guarda sin ella (y la pantalla lo avisa).
+            for (const col of ['fase', 'para']) {
+                if (error && String(error.message || '').includes(`'${col}' column`)) {
+                    if (col === 'para' && fila.para === 'chris') break;
+                    delete fila[col];
+                    ({ error } = await supabaseClient.from('gastos_utilidades').insert(fila));
+                }
+            }
+            if (error && String(error.message || '').includes("'para' column")) { alert('Para guardar un costo manejado con Chris primero corre 2026-09-18-gastos-para-chris.sql en Supabase.'); return; }
             if (error) { alert('No se pudo agregar el gasto: ' + (error.message || error)); return; }
             await recargar();
         });
@@ -538,6 +603,11 @@
             if (input.value === '' || !isFinite(monto) || monto < 0) { alert('Escribe un monto válido (0 o mayor).'); await recargar(); return; }
             const { error } = await supabaseClient.from('gastos_utilidades').update({ monto }).eq('id', input.dataset.gastoMonto);
             if (error) alert('No se pudo guardar el monto: ' + (error.message || error));
+            await recargar();
+        }));
+        document.querySelectorAll('[data-gasto-fase]').forEach(sel => sel.addEventListener('change', async () => {
+            const { error } = await supabaseClient.from('gastos_utilidades').update({ fase: sel.value || null }).eq('id', sel.dataset.gastoFase);
+            if (error) alert('No se pudo cambiar la fase: ' + (error.message || error));
             await recargar();
         }));
         document.querySelectorAll('[data-del-gasto]').forEach(btn => btn.addEventListener('click', async () => {
