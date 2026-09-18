@@ -314,3 +314,25 @@ test('candidatos: un evaluador (sin precios ni pagos) ve la lista de las filas, 
     assert.equal(l[0].fases.entrega, true);
     assert.equal(l[0].fasePagada, 'Entrega');
 });
+
+test('atencionSala: plazo vencido, por vencer y sesión grabada sin copiar al NAS', () => {
+    const d = datos();
+    d.pagos.push({ email: 'c@x.com', fase: 'alineacion', monto: 3000, origen: 'manual', autorizado_en: '2026-09-15T16:00:00Z' });
+    d.salaConfig = { dias_limite: 30 };
+    d.evalSala = [{ email: 'c@x.com', limite_evidencia: null, video: null }];
+    d.reservasSala = [{ email: 'a@x.com', estado: 'asistio', horarios_evidencia: { inicio: '2026-09-20T16:00:00Z', fin: '2026-09-20T17:30:00Z' } }];
+    const lista = AdminData.candidatos(d);
+    // a@x.com: Alineación el 10 sep → límite 10 oct. c@x.com: 15 sep → 15 oct.
+    const it = AdminData.atencionSala(d, lista, new Date('2026-10-12T18:00:00Z'));
+    assert.ok(it.some(i => i.tipo === 'plazo_vencido' && i.email === 'a@x.com'));
+    assert.ok(it.some(i => i.tipo === 'plazo_pronto' && i.email === 'c@x.com' && /3 días/.test(i.texto)));
+    assert.ok(it.some(i => i.tipo === 'sin_grabacion' && i.email === 'a@x.com'));
+    d.evalSala.push({ email: 'a@x.com', limite_evidencia: '2026-11-30', video: { partes: [{ nas: { ruta: 'Portafolios/x/03-Evaluacion/g.mp4' } }] } });
+    const it2 = AdminData.atencionSala(d, AdminData.candidatos(d), new Date('2026-10-12T18:00:00Z'));
+    assert.ok(!it2.some(i => i.email === 'a@x.com'));
+});
+
+test('atencionSala: sin el SQL de la sala no avisa nada', () => {
+    const d = datos(); d.errores = { salaConfig: 'relation does not exist' };
+    assert.deepEqual(AdminData.atencionSala(d, AdminData.candidatos(d), new Date('2026-10-12T18:00:00Z')), []);
+});
