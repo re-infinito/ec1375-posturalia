@@ -527,12 +527,16 @@
         pintarEstadoEncuesta();
     }
 
+    /* Regresa al formulario con todo lo llenado (17 sep). */
+    function editarRespuestas() { generated = false; render(); window.scrollTo(0, 0); }
+
     async function renderGeneratedState(app, result) {
         /* Se pinta de inmediato; la subida corre en segundo plano. */
         app.innerHTML = `
             <div class="success-box">
                 <h3>🎉 ¡Ya tienes tu Encuesta lista!</h3>
                 <div id="estadoDocEncuesta"></div>
+                <button class="btn btn-secondary btn-full" onclick="editarRespuestas()">✏️ Editar mis respuestas</button>
                 <button class="btn btn-whatsapp btn-full" onclick="notifyWhatsApp()">📱 AVISAR AL EQUIPO POR WHATSAPP</button>
             </div>
             <div class="card" style="text-align:center;margin-top:20px;">

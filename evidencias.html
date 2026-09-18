@@ -592,12 +592,16 @@
 
     function generateAcuse() { generated = true; saveProgress(); render(); }
 
+    /* Regresa al formulario con todo lo llenado (17 sep). */
+    function editarRespuestas() { generated = false; render(); window.scrollTo(0, 0); }
+
     async function renderGeneratedState(app, result) {
         app.innerHTML = `
             <div class="success-box">
                 <h3>✅ ¡Listo! Le avisamos a tu equipo</h3>
                 <p style="color:var(--text);margin-bottom:20px;">Tus evidencias reales (las que subiste arriba) son las que se integran a tu Portafolio final — esto solo confirma que ya terminaste. Tu evaluador arma tu expediente completo con todo lo que subiste.</p>
                 <button class="btn btn-primary btn-full" onclick="generatePDF()">📄 Descargar comprobante (PDF)</button>
+                <button class="btn btn-secondary btn-full" onclick="editarRespuestas()">✏️ Editar mis evidencias</button>
                 <button class="btn btn-whatsapp btn-full" onclick="notifyWhatsApp()">📱 AVISAR AL EQUIPO POR WHATSAPP</button>
             </div>
             <div class="card" style="text-align:center;margin-top:20px;">

@@ -1157,6 +1157,9 @@ const AUTODIAGNOSTICO_DATA = [
         await render();
     }
 
+    /* Regresa al formulario con todo lo llenado (17 sep). */
+    function editarRespuestas() { generated = false; render(); window.scrollTo(0, 0); }
+
     async function renderGeneratedState(app, result) {
         /* Se pinta de inmediato; la subida corre en segundo plano. */
         app.innerHTML = `
@@ -1165,6 +1168,7 @@ const AUTODIAGNOSTICO_DATA = [
                 <p style="color:var(--text);margin-bottom:20px;">Tu cita: <strong>${escapeHtml(formatFechaDDMMYYYY(planData.fechaEvaluacion))}${planData.horarioDesarrollo ? ', ' + escapeHtml(planData.horarioDesarrollo) : ''}</strong></p>
                 <div id="estadoDocsAlineacion"></div>
                 <p style="font-size:0.8rem;color:var(--text);margin-top:10px;">Si después corriges algo, se vuelven a subir solos con la versión actualizada.</p>
+                <button class="btn btn-secondary btn-full" style="margin-top:14px;" onclick="editarRespuestas()">✏️ Editar mis respuestas</button>
             </div>
             <div class="card" style="text-align:center;margin-top:20px;">
                 <a href="guion-maestro.html" class="btn btn-secondary btn-full" style="display:block;text-decoration:none;margin-bottom:14px;">📜 Guion Maestro — para tener a la mano durante tu sesión</a>
