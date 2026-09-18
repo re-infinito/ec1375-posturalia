@@ -123,6 +123,8 @@
     let pagosPorEmail = {};
     let loteActivo = 1;
     let configuracionLotes = {};
+    // 50 + 16.67 × 3 = 100.01: el reparto estándar (Chris 50% y tres socios iguales) debe poder guardarse.
+    const TOLERANCIA_TOTAL = 0.011;
 
     function renderGateShell() {
         const app = document.getElementById('app');
@@ -210,7 +212,7 @@
 
         const total = config.porcentaje_chris + config.porcentaje_fernando + config.porcentaje_lot + config.porcentaje_diego;
 
-        if (Math.abs(total - 100) > 0.01) {
+        if (Math.abs(total - 100) > TOLERANCIA_TOTAL) {
             alert(`Error: El total debe ser 100%. Actual: ${total.toFixed(2)}%`);
             return;
         }
@@ -254,7 +256,7 @@
 
         const total = config.porcentaje_chris + config.porcentaje_fernando + config.porcentaje_lot + config.porcentaje_diego;
         document.getElementById('total_porcentaje').textContent = total.toFixed(2);
-        document.getElementById('error_total').style.display = Math.abs(total - 100) > 0.01 ? 'block' : 'none';
+        document.getElementById('error_total').style.display = Math.abs(total - 100) > TOLERANCIA_TOTAL ? 'block' : 'none';
     }
 
     function renderPanel() {
@@ -384,7 +386,7 @@
                         <div style="text-align:right;"><strong id="total_porcentaje">${(config.porcentaje_chris + config.porcentaje_fernando + config.porcentaje_lot + config.porcentaje_diego).toFixed(2)}%</strong></div>
                         <div class="resumen-valor">$${reparto.total.toLocaleString('es-MX')}</div>
                     </div>
-                    <div class="error" id="error_total" ${Math.abs((config.porcentaje_chris + config.porcentaje_fernando + config.porcentaje_lot + config.porcentaje_diego) - 100) > 0.01 ? 'style=""' : 'style="display:none;"'}>
+                    <div class="error" id="error_total" ${Math.abs((config.porcentaje_chris + config.porcentaje_fernando + config.porcentaje_lot + config.porcentaje_diego) - 100) > TOLERANCIA_TOTAL ? 'style=""' : 'style="display:none;"'}>
                         ⚠️ El total debe ser 100%
                     </div>
                 </div>
