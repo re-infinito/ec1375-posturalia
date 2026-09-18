@@ -14,6 +14,7 @@
     <script src="auth.js"></script>
     <script src="protect.js"></script>
     <script src="flow-status.js"></script>
+    <script src="sala-evidencias.js"></script>
     <script src="documentos-nas.js"></script>
     <script src="formatos-consultorio.js"></script>
     <script src="crm-shell.js" data-crm-page="documentos-sesion"></script>
@@ -807,8 +808,8 @@
             return;
         }
 
-        if (step === 'intro') { app.innerHTML = renderIntro(); attachNav(); return; }
-        if (step === 'prep') { app.innerHTML = renderPrep(); attachNav(); applyChecklistState(); return; }
+        if (step === 'intro') { app.innerHTML = renderIntro(); SalaEvidencias.montarDespuesDelHero(app); attachNav(); return; }
+        if (step === 'prep') { app.innerHTML = renderPrep(); SalaEvidencias.montarDespuesDelHero(app); attachNav(); applyChecklistState(); return; }
         if (step === 'recepcion') { app.innerHTML = renderRecepcion(); attachRecepcionListeners(); attachNav(); applyChecklistState(); return; }
         if (step === 'explicacion') { app.innerHTML = renderSoloGuion('explicacion', 'Explicación Inicial y Documentación'); attachNav(); applyChecklistState(); return; }
         if (step === 'privacidad') { app.innerHTML = renderPrivacidad(result); attachPrivacidadListeners(result); attachNav(); applyChecklistState(); return; }

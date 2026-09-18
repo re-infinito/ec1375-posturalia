@@ -14,6 +14,7 @@
     <script src="auth.js"></script>
     <script src="protect.js"></script>
     <script src="flow-status.js"></script>
+    <script src="sala-evidencias.js"></script>
     <script src="firma-candidato.js"></script>
     <script src="crm-shell.js" data-crm-page="evidencias"></script>
     <style>
@@ -172,7 +173,7 @@
        botón de subida (key/accept/multiple) o el campo de la liga. */
     const EVIDENCIAS_REQUERIDAS = [
         { key: 'zoom', accept: 'image/*', multiple: true, icon: '📸', titulo: 'Capturas de tu sesión Zoom', desc: 'Fotos/capturas de pantalla que muestren tu sesión en vivo con el usuario. Puedes subir varias.', required: true },
-        { icon: '🔗', titulo: 'Liga al video completo (YouTube u otra plataforma)', desc: 'Sube tu grabación completa a YouTube (puede ser \"oculto/no listado\") u otra plataforma, y pega la liga en el campo de abajo. Tu evaluador la revisa para calificar el Instrumento de Evaluación.', required: true, isLink: true },
+        { icon: '🎥', titulo: 'Grabación de tu sesión', desc: 'Tu sesión se grabó en la sala de Zoom de Paideia. El equipo la guarda en tu expediente y la integra a tu portafolio: no tienes que subirla.', required: false, isGrabacion: true },
         { key: 'ine', accept: 'image/*,application/pdf', icon: '🪪', titulo: 'Identificación oficial (INE/Pasaporte)', desc: 'Copia legible de tu identificación vigente, frente y reverso.', required: true },
         { key: 'curp', accept: 'image/*,application/pdf', icon: '📄', titulo: 'Comprobante CURP', desc: 'Constancia o copia de tu CURP.', required: true },
         { key: 'fotoDiploma', accept: 'image/*', icon: '📸', titulo: 'Foto para tu diploma', desc: 'De frente, fondo blanco, sin texturas, formal y nítida (JPG, BMP o PNG). Mujeres: frente y orejas descubiertas, sin maquillaje ni aretes, blusa clara y lisa. Hombres: orejas descubiertas, pelo corto, sin barba/bigote, camisa clara y lisa. Sin retoques. No mayor a 2 meses de antigüedad.', required: true },
@@ -435,7 +436,7 @@
             <div class="hero">
                 <div class="hero-icon">📤</div>
                 <h1 class="hero-title">Carga de Evidencias</h1>
-                <p class="hero-subtitle">Sube tu video y documentos de tu evaluación práctica</p>
+                <p class="hero-subtitle">Sube tus documentos y las capturas de tu sesión</p>
             </div>
 
             <div class="card">
@@ -450,8 +451,10 @@
                 <p class="desc">Cada archivo se guarda en tu portafolio en cuanto lo seleccionas.</p>
                 ${EVIDENCIAS_REQUERIDAS.map(e => {
                     const estadoId = e.key ? 'estado' + e.key.charAt(0).toUpperCase() + e.key.slice(1) : '';
-                    const control = e.isLink
-                        ? `<input type="text" id="f_videoLink" value="${escapeHtml(planData.videoLink)}" placeholder="https://youtube.com/..." oninput="updateVideoLink(this.value)" style="width:100%;margin-top:10px;padding:10px 12px;background:var(--dark);border:1px solid var(--border);border-radius:6px;color:var(--text-bright);font-size:0.85rem;">`
+                    const control = e.isGrabacion
+                        ? `<div data-sala-grabacion style="margin-top:10px;"></div>
+                           <details style="margin-top:10px;"${planData.videoLink ? ' open' : ''}><summary style="cursor:pointer;font-size:0.82rem;color:var(--text);">¿Grabaste fuera de la sala de Paideia? Pega aquí tu liga</summary>
+                           <input type="text" id="f_videoLink" value="${escapeHtml(planData.videoLink)}" placeholder="https://youtube.com/..." oninput="updateVideoLink(this.value)" style="width:100%;margin-top:10px;padding:10px 12px;background:var(--dark);border:1px solid var(--border);border-radius:6px;color:var(--text-bright);font-size:0.85rem;"></details>`
                         : `<input type="file" id="f_${e.key}" accept="${e.accept}"${e.multiple ? ' multiple' : ''} aria-label="${escapeHtml(e.titulo)}" onchange="handleFileUpload('${e.key}', this.files, ${e.multiple ? 'true' : 'false'})" style="display:block;margin-top:10px;max-width:100%;">
                            <div id="${estadoId}">${renderEstadoArchivo(e.key)}</div>`;
                     return `
@@ -460,7 +463,7 @@
                         <div style="flex:1;min-width:0;">
                             <div class="evidence-title">${e.titulo}</div>
                             <div class="evidence-desc">${e.desc}</div>
-                            ${e.required ? '<span class="evidence-tag required">OBLIGATORIO</span>' : '<span class="evidence-tag" style="background:var(--surface-2);color:var(--text);">OPCIONAL</span>'}
+                            ${e.required ? '<span class="evidence-tag required">OBLIGATORIO</span>' : e.isGrabacion ? '<span class="evidence-tag" style="background:var(--surface-2);color:var(--text);">LA GUARDA EL EQUIPO</span>' : '<span class="evidence-tag" style="background:var(--surface-2);color:var(--text);">OPCIONAL</span>'}
                             ${control}
                         </div>
                     </div>`;
@@ -503,6 +506,7 @@
             <p id="missingHint" style="color:var(--accent);font-size:0.85rem;text-align:center;margin-bottom:10px;"></p>
             <button class="btn btn-primary btn-full" id="btnGenerate" onclick="generateAcuse()" disabled>Confirmar Entrega →</button>
         `;
+        SalaEvidencias.montarDespuesDelHero(app, { tarjeta: false });
 
         const notasEl = document.getElementById('f_notas');
         if (notasEl) notasEl.addEventListener('input', () => { planData.notas = notasEl.value; saveProgress(); });
@@ -538,9 +542,7 @@
         const hint = document.getElementById('missingHint');
         if (!btn) return;
         const hasSig = signatureMode === 'draw' ? hasSignature : (signatureTypedName && signatureTypedName.trim().length > 3);
-        const hasVideoLink = planData.videoLink && planData.videoLink.trim().length > 5;
         const missing = [];
-        if (!hasVideoLink) missing.push('liga a tu video de sesión');
         if (!(Array.isArray(documentosNextcloud.zoom) && documentosNextcloud.zoom.length > 0)) missing.push('subir al menos una captura de tu sesión Zoom');
         if (!documentosNextcloud.ine) missing.push('subir tu identificación oficial (INE)');
         if (!documentosNextcloud.curp) missing.push('subir tu comprobante CURP');
@@ -650,7 +652,7 @@
         const result = loadAutodiagnosticoResult();
         const nombre = result ? result.personalData.nombre : 'Candidato';
         const message = encodeURIComponent(
-            `Hola, ya subí todas mis evidencias EC1375 (capturas, documentos, PDFs).\n\nNombre: ${nombre}\nLiga al video: ${planData.videoLink || 'No proporcionada'}\nNotas: ${planData.notas || 'Ninguna'}\n\nQuedo al pendiente de mi Portafolio final.`
+            `Hola, ya subí todas mis evidencias EC1375 (capturas, documentos, PDFs).\n\nNombre: ${nombre}\nGrabación: ${planData.videoLink || 'en la sala de Zoom de Paideia'}\nNotas: ${planData.notas || 'Ninguna'}\n\nQuedo al pendiente de mi Portafolio final.`
         );
         window.open(`https://wa.me/528115026729?text=${message}`, '_blank');
     }
@@ -673,7 +675,7 @@
 
         doc.autoTable({
             startY: 34, theme: 'plain', styles: { fontSize: 9, cellPadding: 1.5 },
-            body: [['Candidato/a:', pd.nombre || ''], ['Especialidad:', result.especialidades.join(', ')], ['Liga al video:', planData.videoLink || 'No proporcionada'], ['Fecha de acuse:', new Date().toLocaleDateString('es-MX')]]
+            body: [['Candidato/a:', pd.nombre || ''], ['Especialidad:', result.especialidades.join(', ')], ['Grabación:', planData.videoLink || 'Sala de Zoom de Paideia (la integra el equipo)'], ['Fecha de acuse:', new Date().toLocaleDateString('es-MX')]]
         });
 
         let y = doc.lastAutoTable.finalY + 8;
