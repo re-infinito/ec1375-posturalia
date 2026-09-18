@@ -431,6 +431,7 @@
                 '<div class="crm-nav-label">Recursos</div>' +
                 '<a class="crm-item' + (currentPageId === 'biblioteca' ? ' is-current is-here' : '') + '" href="estudio.html?modo=biblioteca" title="Biblioteca"><span class="crm-ico">' + icon('book') + '</span><span class="crm-label">Biblioteca</span></a>' +
                 '<a class="crm-item" href="guion-maestro.html" title="Guion Maestro"><span class="crm-ico">' + icon('file') + '</span><span class="crm-label">Guion Maestro</span></a>' +
+                '<a class="crm-item' + (currentPageId === 'recursos' ? ' is-current is-here' : '') + '" href="recursos.html" title="Tutoriales y toolkit"><span class="crm-ico">' + icon('download') + '</span><span class="crm-label">Tutoriales y toolkit</span></a>' +
             '</nav>' +
             '<div class="crm-user">' +
                 '<div class="crm-user-row"><span class="crm-avatar" data-crm-avatar>?</span><div style="min-width:0;">' +

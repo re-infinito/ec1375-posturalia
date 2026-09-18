@@ -15,6 +15,7 @@
     <script src="protect.js"></script>
     <script src="flow-status.js"></script>
     <script src="documentos-nas.js"></script>
+    <script src="formatos-consultorio.js"></script>
     <script src="crm-shell.js" data-crm-page="documentos-sesion"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -897,26 +898,10 @@
             contacto: (s.avisoContacto || [pd.telefonoCelular, pd.email].filter(Boolean).join(' · ')).trim()
         };
     }
-    /* Bloques [{t:'titulo'|'h'|'p'|'li', x}] — los mismos para pantalla y PDF. */
+    /* Bloques [{t:'titulo'|'h'|'p'|'li', x}] — los mismos para pantalla y PDF.
+       El texto vive en formatos-consultorio.js (también lo usa el toolkit de Recursos). */
     function avisoPrivacidadBloques(d) {
-        const faltante = '__________';
-        return [
-            { t: 'titulo', x: 'AVISO DE PRIVACIDAD SIMPLIFICADO' },
-            { t: 'p', x: `${d.responsable || faltante}, con domicilio en ${d.domicilio || faltante}, es responsable del tratamiento de los datos personales que usted proporcione, conforme a la Ley Federal de Protección de Datos Personales en Posesión de Particulares.` },
-            { t: 'h', x: '¿Qué datos recabamos?' },
-            { t: 'p', x: 'Datos de identificación y contacto (nombre, edad, fecha de nacimiento, domicilio, teléfono, correo electrónico y familiar a quien avisar) y datos sobre su salud (antecedentes, signos vitales, observación postural y evolución), que la ley considera datos personales sensibles.' },
-            { t: 'h', x: '¿Para qué los usamos?' },
-            { t: 'li', x: 'Integrar su ficha de registro y su expediente de atención.' },
-            { t: 'li', x: 'Verificar que no exista impedimento para recibir el servicio, brindarle la atención y darle seguimiento.' },
-            { t: 'li', x: 'Contactarle para programar y dar seguimiento a sus sesiones.' },
-            { t: 'li', x: 'Integrar la grabación de esta sesión y los documentos de su atención al portafolio de evidencias con el que quien le atiende se evalúa en el Estándar de Competencia EC1375 ante el Centro Evaluador (SEP-CONOCER).' },
-            { t: 'h', x: '¿Con quién los compartimos?' },
-            { t: 'p', x: 'Solo con el Centro Evaluador, para la finalidad anterior, y con las autoridades que lo requieran conforme a la ley. No vendemos ni cedemos sus datos personales.' },
-            { t: 'h', x: 'Sus derechos' },
-            { t: 'p', x: `Usted puede acceder a sus datos, rectificarlos, cancelarlos u oponerse a su uso (derechos ARCO), así como revocar su consentimiento, solicitándolo a: ${d.contacto || faltante}.` },
-            { t: 'h', x: 'Consentimiento' },
-            { t: 'p', x: 'Al firmar de enterado, usted manifiesta que se le informó este aviso y otorga su consentimiento expreso para el tratamiento de sus datos personales, incluidos los sensibles, para las finalidades descritas.' }
-        ];
+        return FormatosConsultorio.avisoPrivacidadBloques(d);
     }
     function avisoPrivacidadHtml(d) {
         const marcar = txt => escapeHtml(txt).replace(/_{10}/g, '<span class="vacio">__________</span>');
