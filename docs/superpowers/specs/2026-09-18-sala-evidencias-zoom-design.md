@@ -4,7 +4,8 @@
 
 **Decisiones de Diego (brainstorm 18 sep):**
 - La sala es **una sola, con enlace y clave fijos para todos** (reunión recurrente sin hora fija, "unirse en cualquier momento", grabación automática en la nube, video del anfitrión apagado). No se usa la API de Zoom para cambiar la clave ni para crear reuniones por reserva.
-- Fecha límite = **N días después de autorizada la fase Evaluación** (N = 30, editable; el equipo puede extenderla a un candidato).
+- Fecha límite = **N días después de autorizada la fase Alineación** (N = 30, editable; el equipo puede extenderla a un candidato). (Primero se eligió Evaluación; Diego lo cambió el 18 sep al aclarar que la grabación se habilita con Alineación.)
+- **La grabación se habilita con el pago de Alineación**; en Evaluación se contesta el examen, se cargan las evidencias y se revisa el video. Por eso Documentos de Sesión y Guion Maestro pasan a pedir Alineación (ver sección 3b).
 - La sala en Zoom no tiene duración; la **agenda** sí usa bloques (duración y colchón en la plantilla, 90 + 15 min por default).
 - Horarios los crea el **admin con plantilla semanal**.
 - El candidato **ya no sube su video a YouTube**: el equipo liga la grabación.
@@ -51,7 +52,7 @@ El SQL **no** trae el enlace ni la clave: se capturan desde admin (no quedan en 
 - `horarios_evidencia_disponibles()` → `[{ id, inicio, fin }]` futuros (inicio > ahora + 2 h), sin reserva activa. Exige fase **`alineacion`** autorizada (admins y bypass exentos): el Plan de Evaluación, donde se agenda, solo pide Alineación, así que el candidato reserva **antes** de pagar Evaluación.
 - `reservar_horario_evidencia(p_horario uuid)` → misma exigencia; si ya tenía reserva activa la cancela, pero solo si faltan ≥ `horas_cambio` (si no: error "ya no se puede cambiar, escríbenos por WhatsApp"). El choque de dos reservas lo resuelve el índice único → error "ese horario acaba de ocuparse".
 - `cancelar_mi_horario_evidencia()` → misma regla de `horas_cambio`.
-- `mi_sala_evidencia()` → `{ reserva: { id, inicio, fin, estado } | null, limite: date | null, limite_extendido: bool, sala: { url, id, clave } | null, grabacion: { en_expediente: bool, fecha } }`. `sala` va **solo** si ahora ∈ [inicio − `minutos_antes`, fin] (Diego, 18 sep: "que solo les aparezca el enlace en el rango del horario seleccionado, para que no puedan meterse ni por accidente"; `minutos_antes = 0` lo abre justo al inicio) y la reserva está `reservada`/`asistio` **y la fase `evaluacion` está autorizada** (sin pago de Evaluación no hay enlace, aunque tenga horario; la tarjeta lo dice). `limite` = `evaluaciones.limite_evidencia` o `candidatos_fase_pagos.autorizado_en (evaluacion)` + `dias_limite` (fecha en hora de México); null si Evaluación no está autorizada.
+- `mi_sala_evidencia()` → `{ reserva: { id, inicio, fin, estado } | null, limite: date | null, limite_extendido: bool, sala: { url, id, clave } | null, grabacion: { en_expediente: bool, fecha } }`. `sala` va **solo** si ahora ∈ [inicio − `minutos_antes`, fin] (Diego, 18 sep: "que solo les aparezca el enlace en el rango del horario seleccionado, para que no puedan meterse ni por accidente"; `minutos_antes = 0` lo abre justo al inicio) y la reserva está `reservada`/`asistio` y la fase `alineacion` sigue autorizada. `limite` = `evaluaciones.limite_evidencia` o `candidatos_fase_pagos.autorizado_en (alineacion)` + `dias_limite` (fecha en hora de México); null si Alineación no está autorizada.
 
 Sin funciones nuevas de Vercel para la agenda.
 
@@ -89,13 +90,21 @@ Tarjeta **"🎥 Tu sala de evidencia"** arriba de `documentos-sesion.html` y de 
 6. Cámara y micrófono encendidos todo el tiempo.
 7. Al terminar, **sal completamente de Zoom** ("Salir de la reunión" y cierra la app).
 
+## 3b. Candados de fase (cambio del 18 sep)
+
+Como la grabación se habilita con Alineación:
+- **`documentos-sesion.html` y `guion-maestro.html` piden `alineacion`** (antes `evaluacion`).
+- El cobro de Evaluación, que hoy solo existe en Documentos de Sesión, se queda en esa página pero **al final**: la pantalla de resultado muestra "Siguiente: paga tu Evaluación" (Mercado Pago + transferencia, el mismo código de hoy) si no está pagada, y `documentos-sesion.html?pagar=evaluacion` abre directo esa pantalla de pago.
+- **Práctica y Examen** (`estudio.html`) siguen pidiendo `evaluacion`; su aviso de bloqueo lleva a `documentos-sesion.html?pagar=evaluacion` ("Paga tu Evaluación").
+- **Encuesta y Evidencias** agregan el candado de `evaluacion` (antes lo heredaban de Documentos de Sesión), con la misma liga de pago. Admins y cuenta demo exentos, como en las demás páginas.
+
 ## 4. Aviso de fecha límite
 
 `SalaEvidencias.avisoLimite()` — franja en el Panel (`panel.html`, tarjeta de proceso), Plan de Evaluación, Documentos de Sesión, Guion Maestro y Evidencias:
 - "Tienes hasta el **15 de octubre de 2026** para entregar tu evidencia · faltan 12 días".
 - Ámbar con ≤ 7 días; roja si venció: "Tu plazo venció el …; escríbenos por WhatsApp". **Aviso, nunca bloqueo.**
 - Paso Evidencias hecho (`FlowStatus`) → "Evidencia entregada ✓" (y deja de contar).
-- Sin fase Evaluación autorizada → no se muestra.
+- Sin fase Alineación autorizada → no se muestra.
 
 ## 5. Evidencias (`evidencias.html`)
 
