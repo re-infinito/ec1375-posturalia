@@ -687,6 +687,7 @@
         doc.text(acuerdoText, 14, y);
         y += acuerdoText.length * 4 + 4;
         if (planData.declaracionAutenticidad) {
+            if (y > 240) { doc.addPage(); y = 20; }   /* notas largas: que la declaración no se salga de la hoja */
             const decl = doc.splitTextToSize('Declaración de autenticidad (aceptada el ' + new Date(planData.declaracionAutenticidad.fecha).toLocaleDateString('es-MX') + '): ' + TEXTO_DECLARACION_AUTENTICIDAD, 180);
             doc.text(decl, 14, y);
             y += decl.length * 4 + 10;
