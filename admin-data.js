@@ -47,9 +47,11 @@
         (datos.candidatosRows || []).forEach(function (r) { if (r && r.email) rowsByEmail[r.email.toLowerCase()] = r; });
         var nombres = {};
         (datos.nombres || []).forEach(function (r) { if (r && r.email) nombres[r.email.toLowerCase()] = r.nombre; });
+        var evaluaciones = {};
+        (datos.evaluaciones || []).forEach(function (r) { if (r && r.email) evaluaciones[r.email.toLowerCase()] = r; });
         var configLotes = {};
         (datos.reparto || []).forEach(function (r) { configLotes[r.lote] = r; });
-        datos._idx = { pagosPorEmail: pagosPorEmail, pagosOrigen: pagosOrigen, rowsByEmail: rowsByEmail, nombres: nombres, configLotes: configLotes };
+        datos._idx = { pagosPorEmail: pagosPorEmail, pagosOrigen: pagosOrigen, rowsByEmail: rowsByEmail, nombres: nombres, configLotes: configLotes, evaluaciones: evaluaciones };
         return datos._idx;
     }
 
@@ -155,11 +157,19 @@
 
     function candidatos(datos) {
         var idx = indexar(datos);
-        return (datos.precio || []).map(function (c) {
+        /* Un evaluador (18 sep) no lee candidatos_precio ni los pagos: su
+           lista sale de las filas del RPC, con las fases que el RPC regresa
+           en fases_pagadas (2026-09-18-centro-evaluador.sql). */
+        var base = (datos.precio && datos.precio.length) ? datos.precio
+            : (datos.candidatosRows || []).filter(function (r) { return r && r.email; })
+                .map(function (r) { return { email: r.email.toLowerCase(), lote: 1, estado: 'activo', total_acordado: 0 }; });
+        return base.map(function (c) {
             var email = (c.email || '').toLowerCase();
             var row = idx.rowsByEmail[email] || null;
             var fases = {};
-            FASES.forEach(function (f) { fases[f] = tienePago(datos, c.email, f); });
+            FASES.forEach(function (f) {
+                fases[f] = tienePago(datos, c.email, f) || !!(row && Array.isArray(row.fases_pagadas) && row.fases_pagadas.indexOf(f) >= 0);
+            });
             var steps = FS.computeSteps({ row: row, alineacionAuth: fases.alineacion, entregaAuth: fases.entrega, esBypass: email === BYPASS_EMAIL });
             var current = null; steps.forEach(function (s) { if (s.current) current = s; });
             var paso;
@@ -174,7 +184,8 @@
                 lote: c.lote || 1, estado: c.estado || 'activo', totalAcordado: c.total_acordado || 0,
                 fases: fases, fasePagada: H.faseMasAlta(fases), origenPagos: idx.pagosOrigen[c.email] || {},
                 steps: steps, paso: paso, hechos: steps.filter(function (s) { return s.done; }).length,
-                docs: docs, ultimaActividad: (row && row.updated_at) || null, tieneFila: !!row, row: row
+                docs: docs, ultimaActividad: (row && row.updated_at) || null, tieneFila: !!row, row: row,
+                evaluacion: idx.evaluaciones[email] || null
             };
         });
     }
@@ -250,11 +261,12 @@
             q(sb.from('utilidades_pagos').select('*').order('fecha', { ascending: false })),
             q(sb.rpc('admin_lista_nombres')),
             q(sb.rpc('admin_lista_candidatos')),
+            q(sb.from('evaluaciones').select('email,etapas,cedula,firma_candidato,portafolio')),
             fetch('/api/sesiones-alineacion').then(function (r) { return r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)); })
                 .then(function (d) { return { data: d.sesiones || [], error: null }; }, function (e) { return { data: null, error: e }; })
         ]);
         var errores = {};
-        var nombresClave = ['precio', 'pagos', 'reparto', 'utilidadesPagos', 'nombres', 'candidatosRows', 'sesiones'];
+        var nombresClave = ['precio', 'pagos', 'reparto', 'utilidadesPagos', 'nombres', 'candidatosRows', 'evaluaciones', 'sesiones'];
         var datos = {};
         nombresClave.forEach(function (k, i) {
             datos[k] = res[i].data || (k === 'sesiones' ? null : []);

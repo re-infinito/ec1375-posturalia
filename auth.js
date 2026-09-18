@@ -474,6 +474,50 @@ const Auth = {
         Auth._renderAuthGateStep('reset_sent');
     },
 
+    /* Circuito del Centro Evaluador (18 sep): lo que el candidato ve de su
+       evaluación (RPC mi_evaluacion: etapas, Cédula publicada sin la imagen
+       de la firma del evaluador, y su propia firma). null si no hay
+       evaluación o si falta correr 2026-09-18-centro-evaluador.sql. */
+    async miEvaluacion() {
+        try {
+            const { data, error } = await supabaseClient.rpc('mi_evaluacion');
+            return error ? null : (data || null);
+        } catch (e) { return null; }
+    },
+
+    /* Firma "Estoy de acuerdo con el juicio…" de la Cédula publicada. El RPC
+       valida la firma y la liga a esa Cédula. */
+    async firmarCedula(firma) {
+        const { data, error } = await supabaseClient.rpc('firmar_cedula', { firma });
+        if (error) throw new Error(error.message || 'No se pudo guardar tu firma');
+        return data;
+    },
+
+    /* Rol del equipo para un correo (18 sep, circuito del Centro Evaluador):
+       'admin', 'evaluador' o null. is_evaluador() llega con
+       2026-09-18-centro-evaluador.sql; sin él solo se reconoce a los admins.
+       Falla cerrado. */
+    async rolEquipo(email) {
+        if (!email) return null;
+        let rol = null;
+        if (await Auth.isAdmin(email)) rol = 'admin';
+        else {
+            try {
+                const { data, error } = await supabaseClient.rpc('is_evaluador', { check_email: email });
+                if (!error && data === true) rol = 'evaluador';
+            } catch (e) { /* falla cerrado */ }
+        }
+        Auth._rolEquipo = { email: String(email).toLowerCase(), rol };
+        return rol;
+    },
+
+    /* Acceso por el gate del equipo: solo admins, salvo las páginas que
+       pasan { permitirEvaluador: true } (Candidatos y Evaluación). */
+    async _accesoGateEquipo(email) {
+        if (Auth._adminGatePermiteEvaluador) return !!(await Auth.rolEquipo(email));
+        return Auth.isAdmin(email);
+    },
+
     /* =========================================================
        UI compartida para páginas de administración (admin-precios.html,
        admin-index.html, ...): correo → is_admin() → elegir "ya tengo
@@ -498,6 +542,7 @@ const Auth = {
     renderAdminGate(container, opts) {
         Auth._adminGateContainer = container;
         Auth._adminGateOnVerified = (opts && opts.onVerified) || null;
+        Auth._adminGatePermiteEvaluador = !!(opts && opts.permitirEvaluador);
         /* Sesión guardada de un correo admin: entrar directo (15 sep, misma
            corrección que renderAuthGate). Una sesión de un correo NO admin
            cae al paso de correo como siempre. */
@@ -505,7 +550,7 @@ const Auth = {
         Auth.getSession().then(function (session) {
             var email = session && session.user && session.user.email;
             if (!email) { Auth._renderAdminGateStep('email'); return null; }
-            return Auth.isAdmin(email).then(function (es) {
+            return Auth._accesoGateEquipo(email).then(function (es) {
                 if (es && typeof Auth._adminGateOnVerified === 'function') Auth._adminGateOnVerified(session);
                 else Auth._renderAdminGateStep('email');
             });
@@ -576,7 +621,7 @@ const Auth = {
             container.innerHTML = `<p style="text-align:center;font-size:0.9rem;">Verificando...</p>`;
         } else if (step === 'not_admin') {
             container.innerHTML = `
-                <p style="font-size:0.9rem;">El correo <strong>${Auth._pendingAdminEmail}</strong> no tiene acceso de administrador.</p>
+                <p style="font-size:0.9rem;">El correo <strong>${Auth._pendingAdminEmail}</strong> no tiene acceso al panel del equipo.</p>
                 <button class="btn btn-secondary btn-full" style="margin-top:14px;" onclick="Auth._renderAdminGateStep('email')">Intentar de nuevo</button>
             `;
         }
@@ -588,7 +633,7 @@ const Auth = {
         if (!email || !email.includes('@')) { Auth._renderAdminGateStep('email', 'Escribe un correo válido.'); return; }
         Auth._pendingAdminEmail = email;
         Auth._renderAdminGateStep('verifying');
-        const esAdmin = await Auth.isAdmin(email);
+        const esAdmin = await Auth._accesoGateEquipo(email);
         if (!esAdmin) { Auth._renderAdminGateStep('not_admin'); return; }
         Auth._renderAdminGateStep('choose');
     },
@@ -605,7 +650,7 @@ const Auth = {
                 Auth._renderAdminGateStep('signin', 'Contraseña incorrecta, o todavía no la has creado — usa "¿Olvidaste tu contraseña?" para ponerla.');
                 return;
             }
-            const esAdmin = await Auth.isAdmin(Auth._pendingAdminEmail);
+            const esAdmin = await Auth._accesoGateEquipo(Auth._pendingAdminEmail);
             if (!esAdmin) { await supabaseClient.auth.signOut(); Auth._renderAdminGateStep('not_admin'); return; }
             Auth._session = data.session;
             if (typeof Auth._adminGateOnVerified === 'function') Auth._adminGateOnVerified(data.session);
@@ -633,7 +678,7 @@ const Auth = {
                 Auth._renderAdminGateStep('signup', 'Cuenta creada. Revisa tu correo para confirmarla y vuelve a intentar iniciar sesión.');
                 return;
             }
-            const esAdmin = await Auth.isAdmin(Auth._pendingAdminEmail);
+            const esAdmin = await Auth._accesoGateEquipo(Auth._pendingAdminEmail);
             if (!esAdmin) { await supabaseClient.auth.signOut(); Auth._renderAdminGateStep('not_admin'); return; }
             Auth._session = data.session;
             if (typeof Auth._adminGateOnVerified === 'function') Auth._adminGateOnVerified(data.session);

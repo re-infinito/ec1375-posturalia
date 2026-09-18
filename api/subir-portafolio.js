@@ -1,4 +1,11 @@
 /**
+ * GET /api/subir-portafolio?ruta=…&desde=…&hasta=…  (18 sep, circuito del
+ * Centro Evaluador): descarga un archivo del NAS para armar el portafolio en
+ * el navegador del equipo. Solo admins/evaluadores; solo rutas bajo
+ * Portafolios/ o Plantillas/ (Evaluacion.rutaNasPermitida). Responde en
+ * trozos de hasta 3.5 MB (límite de respuesta de Vercel: 4.5 MB) con el
+ * tamaño total en X-Total-Size. Vive aquí porque ya hay 12 funciones.
+ *
  * POST /api/subir-portafolio
  * Sube un archivo (PDF generado por el sitio, o evidencia subida por el
  * candidato) al Nextcloud de almacenamiento (servidor de Humberto, WebDAV
@@ -19,6 +26,7 @@
  */
 
 const { createClient } = require('@supabase/supabase-js');
+const { rutaNasPermitida } = require('../evaluacion.js');
 
 const SUPABASE_URL = 'https://numsuiuwrvpprhnxovmh.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im51bXN1aXV3cnZwcHJobnhvdm1oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc2OTg3MDAsImV4cCI6MjEwMzI3NDcwMH0.LA_MJzLcJyVtysxsJAmWwWzKwgynNm-f6ejGEaEpG1Y';
@@ -73,7 +81,84 @@ async function ensureFolder(baseWebdavUrl, baseHeaders, folderPath) {
     }
 }
 
+const TROZO_MAX = 3.5 * 1024 * 1024;
+
+/* desde/hasta del query → rango válido de a lo más TROZO_MAX bytes, o null. */
+function rangoPedido(desde, hasta) {
+    const a = desde === undefined || desde === '' ? 0 : Number(desde);
+    const b = hasta === undefined || hasta === '' ? a + TROZO_MAX - 1 : Number(hasta);
+    if (!Number.isInteger(a) || !Number.isInteger(b) || a < 0 || b < a) return null;
+    return { desde: a, hasta: Math.min(b, a + TROZO_MAX - 1) };
+}
+
+/* ¿La sesión es del equipo? is_admin() ya existe; puede_evaluar() llega con
+   2026-09-18-centro-evaluador.sql (evaluadores). Falla cerrado. */
+async function esDelEquipo(token, email) {
+    const anon = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const adm = await anon.rpc('is_admin', { check_email: email });
+    if (!adm.error && adm.data === true) return true;
+    const conSesion = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { global: { headers: { Authorization: 'Bearer ' + token } } });
+    const ev = await conSesion.rpc('puede_evaluar');
+    return !ev.error && ev.data === true;
+}
+
+async function handleDescarga(req, res) {
+    const q = req.query || {};
+    const ruta = typeof q.ruta === 'string' ? q.ruta : '';
+    if (!rutaNasPermitida(ruta)) return res.status(400).json({ success: false, error: 'Ruta no permitida' });
+    const rango = rangoPedido(q.desde, q.hasta);
+    if (!rango) return res.status(400).json({ success: false, error: 'Rango inválido' });
+
+    const authHeader = req.headers.authorization || '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    if (!token) return res.status(401).json({ success: false, error: 'Falta el token de sesión' });
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const { data: userData, error: userError } = await supabase.auth.getUser(token);
+    if (userError || !userData || !userData.user) return res.status(401).json({ success: false, error: 'Sesión inválida o expirada' });
+    if (!(await esDelEquipo(token, userData.user.email))) return res.status(403).json({ success: false, error: 'Solo el equipo evaluador puede descargar del NAS' });
+
+    const nextcloudUrl = normalizarNextcloudUrl(process.env.NEXTCLOUD_URL);
+    const nextcloudUser = process.env.NEXTCLOUD_USERNAME;
+    const nextcloudPass = process.env.NEXTCLOUD_APP_PASSWORD;
+    if (!nextcloudUrl || !nextcloudUser || !nextcloudPass) return res.status(500).json({ success: false, error: 'Almacenamiento no configurado' });
+    const url = `${nextcloudUrl}/remote.php/dav/files/${encodeURIComponent(nextcloudUser)}/${ruta.split('/').map(encodeURIComponent).join('/')}`;
+    const headers = {
+        Authorization: 'Basic ' + Buffer.from(`${nextcloudUser}:${nextcloudPass}`).toString('base64'),
+        ...cloudflareAccessHeaders(),
+        Range: `bytes=${rango.desde}-${rango.hasta}`
+    };
+    let resp;
+    try { resp = await fetch(url, { headers, signal: AbortSignal.timeout(45000) }); }
+    catch (e) { return res.status(502).json({ success: false, error: 'El NAS no respondió' }); }
+    if (resp.status === 404) return res.status(404).json({ success: false, error: 'No existe en el NAS: ' + ruta });
+    if (resp.status === 416) return res.status(416).json({ success: false, error: 'Rango fuera del archivo' });
+    if (resp.status !== 206 && resp.status !== 200) return res.status(502).json({ success: false, error: `Nextcloud respondió con status ${resp.status}` });
+
+    let cuerpo = Buffer.from(await resp.arrayBuffer());
+    let total;
+    if (resp.status === 206) {
+        const m = /\/(\d+)\s*$/.exec(resp.headers.get('content-range') || '');
+        total = m ? Number(m[1]) : rango.desde + cuerpo.length;
+    } else {
+        /* El NAS ignoró el Range: se recorta aquí. */
+        total = cuerpo.length;
+        cuerpo = cuerpo.subarray(rango.desde, rango.hasta + 1);
+    }
+    res.setHeader('Content-Type', 'application/octet-stream');
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('X-Total-Size', String(total));
+    return res.status(200).send(cuerpo);
+}
+
 async function handler(req, res) {
+    if (req.method === 'GET') {
+        try { return await handleDescarga(req, res); }
+        catch (e) {
+            console.error('Error en descarga del NAS:', e);
+            res.setHeader('Content-Type', 'application/json');
+            return res.status(500).json({ success: false, error: e.message || 'Error interno' });
+        }
+    }
     res.setHeader('Content-Type', 'application/json');
 
     if (req.method !== 'POST') {
@@ -178,5 +263,6 @@ async function handler(req, res) {
 handler._normalizarNextcloudUrl = normalizarNextcloudUrl;
 handler._slugify = slugify;
 handler._carpetaCandidato = carpetaCandidato;
+handler._rangoPedido = rangoPedido;
 
 module.exports = handler;

@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="favicon.ico" sizes="any">
+    <link rel="icon" href="favicon-32x32.png" type="image/png" sizes="32x32">
+    <link rel="icon" href="favicon-16x16.png" type="image/png" sizes="16x16">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <title>Evaluación - EC1375 Paideia Tech</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="auth.js"></script>
+    <script src="flow-status.js"></script>
+    <script src="crm-shell.js" data-crm-mode="admin" data-crm-page="admin-evaluacion"></script>
+    <script src="admin-data.js"></script>
+    <script src="evaluacion.js"></script>
+    <script src="portafolio.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --dark: #050a1a; --dark-light: #0f1428; --primary: #0088FF; --primary-light: #00CCFF;
+            --accent: #FFD700; --text: #D0D0D0; --text-bright: #FFFFFF; --danger: #FF3333; --success: #00FF88;
+            --border: rgba(255,255,255,0.12); --surface-2: rgba(255,255,255,0.05);
+        }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--dark); color: var(--text); line-height: 1.6; min-height: 100vh; padding-bottom: 60px; }
+        .container { max-width: 980px; margin: 0 auto; padding: 24px 20px; }
+        .container.narrow { max-width: 560px; }
+        .top-bar { position: sticky; top: 0; background: var(--dark); border-bottom: 1px solid var(--dark-light); padding: 16px 20px; z-index: 100; }
+        .top-bar-inner { font-size: 0.95rem; color: var(--text-bright); font-weight: 700; }
+        body.crm-active .top-bar { display: none; }
+        .hero { text-align: center; padding: 30px 0; }
+        .hero-icon { font-size: 3rem; margin-bottom: 14px; }
+        .hero-title { font-size: 1.6rem; font-weight: 700; color: var(--text-bright); margin-bottom: 10px; }
+        .card { background: var(--dark-light); border: 1px solid var(--border); border-radius: 12px; padding: 24px; margin-bottom: 20px; }
+        .field-group { margin-bottom: 16px; }
+        .field-group label { display: block; font-size: 0.85rem; color: var(--text); margin-bottom: 6px; font-weight: 600; }
+        .field-group input { width: 100%; padding: 14px; background: var(--dark); border: 1px solid var(--border); border-radius: 8px; color: var(--text-bright); font-size: 1rem; font-family: inherit; }
+        .btn { padding: 15px 24px; border-radius: 8px; font-weight: 700; font-size: 0.95rem; border: none; cursor: pointer; text-align: center; text-decoration: none; display: block; font-family: inherit; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-secondary { background: transparent; border: 2px solid var(--primary); color: var(--primary); margin-top: 10px; }
+        .btn-full { width: 100%; }
+        .msg { font-size: 0.88rem; margin-top: 14px; text-align: center; }
+        .msg.error { color: var(--danger); }
+
+        .ev-head { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: flex-start; justify-content: space-between; margin-bottom: 16px; }
+        .ev-head h1 { font-size: 1.35rem; color: var(--text-bright); }
+        .ev-etapa { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+        .ev-etapa:last-child { border-bottom: none; }
+        .ev-etapa .nombre { flex: 1 1 220px; min-width: 0; }
+        .ev-etapa .nombre strong { color: var(--text-bright); font-size: 0.92rem; }
+        .ev-etapa .acciones { display: flex; gap: 6px; flex-wrap: wrap; }
+        .ev-form label.lbl { display: block; font-size: 0.82rem; font-weight: 700; color: var(--text-bright); margin: 14px 0 6px; }
+        .ev-form input[type="text"], .ev-form input[type="date"], .ev-form textarea {
+            width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--dark);
+            color: var(--text-bright); font-family: inherit; font-size: 0.9rem; min-height: 40px;
+        }
+        .ev-form textarea { resize: vertical; min-height: 64px; }
+        .ev-grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0 14px; }
+        .ev-juicio { display: flex; gap: 10px; flex-wrap: wrap; }
+        .ev-juicio label { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface-2); cursor: pointer; font-weight: 700; color: var(--text-bright); min-height: 44px; }
+        .ev-juicio input { width: 18px; height: 18px; }
+        .ev-firma-tabs { display: flex; gap: 8px; margin-bottom: 8px; }
+        .ev-firma-tabs button { flex: 1; min-height: 40px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text-bright); font-weight: 700; cursor: pointer; font-family: inherit; }
+        .ev-firma-tabs button.on { border-color: var(--primary); color: var(--primary); }
+        #firmaCanvas { width: 100%; height: 150px; background: #fff; border-radius: 10px; border: 1px solid var(--border); touch-action: none; display: block; }
+        .ev-acciones { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+        .ev-estado { font-size: 0.84rem; margin-top: 10px; }
+        .ev-estado.ok { color: var(--success); } .ev-estado.bad { color: var(--danger); }
+        .ev-progreso { font-size: 0.86rem; margin-top: 10px; color: var(--text-bright); }
+        .ev-avisos { margin-top: 10px; padding-left: 18px; font-size: 0.82rem; color: var(--danger); }
+        .ev-items { list-style: none; font-size: 0.82rem; max-height: 260px; overflow: auto; border: 1px solid var(--border); border-radius: 10px; padding: 6px 10px; }
+        .ev-items li { padding: 3px 0; display: flex; gap: 8px; }
+    </style>
+</head>
+<body>
+    <div class="top-bar"><div class="top-bar-inner">Evaluación del candidato</div></div>
+    <div class="container" id="app"></div>
+
+    <script>
+    function renderGateShell() {
+        document.getElementById('app').innerHTML = `
+            <div class="container narrow" style="padding:0;">
+                <div class="hero"><div class="hero-icon">🔐</div><h1 class="hero-title">Acceso del equipo</h1></div>
+                <div class="card" id="adminGateContainer"></div>
+            </div>`;
+        Auth.renderAdminGate(document.getElementById('adminGateContainer'), { onVerified: boot, permitirEvaluador: true });
+    }
+    const esc = s => CrmShell._helpers.escapeHtml(s);
+    const ic = (n, s) => CrmShell.icon(n, s);
+    const E = Evaluacion;
+    const email = (new URLSearchParams(location.search).get('email') || '').trim().toLowerCase();
+    function fechaCorta(iso) {
+        if (!iso) return '';
+        const d = new Date(iso); if (isNaN(d)) return String(iso).slice(0, 10);
+        return d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'America/Mexico_City' });
+    }
+    function hoyISO() { return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Mexico_City' }); }
+
+    let sesion = null, yo = '', rol = null;
+    let row = null, cand = null, ev = null, faltaSql = null;
+    let firma = { mode: 'draw', dataUrl: null, typedName: '' };
+
+    async function boot(session) {
+        sesion = session; yo = session.user.email.toLowerCase();
+        rol = await Auth.rolEquipo(yo);
+        CrmShell.mount({ mode: 'admin', currentPageId: 'admin-evaluacion', title: 'Evaluación', rol });
+        const app = document.getElementById('app');
+        if (!email) { app.innerHTML = `<p class="msg error">Falta el candidato. Ábrelo desde <a href="admin-candidatos.html">Candidatos</a>.</p>`; return; }
+        app.innerHTML = CrmShell.skeleton('cards');
+        await cargar();
+        render();
+    }
+
+    async function cargar() {
+        const datos = await AdminData.cargar();
+        cand = AdminData.candidatos(datos).find(c => c.email.toLowerCase() === email) || null;
+        row = cand ? cand.row : null;
+        const r = await supabaseClient.from('evaluaciones').select('*').eq('email', email).maybeSingle();
+        faltaSql = r.error ? (r.error.message || String(r.error)) : null;
+        ev = r.data || { email, etapas: {}, cedula: null, cedulas_anteriores: [], firma_candidato: null, portafolio: null };
+        const ced = ev.cedula || {};
+        firma = ced.firmaEvaluador ? Object.assign({}, ced.firmaEvaluador) : { mode: 'draw', dataUrl: null, typedName: '' };
+    }
+
+    function contexto() {
+        const evidencias = cand && cand.steps ? cand.steps.find(s => s.id === 'evidencias') : null;
+        return { evaluacion: ev, evidenciasHechas: !!(evidencias && evidencias.done), entregaPagada: !!(cand && cand.fases && cand.fases.entrega) };
+    }
+    function nombreCand() { return (cand && cand.nombre) || (row && row.nombre) || email; }
+    function telefono() {
+        const pd = row && row.autodiagnostico_data && row.autodiagnostico_data.personalData;
+        return E.telefonoWhatsApp(pd && pd.telefonoCelular);
+    }
+    function ligaWhatsApp(clave, dictamen) {
+        const tel = telefono();
+        if (!tel) return '';
+        const msg = E.mensajeWhatsApp(clave, { nombre: nombreCand().split(' ')[0], dictamen });
+        return `<a class="crm-btn crm-btn-sm crm-btn-ghost" style="border-color:var(--border);color:var(--text-bright);background:var(--surface-2);" target="_blank" rel="noopener" href="https://wa.me/${tel}?text=${encodeURIComponent(msg)}">${ic('message', 14)}Avisar por WhatsApp</a>`;
+    }
+
+    function etapasHtml() {
+        const t = E.lineaDeTiempo(contexto());
+        const origen = { evidencias: 'Automático: Evidencias completas', dictamen: 'Automático: al publicar la Cédula', pago_entrega: 'Automático: pago de la fase Entrega' };
+        return t.etapas.map(e => {
+            const estado = e.bloqueada ? '<span class="crm-chip bad">Bloqueada (no competente)</span>'
+                : e.hecha ? `<span class="crm-chip ok">Hecha${e.fecha ? ' · ' + esc(fechaCorta(e.fecha)) : ''}</span>`
+                : t.actual === e.clave ? '<span class="crm-chip info">Actual</span>' : '<span class="crm-chip">Pendiente</span>';
+            let acciones = '';
+            if (e.manual && !e.bloqueada) {
+                const sinPago = e.clave === 'portafolio_sep' && !contexto().entregaPagada && !e.hecha;
+                acciones = e.hecha
+                    ? `<button type="button" class="crm-btn crm-btn-sm crm-btn-ghost" style="border-color:var(--border);color:var(--text);background:transparent;" data-desmarcar="${e.clave}">Desmarcar</button>${ligaWhatsApp(e.clave)}`
+                    : `<button type="button" class="crm-btn crm-btn-sm crm-btn-primary" data-marcar="${e.clave}" ${sinPago || faltaSql ? 'disabled' : ''} title="${sinPago ? 'Primero el candidato paga la Entrega' : ''}">Marcar hecha</button>`;
+            } else if (e.clave === 'dictamen' && e.hecha) acciones = ligaWhatsApp('dictamen', t.dictamen);
+            return `<div class="ev-etapa"><div class="nombre"><strong>${esc(e.label)}</strong><div class="crm-muted" style="font-size:0.76rem;">${e.manual ? 'La marca el equipo' : esc(origen[e.clave])}${e.clave === 'portafolio_sep' ? ' · solo con Entrega pagada' : ''}</div></div>${estado}<div class="acciones">${acciones}</div></div>`;
+        }).join('');
+    }
+
+    function cedulaHtml() {
+        const c = ev.cedula || {};
+        const pub = E.cedulaPublicada(ev);
+        const fc = ev.firma_candidato;
+        let evaluadora = c.evaluadora || '';
+        try { if (!evaluadora) evaluadora = localStorage.getItem('paideia-evaluadora') || ''; } catch (e) { /* sin storage */ }
+        const estado = !c.juicio ? 'Aún no se captura.'
+            : c.borrador ? 'Borrador: el candidato todavía no la ve.'
+            : `Publicada el ${esc(fechaCorta(c.publicada_at))}. ` + (fc ? `<span class="ev-estado ok">Firmada por el candidato el ${esc(fechaCorta(fc.fecha))}.</span>` : 'Pendiente la firma del candidato.');
+        return `
+            <div class="crm-muted" style="font-size:0.84rem;margin-bottom:6px;">${estado}${(ev.cedulas_anteriores || []).length ? ` · ${ev.cedulas_anteriores.length} anterior(es) en el historial` : ''}</div>
+            <form class="ev-form" id="formCedula" onsubmit="return false;">
+                <div class="ev-grid2">
+                    <div><label class="lbl" for="c_evaluadora">Evaluador(a)</label><input type="text" id="c_evaluadora" value="${esc(evaluadora)}" maxlength="120"></div>
+                    <div><label class="lbl" for="c_fecha">Fecha</label><input type="date" id="c_fecha" value="${esc(c.fecha || hoyISO())}"></div>
+                </div>
+                ${E.CAMPOS_CEDULA.map(k => `<label class="lbl" for="c_${k.id}">${esc(k.label)}</label><textarea id="c_${k.id}" rows="3" maxlength="2000">${esc(c[k.id] || '')}</textarea>`).join('')}
+                <label class="lbl">Juicio de evaluación</label>
+                <div class="ev-juicio">${E.JUICIOS.map(j => `<label><input type="radio" name="c_juicio" value="${j}" ${c.juicio === j ? 'checked' : ''}>${j}</label>`).join('')}</div>
+                <label class="lbl" for="c_observaciones">Observaciones (uso exclusivo para el candidato: las lee en su panel)</label>
+                <textarea id="c_observaciones" rows="2" maxlength="2000">${esc(c.observaciones || '')}</textarea>
+                <label class="lbl">Firma del evaluador(a)</label>
+                <div class="ev-firma-tabs">
+                    <button type="button" data-modo="draw" class="${firma.mode !== 'type' ? 'on' : ''}">Dibujar firma</button>
+                    <button type="button" data-modo="type" class="${firma.mode === 'type' ? 'on' : ''}">Escribir mi nombre</button>
+                </div>
+                <div id="firmaDraw" ${firma.mode === 'type' ? 'hidden' : ''}><canvas id="firmaCanvas" aria-label="Recuadro para dibujar la firma"></canvas>
+                    <button type="button" class="crm-btn crm-btn-sm crm-btn-ghost" style="margin-top:6px;border-color:var(--border);color:var(--text);background:transparent;" id="btnBorrarFirma">Borrar firma</button></div>
+                <div id="firmaType" ${firma.mode === 'type' ? '' : 'hidden'}><input type="text" id="c_firmaTyped" value="${esc(firma.typedName || '')}" placeholder="Nombre completo como firma" maxlength="120"></div>
+                <div class="ev-acciones">
+                    ${pub ? '' : `<button type="button" class="crm-btn crm-btn-ghost" style="border-color:var(--border);color:var(--text-bright);background:var(--surface-2);" id="btnBorrador" ${faltaSql ? 'disabled' : ''}>Guardar borrador</button>`}
+                    <button type="button" class="crm-btn crm-btn-primary" id="btnPublicar" ${faltaSql ? 'disabled' : ''}>${pub ? 'Publicar cambios (el candidato vuelve a firmar)' : 'Publicar al candidato'}</button>
+                    <button type="button" class="crm-btn crm-btn-ghost" style="border-color:var(--border);color:var(--text-bright);background:var(--surface-2);" id="btnCedulaPdf">${ic('download', 14)}Descargar Cédula (PDF)</button>
+                </div>
+                <div class="ev-estado" id="estadoCedula" role="status"></div>
+            </form>`;
+    }
+
+    function portafolioHtml() {
+        const plan = E.planPortafolio(row || {});
+        const p = ev.portafolio;
+        const items = plan.items.filter(i => i.tipo !== 'generado');
+        return `
+            <p class="crm-muted" style="font-size:0.84rem;margin-bottom:10px;">Se arma aquí mismo con los archivos del NAS, en el orden del expediente aprobado, y se guarda en el almacenamiento privado del equipo. El candidato nunca lo ve.</p>
+            ${plan.avisos.length ? `<ul class="ev-avisos">${plan.avisos.map(a => `<li>${esc(a)}</li>`).join('')}</ul>` : '<p class="ev-estado ok">Están todos los documentos del candidato.</p>'}
+            <details style="margin-top:10px;"><summary class="crm-muted" style="cursor:pointer;font-size:0.84rem;">${items.length} archivos del NAS</summary>
+                <ul class="ev-items">${items.map(i => `<li>${ic('file', 14)}<span><strong>${esc(i.etiqueta)}</strong><br><span class="crm-muted" style="word-break:break-all;">${esc(i.ruta)}</span></span></li>`).join('')}</ul></details>
+            <div class="ev-acciones">
+                <button type="button" class="crm-btn crm-btn-primary" id="btnGenerar" ${faltaSql || !row ? 'disabled' : ''}>${ic('download', 14)}Generar portafolio</button>
+                ${p && p.ruta ? `<button type="button" class="crm-btn crm-btn-ghost" style="border-color:var(--border);color:var(--text-bright);background:var(--surface-2);" id="btnUltimo">Descargar el último (${esc(fechaCorta(p.generado_at))}, ${p.paginas} págs.)</button>` : ''}
+            </div>
+            <div class="ev-progreso" id="progreso" role="status"></div>
+            <ul class="ev-avisos" id="avisosGen"></ul>`;
+    }
+
+    function render() {
+        const app = document.getElementById('app');
+        if (!cand) { app.innerHTML = `<p class="msg error">No encontramos a ${esc(email)}. Regresa a <a href="admin-candidatos.html">Candidatos</a>.</p>`; return; }
+        const decl = AdminData.declaraciones(row);
+        const t = E.lineaDeTiempo(contexto());
+        app.innerHTML = `
+            ${faltaSql ? `<div class="crm-note">${ic('alert', 14)} Para guardar la evaluación hay que correr <code>2026-09-18-centro-evaluador.sql</code> en Supabase. (${esc(faltaSql)})</div>` : ''}
+            <div class="ev-head">
+                <div><h1>${esc(nombreCand())}</h1><div class="crm-muted">${esc(email)}${telefono() ? ' · ' + esc(row.autodiagnostico_data.personalData.telefonoCelular) : ''}</div></div>
+                <a class="crm-btn crm-btn-sm crm-btn-ghost" style="border-color:var(--border);color:var(--text-bright);background:var(--surface-2);" href="admin-candidatos.html?q=${encodeURIComponent(email)}">← Candidatos</a>
+            </div>
+            ${decl.some(d => !d.fecha) ? `<div class="crm-note">${ic('alert', 14)} Declaraciones pendientes: ${decl.filter(d => !d.fecha).map(d => esc(d.label)).join(' · ')}.</div>` : ''}
+            <section class="crm-card" style="margin-bottom:16px;"><div class="crm-card-h"><span class="crm-stat-ico">${ic('map', 18)}</span>Etapas del Centro Evaluador<span class="crm-count">${t.dictamen ? (t.dictamen === 'competente' ? 'Competente' : 'No competente') : 'Sin dictamen'}</span></div>${etapasHtml()}</section>
+            <section class="crm-card" style="margin-bottom:16px;"><div class="crm-card-h"><span class="crm-stat-ico">${ic('file', 18)}</span>Cédula de Evaluación</div>${cedulaHtml()}</section>
+            <section class="crm-card"><div class="crm-card-h"><span class="crm-stat-ico">${ic('folder', 18)}</span>Portafolio de Evidencias</div>${portafolioHtml()}</section>`;
+        conectar();
+    }
+
+    /* ── Firma del evaluador: lienzo simple con puntero (ratón, dedo, pluma) ── */
+    function prepararLienzo() {
+        const cv = document.getElementById('firmaCanvas');
+        if (!cv) return;
+        const r = cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+        cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr);
+        const ctx = cv.getContext('2d');
+        ctx.scale(dpr, dpr); ctx.lineWidth = 2.2; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#000';
+        if (firma.mode === 'draw' && firma.dataUrl) {
+            const img = new Image(); img.onload = () => ctx.drawImage(img, 0, 0, r.width, r.height); img.src = firma.dataUrl;
+        }
+        let dibujando = false;
+        const pt = ev2 => { const b = cv.getBoundingClientRect(); return [ev2.clientX - b.left, ev2.clientY - b.top]; };
+        cv.addEventListener('pointerdown', e => { dibujando = true; cv.setPointerCapture(e.pointerId); const [x, y] = pt(e); ctx.beginPath(); ctx.moveTo(x, y); });
+        cv.addEventListener('pointermove', e => { if (!dibujando) return; const [x, y] = pt(e); ctx.lineTo(x, y); ctx.stroke(); });
+        const fin = () => { if (!dibujando) return; dibujando = false; firma = { mode: 'draw', dataUrl: cv.toDataURL('image/png'), typedName: '' }; };
+        cv.addEventListener('pointerup', fin); cv.addEventListener('pointercancel', fin);
+    }
+
+    function leerCedula() {
+        const v = id => (document.getElementById(id) || {}).value || '';
+        const juicio = (document.querySelector('input[name="c_juicio"]:checked') || {}).value || '';
+        const nombreFirma = v('c_evaluadora').trim();
+        const f = firma.mode === 'type'
+            ? { mode: 'type', typedName: v('c_firmaTyped').trim(), dataUrl: null, nombre: nombreFirma }
+            : { mode: 'draw', dataUrl: firma.dataUrl, typedName: '', nombre: nombreFirma };
+        const c = { evaluadora: nombreFirma, fecha: v('c_fecha'), juicio, observaciones: v('c_observaciones').trim(), firmaEvaluador: f };
+        E.CAMPOS_CEDULA.forEach(k => { c[k.id] = v('c_' + k.id).trim(); });
+        return c;
+    }
+    function estado(txt, tipo) { const el = document.getElementById('estadoCedula'); if (el) { el.className = 'ev-estado ' + (tipo || ''); el.innerHTML = txt; } }
+
+    async function guardar(cambios, mensaje) {
+        const payload = Object.assign({ email, updated_at: new Date().toISOString(), updated_by: yo }, cambios);
+        const { data, error } = await supabaseClient.from('evaluaciones').upsert(payload, { onConflict: 'email' }).select().maybeSingle();
+        if (error) { alert('No se pudo guardar: ' + (error.message || error)); return false; }
+        ev = data || Object.assign({}, ev, payload);
+        if (mensaje) { render(); estado(mensaje, 'ok'); }
+        return true;
+    }
+
+    async function publicar(comoBorrador) {
+        const c = leerCedula();
+        try { localStorage.setItem('paideia-evaluadora', c.evaluadora); } catch (e) { /* sin storage */ }
+        if (comoBorrador) {
+            const r = E.guardarBorrador(ev, c, { por: yo });
+            await guardar({ cedula: r.cedula }, 'Borrador guardado. El candidato todavía no lo ve.');
+            return;
+        }
+        const falta = E.validarCedula(c);
+        if (falta.length) { estado('Falta: ' + falta.map(esc).join(' · '), 'bad'); return; }
+        const pub = E.cedulaPublicada(ev);
+        const aviso = pub ? '\n\nYa había una Cédula publicada: se guarda en el historial y el candidato tendrá que volver a firmar.' : '';
+        if (!confirm(`¿Publicar la Cédula con juicio ${c.juicio}? El candidato la verá en su panel para firmarla.${aviso}`)) return;
+        const r = E.publicarCedula(ev, c, { por: yo, ahora: new Date().toISOString() });
+        await guardar({ cedula: r.cedula, cedulas_anteriores: r.cedulas_anteriores, firma_candidato: r.firma_candidato },
+            'Cédula publicada. Avísale al candidato con el botón de WhatsApp de la etapa "Dictamen".');
+    }
+
+    async function marcarEtapa(clave, hecha) {
+        const etapas = Object.assign({}, ev.etapas || {});
+        if (hecha) etapas[clave] = { fecha: new Date().toISOString(), por: yo };
+        else { if (!confirm('¿Desmarcar esta etapa?')) return; delete etapas[clave]; }
+        if (await guardar({ etapas })) render();
+    }
+
+    function descargarBytes(bytes, nombre) {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
+        a.download = nombre; document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 15000);
+    }
+    function rutaBucket(nombreArchivo) { return email.replace(/[^a-z0-9._-]/gi, '_') + '/' + nombreArchivo; }
+
+    async function generar() {
+        const btn = document.getElementById('btnGenerar'), prog = document.getElementById('progreso'), lista = document.getElementById('avisosGen');
+        btn.disabled = true; lista.innerHTML = '';
+        try {
+            const s = await Auth.getSession();
+            const r = await Portafolio.generar({ row, evaluacion: ev, token: s.access_token, onProgreso: t => { prog.textContent = t; } });
+            descargarBytes(r.bytes, r.nombreArchivo);
+            prog.textContent = 'Guardando en el almacenamiento del equipo…';
+            const ruta = rutaBucket(r.nombreArchivo);
+            const up = await supabaseClient.storage.from('portafolios').upload(ruta, new Blob([r.bytes], { type: 'application/pdf' }), { upsert: true, contentType: 'application/pdf' });
+            if (up.error) {
+                prog.textContent = `Listo: ${r.paginas} páginas (descargado). No se pudo guardar una copia: ${up.error.message || up.error}`;
+            } else {
+                await guardar({ portafolio: { ruta, paginas: r.paginas, avisos: r.avisos, generado_at: new Date().toISOString(), por: yo } });
+                render();
+                document.getElementById('progreso').textContent = `Listo: ${r.paginas} páginas. Se descargó y quedó guardado.`;
+            }
+            const l2 = document.getElementById('avisosGen');
+            if (l2) l2.innerHTML = r.avisos.map(a => `<li>${esc(a)}</li>`).join('');
+        } catch (e) {
+            prog.textContent = 'No se pudo generar: ' + (e.message || e);
+        } finally {
+            const b = document.getElementById('btnGenerar'); if (b) b.disabled = false;
+        }
+    }
+
+    function conectar() {
+        document.querySelectorAll('[data-marcar]').forEach(b => b.addEventListener('click', () => marcarEtapa(b.dataset.marcar, true)));
+        document.querySelectorAll('[data-desmarcar]').forEach(b => b.addEventListener('click', () => marcarEtapa(b.dataset.desmarcar, false)));
+        document.querySelectorAll('.ev-firma-tabs button').forEach(b => b.addEventListener('click', () => {
+            const tipo = b.dataset.modo;
+            document.querySelectorAll('.ev-firma-tabs button').forEach(x => x.classList.toggle('on', x === b));
+            document.getElementById('firmaDraw').hidden = tipo !== 'draw';
+            document.getElementById('firmaType').hidden = tipo !== 'type';
+            if (tipo === 'type') firma = { mode: 'type', dataUrl: null, typedName: (document.getElementById('c_firmaTyped') || {}).value || '' };
+            else { firma = { mode: 'draw', dataUrl: firma.mode === 'draw' ? firma.dataUrl : null, typedName: '' }; prepararLienzo(); }
+        }));
+        const borrar = document.getElementById('btnBorrarFirma');
+        if (borrar) borrar.addEventListener('click', () => { firma = { mode: 'draw', dataUrl: null, typedName: '' }; prepararLienzo(); });
+        if (firma.mode !== 'type') prepararLienzo();
+        const b1 = document.getElementById('btnBorrador'); if (b1) b1.addEventListener('click', () => publicar(true));
+        document.getElementById('btnPublicar').addEventListener('click', () => publicar(false));
+        document.getElementById('btnCedulaPdf').addEventListener('click', async () => {
+            const c = leerCedula();
+            const bytes = await Portafolio.cedulaPdf({ cedula: c, firmaCandidato: E.cedulaPublicada(ev) ? ev.firma_candidato : null, nombre: nombreCand() });
+            descargarBytes(bytes, 'Cedula_Evaluacion_' + Portafolio.nombreArchivo(nombreCand()).replace(/^Portafolio_EC1375_/, ''));
+        });
+        const g = document.getElementById('btnGenerar'); if (g) g.addEventListener('click', generar);
+        const u = document.getElementById('btnUltimo');
+        if (u) u.addEventListener('click', async () => {
+            const { data, error } = await supabaseClient.storage.from('portafolios').createSignedUrl(ev.portafolio.ruta, 600, { download: true });
+            if (error) { alert('No se pudo abrir: ' + (error.message || error)); return; }
+            location.href = data.signedUrl;
+        });
+    }
+
+    renderGateShell();
+    </script>
+</body>
+</html>

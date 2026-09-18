@@ -120,7 +120,7 @@
     /* Navegación del CRM del equipo (mode: 'admin'). Sin estados de paso. */
     var ADMIN_NAV = [
         { id: 'admin-panel', label: 'Panel del equipo', href: 'admin-crm.html', ico: 'layout' },
-        { id: 'admin-candidatos', label: 'Candidatos', href: 'admin-candidatos.html', ico: 'users' },
+        { id: 'admin-candidatos', label: 'Candidatos', href: 'admin-candidatos.html', ico: 'users', evaluador: true },
         { id: 'admin-precios', label: 'Precios y pagos', href: 'admin-precios.html', ico: 'dollar' },
         { id: 'admin-sesiones', label: 'Sesiones de Alineación', href: 'admin-sesiones.html', ico: 'video' },
         { id: 'admin-kpis', label: 'KPIs', href: 'admin-kpis.html', ico: 'chart' },
@@ -395,17 +395,21 @@
         return '<a class="' + cls + '" href="' + escapeHtml(step.href) + '" title="' + escapeHtml(step.label) + '">' + inner + '</a>';
     }
 
-    function adminSidebarHtml(currentPageId) {
+    /* rol 'evaluador' (18 sep): solo Candidatos (de ahí abre la Evaluación de
+       cada uno); sin precios, utilidades ni "Ver como candidato". */
+    function adminSidebarHtml(currentPageId, rol) {
+        var evaluador = rol === 'evaluador';
+        var cur = currentPageId === 'admin-evaluacion' ? 'admin-candidatos' : currentPageId;
         return '' +
             '<div class="crm-brand"><img src="' + LOGO_SRC + '" alt="Paideia Tech"><div>' +
-                '<strong>Paideia Tech</strong><small>Panel del equipo</small><span class="crm-pill">EQUIPO · EC1375</span></div></div>' +
+                '<strong>Paideia Tech</strong><small>' + (evaluador ? 'Centro Evaluador' : 'Panel del equipo') + '</small><span class="crm-pill">EQUIPO · EC1375</span></div></div>' +
             '<nav class="crm-nav" aria-label="Módulos de administración">' +
-                ADMIN_NAV.map(function (n) {
-                    var cls = 'crm-item' + (n.id === currentPageId ? ' is-current is-here' : '');
+                ADMIN_NAV.filter(function (n) { return !evaluador || n.evaluador; }).map(function (n) {
+                    var cls = 'crm-item' + (n.id === cur ? ' is-current is-here' : '');
                     return '<a class="' + cls + '" href="' + n.href + '" title="' + escapeHtml(n.label) + '"><span class="crm-ico">' + icon(n.ico) + '</span><span class="crm-label">' + escapeHtml(n.label) + '</span></a>';
                 }).join('') +
-                '<div class="crm-nav-label">Vistas</div>' +
-                '<a class="crm-item" href="panel.html" title="Ver como candidato"><span class="crm-ico">' + icon('eye') + '</span><span class="crm-label">Ver como candidato</span></a>' +
+                (evaluador ? '' : '<div class="crm-nav-label">Vistas</div>' +
+                '<a class="crm-item" href="panel.html" title="Ver como candidato"><span class="crm-ico">' + icon('eye') + '</span><span class="crm-label">Ver como candidato</span></a>') +
             '</nav>' +
             '<div class="crm-user">' +
                 '<div class="crm-user-row"><span class="crm-avatar" data-crm-avatar>?</span><div style="min-width:0;">' +
@@ -417,8 +421,8 @@
             '<div class="crm-foot"><span>' + icon('shield', 14) + ' Acceso solo administradores</span><span>' + icon('building', 14) + ' Certificación oficial SEP-CONOCER</span></div>';
     }
 
-    function sidebarHtml(steps, currentPageId, mode, degraded) {
-        if (mode === 'admin') return adminSidebarHtml(currentPageId);
+    function sidebarHtml(steps, currentPageId, mode, degraded, rol) {
+        if (mode === 'admin') return adminSidebarHtml(currentPageId, rol);
         var panelCls = 'crm-item' + (currentPageId === 'panel' ? ' is-current is-here' : '');
         return '' +
             '<div class="crm-brand"><img src="' + LOGO_SRC + '" alt="Paideia Tech"><div>' +
@@ -517,8 +521,10 @@
             /* Solo con sesión de un correo en la tabla admins. */
             Auth.getSession().then(function (session) {
                 if (!session || !session.user) return null;
-                return Auth.isAdmin(session.user.email).then(function (es) {
-                    if (es) mount({ mode: 'admin', currentPageId: pageId });
+                var rolDe = typeof Auth.rolEquipo === 'function' ? Auth.rolEquipo(session.user.email)
+                    : Auth.isAdmin(session.user.email).then(function (es) { return es ? 'admin' : null; });
+                return rolDe.then(function (rol) {
+                    if (rol) mount({ mode: 'admin', currentPageId: pageId, rol: rol });
                 });
             }).catch(function () { /* sin sesión: la página muestra su gate */ });
             return;
@@ -553,7 +559,9 @@
 
         var sidebar = document.createElement('aside');
         sidebar.className = 'crm-sidebar';
-        sidebar.innerHTML = sidebarHtml(steps, currentPageId, mode, degraded);
+        /* Rol del equipo: el que pase la página o el que ya resolvió el gate. */
+        var rol = opts.rol || (typeof Auth !== 'undefined' && Auth._rolEquipo ? Auth._rolEquipo.rol : null);
+        sidebar.innerHTML = sidebarHtml(steps, currentPageId, mode, degraded, rol);
 
         var backdrop = document.createElement('div');
         backdrop.className = 'crm-backdrop';
@@ -756,8 +764,39 @@
         var nombre = data.nombre || 'candidato/a';
         var certificado = !!(entrega && entrega.done);
 
+        /* 0. Tu evaluación (18 sep): etapas del Centro Evaluador, con la Cédula
+           para firmar y lo que sigue según el dictamen. Requiere evaluacion.js. */
+        var EV = (typeof window !== 'undefined' && window.Evaluacion) ? window.Evaluacion : null;
+        var evidStep = steps.filter(function (s) { return s.id === 'evidencias'; })[0];
+        var evalCard = '', evalCta = null;
+        if (EV && (data.evaluacion || (evidStep && evidStep.done))) {
+            var ev = data.evaluacion || null;
+            var t = EV.lineaDeTiempo({ evaluacion: ev, evidenciasHechas: !!(evidStep && evidStep.done), entregaPagada: !!fases.entrega });
+            var ced = EV.cedulaPublicada(ev), firmada = !!(ev && ev.firma_candidato);
+            var boton = 'style="background:var(--surface-2);color:var(--text-bright);border-color:var(--border);"';
+            var acciones = [];
+            if (ced) acciones.push('<a class="crm-btn crm-btn-primary" href="cedula.html">' + icon('file', 16) + (firmada ? 'Ver mi Cédula de Evaluación' : 'Leer y firmar mi Cédula') + '</a>');
+            if (t.dictamen === 'no_competente') acciones.push('<a class="crm-btn crm-btn-ghost" ' + boton + ' href="evidencias.html">' + icon('upload', 16) + 'Subir nueva evidencia</a>');
+            if (t.dictamen === 'competente' && !fases.entrega) acciones.push('<a class="crm-btn crm-btn-ghost" ' + boton + ' href="entrega.html">' + icon('card', 16) + 'Pagar Entrega</a>');
+            if (ced && !firmada) evalCta = { href: 'cedula.html', label: 'Firmar mi Cédula de Evaluación' };
+            else if (t.dictamen === 'competente' && !fases.entrega) evalCta = { href: 'entrega.html', label: 'Pagar Entrega' };
+            else if (t.dictamen === 'no_competente') evalCta = { href: 'evidencias.html', label: 'Subir nueva evidencia' };
+            var lista = '<ul class="crm-list">' + t.etapas.map(function (e) {
+                var color = e.hecha ? 'var(--success)' : t.actual === e.clave ? 'var(--primary)' : 'inherit';
+                var ico = e.hecha ? icon('check', 16) : t.actual === e.clave ? icon('play', 16) : icon(e.bloqueada ? 'lock' : 'clock', 16);
+                var sub = e.hecha && e.fecha ? new Date(e.fecha).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'America/Mexico_City' })
+                    : e.bloqueada ? 'Después de tu nueva evidencia' : t.actual === e.clave ? 'En curso' : '';
+                if (e.clave === 'dictamen' && t.dictamen) sub = (t.dictamen === 'competente' ? 'COMPETENTE' : 'NO COMPETENTE') + (sub ? ' · ' + sub : '');
+                return '<li' + (!e.hecha && t.actual !== e.clave ? ' style="opacity:0.6"' : '') + '><span class="crm-st" style="color:' + color + '">' + ico + '</span><span>' + escapeHtml(e.label) + (sub ? '<div class="crm-muted">' + escapeHtml(sub) + '</div>' : '') + '</span></li>';
+            }).join('') + '</ul>';
+            evalCard = card('award', 'Tu evaluación', lista + (acciones.length ? '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;">' + acciones.join('') + '</div>' : ''),
+                t.dictamen ? '<span class="crm-count">' + (t.dictamen === 'competente' ? 'Competente' : 'No competente') + '</span>' : '');
+        }
+
         /* hero */
-        var ctaHtml = current
+        var ctaHtml = (!current && evalCta)
+            ? '<a class="crm-btn crm-btn-cta" href="' + evalCta.href + '">' + escapeHtml(evalCta.label) + icon('arrow', 16) + '</a>'
+            : current
             ? '<a class="crm-btn crm-btn-cta" href="' + escapeHtml(current.href) + '">Continuar: ' + escapeHtml(current.label) + icon('arrow', 16) + '</a>'
             : '<span class="crm-btn crm-btn-cta" aria-disabled="true">' + (certificado ? icon('award', 16) + 'Certificación completada' : icon('clock', 16) + 'Esperando a tu evaluador') + '</span>';
         var hero =
@@ -841,7 +880,7 @@
             : '<p class="crm-empty crm-ok">Todo en orden</p>',
             '<span class="crm-count">' + items.length + '</span>');
 
-        container.innerHTML = hero + '<div class="crm-grid">' + progreso + ruta + documentos + pagos + sesion + atencion + '</div>';
+        container.innerHTML = hero + '<div class="crm-grid">' + evalCard + progreso + ruta + documentos + pagos + sesion + atencion + '</div>';
 
         var retry = container.querySelector('[data-crm-retry-inscripciones]');
         if (retry && typeof data.onRetryInscripciones === 'function') {

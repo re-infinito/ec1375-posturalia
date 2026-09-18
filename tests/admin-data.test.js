@@ -101,3 +101,14 @@ test('declaraciones: una "fecha" que no es fecha válida cuenta como pendiente (
     const row = { plan_evaluacion_data: { planData: { declaraciones: { requisitos: '<textarea>', material: 'mañana', sinReembolsos: '2026-09-17T15:02:00Z' } } } };
     assert.deepEqual(AdminData.declaraciones(row).map(x => x.fecha), [null, null, '2026-09-17T15:02:00Z', null]);
 });
+
+test('candidatos: un evaluador (sin precios ni pagos) ve la lista de las filas, con las fases del RPC', () => {
+    const datos = { precio: [], pagos: [], reparto: [], utilidadesPagos: [], nombres: [], errores: {},
+        candidatosRows: [{ email: 'Ana@Ejemplo.com', nombre: 'Ana', updated_at: '2026-09-18T00:00:00Z', fases_pagadas: ['registro', 'alineacion', 'evaluacion', 'entrega'] }] };
+    const l = AdminData.candidatos(datos);
+    assert.equal(l.length, 1);
+    assert.equal(l[0].email, 'ana@ejemplo.com');
+    assert.equal(l[0].nombre, 'Ana');
+    assert.equal(l[0].fases.entrega, true);
+    assert.equal(l[0].fasePagada, 'Entrega');
+});

@@ -1,0 +1,137 @@
+// tests/evaluacion.test.js — correr con: node --test tests/*.test.js
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const E = require('../evaluacion.js');
+
+const publicada = (juicio, extra) => Object.assign({
+    evaluadora: 'Evaluadora Prueba', fecha: '2026-09-20', juicio, mejoresPracticas: 'a', areasOportunidad: 'b',
+    criteriosNoCubiertos: '', recomendaciones: 'c', observaciones: '', borrador: false,
+    publicada_at: '2026-09-20T18:00:00.000Z', firmaEvaluador: { mode: 'type', typedName: 'Evaluadora Prueba', nombre: 'Evaluadora Prueba' }
+}, extra || {});
+
+test('ETAPAS: las 9 del diseño, en orden', () => {
+    assert.deepEqual(E.ETAPAS.map(e => e.clave), ['evidencias', 'revision', 'registro_sep', 'dictamen', 'pago_entrega', 'portafolio_sep', 'tramite', 'recibido', 'entregado']);
+    assert.deepEqual(E.ETAPAS.filter(e => e.manual).map(e => e.clave), ['revision', 'registro_sep', 'portafolio_sep', 'tramite', 'recibido', 'entregado']);
+});
+
+test('lineaDeTiempo: con Evidencias hechas y sin evaluación, la actual es "En revisión"', () => {
+    const t = E.lineaDeTiempo({ evaluacion: null, evidenciasHechas: true, entregaPagada: false });
+    assert.equal(t.etapas[0].hecha, true);
+    assert.equal(t.actual, 'revision');
+    assert.equal(t.dictamen, null);
+});
+
+test('lineaDeTiempo: sin Evidencias, nada está hecho y la actual es Evidencias', () => {
+    const t = E.lineaDeTiempo({ evaluacion: null, evidenciasHechas: false });
+    assert.ok(t.etapas.every(e => !e.hecha));
+    assert.equal(t.actual, 'evidencias');
+});
+
+test('lineaDeTiempo: el dictamen sale de la Cédula publicada, no del borrador', () => {
+    const base = { etapas: { revision: { fecha: '2026-09-19T10:00:00Z', por: 'x' } } };
+    let t = E.lineaDeTiempo({ evaluacion: Object.assign({}, base, { cedula: publicada('COMPETENTE', { borrador: true }) }), evidenciasHechas: true });
+    assert.equal(t.dictamen, null);
+    t = E.lineaDeTiempo({ evaluacion: Object.assign({}, base, { cedula: publicada('COMPETENTE') }), evidenciasHechas: true });
+    assert.equal(t.dictamen, 'competente');
+    const d = t.etapas.find(e => e.clave === 'dictamen');
+    assert.equal(d.hecha, true);
+    assert.equal(d.fecha, '2026-09-20T18:00:00.000Z');
+    assert.equal(t.actual, 'registro_sep');
+});
+
+test('lineaDeTiempo: Entrega pagada marca su etapa; las manuales guardan fecha', () => {
+    const ev = { etapas: { revision: { fecha: 'f1' }, registro_sep: { fecha: 'f2' }, portafolio_sep: { fecha: 'f3' } }, cedula: publicada('COMPETENTE') };
+    const t = E.lineaDeTiempo({ evaluacion: ev, evidenciasHechas: true, entregaPagada: true });
+    assert.equal(t.etapas.find(e => e.clave === 'pago_entrega').hecha, true);
+    assert.equal(t.etapas.find(e => e.clave === 'registro_sep').fecha, 'f2');
+    assert.equal(t.actual, 'tramite');
+});
+
+test('lineaDeTiempo: no competente bloquea las etapas posteriores al dictamen', () => {
+    const t = E.lineaDeTiempo({ evaluacion: { etapas: {}, cedula: publicada('NO COMPETENTE') }, evidenciasHechas: true });
+    assert.equal(t.dictamen, 'no_competente');
+    const despues = t.etapas.slice(t.etapas.findIndex(e => e.clave === 'dictamen') + 1);
+    assert.ok(despues.every(e => e.bloqueada && !e.hecha));
+    assert.equal(t.actual, 'dictamen');
+});
+
+test('validarCedula: publicar exige evaluador(a), fecha, juicio válido, comentarios y firma', () => {
+    assert.deepEqual(E.validarCedula(publicada('COMPETENTE')), []);
+    const falta = E.validarCedula({ juicio: 'TAL VEZ' });
+    assert.ok(falta.includes('Nombre del evaluador(a)'));
+    assert.ok(falta.includes('Fecha'));
+    assert.ok(falta.includes('Juicio (COMPETENTE / NO COMPETENTE)'));
+    assert.ok(falta.includes('Firma del evaluador(a)'));
+    assert.ok(falta.includes('Al menos un comentario del resultado'));
+    assert.deepEqual(E.validarCedula(publicada('NO COMPETENTE', { firmaEvaluador: { mode: 'draw', dataUrl: 'javascript:alert(1)' } })), ['Firma del evaluador(a)']);
+});
+
+test('publicarCedula: archiva la anterior publicada, borra la firma del candidato y fecha la nueva', () => {
+    const antes = { cedula: publicada('NO COMPETENTE'), cedulas_anteriores: [], firma_candidato: { mode: 'type', typedName: 'Ana' } };
+    const r = E.publicarCedula(antes, publicada('COMPETENTE', { publicada_at: undefined }), { por: 'eval@x.mx', ahora: '2026-10-01T00:00:00.000Z' });
+    assert.equal(r.cedula.juicio, 'COMPETENTE');
+    assert.equal(r.cedula.borrador, false);
+    assert.equal(r.cedula.publicada_at, '2026-10-01T00:00:00.000Z');
+    assert.equal(r.cedula.por, 'eval@x.mx');
+    assert.equal(r.cedulas_anteriores.length, 1);
+    assert.equal(r.cedulas_anteriores[0].juicio, 'NO COMPETENTE');
+    assert.equal(r.cedulas_anteriores[0].firma_candidato.typedName, 'Ana');
+    assert.equal(r.firma_candidato, null);
+});
+
+test('publicarCedula: un borrador anterior no se archiva; guardar borrador no toca la firma', () => {
+    const antes = { cedula: publicada('COMPETENTE', { borrador: true }), cedulas_anteriores: [], firma_candidato: null };
+    const r = E.publicarCedula(antes, publicada('COMPETENTE'), { por: 'x', ahora: 't' });
+    assert.equal(r.cedulas_anteriores.length, 0);
+    const b = E.guardarBorrador({ cedula: publicada('COMPETENTE'), firma_candidato: { mode: 'type' } }, { evaluadora: 'X' }, { por: 'x' });
+    assert.equal(b.cedula.borrador, true);
+    assert.equal(b.firma_candidato.mode, 'type');
+});
+
+const RUTA = (c, n) => 'Portafolios/Ana_Demo_CURP/' + c + '/' + n;
+const fila = () => ({
+    nombre: 'Ana Demo',
+    autodiagnostico_data: { documentosNextcloud: { fichaRegistro: RUTA('01-Registro', 'Ficha.pdf'), autodiagnostico: RUTA('01-Registro', 'Auto.pdf'), acuseTriptico: RUTA('01-Registro', 'AcuseT.pdf') } },
+    plan_evaluacion_data: { documentosNextcloud: { planEvaluacion: RUTA('02-Alineacion', 'Plan.pdf'), acusePlanEvaluacion: RUTA('02-Alineacion', 'AcuseP.pdf') } },
+    documentos_sesion_data: { documentosNextcloud: { ficha: RUTA('03-Evaluacion', 'F.pdf'), consentimiento: RUTA('03-Evaluacion', 'C.pdf'), plan_sesion: RUTA('03-Evaluacion', 'PS.pdf'), plan_seguimiento: RUTA('03-Evaluacion', 'PSe.pdf') } },
+    encuesta_data: { documentosNextcloud: { encuesta: RUTA('03-Evaluacion', 'E.pdf') } },
+    evidencias_data: { planData: { videoLink: 'https://youtu.be/x' }, documentosNextcloud: { curp: [RUTA('04-Entrega', 'curp.pdf')], ine: [RUTA('04-Entrega', 'ine1.jpg'), RUTA('04-Entrega', 'ine2.jpg')] } }
+});
+
+test('planPortafolio: mismo orden que assemble_expediente.py, sin avisos si todo está', () => {
+    const p = E.planPortafolio(fila());
+    const id = p.items.map(i => i.tipo === 'nas' ? i.ruta.split('/').pop() : i.tipo === 'plantilla' ? 'IEC' : i.pagina);
+    assert.deepEqual(id, ['portada', 'indice', 'sep1', 'Ficha.pdf', 'curp.pdf', 'ine1.jpg', 'ine2.jpg', 'Auto.pdf', 'sep2', 'Plan.pdf', 'IEC',
+        'F.pdf', 'C.pdf', 'PS.pdf', 'PSe.pdf', 'video', 'sep3', 'cedula', 'E.pdf', 'sep4', 'AcuseT.pdf', 'AcuseP.pdf']);
+    assert.deepEqual(p.avisos, []);
+    assert.equal(p.videoLink, 'https://youtu.be/x');
+    assert.equal(p.nombre, 'Ana Demo');
+});
+
+test('planPortafolio: distingue "no lo subió" del formulario alterno y avisa sin video', () => {
+    const f = fila();
+    f.evidencias_data = { planData: {}, documentosNextcloud: { curp: 'MANUAL_FORM_FALLBACK' } };
+    delete f.encuesta_data;
+    const p = E.planPortafolio(f);
+    assert.ok(p.avisos.some(a => /Comprobante CURP/.test(a) && /formulario alterno/.test(a)));
+    assert.ok(p.avisos.some(a => /Identificación oficial/.test(a) && /todavía no lo ha subido/.test(a)));
+    assert.ok(p.avisos.some(a => /Encuesta de Satisfacción/.test(a)));
+    assert.ok(p.avisos.some(a => /liga al video/.test(a)));
+    assert.ok(!p.items.some(i => i.tipo === 'nas' && /MANUAL/.test(i.ruta)));
+});
+
+test('rutaNasPermitida: solo Portafolios/ o Plantillas/, sin salir de la carpeta', () => {
+    assert.equal(E.rutaNasPermitida('Portafolios/Ana_X/01-Registro/a.pdf'), true);
+    assert.equal(E.rutaNasPermitida('Plantillas/plantilla_IEC_blanco.pdf'), true);
+    for (const mala of ['', 'Contenido/x.json', '/Portafolios/a.pdf', 'Portafolios/../x', 'Portafolios/a/../../b', 'Portafolios\\a', 'Portafolios//a', null])
+        assert.equal(E.rutaNasPermitida(mala), false, String(mala));
+});
+
+test('mensajeWhatsApp: arma el aviso con el nombre y el enlace al panel', () => {
+    const m = E.mensajeWhatsApp('dictamen', { nombre: 'Ana', dictamen: 'competente' });
+    assert.ok(/Ana/.test(m) && /panel/.test(m) && /COMPETENTE/.test(m));
+    assert.ok(/nueva evidencia/i.test(E.mensajeWhatsApp('dictamen', { nombre: 'Ana', dictamen: 'no_competente' })));
+    assert.equal(E.telefonoWhatsApp('81 1234-5678'), '528112345678');
+    assert.equal(E.telefonoWhatsApp('+52 1 81 1234 5678'), '5218112345678');
+    assert.equal(E.telefonoWhatsApp(''), null);
+});

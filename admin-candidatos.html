@@ -13,6 +13,7 @@
     <script src="flow-status.js"></script>
     <script src="crm-shell.js" data-crm-mode="admin" data-crm-page="admin-candidatos"></script>
     <script src="admin-data.js"></script>
+    <script src="evaluacion.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         :root {
@@ -55,7 +56,7 @@
                 <div class="hero"><div class="hero-icon">🔐</div><h1 class="hero-title">Acceso del equipo</h1></div>
                 <div class="card" id="adminGateContainer"></div>
             </div>`;
-        Auth.renderAdminGate(document.getElementById('adminGateContainer'), { onVerified: boot });
+        Auth.renderAdminGate(document.getElementById('adminGateContainer'), { onVerified: boot, permitirEvaluador: true });
     }
     function esc(s) { return CrmShell._helpers.escapeHtml(s); }
     const fmt = AdminData.fmtMX;
@@ -72,9 +73,11 @@
     const ic = (n, s) => CrmShell.icon(n, s);
     const FASE_LABEL = AdminData.FASE_LABEL;
 
+    let rol = null;
     async function boot(session) {
         const app = document.getElementById('app');
-        CrmShell.mount({ mode: 'admin', currentPageId: 'admin-candidatos', title: 'Candidatos' });
+        rol = await Auth.rolEquipo(session.user.email);
+        CrmShell.mount({ mode: 'admin', currentPageId: 'admin-candidatos', title: 'Candidatos', rol });
         app.innerHTML = CrmShell.skeleton('table');
         try { datosGlobal = await AdminData.cargar(); }
         catch (e) { app.innerHTML = `<p class="msg error">No se pudieron cargar los datos: ${esc(e.message || e)}</p>`; return; }
@@ -206,6 +209,14 @@
         ).join('') + '</ul>';
         const pr = datosGlobal.precio.find(x => x.email === c.email) || {};
         const nota = c.notaInterna !== undefined ? c.notaInterna : (pr.nota_interna || '');
+        const esEvaluador = rol === 'evaluador';
+        /* Circuito del Centro Evaluador (18 sep): resumen y liga a su página. */
+        const evid = c.steps.find(s => s.id === 'evidencias');
+        const t = Evaluacion.lineaDeTiempo({ evaluacion: c.evaluacion, evidenciasHechas: !!(evid && evid.done), entregaPagada: !!c.fases.entrega });
+        const etapaActual = Evaluacion.ETAPAS.find(e => e.clave === t.actual);
+        const evalHtml = `<div class="crm-card-h" style="margin-top:4px;"><span class="crm-stat-ico">${ic('award', 18)}</span>Centro Evaluador<span class="crm-count">${t.dictamen ? (t.dictamen === 'competente' ? 'Competente' : 'No competente') : 'Sin dictamen'}</span></div>
+            <p class="crm-muted" style="font-size:0.84rem;margin-bottom:8px;">${etapaActual ? 'Etapa actual: ' + esc(etapaActual.label) : 'Proceso cerrado'}${c.evaluacion && c.evaluacion.portafolio ? ' · Portafolio generado el ' + esc(fechaCorta(c.evaluacion.portafolio.generado_at)) : ''}</p>
+            <a class="crm-btn crm-btn-sm crm-btn-primary" href="admin-evaluacion.html?email=${encodeURIComponent(c.email)}" style="margin-bottom:14px;">${ic('file', 14)}Abrir evaluación, Cédula y portafolio</a>`;
         drawer.innerHTML = `
             <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
                 <div><h2>${esc(c.nombre || '(sin nombre)')}</h2><div class="crm-muted">${esc(c.email)}</div></div>
@@ -213,20 +224,21 @@
             </div>
             <dl class="crm-kv">
                 <dt>CURP</dt><dd>${esc(c.curp || '—')}</dd>
-                <dt>Lote / estado</dt><dd>Lote ${c.lote} · ${chipEstado(c.estado)}</dd>
-                <dt>Total acordado</dt><dd>${fmt(c.totalAcordado)}</dd>
+                ${esEvaluador ? '' : `<dt>Lote / estado</dt><dd>Lote ${c.lote} · ${chipEstado(c.estado)}</dd>
+                <dt>Total acordado</dt><dd>${fmt(c.totalAcordado)}</dd>`}
                 <dt>Paso actual</dt><dd>${chipPaso(c)}</dd>
                 <dt>Última actividad</dt><dd>${fechaCorta(c.ultimaActividad)}</dd>
             </dl>
-            <div class="crm-card-h"><span class="crm-stat-ico">${ic('file', 18)}</span>Nota interna</div>
+            ${evalHtml}
+            ${esEvaluador ? '' : `<div class="crm-card-h"><span class="crm-stat-ico">${ic('file', 18)}</span>Nota interna</div>
             <textarea id="notaInterna" rows="2" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:var(--dark);color:var(--text-bright);font-family:inherit;font-size:0.86rem;resize:vertical;" placeholder="Solo la ve el equipo (ej. acordó pagar en 3 partes, llamar el lunes…)">${esc(nota)}</textarea>
-            <div style="display:flex;justify-content:flex-end;margin:6px 0 14px;"><button type="button" class="crm-btn crm-btn-sm crm-btn-primary" id="btnNota">Guardar nota</button></div>
+            <div style="display:flex;justify-content:flex-end;margin:6px 0 14px;"><button type="button" class="crm-btn crm-btn-sm crm-btn-primary" id="btnNota">Guardar nota</button></div>`}
             <div class="crm-card-h"><span class="crm-stat-ico">${ic('check', 18)}</span>Declaraciones aceptadas</div>${declHtml}
-            <div class="crm-card-h"><span class="crm-stat-ico">${ic('card', 18)}</span>Fases de pago</div><ul class="crm-list">${fasesHtml}</ul>
+            ${esEvaluador ? '' : `<div class="crm-card-h"><span class="crm-stat-ico">${ic('card', 18)}</span>Fases de pago</div><ul class="crm-list">${fasesHtml}</ul>
             <div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 14px;">
                 <a class="crm-btn crm-btn-sm crm-btn-ghost" style="border-color:var(--border);color:var(--text-bright);background:var(--surface-2);" href="admin-precios.html">${ic('dollar', 14)}Montos y precios</a>
                 <a class="crm-btn crm-btn-sm crm-btn-ghost" style="border-color:var(--border);color:var(--text-bright);background:var(--surface-2);" href="admin-sesiones.html">${ic('video', 14)}Sesiones</a>
-            </div>
+            </div>`}
             <div class="crm-card-h" style="margin-top:16px;"><span class="crm-stat-ico">${ic('map', 18)}</span>Ruta de certificación<span class="crm-count">${c.hechos} / 10</span></div>${pasosHtml}
             <div class="crm-card-h" style="margin-top:16px;"><span class="crm-stat-ico">${ic('file', 18)}</span>Documentos del expediente<span class="crm-count">${c.docs.completos} / ${c.docs.total}</span></div>
             ${c.tieneFila ? `<ul class="crm-list">${docsHtml}</ul>` : '<p class="crm-empty">Este candidato aún no ha iniciado su Autodiagnóstico (sin fila en candidatos_ec1375).</p>'}`;
@@ -234,7 +246,7 @@
         document.getElementById('drawerBackdrop').classList.add('is-open');
         document.getElementById('drawerClose').addEventListener('click', cerrarDetalle);
         drawer.querySelectorAll('[data-fase]').forEach(b => b.addEventListener('click', () => toggleFase(c, b.dataset.fase)));
-        document.getElementById('btnNota').addEventListener('click', async () => {
+        if (document.getElementById('btnNota')) document.getElementById('btnNota').addEventListener('click', async () => {
             const btn = document.getElementById('btnNota'); btn.disabled = true; btn.textContent = 'Guardando…';
             const ok = await guardarNota(c, document.getElementById('notaInterna').value.trim());
             btn.disabled = false; btn.textContent = ok ? 'Guardado' : 'Guardar nota';

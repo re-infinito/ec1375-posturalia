@@ -55,8 +55,8 @@ Por ser admin: `protect.js` no se activa (sin marca de agua ni bloqueo de copia)
 ### Durante y después — orden
 1. Recorrer los 10 pasos con los documentos reales.
 2. En el panel, confirmar que los 15 documentos marquen **"subido"**, no solo "descargado": el script solo ensambla lo que está en Nextcloud.
-3. El evaluador revisa el video y llena Cédula de Evaluación e IEC; liberar Entrega.
-4. `python3 assemble_expediente.py "Nombre Completo"` desde `_internal_no_publicar/01-scripts/`.
+3. El evaluador revisa el video y, en Candidatos → "Abrir evaluación", publica la Cédula (ver "Circuito del Centro Evaluador"; antes hay que correr su SQL). Diego la firma desde su panel y paga Entrega.
+4. "Generar portafolio" en esa misma página (respaldo: `python3 assemble_expediente.py "Nombre Completo"` desde `_internal_no_publicar/01-scripts/`, que inserta la Cédula en blanco).
 5. **Revisar el PDF ensamblado página por página** contra `PORTAFOLIO HUMBERTO LOT 1375  .pdf` antes de entregarlo.
 
 ### ⚠️ Puede afectar la aprobación de la SEP — confirmar con el evaluador ANTES de ensamblar
@@ -111,7 +111,8 @@ plan-evaluacion.html      Tabla de 25 grupos (=142 reactivos), agenda cita, gate
 documentos-sesion.html    Wizard de 4 documentos (Ficha/Consentimiento/Plan Sesión/Seguimiento) de la sesión real con paciente
 encuesta-satisfaccion.html  7 preguntas oficiales, formato de caritas (RED CONOCER/ICEMéxico)
 evidencias.html           Checklist final + uploads nativos (Zoom, INE, CURP, foto diploma, certificados)
-entrega.html              Gate fase Entrega, confirmación final (no enlazada desde el flujo — el equipo comparte el link manual cuando el evaluador aprueba)
+entrega.html              Gate fase Entrega, confirmación final. Desde el 18 sep el panel del candidato la enlaza al publicarse un dictamen COMPETENTE
+cedula.html               (18 sep) El candidato lee su Cédula de Evaluación publicada y la firma "Estoy de acuerdo…" (RPC firmar_cedula)
 recursos.html             "Tutoriales y toolkit" (17 sep, sidebar → Recursos): 13 tutoriales en video + toolkit de formatos para el
                            consultorio (PDF + Word) que se desbloquea al terminar el proceso — ver "Recursos: …" en Cambios recientes
 tutoriales/               13 videos mudos (<id>.mp4, ~12 MB en total) + su portada (<id>.jpg). La lista vive en crm-shell.js
@@ -130,6 +131,12 @@ admin-data.js             Módulo compartido SOLO de páginas admin: AdminData.c
                            fórmulas de admin-kpis/admin-utilidades (que siguen con su copia local). Pruebas en
                            tests/admin-data.test.js.
 admin-index.html          Stub de redirección a admin-crm.html (el índice de módulos vive ahí como tarjeta)
+admin-evaluacion.html     (18 sep) Centro Evaluador por candidato (?email=): etapas con aviso por WhatsApp, captura/firma/publicación
+                           de la Cédula y "Generar portafolio". Admins y evaluadores. Ver "Circuito del Centro Evaluador"
+evaluacion.js             (18 sep) Lógica pura del circuito: 9 etapas, reglas de la Cédula, plan del portafolio (puerto del orden de
+                           assemble_expediente.py) y rutas permitidas del NAS. Pruebas: tests/evaluacion.test.js
+portafolio.js             (18 sep) Arma el portafolio en el navegador del equipo con pdf-lib: descarga del NAS por trozos, páginas
+                           generadas (puerto del script) y Cédula llena con las dos firmas. Solo lo carga admin-evaluacion.html
 admin-precios.html        Montos por fase, altas de candidatos, status de pago, liberación manual por fase
 admin-sesiones.html       Crea sesiones grupales de Alineación (Google Calendar/Meet), lista inscripciones
 admin-kpis.html           Dashboard de KPIs (inscritos/completados/ingresos por fase) — GATEADO por `Auth.renderAdminGate()`,
@@ -180,7 +187,8 @@ api/master-login.js       Login-maestro: entra como cualquier candidato autoriza
 api/crear-preferencia.js  Genera Preferencia de MP con monto dinámico por candidato/fase
 api/monto-fase.js         Calcula el monto de una fase sin crear preferencia (para mostrarlo en UI/transferencia)
 api/mercadopago-webhook.js  Autoriza email+fase automáticamente en pagos vía MP (valida firma HMAC)
-api/subir-portafolio.js   Sube PDFs generados a Nextcloud vía WebDAV (valida access_token de la sesión)
+api/subir-portafolio.js   Sube PDFs generados a Nextcloud vía WebDAV (valida access_token de la sesión). Desde el 18 sep también
+                           GET ?ruta=&desde=&hasta= : descarga del NAS en trozos de 3.5 MB, solo admins/evaluadores (portafolio)
 api/kpi-data.js           Datos agregados para kpi-dashboard-live.html
 api/sesiones-alineacion.js, api/inscribir-alineacion.js, api/mis-inscripciones-alineacion.js   Reserva de sesiones en vivo
 api/crear-evento-google.js, api/eliminar-evento-google.js   Admin: crea/borra eventos de Google Calendar
@@ -479,6 +487,21 @@ Visor propio de la Biblioteca, separado del motor `ruta-estudio.html`. **Decisio
 
 ---
 
+## Circuito del Centro Evaluador (18 sep) — ⚠️ falta correr el SQL
+
+Spec: `docs/superpowers/specs/2026-09-18-circuito-centro-evaluador-design.md` (decisiones de Diego del 17–18 sep: etapas y permisos aprobados; Cédula firmada por evaluador y candidato en el sitio; portafolio armado en el navegador del equipo).
+
+**⚠️ Para que funcione, Diego tiene que correr `_internal_no_publicar/02-sql/2026-09-18-centro-evaluador.sql` en el SQL Editor** (re-ejecutable). Crea `evaluadores`, `is_evaluador()`, `puede_evaluar()`, la tabla `evaluaciones` (RLS solo equipo), los RPC del candidato `mi_evaluacion()` y `firmar_cedula()`, recrea `admin_lista_candidatos()` abierta a evaluadores y con `fases_pagadas`, y el bucket privado `portafolios` (50 MB por archivo) con sus políticas. Hasta entonces `admin-evaluacion.html` muestra el aviso y deshabilita guardar; el panel del candidato simplemente no muestra la tarjeta. Para dar de alta a un evaluador: `insert into evaluadores (email, nombre) values (…)` (los admins ya pueden todo).
+
+- **Etapas** (`Evaluacion.ETAPAS`): Evidencias recibidas (auto) → En revisión → Registrado en el portal SEP → Dictamen (auto al publicar la Cédula) → Pago de Entrega (auto, fase `entrega`) → Portafolio enviado a la SEP (solo con Entrega pagada) → Certificado en trámite → recibido → entregado. Las manuales guardan `{ fecha, por }` en `evaluaciones.etapas` y se pueden desmarcar. **No se "implican"**: si el equipo publica el dictamen sin marcar "En revisión", esa etapa sigue pendiente en la línea de tiempo. Con NO COMPETENTE las posteriores quedan bloqueadas y la actual es el dictamen.
+- **Avisos:** cada etapa marcada tiene "Avisar por WhatsApp" con el mensaje escrito (`Evaluacion.mensajeWhatsApp`) al celular del Autodiagnóstico. Sin correo automático (no hay espacio para otra función).
+- **Cédula** (`admin-evaluacion.html`): evaluador(a), fecha, los 4 comentarios de la Cédula validada, juicio, observaciones para el candidato y firma dibujada o escrita. "Guardar borrador" (el candidato no la ve) o "Publicar". Republicar archiva la anterior en `cedulas_anteriores` y borra la firma del candidato (tiene que volver a firmar). "Descargar Cédula (PDF)" con el mismo layout que `draw_cedula_evaluacion_blanco()`, lleno y con las dos firmas. El nombre del evaluador se recuerda en `localStorage['paideia-evaluadora']`.
+- **Candidato:** tarjeta "Tu evaluación" en `panel.html` (línea de tiempo + "Leer y firmar mi Cédula" / "Subir nueva evidencia" / "Pagar Entrega"; si no hay paso del flujo pendiente, el botón principal del panel también lo lleva ahí) y `cedula.html`. **Ajuste al diseño aprobado:** como firma "Estoy de acuerdo con el juicio y satisfecho con los comentarios", sí ve el contenido de la Cédula; `mi_evaluacion()` no le manda borradores, la imagen de la firma del evaluador ni quién la capturó. Las notas internas siguen en `candidatos_precio.nota_interna`.
+- **Portafolio** ("Generar portafolio"): `Portafolio.generar()` sigue `Evaluacion.planPortafolio(row)` — el mismo orden y los mismos avisos del script — y descarga cada archivo con `GET /api/subir-portafolio` (valida sesión + `is_admin`/`puede_evaluar`, solo `Portafolios/` y `Plantillas/`, trozos de 3.5 MB porque Vercel responde hasta 4.5 MB). El IEC en blanco se tomó de `plantilla_IEC_blanco.pdf` y **ya está subido** a `Plantillas/plantilla_IEC_blanco.pdf` del NAS (`_internal_no_publicar/01-scripts/subir_plantilla_iec.py`; el NAS respondió 206 a un Range). JPG/PNG → una página; otros formatos → aviso. El resultado se descarga y se guarda en el bucket `portafolios` (`<correo>/Portafolio_EC1375_<Nombre>.pdf`) con `evaluaciones.portafolio`. **No por Vercel:** medido el 18 sep, producción sigue rechazando cuerpos de más de 4.5 MB (413 `FUNCTION_PAYLOAD_TOO_LARGE`). Avisos extra: Cédula sin publicar (va en blanco) o sin la firma del candidato. `assemble_expediente.py` queda de respaldo.
+- **Evaluador:** `Auth.rolEquipo(email)` ('admin' | 'evaluador' | null, cacheado en `Auth._rolEquipo`); `Auth.renderAdminGate(…, { permitirEvaluador: true })` solo en Candidatos y Evaluación; su menú solo tiene Candidatos; en el detalle no ve lote, total acordado, nota interna ni pagos. `AdminData.candidatos` arma su lista con las filas del RPC y `fases_pagadas` (no puede leer precios ni pagos).
+- **Verificado** con Supabase simulado en memoria y los archivos reales (Playwright): 25 de 25 comprobaciones — etapas, bloqueo del portafolio a la SEP sin pago, WhatsApp, validación, publicación con firma dibujada, Cédula en PDF (1 página), portafolio de 103 páginas (IEC real incluido) guardado y registrado, candidato ve la Cédula sin la firma del evaluador, valida y guarda su firma, panel con la tarjeta, evaluador con menú y detalle recortados, aviso sin SQL, 375 px sin desborde. Con un paso del flujo pendiente, el botón principal del panel sigue siendo ese paso (la tarjeta de evaluación tiene sus propios botones). También se revisaron a ojo la Cédula y las primeras páginas del portafolio. **No se ha probado contra Supabase real** (falta el SQL) ni la descarga real del NAS desde Vercel. Pruebas: `tests/evaluacion.test.js` (13), `tests/subir-portafolio.test.js` (5), `tests/admin-data.test.js` +1.
+- Fuera de alcance: IEC digital (sigue en blanco), correo automático, cobro de la reevaluación, subir el portafolio al portal de la SEP.
+
 ## Cambios recientes (17 de septiembre, 2026)
 
 - **Autodiagnóstico: "Continuar donde me quedé" ya reanuda.** Con datos personales y Acuerdo de Confidencialidad completos, el botón no hacía nada (`TypeError: … reading 'categorias'` en consola), y quien iniciaba sesión desde el gate de la propia página se quedaba en "Verifica tu correo". **Causa:** `resumeDiagnostico()` busca el primer paso incompleto con `isStepValid()`, y para `e1`…`e4` eso cuenta respuestas sobre `AUTODIAGNOSTICO_DATA`, que al volver a la página sigue vacío: desde el proyecto 4 los reactivos se piden a Supabase solo cuando `renderStep()` entra a un paso que los usa. **Arreglo:** esa carga pasó a `cargarReactivos()` (mismo spinner y mismo `Contenido.errorHtml` si falla), y `resumeDiagnostico()` la espera antes de validar el primer Elemento. Si faltan datos personales o el Acuerdo, ni siquiera se piden. La cuenta demo no pasa por aquí: va directo a Resultado. **Verificado con Playwright** (Supabase simulado, contenido real del paquete local, cuenta real): a medias sin reactivos → Elemento 1; Elemento 1 completo y Elemento 2 a medias → Elemento 2; 142 respondidos sin firma → Firma; todo completo → Resultado; sin foto → Datos personales (0 pedidos de contenido); sin sesión, entrando por el gate de la página → Elemento 1; contenido que no carga → aviso de `Contenido.errorHtml`. 0 errores de página. La versión anterior falla en los casos "a medias" y "gate de la página".
@@ -669,7 +692,7 @@ Landing (`index.html`) sigue un arco emocional Vocación→Miedo→Transformaci�
 4. Multi-evaluador — número de WhatsApp y nombre de evaluador están fijos en código.
 5. Anti-duplicados de CURP.
 6. ~~Página de estado del proceso para el candidato (en vez de preguntar por WhatsApp)~~ — resuelto: `panel.html` ahora es también un dashboard de progreso vía `flow-status.js` (ver esa sección arriba).
-7. Flujo del evaluador: llenar digitalmente Cédula de Evaluación e IEC, automatizar "Resultado Evaluación" (competente/no competente) — hoy 100% manual por WhatsApp. Bloquea enlazar `entrega.html` automáticamente.
+7. ~~Flujo del evaluador: Cédula digital y resultado competente/no competente~~ — hecho el 18 sep (ver "Circuito del Centro Evaluador"); falta el IEC digital.
 8. ~~Migrar `assemble_expediente.py` para leer del Nextcloud nuevo en vez de Google Forms/Drive.~~ — resuelto 15 sep, ver sección "Ensamblado del expediente final" arriba. La plantilla del IEC, que traía ocultos los datos de Humberto, quedó limpia y verificada el 16 sep (ver esa sección).
 9. Logo SVG de mejor calidad (`assets/images/logo/paideia-tech-logo-*.svg`, inconcluso) — seguir con el PNG actual por ahora.
 10. PPT de Alineación de mejor calidad, idealmente en Google Slides para embeber en vez de forzar descarga de ~17MB.

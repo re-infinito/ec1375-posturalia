@@ -314,3 +314,5 @@ input::-webkit-calendar-picker-indicator { cursor: pointer; opacity: 0.9; }
 .crm-tut video { display: block; width: 100%; aspect-ratio: 16 / 9; background: #000; border-radius: 10px; }
 .crm-tut-pie { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 14px; margin-top: 10px; font-size: 0.85rem; }
 .crm-tut-pie a { color: var(--primary); font-weight: 700; text-decoration: none; }
+/* Botones deshabilitados del shell (18 sep): que se vea que no se pueden usar. */
+.crm-btn:disabled { opacity: 0.45; cursor: not-allowed; }

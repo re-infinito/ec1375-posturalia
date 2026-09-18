@@ -11,6 +11,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="auth.js"></script>
     <script src="flow-status.js"></script>
+    <script src="evaluacion.js"></script>
     <script src="crm-shell.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -112,12 +113,14 @@
         app.innerHTML = CrmShell.skeleton('panel');
         const email = session.user.email;
 
-        const [rowR, stepsR, fasesR, inscR] = await Promise.allSettled([
+        const [rowR, stepsR, fasesR, inscR, evalR] = await Promise.allSettled([
             FlowStatus.getRow(),
             FlowStatus.getSteps(),
             Promise.all(FASES_PAGO.map(f => Auth.isPhaseAuthorized(email, f))),
-            cargarInscripciones(email)
+            cargarInscripciones(email),
+            Auth.miEvaluacion()
         ]);
+        const evaluacion = evalR.status === 'fulfilled' ? evalR.value : null;
         const row = rowR.status === 'fulfilled' ? rowR.value : null;
         const steps = stepsR.status === 'fulfilled' ? stepsR.value : null;
         const fases = {};
@@ -134,7 +137,7 @@
         const pintar = () => CrmShell.renderDashboard(app, {
             nombre: row && row.nombre ? row.nombre : 'candidato/a',
             steps: steps || [],
-            row, fases, inscripciones,
+            row, fases, inscripciones, evaluacion,
             onRetryInscripciones: async () => { inscripciones = await cargarInscripciones(email); pintar(); }
         });
         pintar();
