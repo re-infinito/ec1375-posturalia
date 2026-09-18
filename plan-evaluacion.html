@@ -1059,6 +1059,16 @@ const AUTODIAGNOSTICO_DATA = [
     function toggleAcuerdo(el) {
         planData.acuerdoAceptado = el.checked;
         savePlanProgress();
+        /* Mismo repintado del renglón que toggleDeclaracion (17 sep). */
+        const renglon = el.closest('.checkbox-row'), label = renglon && renglon.querySelector('label');
+        if (renglon) {
+            renglon.style.background = el.checked ? 'rgba(0,255,136,0.08)' : 'rgba(255,51,51,0.08)';
+            renglon.style.borderColor = el.checked ? 'var(--success)' : 'var(--danger)';
+        }
+        if (label) {
+            label.style.color = el.checked ? 'var(--success)' : 'var(--text)';
+            label.textContent = (el.checked ? '✓ ' : '○ ') + 'Acepto el Plan de Evaluación descrito arriba';
+        }
         updateGenerateButton();
     }
 

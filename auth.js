@@ -794,7 +794,8 @@ const Auth = {
                     horarioDesarrollo: '10:00 – 12:00 h',
                     lugarResultados: 'Instalaciones del Centro Evaluador / Videollamada',
                     horarioResultados: '12:30 h',
-                    acuerdoAceptado: true
+                    acuerdoAceptado: true,
+                    declaraciones: { version: '2026-09-17', requisitos: new Date().toISOString(), material: new Date().toISOString(), sinReembolsos: new Date().toISOString() }
                 },
                 signatureDataUrl: null, signatureTypedName: nombre, signatureMode: 'type',
                 documentosNextcloud: {}, documentosDescargados: { planEvaluacion: true, acusePlanEvaluacion: true }
