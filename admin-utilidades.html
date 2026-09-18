@@ -83,6 +83,24 @@
         .gasto-total { font-size: 1.05rem; font-weight: 700; color: var(--danger); text-align: right; }
         @media (max-width: 760px) { .gasto-row { grid-template-columns: 1fr 1fr; } .gasto-total { text-align: left; } }
 
+        .gasto-grupo { margin-top: 16px; }
+        .gasto-grupo h3 { font-size: 0.95rem; color: var(--text-bright); margin: 0 0 2px; }
+        .gasto-grupo .hint { font-size: 0.78rem; color: var(--text); opacity: 0.85; margin-bottom: 8px; }
+
+        .ficha-fases, .ficha-tabla { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+        .ficha-fases th, .ficha-tabla th { text-align: right; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.3px; color: var(--text); padding: 6px 10px; border-bottom: 1px solid var(--border); }
+        .ficha-fases td, .ficha-tabla td { text-align: right; padding: 8px 10px; border-bottom: 1px solid var(--border); color: var(--text-bright); }
+        .ficha-tabla th:first-child, .ficha-tabla td:first-child { text-align: left; }
+        .ficha-tabla td.neg { color: var(--danger); }
+        .ficha-tabla tr.total td { font-weight: 700; border-top: 2px solid var(--border); }
+        .ficha-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 18px; margin-top: 16px; }
+        .ficha-grid h3 { font-size: 0.95rem; color: var(--text-bright); margin-bottom: 6px; }
+        .ficha-res { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-top: 16px; }
+        .ficha-res > div { background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; }
+        .ficha-res .k { font-size: 0.72rem; text-transform: uppercase; color: var(--text); }
+        .ficha-res .v { font-size: 1.25rem; font-weight: 700; color: var(--text-bright); }
+        .scroll-x { overflow-x: auto; }
+
         .error { color: var(--danger); font-size: 0.85rem; margin-top: 4px; }
         .loading { text-align: center; padding: 40px; color: var(--text); }
             body.crm-active .top-bar { display: none; }
@@ -152,15 +170,6 @@
         });
     }
 
-    // Base del reparto = ingresos cobrados − gastos. AdminData.utilidades es la
-    // fuente única (la misma que usan el panel del equipo y los KPIs): "administrador"
-    // no cuenta en nada, quien desistió sí aporta lo que ya pagó, y los gastos
-    // (Centro Evaluador por certificado, etc.) se descuentan antes de repartir.
-    function baseReparto(lote) {
-        const u = AdminData.utilidades(datosParaAdminData(), lote);
-        return { ingresos: u.ingresos, gastos: u.gastos, neto: u.neto, base: Math.max(0, u.neto) };
-    }
-
     function obtenerConfiguracion(lote) {
         const config = configuracionLotes[`lote_${lote}`];
         if (config) return config;
@@ -176,19 +185,16 @@
         };
     }
 
+    // El reparto sale de AdminData.utilidades/repartir (fuente única, la misma que usan
+    // los KPIs y el panel del equipo): "administrador" no cuenta en nada, quien desistió
+    // sí aporta lo que ya pagó, y los costos se descuentan antes de repartir. Chris = su %
+    // de (ingresos − costos de Chris); los socios reciben el resto del neto real.
     function calcularReparto(lote) {
-        const config = obtenerConfiguracion(lote);
-        const b = baseReparto(lote);
-
+        const u = AdminData.utilidades(datosParaAdminData(), lote);
+        const r = u.reparto;
         return {
-            chris: config.incluir_chris ? Math.round((b.base * config.porcentaje_chris) / 100) : 0,
-            fernando: Math.round((b.base * config.porcentaje_fernando) / 100),
-            lot: Math.round((b.base * config.porcentaje_lot) / 100),
-            diego: Math.round((b.base * config.porcentaje_diego) / 100),
-            total: b.base,
-            ingresos: b.ingresos,
-            gastos: b.gastos.total,
-            neto: b.neto
+            chris: r.montos.chris, fernando: r.montos.fernando, lot: r.montos.lot, diego: r.montos.diego,
+            total: r.base, ingresos: u.ingresos, gastos: u.gastos.total, neto: r.neto, r
         };
     }
 
@@ -236,18 +242,15 @@
         document.getElementById('reparto_chris').style.display = config.incluir_chris ? 'block' : 'none';
         document.getElementById('perc_chris').disabled = !config.incluir_chris;
 
-        // Actualizar preview del resumen
-        const ingresos = baseReparto(loteActivo).base;
-        const chris = config.incluir_chris ? Math.round((ingresos * config.porcentaje_chris) / 100) : 0;
-        const fernando = Math.round((ingresos * config.porcentaje_fernando) / 100);
-        const lot = Math.round((ingresos * config.porcentaje_lot) / 100);
-        const diego = Math.round((ingresos * config.porcentaje_diego) / 100);
+        // Vista previa con los porcentajes aún sin guardar (misma fórmula que el reparto real)
+        const u = AdminData.utilidades(datosParaAdminData(), loteActivo);
+        const r = AdminData.repartir(u.ingresos, u.gastos, config);
 
         document.getElementById('resumen_chris_row').style.display = config.incluir_chris ? 'grid' : 'none';
-        document.getElementById('resumen_chris_monto').textContent = `$${chris.toLocaleString('es-MX')}`;
-        document.getElementById('resumen_fernando_monto').textContent = `$${fernando.toLocaleString('es-MX')}`;
-        document.getElementById('resumen_lot_monto').textContent = `$${lot.toLocaleString('es-MX')}`;
-        document.getElementById('resumen_diego_monto').textContent = `$${diego.toLocaleString('es-MX')}`;
+        document.getElementById('resumen_chris_monto').textContent = fmt(r.montos.chris);
+        document.getElementById('resumen_fernando_monto').textContent = fmt(r.montos.fernando);
+        document.getElementById('resumen_lot_monto').textContent = fmt(r.montos.lot);
+        document.getElementById('resumen_diego_monto').textContent = fmt(r.montos.diego);
 
         const total = config.porcentaje_chris + config.porcentaje_fernando + config.porcentaje_lot + config.porcentaje_diego;
         document.getElementById('total_porcentaje').textContent = total.toFixed(2);
@@ -277,10 +280,11 @@
                 <h2>💰 Ingresos y utilidad neta — Lote ${loteActivo}</h2>
                 <div class="neto-grid">
                     <div><div class="neto-label">Ingresos cobrados</div><div class="neto-valor" style="color:var(--success);">${fmt(reparto.ingresos)}</div></div>
-                    <div><div class="neto-label">− Gastos</div><div class="neto-valor" style="color:${reparto.gastos > 0 ? 'var(--danger)' : 'var(--text)'};">${fmt(reparto.gastos)}</div></div>
+                    <div><div class="neto-label">− Costo real</div><div class="neto-valor" style="color:${reparto.gastos > 0 ? 'var(--danger)' : 'var(--text)'};">${fmt(reparto.gastos)}</div></div>
                     <div><div class="neto-label">= Utilidad neta a repartir</div><div class="neto-valor">${fmt(reparto.total)}</div></div>
                 </div>
-                ${reparto.neto < 0 ? `<p class="error">⚠️ Los gastos superan lo cobrado por ${fmt(-reparto.neto)}: por ahora no hay utilidad que repartir en este lote.</p>` : ''}
+                ${reparto.neto < 0 ? `<p class="error">⚠️ El costo real supera lo cobrado por ${fmt(-reparto.neto)}: por ahora no hay utilidad que repartir en este lote.</p>` : ''}
+                ${config.incluir_chris ? `<p style="font-size:0.88rem;color:var(--text-bright);margin:6px 0;">Chris recibe <strong>${fmt(reparto.r.chris)}</strong> (${config.porcentaje_chris}% de ${fmt(Math.max(0, reparto.r.netoChris))} = ingresos − costos de Chris de ${fmt(reparto.r.costoChris)}${reparto.r.propiosChris ? '' : ', sin costos propios se usan los reales'}). Los socios reciben <strong>${fmt(reparto.r.pool)}</strong>${reparto.r.diferencial > 0 ? `, que incluye el diferencial de ${fmt(reparto.r.diferencial)} entre el costo de Chris y el real` : ''}.</p>` : ''}
                 <p style="font-size:0.85rem;color:var(--text);">Ingresos: pagos de candidatos activos, desistidos y cambio de lote (dinero ya cobrado) · excluye cuentas de Administrador</p>
             </div>
 
@@ -295,8 +299,8 @@
                         <label for="incluir_chris">✅ <strong>Christherapy</strong> participa en este lote</label>
                     </div>
                     <p style="font-size:0.75rem;color:var(--text);margin-top:8px;">
-                        ✓ Con Chris: 50% Chris + 50% para 3 socios (16.67% c/u)<br>
-                        ✗ Sin Chris: 100% para 3 socios (33.33% c/u)
+                        ✓ Con Chris: 50% para Chris (sobre ingresos − costos de Chris) y el resto del neto real para los 3 socios<br>
+                        ✗ Sin Chris: 100% del neto real para los 3 socios (33.33% c/u)
                     </p>
                 </div>
 
@@ -357,22 +361,22 @@
                     <div style="font-size:0.9rem;font-weight:700;color:var(--text-bright);margin-bottom:16px;">📊 Resumen del Reparto — Lote ${loteActivo}</div>
                     <div class="resumen-row" id="resumen_chris_row" ${config.incluir_chris ? 'style=""' : 'style="display:none;"'}>
                         <div><strong>Christherapy</strong></div>
-                        <div style="text-align:right;"><strong>${config.porcentaje_chris.toFixed(2)}%</strong></div>
+                        <div style="text-align:right;"><strong>${config.porcentaje_chris.toFixed(2)}% de su base</strong></div>
                         <div class="resumen-valor" id="resumen_chris_monto">$${reparto.chris.toLocaleString('es-MX')}</div>
                     </div>
                     <div class="resumen-row">
                         <div><strong>Fernando</strong></div>
-                        <div style="text-align:right;"><strong>${config.porcentaje_fernando.toFixed(2)}%</strong></div>
+                        <div style="text-align:right;"><strong>${reparto.r.partes.fernando.toFixed(2)}% de socios</strong></div>
                         <div class="resumen-valor" id="resumen_fernando_monto">$${reparto.fernando.toLocaleString('es-MX')}</div>
                     </div>
                     <div class="resumen-row">
                         <div><strong>Lot</strong></div>
-                        <div style="text-align:right;"><strong>${config.porcentaje_lot.toFixed(2)}%</strong></div>
+                        <div style="text-align:right;"><strong>${reparto.r.partes.lot.toFixed(2)}% de socios</strong></div>
                         <div class="resumen-valor" id="resumen_lot_monto">$${reparto.lot.toLocaleString('es-MX')}</div>
                     </div>
                     <div class="resumen-row">
                         <div><strong>Diego</strong></div>
-                        <div style="text-align:right;"><strong>${config.porcentaje_diego.toFixed(2)}%</strong></div>
+                        <div style="text-align:right;"><strong>${reparto.r.partes.diego.toFixed(2)}% de socios</strong></div>
                         <div class="resumen-valor" id="resumen_diego_monto">$${reparto.diego.toLocaleString('es-MX')}</div>
                     </div>
                     <div class="resumen-row" style="border-bottom:none;border-top:1px solid rgba(0,255,136,0.2);padding-top:12px;margin-top:12px;">
@@ -428,14 +432,9 @@
         gastos = data || [];
         gastosError = error ? (error.message || String(error)) : null;
     }
-    function renderGastosCard(lote) {
-        if (gastosError) {
-            return `<div class="card"><h2>🧾 Gastos fijos — Lote ${lote}</h2><p style="font-size:0.85rem;color:var(--accent);margin-top:10px;">⚠️ Falta correr <code>2026-09-18-gastos-utilidades.sql</code> en Supabase para descontar gastos (${escapeHtml(gastosError)}). Mientras tanto el reparto se calcula sobre el ingreso completo.</p></div>`;
-        }
-        const g = AdminData.utilidades(datosParaAdminData(), lote).gastos;
-        const filas = g.items.length ? g.items.map(it => {
-            const porCert = it.tipo === 'por_certificado';
-            return `
+    function gastoFila(it) {
+        const porCert = it.tipo === 'por_certificado';
+        return `
             <div class="gasto-row">
                 <div><strong>${escapeHtml(it.concepto)}</strong><div class="gasto-sub">${porCert ? 'Por certificado' : 'Monto fijo'} · ${it.lote === null ? 'todos los lotes' : 'solo Lote ' + it.lote}</div></div>
                 <div><input type="number" min="0" step="1" value="${it.monto}" data-gasto-monto="${it.id}" aria-label="Monto de ${escapeHtml(it.concepto)}"><div class="gasto-sub">${porCert ? 'MXN por certificado' : 'MXN'}</div></div>
@@ -443,22 +442,77 @@
                 <div class="gasto-total">−${fmt(it.total)}</div>
                 <div><button type="button" class="crm-btn crm-btn-danger" data-del-gasto="${it.id}">Eliminar</button></div>
             </div>`;
-        }).join('') : '<p style="font-size:0.85rem;color:var(--text);">Aún no hay gastos registrados.</p>';
+    }
+    function gastoGrupo(titulo, hint, lista, total, vacio) {
+        return `
+            <div class="gasto-grupo">
+                <h3>${titulo}</h3><div class="hint">${hint}</div>
+                <div class="resumen" style="background:var(--surface-2);border-color:var(--border);">${lista.length ? lista.map(gastoFila).join('') : `<p style="font-size:0.85rem;color:var(--text);">${vacio}</p>`}
+                    <div class="resumen-row" style="border-bottom:none;border-top:1px solid var(--border);padding-top:12px;margin-top:8px;"><div><strong>Total por candidato activo + fijos</strong></div><div></div><div class="resumen-valor" style="color:var(--danger);text-align:right;">−${fmt(total)}</div></div>
+                </div>
+            </div>`;
+    }
+    function renderGastosCard(lote) {
+        if (gastosError) {
+            return `<div class="card"><h2>🧾 Costos — Lote ${lote}</h2><p style="font-size:0.85rem;color:var(--accent);margin-top:10px;">⚠️ Falta correr <code>2026-09-18-gastos-utilidades.sql</code> en Supabase para descontar costos (${escapeHtml(gastosError)}). Mientras tanto el reparto se calcula sobre el ingreso completo.</p></div>`;
+        }
+        const u = AdminData.utilidades(datosParaAdminData(), lote);
+        const g = u.gastos;
+        const sinColumnaPara = gastos.length > 0 && !gastos.some(x => 'para' in x);
+        const aviso = sinColumnaPara ? `<p style="font-size:0.85rem;color:var(--accent);margin-bottom:10px;">⚠️ Para manejar costos distintos con Chris falta correr <code>2026-09-18-gastos-para-chris.sql</code> en Supabase.</p>` : '';
         return `
             <div class="card">
-                <h2>🧾 Gastos fijos — Lote ${lote}</h2>
-                <p style="font-size:0.82rem;color:var(--text);margin:-8px 0 12px;">Se descuentan de los ingresos antes de repartir. "Por certificado" se multiplica por los <strong>${g.certificados}</strong> candidato${g.certificados === 1 ? '' : 's'} activo${g.certificados === 1 ? '' : 's'} de este lote. Edita el monto y se guarda al salir del campo.</p>
-                <div class="resumen" style="background:var(--surface-2);border-color:var(--border);">${filas}
-                    <div class="resumen-row" style="border-bottom:none;border-top:1px solid var(--border);padding-top:12px;margin-top:8px;"><div><strong>TOTAL gastos del lote</strong></div><div></div><div class="resumen-valor" style="color:var(--danger);text-align:right;">−${fmt(g.total)}</div></div>
-                </div>
-                <h3 style="margin:18px 0 8px;font-size:0.95rem;color:var(--text-bright);">Agregar gasto</h3>
+                <h2>🧾 Costos — Lote ${lote}</h2>
+                ${aviso}
+                <p style="font-size:0.82rem;color:var(--text);margin:-8px 0 4px;">Se descuentan antes de repartir. "Por certificado" se multiplica por los <strong>${g.certificados}</strong> candidato${g.certificados === 1 ? '' : 's'} activo${g.certificados === 1 ? '' : 's'} de este lote. Edita un monto y se guarda al salir del campo.</p>
+                ${gastoGrupo('Costo real — lo que cobra el Centro Evaluador', 'Reduce el total a repartir (tabla de los socios).', g.items, g.total, 'Aún no hay costos reales registrados.')}
+                ${gastoGrupo('Costo manejado con Chris', 'Solo aplica en lotes con Chris: su parte se calcula sobre ingresos − estos costos. Lo que excede al costo real (el diferencial) se queda con los socios. Si no hay ninguno, a Chris se le descuentan los reales.', g.chris.items, g.chris.total, 'Sin costos propios de Chris: se le descuentan los reales.')}
+                <h3 style="margin:18px 0 8px;font-size:0.95rem;color:var(--text-bright);">Agregar costo</h3>
                 <form class="crm-form" id="formGasto">
                     <label>Concepto<input type="text" name="concepto" required maxlength="80" placeholder="Ej: Centro Evaluador"></label>
+                    <label>Se descuenta a<select name="para"><option value="real">Real (reduce el total)</option><option value="chris">Solo a la base de Chris</option></select></label>
                     <label>Tipo<select name="tipo"><option value="por_certificado">Por certificado</option><option value="fijo">Monto fijo</option></select></label>
                     <label>Monto (MXN)<input type="number" name="monto" min="0" step="1" required placeholder="0"></label>
                     <label>Aplica a<select name="alcance"><option value="todos">Todos los lotes</option><option value="lote">Solo el Lote ${lote}</option></select></label>
                     <button type="submit" class="crm-btn crm-btn-primary">➕ Agregar</button>
                 </form>
+            </div>
+            ${renderFichaCard(lote)}`;
+    }
+    /* Las dos tablas de precios de un candidato típico del lote (como la hoja de Diego). */
+    function renderFichaCard(lote) {
+        if (gastosError) return '';
+        const f = AdminData.fichaCandidato(datosParaAdminData(), lote);
+        if (!f.activos) return `<div class="card"><h2>📋 Tabla por candidato — Lote ${lote}</h2><p style="font-size:0.85rem;color:var(--text);">Aún no hay candidatos activos en este lote.</p></div>`;
+        const fila = (it, signo) => `<tr><td>${escapeHtml(it.concepto)}</td><td class="neg">${signo}${fmt(it.monto)}</td></tr>`;
+        const tabla = (titulo, items, total, neto, extra) => `
+            <div><h3>${titulo}</h3>
+                <table class="ficha-tabla"><tbody>
+                    <tr><td>Precio</td><td>${fmt(f.precio)}</td></tr>
+                    ${items.map(i => fila(i, '−')).join('')}
+                    <tr class="total"><td>Neto</td><td>${fmt(neto)}</td></tr>
+                    ${extra || ''}
+                </tbody></table></div>`;
+        const r = f.reparto;
+        const conChris = f.config.incluir_chris;
+        const tablaChris = conChris ? tabla('Tabla Chris', f.chris.items, f.chris.total, f.chris.neto,
+            `<tr><td>Chris (${f.config.porcentaje_chris}%)</td><td>${fmt(r.chris)}</td></tr>`) : '';
+        return `
+            <div class="card">
+                <h2>📋 Tabla por candidato — Lote ${lote}</h2>
+                <p style="font-size:0.82rem;color:var(--text);margin:-8px 0 10px;">Candidato promedio de los ${f.activos} activo${f.activos === 1 ? '' : 's'} del lote. Solo entran los costos por certificado (los de monto fijo se descuentan a nivel lote).</p>
+                <div class="scroll-x"><table class="ficha-fases"><thead><tr><th>Apartado</th><th>Alineación</th><th>Evaluación</th><th>Dictamen</th><th>Total</th></tr></thead>
+                    <tbody><tr><td>${fmt(f.fases.registro)}</td><td>${fmt(f.fases.alineacion)}</td><td>${fmt(f.fases.evaluacion)}</td><td>${fmt(f.fases.entrega)}</td><td><strong>${fmt(f.precio)}</strong></td></tr></tbody></table></div>
+                <div class="ficha-grid">
+                    ${tabla('Tabla Socios (costo real)', f.real.items, f.real.total, f.real.neto)}
+                    ${tablaChris}
+                </div>
+                <div class="ficha-res">
+                    ${conChris ? `<div><div class="k">Chris</div><div class="v">${fmt(r.chris)}</div></div>` : ''}
+                    <div><div class="k">Socios (total)</div><div class="v">${fmt(r.pool)}</div></div>
+                    <div><div class="k">Fer · Lot · Diego</div><div class="v" style="font-size:1rem;">${fmt(r.montos.fernando)} · ${fmt(r.montos.lot)} · ${fmt(r.montos.diego)}</div></div>
+                    ${conChris && r.diferencial > 0 ? `<div><div class="k">Diferencial (para socios)</div><div class="v">${fmt(r.diferencial)}</div></div>` : ''}
+                </div>
             </div>`;
     }
     function attachGastosListeners(lote) {
@@ -471,6 +525,7 @@
             const { error } = await supabaseClient.from('gastos_utilidades').insert({
                 lote: fd.get('alcance') === 'lote' ? lote : null,
                 concepto: String(fd.get('concepto') || '').trim(), tipo: fd.get('tipo'), monto: Number(fd.get('monto')),
+                ...((fd.get('para') === 'chris' || gastos.some(x => 'para' in x)) ? { para: fd.get('para') } : {}),
                 registrado_por: session && session.user ? session.user.email : null
             });
             if (error) { alert('No se pudo agregar el gasto: ' + (error.message || error)); return; }

@@ -95,6 +95,67 @@ test('gastos: sin gastos el reparto no cambia (tabla vacía o aún sin crear)', 
     assert.equal(AdminData.utilidades(sinClave, 1).gastos.total, 0);
 });
 
+// La hoja de Diego (18 sep): un candidato de $14,750 con las 4 fases pagadas.
+function datosHoja(config) {
+    return {
+        precio: [{ email: 'a@x.com', lote: 1, estado: 'activo', total_acordado: 14750, monto_registro: 2000, monto_alineacion: 4250, monto_evaluacion: 6000, monto_entrega: 2500 }],
+        pagos: ['registro', 'alineacion', 'evaluacion', 'entrega'].map(f => ({ email: 'a@x.com', fase: f })),
+        reparto: [Object.assign({ lote: 1, incluir_chris: true, porcentaje_chris: 50, porcentaje_fernando: 16.67, porcentaje_lot: 16.67, porcentaje_diego: 16.66 }, config)],
+        gastos: [
+            { id: 1, lote: null, concepto: 'Centro Evaluador', tipo: 'por_certificado', monto: 1200, para: 'real' },
+            { id: 2, lote: null, concepto: 'Centro 1', tipo: 'por_certificado', monto: 1250, para: 'chris' },
+            { id: 3, lote: null, concepto: 'Centro 2', tipo: 'por_certificado', monto: 1250, para: 'chris' },
+            { id: 4, lote: null, concepto: 'Certificación', tipo: 'por_certificado', monto: 1500, para: 'chris' }
+        ],
+        utilidadesPagos: [], nombres: [], candidatosRows: [], sesiones: []
+    };
+}
+
+test('dos tablas de costos: Tabla Chris ($10,750 → Chris $5,375) vs real ($13,550), el diferencial es de los socios', () => {
+    const u = AdminData.utilidades(datosHoja(), 1);
+    const r = u.reparto;
+    assert.equal(u.ingresos, 14750);
+    assert.equal(u.neto, 13550);                    // Tabla Socios: 14,750 − 1,200
+    assert.equal(r.costoChris, 4000);
+    assert.equal(r.netoChris, 10750);               // Tabla Chris: 14,750 − 4,000
+    assert.equal(r.chris, 5375);                    // 50% de 10,750
+    assert.equal(r.pool, 8175);                     // 13,550 − 5,375
+    assert.equal(r.diferencial, 2800);              // 4,000 − 1,200
+    const porSocio = ['fernando', 'lot', 'diego'].map(id => u.socios.find(s => s.id === id).aRepartir);
+    porSocio.forEach(m => assert.ok(Math.abs(m - 2725) <= 1, `cada socio ≈ 8,175 ÷ 3 = 2,725 (fue ${m})`));
+    assert.ok(Math.abs(u.aRepartir - 13550) <= 2);  // Chris + socios = neto real
+});
+
+test('dos tablas de costos: lote sin Chris reparte el neto real entre los 3 socios', () => {
+    const u = AdminData.utilidades(datosHoja({ incluir_chris: false, porcentaje_chris: 0, porcentaje_fernando: 33.33, porcentaje_lot: 33.33, porcentaje_diego: 33.34 }), 1);
+    assert.equal(u.socios.length, 3);
+    assert.equal(u.aRepartir >= 13549 && u.aRepartir <= 13551, true);
+    u.socios.forEach(s => assert.ok(Math.abs(s.aRepartir - 4517) <= 1));
+    assert.equal(u.reparto.diferencial, 0);
+});
+
+test('dos tablas de costos: sin costos propios de Chris se le descuentan los reales', () => {
+    const d = datosHoja();
+    d.gastos = d.gastos.filter(g => g.para === 'real');
+    const r = AdminData.utilidades(d, 1).reparto;
+    assert.equal(r.chris, Math.round(13550 * 0.5));
+    assert.equal(r.diferencial, 0);
+    assert.equal(r.propiosChris, false);
+});
+
+test('fichaCandidato: las dos tablas por candidato coinciden con la hoja', () => {
+    const f = AdminData.fichaCandidato(datosHoja(), 1);
+    assert.equal(f.precio, 14750);
+    assert.deepEqual(f.fases, { registro: 2000, alineacion: 4250, evaluacion: 6000, entrega: 2500 });
+    assert.equal(f.real.total, 1200);
+    assert.equal(f.real.neto, 13550);
+    assert.equal(f.chris.total, 4000);
+    assert.equal(f.chris.neto, 10750);
+    assert.equal(f.reparto.chris, 5375);
+    assert.equal(f.reparto.pool, 8175);
+    assert.equal(f.reparto.diferencial, 2800);
+});
+
 test('candidatos: paso real con computeSteps, docs, nombre y fase pagada', () => {
     const lista = AdminData.candidatos(datos());
     const a = lista.find(c => c.email === 'a@x.com');

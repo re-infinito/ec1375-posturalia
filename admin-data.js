@@ -121,7 +121,11 @@
     /* Gastos que se descuentan antes de repartir (gastos_utilidades, 18 sep).
        'por_certificado' = monto × candidatos ACTIVOS del lote (quien desistió o
        cambió de lote no recibe certificado, así que no genera el cobro);
-       'fijo' = monto único. lote null = aplica a todos los lotes. */
+       'fijo' = monto único. lote null = aplica a todos los lotes.
+       Dos tablas de costos (para): 'real' = lo que de verdad cobra el Centro
+       Evaluador (reduce el total a repartir) y 'chris' = los costos con los que
+       se calcula la base de Chris (solo aplican en lotes con Chris).
+       `total`/`items` son los REALES; `chris` trae los de Chris. */
     function gastosLote(datos, lote) {
         var certificados = visibles(datos).filter(function (c) {
             return (c.lote || 1) === lote && (c.estado || 'activo') === 'activo';
@@ -132,31 +136,90 @@
             var monto = Number(g.monto) || 0;
             var porCert = g.tipo === 'por_certificado';
             var cantidad = porCert ? certificados : 1;
-            return { id: g.id, lote: (g.lote === null || g.lote === undefined) ? null : Number(g.lote), concepto: g.concepto || '', tipo: g.tipo, monto: monto, cantidad: cantidad, total: monto * cantidad };
+            return {
+                id: g.id, lote: (g.lote === null || g.lote === undefined) ? null : Number(g.lote), concepto: g.concepto || '',
+                tipo: g.tipo, para: g.para === 'chris' ? 'chris' : 'real', monto: monto, cantidad: cantidad, total: monto * cantidad
+            };
         });
-        return { items: items, certificados: certificados, total: items.reduce(function (a, g) { return a + g.total; }, 0) };
+        var suma = function (l) { return l.reduce(function (a, g) { return a + g.total; }, 0); };
+        var reales = items.filter(function (g) { return g.para === 'real'; });
+        var deChris = items.filter(function (g) { return g.para === 'chris'; });
+        return { items: reales, certificados: certificados, total: suma(reales), chris: { items: deChris, total: suma(deChris) } };
+    }
+
+    /* Reparto de un lote (función pura, la usa también la vista previa de
+       admin-utilidades.html con los porcentajes aún sin guardar).
+       · Total a repartir (base) = ingresos − costos REALES (nunca negativo).
+       · Chris = su % de (ingresos − costos de Chris), tope: el total a repartir.
+         Sin costos propios de Chris se le descuentan los reales.
+       · Socios = el resto del total, repartido en proporción a sus porcentajes:
+         la diferencia entre los costos de Chris y los reales se queda con ellos. */
+    function repartir(ingresos, gastos, config) {
+        var neto = ingresos - gastos.total;
+        var base = Math.max(0, neto);
+        var conChris = config.incluir_chris !== false;
+        var costoChris = gastos.chris.items.length ? gastos.chris.total : gastos.total;
+        var netoChris = ingresos - costoChris;
+        var chris = conChris ? Math.min(base, Math.round(Math.max(0, netoChris) * (Number(config.porcentaje_chris) || 0) / 100)) : 0;
+        var pool = base - chris;
+        var ids = ['fernando', 'lot', 'diego'];
+        var pesos = ids.map(function (id) { return Number(config['porcentaje_' + id]) || 0; });
+        var sumaPesos = pesos.reduce(function (a, b) { return a + b; }, 0);
+        var montos = { chris: chris };
+        var partes = {};
+        ids.forEach(function (id, i) {
+            partes[id] = sumaPesos > 0 ? (pesos[i] / sumaPesos) * 100 : 0;
+            montos[id] = sumaPesos > 0 ? Math.round((pool * pesos[i]) / sumaPesos) : 0;
+        });
+        return {
+            neto: neto, base: base, chris: chris, pool: pool, montos: montos, partes: partes,
+            costoChris: costoChris, netoChris: netoChris, propiosChris: gastos.chris.items.length > 0,
+            diferencial: conChris ? costoChris - gastos.total : 0
+        };
     }
 
     function utilidades(datos, lote) {
         var config = configLote(datos, lote);
         var ingresos = ingresosLote(datos, lote);
         var gastos = gastosLote(datos, lote);
-        /* Utilidad neta = ingresos − gastos. Si los gastos superan lo cobrado no
-           hay nada que repartir (nunca reparto negativo); `neto` conserva el faltante. */
-        var neto = ingresos - gastos.total;
-        var base = Math.max(0, neto);
+        var r = repartir(ingresos, gastos, config);
         var pagos = (datos.utilidadesPagos || []).filter(function (p) { return Number(p.lote) === Number(lote); });
         var socios = SOCIOS.filter(function (s) { return s.id !== 'chris' || config.incluir_chris; }).map(function (s) {
             var pct = Number(config['porcentaje_' + s.id]) || 0;
-            var aRepartir = Math.round((base * pct) / 100);
+            var aRepartir = r.montos[s.id];
             var pagado = pagos.filter(function (p) { return p.socio === s.id; }).reduce(function (a, p) { return a + (Number(p.monto) || 0); }, 0);
             return { id: s.id, label: s.label, pct: pct, aRepartir: aRepartir, pagado: pagado, pendiente: Math.max(0, aRepartir - pagado) };
         });
         return {
-            lote: lote, ingresos: ingresos, gastos: gastos, neto: neto, config: config, socios: socios,
+            lote: lote, ingresos: ingresos, gastos: gastos, neto: r.neto, reparto: r, config: config, socios: socios,
             aRepartir: socios.reduce(function (a, s) { return a + s.aRepartir; }, 0),
             pagado: socios.reduce(function (a, s) { return a + s.pagado; }, 0),
             pendiente: socios.reduce(function (a, s) { return a + s.pendiente; }, 0)
+        };
+    }
+
+    /* Las dos tablas de precios de UN candidato típico del lote (como la hoja de
+       Diego): precio promedio de los activos por fase, costos por certificado y
+       cómo se reparte ese candidato. Reusa repartir(), así que coincide con el
+       reparto real. Solo cuentan los gastos 'por_certificado' (los fijos son del lote). */
+    function fichaCandidato(datos, lote) {
+        var config = configLote(datos, lote);
+        var g = gastosLote(datos, lote);
+        var activos = visibles(datos).filter(function (c) { return (c.lote || 1) === lote && (c.estado || 'activo') === 'activo'; });
+        var prom = function (f) { return activos.length ? Math.round(activos.reduce(function (a, c) { return a + (Number(c[f]) || 0); }, 0) / activos.length) : 0; };
+        var fases = {};
+        FASES.forEach(function (f) { fases[f] = prom('monto_' + f); });
+        var precio = activos.length ? Math.round(activos.reduce(function (a, c) { return a + (Number(c.total_acordado) || 0); }, 0) / activos.length) : 0;
+        var porCert = function (l) { return l.filter(function (i) { return i.tipo === 'por_certificado'; }); };
+        var suma = function (l) { return l.reduce(function (a, i) { return a + i.monto; }, 0); };
+        var real = porCert(g.items), propios = porCert(g.chris.items);
+        var uno = { total: suma(real), chris: { items: propios, total: suma(propios) } };
+        var r = repartir(precio, uno, config);
+        return {
+            activos: activos.length, precio: precio, fases: fases, config: config,
+            real: { items: real, total: suma(real), neto: precio - suma(real) },
+            chris: { items: propios.length ? propios : real, total: r.costoChris, neto: r.netoChris, propios: propios.length > 0 },
+            reparto: r
         };
     }
 
@@ -320,7 +383,7 @@
 
     var AdminData = {
         FASES: FASES, FASE_LABEL: FASE_LABEL, SOCIOS: SOCIOS, PASOS_EXTRA: PASOS_EXTRA,
-        cargar: cargar, kpis: kpis, utilidades: utilidades, gastosLote: gastosLote, utilidadesGlobal: utilidadesGlobal, lotes: lotes,
+        cargar: cargar, kpis: kpis, utilidades: utilidades, gastosLote: gastosLote, repartir: repartir, fichaCandidato: fichaCandidato, utilidadesGlobal: utilidadesGlobal, lotes: lotes,
         candidatos: candidatos, porPaso: porPaso, ultimosPagos: ultimosPagos, proximasSesiones: proximasSesiones, atencion: atencion,
         declaraciones: declaraciones,
         fmtMX: function (n) { return '$' + Math.round(n || 0).toLocaleString('es-MX'); }
