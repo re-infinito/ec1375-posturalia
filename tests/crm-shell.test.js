@@ -125,3 +125,20 @@ test('duracionTexto: minutos y segundos con dos dígitos', () => {
     assert.equal(H.duracionTexto(60), '1:00');
     assert.equal(H.duracionTexto(undefined), '0:00');
 });
+
+test('modoInstalacion: iPhone/iPad reciben instrucciones; instalada o escritorio sin aviso, nada', () => {
+    const safariIphone = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1';
+    const chromeIphone = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/139.0 Mobile/15E148 Safari/604.1';
+    const instagram = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 Instagram 390.0';
+    const mac = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Safari/605.1.15';
+    const android = 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0 Mobile Safari/537.36';
+    assert.equal(H.modoInstalacion(safariIphone, 5, false, false), 'ios-safari');
+    assert.equal(H.modoInstalacion(chromeIphone, 5, false, false), 'ios-otro');
+    assert.equal(H.modoInstalacion(instagram, 5, false, false), 'ios-otro');
+    assert.equal(H.modoInstalacion(mac, 5, false, false), 'ios-safari'); // iPad con iPadOS 13+
+    assert.equal(H.modoInstalacion(mac, 0, false, false), null);          // Mac de verdad
+    assert.equal(H.modoInstalacion(safariIphone, 5, true, false), null);  // ya instalada
+    assert.equal(H.modoInstalacion(android, 5, false, true), 'prompt');
+    assert.equal(H.modoInstalacion(android, 5, false, false), null);
+    assert.equal(H.modoInstalacion(android, 5, true, true), null);
+});

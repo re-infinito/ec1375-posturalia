@@ -316,3 +316,12 @@ input::-webkit-calendar-picker-indicator { cursor: pointer; opacity: 0.9; }
 .crm-tut-pie a { color: var(--primary); font-weight: 700; text-decoration: none; }
 /* Botones deshabilitados del shell (18 sep): que se vea que no se pueden usar. */
 .crm-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+/* Instrucciones para instalar en iPhone/iPad (reusa la ventana de tutoriales). */
+.crm-instalar .crm-tut-box { width: min(460px, 100%); padding: 16px 18px 18px; }
+.crm-instalar ol { margin: 4px 0 12px; padding-left: 22px; color: var(--text-bright); line-height: 1.55; }
+.crm-instalar li { margin-bottom: 8px; }
+.crm-instalar-aviso { margin: 0 0 12px; padding: 10px 12px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--border); font-size: 0.9rem; line-height: 1.45; }
+.crm-instalar-nota { margin: 0 0 8px; font-size: 0.85rem; line-height: 1.45; }
+/* .crm-sidebtn pone display:flex, que le ganaba al atributo hidden: el botón
+   "Instalar aplicación" se veía siempre (y en iPhone no hacía nada). */
+.crm-sidebtn[hidden] { display: none; }

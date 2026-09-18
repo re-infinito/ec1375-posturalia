@@ -202,6 +202,15 @@
            nunca el contenido protegido) + botón "Instalar aplicación". */
         var man = document.createElement('link'); man.rel = 'manifest'; man.href = '/manifest.json'; document.head.appendChild(man);
         var tc = document.createElement('meta'); tc.name = 'theme-color'; tc.content = '#0a2a6b'; document.head.appendChild(tc);
+        /* iPhone/iPad: Safari no usa beforeinstallprompt; se instala con
+           Compartir → "Agregar a pantalla de inicio" y lee estas metas. */
+        [['apple-mobile-web-app-capable', 'yes'], ['mobile-web-app-capable', 'yes'], ['apple-mobile-web-app-title', 'Paideia Tech'], ['apple-mobile-web-app-status-bar-style', 'default']].forEach(function (m) {
+            if (document.querySelector('meta[name="' + m[0] + '"]')) return;
+            var el = document.createElement('meta'); el.name = m[0]; el.content = m[1]; document.head.appendChild(el);
+        });
+        if (!document.querySelector('link[rel="apple-touch-icon"]')) {
+            var ati = document.createElement('link'); ati.rel = 'apple-touch-icon'; ati.href = '/apple-touch-icon.png'; document.head.appendChild(ati);
+        }
         if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
             window.addEventListener('load', function () { navigator.serviceWorker.register('/sw.js').catch(function (e) { console.warn('SW no registrado:', e); }); });
         }
@@ -414,7 +423,7 @@
             '<div class="crm-user">' +
                 '<div class="crm-user-row"><span class="crm-avatar" data-crm-avatar>?</span><div style="min-width:0;">' +
                     '<div class="crm-user-name" data-crm-name>Administrador</div><div class="crm-user-email" data-crm-email></div></div></div>' +
-                '<button type="button" class="crm-sidebtn crm-sidebtn-install" data-crm-install' + (window.__crmInstallPrompt ? '' : ' hidden') + '>' + icon('download') + '<span>Instalar aplicación</span></button>' +
+                '<button type="button" class="crm-sidebtn crm-sidebtn-install" data-crm-install' + (modoInstalacionActual() ? '' : ' hidden') + '>' + icon('download') + '<span>Instalar aplicación</span></button>' +
                 '<button type="button" class="crm-sidebtn" data-crm-theme-btn="text">' + icon('moon') + '<span>Modo oscuro</span></button>' +
                 '<button type="button" class="crm-sidebtn is-logout" data-crm-logout>' + icon('logout') + '<span>Cerrar sesión</span></button>' +
             '</div>' +
@@ -440,7 +449,7 @@
             '<div class="crm-user">' +
                 '<div class="crm-user-row"><span class="crm-avatar" data-crm-avatar>?</span><div style="min-width:0;">' +
                     '<div class="crm-user-name" data-crm-name>Cargando…</div><div class="crm-user-email" data-crm-email></div></div></div>' +
-                '<button type="button" class="crm-sidebtn crm-sidebtn-install" data-crm-install' + (window.__crmInstallPrompt ? '' : ' hidden') + '>' + icon('download') + '<span>Instalar aplicación</span></button>' +
+                '<button type="button" class="crm-sidebtn crm-sidebtn-install" data-crm-install' + (modoInstalacionActual() ? '' : ' hidden') + '>' + icon('download') + '<span>Instalar aplicación</span></button>' +
                 '<button type="button" class="crm-sidebtn" data-crm-theme-btn="text">' + icon('moon') + '<span>Modo oscuro</span></button>' +
                 '<button type="button" class="crm-sidebtn is-logout" data-crm-logout>' + icon('logout') + '<span>Cerrar sesión</span></button>' +
             '</div>' +
@@ -639,6 +648,7 @@
             if (t.hasAttribute('data-crm-install')) {
                 var pr = window.__crmInstallPrompt;
                 if (pr) { pr.prompt(); pr.userChoice.then(function () { window.__crmInstallPrompt = null; t.hidden = true; }); }
+                else if (modoInstalacionActual()) abrirInstruccionesInstalar(modoInstalacionActual(), t);
                 return;
             }
             if (t.hasAttribute('data-crm-retry')) { ev.preventDefault(); location.reload(); return; }
@@ -940,6 +950,68 @@
         seg = Math.max(0, Math.round(Number(seg) || 0));
         return Math.floor(seg / 60) + ':' + ('0' + (seg % 60)).slice(-2);
     }
+    /* Instalar en iPhone/iPad. Safari (y los navegadores de iOS) nunca
+       disparan beforeinstallprompt, así que el botón quedaba oculto para
+       siempre. Devuelve:
+       'prompt'      → Android/Chrome/Edge con el aviso nativo listo
+       'ios-safari'  → Safari de iOS: Compartir → Agregar a pantalla de inicio
+       'ios-otro'    → Chrome/Firefox/Edge de iOS o navegador dentro de una app
+                       (Instagram, Facebook…): mismo menú, o abrir en Safari
+       null          → ya instalada o sin forma de instalar desde aquí.
+       El iPad con iPadOS 13+ se presenta como Mac: se reconoce por el táctil. */
+    function modoInstalacion(ua, toquesMax, instalada, hayPrompt) {
+        ua = String(ua || '');
+        if (instalada) return null;
+        if (hayPrompt) return 'prompt';
+        var ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && (toquesMax || 0) > 1);
+        if (!ios) return null;
+        if (/CriOS|FxiOS|EdgiOS|OPiOS|FBAN|FBAV|Instagram|Line\/|GSA\//.test(ua)) return 'ios-otro';
+        return 'ios-safari';
+    }
+    function modoInstalacionActual() {
+        if (typeof window === 'undefined' || typeof navigator === 'undefined') return null;
+        var instalada = navigator.standalone === true ||
+            (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+        return modoInstalacion(navigator.userAgent, navigator.maxTouchPoints, instalada, !!window.__crmInstallPrompt);
+    }
+    /* Ícono de "Compartir" de iOS (cuadro con flecha hacia arriba). */
+    var ICONO_COMPARTIR_IOS = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-3px"><path d="M8 10H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2h-2"/><path d="M12 15V2"/><path d="M8 6l4-4 4 4"/></svg>';
+    function abrirInstruccionesInstalar(modo, disparador) {
+        var previo = document.querySelector('.crm-tut');
+        if (previo) previo.remove();
+        var capa = document.createElement('div');
+        capa.className = 'crm-tut crm-instalar';
+        capa.setAttribute('role', 'dialog');
+        capa.setAttribute('aria-modal', 'true');
+        capa.setAttribute('aria-label', 'Instalar la aplicación en tu iPhone');
+        var pasos = modo === 'ios-otro'
+            ? '<p class="crm-instalar-aviso">Si abriste el enlace desde WhatsApp, Instagram o Facebook, primero ábrelo en <strong>Safari</strong> (menú <strong>⋯</strong> o ícono de brújula → <strong>Abrir en Safari</strong>).</p>' +
+              '<ol><li>En Safari, toca <strong>Compartir</strong> ' + ICONO_COMPARTIR_IOS + ' (abajo al centro, o junto a la dirección).</li>' +
+              '<li>Desliza hacia abajo y toca <strong>Agregar a pantalla de inicio</strong>.</li>' +
+              '<li>Toca <strong>Agregar</strong>.</li></ol>' +
+              '<p class="crm-instalar-nota">En Chrome para iPhone también funciona: toca Compartir ' + ICONO_COMPARTIR_IOS + ' junto a la dirección → <strong>Agregar a pantalla de inicio</strong>.</p>'
+            : '<ol><li>Toca <strong>Compartir</strong> ' + ICONO_COMPARTIR_IOS + ' en la barra de Safari (abajo al centro; si no la ves, toca <strong>⋯</strong> primero).</li>' +
+              '<li>Desliza hacia abajo y toca <strong>Agregar a pantalla de inicio</strong>.</li>' +
+              '<li>Toca <strong>Agregar</strong>.</li></ol>' +
+              '<p class="crm-instalar-aviso">Si no aparece "Agregar a pantalla de inicio", abriste la página dentro de otra app (por ejemplo WhatsApp): toca el ícono de brújula o <strong>Abrir en Safari</strong> y repite.</p>';
+        capa.innerHTML = '<div class="crm-tut-box">' +
+            '<div class="crm-tut-h"><strong>Instala Paideia Tech en tu iPhone</strong>' +
+            '<button type="button" class="crm-iconbtn" data-crm-tut-cerrar aria-label="Cerrar">' + icon('x') + '</button></div>' +
+            pasos +
+            '<p class="crm-instalar-nota">Aparecerá el ícono de Paideia Tech en tu pantalla de inicio. La primera vez que la abras desde ahí tendrás que iniciar sesión de nuevo.</p>' +
+            '</div>';
+        function cerrar() {
+            capa.remove();
+            document.removeEventListener('keydown', teclas);
+            if (disparador && disparador.focus) disparador.focus();
+        }
+        function teclas(ev) { if (ev.key === 'Escape') cerrar(); }
+        capa.addEventListener('click', function (ev) { if (ev.target === capa || ev.target.closest('[data-crm-tut-cerrar]')) cerrar(); });
+        document.addEventListener('keydown', teclas);
+        document.body.appendChild(capa);
+        capa.querySelector('[data-crm-tut-cerrar]').focus();
+    }
+
     /* Reproductor en ventana: Esc, el fondo o ✕ la cierran; el foco regresa
        al botón que la abrió. Sin sonido: los videos son mudos. */
     function abrirTutorial(id, disparador) {
@@ -981,7 +1053,8 @@
             pendientesDelPaso: pendientesDelPaso, faseMasAlta: faseMasAlta, tiempoRelativo: tiempoRelativo,
             iniciales: iniciales, proximaInscripcion: proximaInscripcion, formatoSesion: formatoSesion,
             itemsAtencion: itemsAtencion, fechaSesion: fechaSesion,
-            tutorialDePagina: tutorialDePagina, duracionTexto: duracionTexto
+            tutorialDePagina: tutorialDePagina, duracionTexto: duracionTexto,
+            modoInstalacion: modoInstalacion
         },
         DOC_GRUPOS: DOC_GRUPOS,
         FASES: FASES,
