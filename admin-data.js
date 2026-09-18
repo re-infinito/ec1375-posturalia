@@ -277,7 +277,7 @@
         return DECLARACIONES.map(function (d) {
             var v = row ? row[d.col] : null;
             d.ruta.forEach(function (k) { v = v && typeof v === 'object' ? v[k] : null; });
-            return { id: d.id, label: d.label, fecha: typeof v === 'string' && v ? v : null };
+            return { id: d.id, label: d.label, fecha: typeof v === 'string' && v && !isNaN(Date.parse(v)) ? v : null };
         });
     }
 

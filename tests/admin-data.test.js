@@ -96,3 +96,8 @@ test('declaraciones: sin fila, sin datos o con valores raros → todas pendiente
         assert.deepEqual(AdminData.declaraciones(row).map(x => x.fecha), [null, null, null, null]);
     }
 });
+
+test('declaraciones: una "fecha" que no es fecha válida cuenta como pendiente (no llega HTML al panel)', () => {
+    const row = { plan_evaluacion_data: { planData: { declaraciones: { requisitos: '<textarea>', material: 'mañana', sinReembolsos: '2026-09-17T15:02:00Z' } } } };
+    assert.deepEqual(AdminData.declaraciones(row).map(x => x.fecha), [null, null, '2026-09-17T15:02:00Z', null]);
+});
