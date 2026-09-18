@@ -377,13 +377,15 @@
             return;
         }
 
-        const autorizado = await Auth.isPhaseAuthorized(session.user.email, 'evaluacion');
+        await Auth.isBypassSession();
+        /* 18 sep: la sesión grabada se habilita con Alineación. */
+        const autorizado = Auth._isBypassSession || await Auth.isPhaseAuthorized(session.user.email, 'alineacion');
         if (!autorizado) {
             app.innerHTML = `
                 <div class="hero"><div class="hero-icon">📜</div><h1 class="hero-title">Guion Maestro de Sesión</h1></div>
                 <div class="pay-box">
-                    <p>Este guion es material de apoyo para tu sesión de <strong>Evaluación</strong> — antes de continuar necesitas completar ese pago.</p>
-                    <a href="documentos-sesion.html" class="btn btn-primary btn-full" style="margin-top:16px;">Ir a pagar Evaluación →</a>
+                    <p>Este guion es tu apoyo para la sesión grabada, que se habilita con tu pago de <strong>Alineación</strong>.</p>
+                    <a href="alineacion.html" class="btn btn-primary btn-full" style="margin-top:16px;">Ir a mi Alineación →</a>
                 </div>`;
             return;
         }
