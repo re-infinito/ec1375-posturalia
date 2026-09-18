@@ -27,6 +27,10 @@
 
 const { createClient } = require('@supabase/supabase-js');
 const { rutaNasPermitida } = require('../evaluacion.js');
+const Nc = require('../lib/nextcloud.js');
+const Zoom = require('../lib/zoom.js');
+const GZ = require('../grabacion-zoom.js');
+const { normalizarNextcloudUrl, slugify, carpetaCandidato, cloudflareAccessHeaders, ensureFolder } = Nc;
 
 const SUPABASE_URL = 'https://numsuiuwrvpprhnxovmh.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im51bXN1aXV3cnZwcHJobnhvdm1oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc2OTg3MDAsImV4cCI6MjEwMzI3NDcwMH0.LA_MJzLcJyVtysxsJAmWwWzKwgynNm-f6ejGEaEpG1Y';
@@ -39,47 +43,6 @@ const FASE_CARPETA = {
 };
 
 const MAX_FILE_BYTES = 15 * 1024 * 1024; // 15MB
-
-function normalizarNextcloudUrl(url) {
-    let normalized = (url || '').trim().replace(/\/+$/, '');
-    normalized = normalized.replace(/\/index\.php\/login$/i, '').replace(/\/login$/i, '');
-    return normalized;
-}
-
-function slugify(text) {
-    return (text || '')
-        .normalize('NFD').replace(/[̀-ͯ]/g, '')
-        .replace(/[^a-zA-Z0-9]+/g, '_')
-        .replace(/^_+|_+$/g, '');
-}
-
-function carpetaCandidato(nombre, curp) {
-    const partes = [slugify(nombre), slugify(curp)].filter(Boolean);
-    return partes.join('_') || 'candidato_sin_identificar';
-}
-
-function cloudflareAccessHeaders() {
-    const clientId = process.env.CF_ACCESS_CLIENT_ID;
-    const clientSecret = process.env.CF_ACCESS_CLIENT_SECRET;
-    if (!clientId || !clientSecret) return {};
-    return { 'CF-Access-Client-Id': clientId, 'CF-Access-Client-Secret': clientSecret };
-}
-
-async function ensureFolder(baseWebdavUrl, baseHeaders, folderPath) {
-    const partes = folderPath.split('/').filter(Boolean);
-    let acumulado = '';
-    for (const parte of partes) {
-        acumulado += `/${encodeURIComponent(parte)}`;
-        const resp = await fetch(`${baseWebdavUrl}${acumulado}`, {
-            method: 'MKCOL',
-            headers: baseHeaders
-        });
-        // 201 = creada. 405 = ya existía. Cualquier otra cosa es un error real.
-        if (resp.status !== 201 && resp.status !== 405) {
-            throw new Error(`No se pudo crear la carpeta ${acumulado} (status ${resp.status})`);
-        }
-    }
-}
 
 const TROZO_MAX = 3.5 * 1024 * 1024;
 
@@ -150,6 +113,81 @@ async function handleDescarga(req, res) {
     return res.status(200).send(cuerpo);
 }
 
+/* ---- Sala de evidencias (18 sep): grabación de Zoom → NAS -------------
+   POST { accion, … } con la sesión del equipo (admin o evaluador). El
+   archivo nunca pasa por el navegador: el servidor pide cada rango a Zoom
+   y lo sube a la carga por trozos de Nextcloud. Ver lib/zoom.js. */
+function esIsoFecha(s) { return typeof s === 'string' && !isNaN(Date.parse(s)); }
+function validarCierre(b) {
+    if (!b || !GZ.esIdSubida(b.uploadId)) return 'Identificador de subida inválido';
+    if (typeof b.nombre !== 'string' || typeof b.curp !== 'string' || !(b.nombre.trim() || b.curp.trim())) return 'Faltan nombre y CURP del candidato';
+    if (!esIsoFecha(b.inicio)) return 'Fecha de inicio inválida';
+    if (!Number.isInteger(b.partes) || b.partes < 1 || b.partes > 20 || !Number.isInteger(b.parte) || b.parte < 1 || b.parte > b.partes) return 'Número de parte inválido';
+    if (!Number.isInteger(b.bytes) || b.bytes < 1) return 'Falta el tamaño esperado';
+    return null;
+}
+function rutaGrabacion(b) {
+    return `Portafolios/${carpetaCandidato(b.nombre, b.curp)}/03-Evaluacion/${GZ.nombreGrabacion(b.inicio, b.parte, b.partes)}`;
+}
+
+async function handleZoom(req, res) {
+    const b = req.body || {};
+    const authHeader = req.headers.authorization || '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    if (!token) return res.status(401).json({ success: false, error: 'Falta el token de sesión' });
+    const anon = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const { data: u, error: ue } = await anon.auth.getUser(token);
+    if (ue || !u || !u.user) return res.status(401).json({ success: false, error: 'Sesión inválida o expirada' });
+    if (!(await esDelEquipo(token, u.user.email))) return res.status(403).json({ success: false, error: 'Solo el equipo evaluador' });
+    const conSesion = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { global: { headers: { Authorization: 'Bearer ' + token } } });
+
+    if (b.accion === 'zoom-buscar') {
+        if (!esIsoFecha(b.desde) || !esIsoFecha(b.hasta) || Date.parse(b.hasta) < Date.parse(b.desde) || Date.parse(b.hasta) - Date.parse(b.desde) > 31 * 86400000) {
+            return res.status(400).json({ success: false, error: 'Rango de búsqueda inválido (máximo 31 días)' });
+        }
+        const cfg = await conSesion.from('sala_evidencias_config').select('zoom_id').eq('id', 1).maybeSingle();
+        if (cfg.error || !cfg.data || !cfg.data.zoom_id) return res.status(400).json({ success: false, error: 'Falta el ID de la sala en Sesiones → Sala de evidencias' });
+        const grabaciones = await Zoom.buscar(cfg.data.zoom_id, b.desde, b.hasta);
+        return res.status(200).json({ success: true, grabaciones });
+    }
+    const cx = Nc.conexion();
+    if (!cx) return res.status(500).json({ success: false, error: 'Almacenamiento no configurado' });
+
+    if (b.accion === 'zoom-trozo') {
+        const malo = Zoom.validarTrozo(b);
+        if (malo) return res.status(400).json({ success: false, error: malo });
+        const t = await Zoom.trozo(b.uuid, b.fileId, b.desde, b.hasta);
+        await Nc.subirTrozo(cx, b.uploadId, b.n, t.buffer);
+        return res.status(200).json({ success: true, bytes: t.buffer.length, total: t.total });
+    }
+    if (b.accion === 'zoom-cerrar') {
+        const malo = validarCierre(b);
+        if (malo) return res.status(400).json({ success: false, error: malo });
+        const ruta = rutaGrabacion(b);
+        await ensureFolder(Nc.baseArchivos(cx), cx.headers, ruta.split('/').slice(0, -1).join('/'));
+        let tam = await Nc.tamano(cx, ruta);
+        if (tam !== b.bytes && !b.soloVerificar) {
+            const mv = await Nc.ensamblar(cx, b.uploadId, ruta);
+            if (mv.pendiente) return res.status(202).json({ success: false, pendiente: true, ruta });
+            tam = await Nc.tamano(cx, ruta);
+        }
+        if (tam === null && b.soloVerificar) return res.status(202).json({ success: false, pendiente: true, ruta });
+        if (tam !== b.bytes) return res.status(502).json({ success: false, error: `El NAS tiene ${tam === null ? 'ningún' : tam} bytes y Zoom ${b.bytes}. Vuelve a copiar.` });
+        return res.status(200).json({ success: true, ruta, bytes: tam });
+    }
+    if (b.accion === 'zoom-borrar') {
+        if (typeof b.uuid !== 'string' || !b.uuid || typeof b.email !== 'string') return res.status(400).json({ success: false, error: 'Faltan grabación o candidato' });
+        const ev = await conSesion.from('evaluaciones').select('etapas,video').eq('email', b.email.toLowerCase()).maybeSingle();
+        const e = ev.data || {};
+        const parte = GZ.partesDe(e).find(p => p && p.zoom && p.zoom.uuid === b.uuid);
+        if (!(e.etapas && e.etapas.entregado)) return res.status(409).json({ success: false, error: 'Solo se borra de Zoom después de entregar el certificado' });
+        if (!parte || !parte.nas || !parte.nas.ruta) return res.status(409).json({ success: false, error: 'Primero copia esa grabación al NAS' });
+        await Zoom.aPapelera(b.uuid);
+        return res.status(200).json({ success: true });
+    }
+    return res.status(400).json({ success: false, error: 'Acción desconocida' });
+}
+
 async function handler(req, res) {
     if (req.method === 'GET') {
         try { return await handleDescarga(req, res); }
@@ -163,6 +201,14 @@ async function handler(req, res) {
 
     if (req.method !== 'POST') {
         return res.status(405).json({ success: false, error: 'Method not allowed' });
+    }
+
+    if (req.body && typeof req.body.accion === 'string') {
+        try { return await handleZoom(req, res); }
+        catch (e) {
+            console.error('subir-portafolio zoom:', req.body.accion, e);
+            return res.status(e.status || 500).json({ success: false, error: e.message || 'Error interno' });
+        }
     }
 
     const { email, fase, nombre, curp, filename, fileBase64 } = req.body || {};
@@ -264,5 +310,7 @@ handler._normalizarNextcloudUrl = normalizarNextcloudUrl;
 handler._slugify = slugify;
 handler._carpetaCandidato = carpetaCandidato;
 handler._rangoPedido = rangoPedido;
+handler._validarCierre = validarCierre;
+handler._rutaGrabacion = rutaGrabacion;
 
 module.exports = handler;

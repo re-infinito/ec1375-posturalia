@@ -40,3 +40,20 @@ test('GET: sin token responde 401', async () => {
     await handler({ method: 'GET', query: { ruta: 'Portafolios/A/01-Registro/x.pdf' }, headers: {} }, res);
     assert.equal(res.code, 401);
 });
+
+test('POST con accion: sin token responde 401 antes de tocar Zoom o el NAS', async () => {
+    for (const accion of ['zoom-buscar', 'zoom-trozo', 'zoom-cerrar', 'zoom-borrar']) {
+        const res = resFalsa();
+        await handler({ method: 'POST', body: { accion }, headers: {} }, res);
+        assert.equal(res.code, 401, accion);
+    }
+});
+
+test('validarCierre: nombre de archivo y carpeta los arma el servidor', () => {
+    const ok = { uploadId: 'sala-abc12345', nombre: 'Ana Demo', curp: 'ABCD900101MNLXXX01', inicio: '2026-09-25T16:00:00Z', parte: 1, partes: 1, bytes: 1000 };
+    assert.equal(handler._validarCierre(ok), null);
+    assert.match(handler._validarCierre(Object.assign({}, ok, { bytes: 0 })), /tamaño/);
+    assert.match(handler._validarCierre(Object.assign({}, ok, { parte: 3, partes: 2 })), /parte/);
+    assert.match(handler._validarCierre(Object.assign({}, ok, { inicio: 'x' })), /inicio/);
+    assert.equal(handler._rutaGrabacion(ok), 'Portafolios/Ana_Demo_ABCD900101MNLXXX01/03-Evaluacion/Grabacion_Sesion_2026-09-25_1000.mp4');
+});
