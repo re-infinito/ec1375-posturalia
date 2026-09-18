@@ -631,7 +631,9 @@ const AUTODIAGNOSTICO_DATA = [
             const a = JSON.parse(localStorage.getItem('autodiagnosticoData') || 'null');
             if (a) auto = { personalData: a.personalData, certificados: a.certificados, answers: a.answers };
         } catch (e) {}
-        return DocumentosNas.huella({ v: VERSION_DOCS_ALINEACION, planData, signatureDataUrl, signatureTypedName, signatureMode, auto });
+        /* Las declaraciones no entran al PDF: marcarlas no debe resubir el Plan. */
+        const { declaraciones, ...planDoc } = planData;
+        return DocumentosNas.huella({ v: VERSION_DOCS_ALINEACION, planData: planDoc, signatureDataUrl, signatureTypedName, signatureMode, auto });
     }
     function docsAlineacionActuales(huella) {
         if (!generatedDocsAlineacion.planEvaluacion || generatedDocsAlineacion._huella !== huella) {
@@ -652,7 +654,10 @@ const AUTODIAGNOSTICO_DATA = [
         const result = loadAutodiagnosticoResult();
         if (!result || !result.completo || !(await Auth.getSession())) return;
         if (opts.soloSiYaGenerados && !DocumentosNas.yaGenerado(DOCS_ALINEACION, estadoDocsAlineacion())) return;
-        if (!getValidationStatus().completo) return;
+        /* Solo lo que entra al PDF: un Plan ya subido sin declaraciones (de
+           antes del 17 sep) debe poder resubirse si cambian sus datos. */
+        const estado = getValidationStatus();
+        if (!(estado.acuerdo && estado.firma && estado.fecha)) return;
         const huella = huellaDocsAlineacion();
         const r = await DocumentosNas.sincronizar({
             grupo: 'alineacion', fase: 'alineacion', claves: DOCS_ALINEACION, huella, estado: estadoDocsAlineacion(),
@@ -956,6 +961,13 @@ const AUTODIAGNOSTICO_DATA = [
                         ${planData.acuerdoAceptado ? '✓ ' : '○ '}Acepto el Plan de Evaluación descrito arriba
                     </label>
                 </div>
+                ${DECLARACIONES_PLAN.map(x => {
+                    const ok = !!(planData.declaraciones && planData.declaraciones[x.id]);
+                    return `<div class="checkbox-row" style="background:${ok ? 'rgba(0,255,136,0.08)' : 'rgba(255,51,51,0.08)'};border:1px solid ${ok ? 'var(--success)' : 'var(--danger)'};">
+                        <input type="checkbox" id="decl_${x.id}" ${ok ? 'checked' : ''} onchange="toggleDeclaracion('${x.id}', this)">
+                        <label for="decl_${x.id}" style="color:${ok ? 'var(--success)' : 'var(--text)'};">${ok ? '✓ ' : '○ '}${escapeHtml(x.texto)}</label>
+                    </div>`;
+                }).join('')}
 
                 <div style="margin-bottom: 12px;">
                     <label style="display: flex; justify-content: space-between; align-items: center; font-size: 0.9rem;">
@@ -1010,6 +1022,40 @@ const AUTODIAGNOSTICO_DATA = [
         });
     }
 
+    /* Declaraciones del candidato (17 sep, pedido de Diego). Textos modelo:
+       validar con el evaluador. Se guarda la fecha de aceptación (evidencia);
+       desmarcar la borra. No van al PDF del Plan (formato validado). */
+    const VERSION_DECLARACIONES = '2026-09-17';
+    const DECLARACIONES_PLAN = [
+        { id: 'requisitos', texto: 'Confirmo que cumplo con todos los requisitos del Estándar de Competencia EC1375 y del proceso de evaluación, y que la información y documentos que proporciono son verídicos.' },
+        { id: 'material', texto: 'Confirmo que dispongo del material, equipo y espacio descritos en «Requerimientos para la Evaluación» para realizar mi evaluación práctica.' },
+        { id: 'sinReembolsos', texto: 'Entiendo que, una vez realizado cualquier pago o anticipo, no aplican reembolsos, salvo que la causa sea responsabilidad del Centro Evaluador.' }
+    ];
+    function declaracionesPlanCompletas() {
+        const d = planData.declaraciones || {};
+        return DECLARACIONES_PLAN.every(x => typeof d[x.id] === 'string' && d[x.id]);
+    }
+    function toggleDeclaracion(id, el) {
+        const d = Object.assign({}, planData.declaraciones || {});
+        if (el.checked) d[id] = new Date().toISOString(); else delete d[id];
+        d.version = VERSION_DECLARACIONES;
+        planData.declaraciones = d;
+        savePlanProgress();
+        /* Se actualiza solo el renglón (como toggleAcuerdo): volver a pintar
+           la página movería el scroll y reiniciaría el lienzo de firma. */
+        const renglon = el.closest('.checkbox-row'), label = renglon && renglon.querySelector('label');
+        const x = DECLARACIONES_PLAN.find(y => y.id === id);
+        if (renglon) {
+            renglon.style.background = el.checked ? 'rgba(0,255,136,0.08)' : 'rgba(255,51,51,0.08)';
+            renglon.style.borderColor = el.checked ? 'var(--success)' : 'var(--danger)';
+        }
+        if (label && x) {
+            label.style.color = el.checked ? 'var(--success)' : 'var(--text)';
+            label.textContent = (el.checked ? '✓ ' : '○ ') + x.texto;
+        }
+        updateGenerateButton();
+    }
+
     function toggleAcuerdo(el) {
         planData.acuerdoAceptado = el.checked;
         savePlanProgress();
@@ -1044,7 +1090,8 @@ const AUTODIAGNOSTICO_DATA = [
             acuerdo: planData.acuerdoAceptado,
             firma: hasSig,
             fecha: fechaCompleta,
-            completo: planData.acuerdoAceptado && hasSig && fechaCompleta
+            declaraciones: declaracionesPlanCompletas(),
+            completo: planData.acuerdoAceptado && hasSig && fechaCompleta && declaracionesPlanCompletas()
         };
     }
 
@@ -1053,6 +1100,7 @@ const AUTODIAGNOSTICO_DATA = [
         const missing = [];
 
         if (!status.acuerdo) missing.push('✓ Marcar el checkbox de acuerdo');
+        if (!status.declaraciones) missing.push('✓ Marcar las 3 confirmaciones (requisitos, material y sin reembolsos)');
         if (!status.firma) missing.push('✓ Proporcionar una firma (dibujada o escrita)');
         if (!status.fecha) missing.push('✓ Completar la fecha de tu evaluación');
 
