@@ -122,3 +122,50 @@ test('esUrlZoom: solo enlaces https de zoom.us', () => {
     assert.equal(S.esUrlZoom('javascript:alert(1)'), false);
     assert.equal(S.esUrlZoom('http://zoom.us/j/1'), false);
 });
+
+test('tarjetaHtml abierta: botón con el enlace, ID y clave escapados', () => {
+    const d = { reserva: reserva(), minutos_antes: 10, sala: { url: SALA.url, id: '827 5726 3451', clave: '<b>x</b>' } };
+    const h = S.tarjetaHtml(d, S.estado(d, T));
+    assert.match(h, /Entrar a la sala de Zoom/);
+    assert.match(h, /href="https:\/\/us06web\.zoom\.us\/j\/82757263451\?pwd=abc"/);
+    assert.match(h, /&lt;b&gt;x&lt;\/b&gt;/);
+    assert.ok(!/<b>x<\/b>/.test(h));
+    assert.match(h, /Si al entrar ves a otra persona/);
+});
+
+test('tarjetaHtml: un enlace que no es de zoom.us nunca se vuelve liga', () => {
+    const d = { reserva: reserva(), minutos_antes: 10, sala: { url: 'javascript:alert(1)', id: '1', clave: '' } };
+    const h = S.tarjetaHtml(d, S.estado(d, T));
+    assert.ok(!/javascript:/.test(h));
+    assert.match(h, /no es válido/);
+});
+
+test('tarjetaHtml antes: botón deshabilitado y cuenta regresiva; sin reserva: liga a agendar', () => {
+    const d = { reserva: reserva(), minutos_antes: 10, sala: null };
+    const h = S.tarjetaHtml(d, S.estado(d, T - 70 * MIN));
+    assert.match(h, /disabled/);
+    assert.match(h, /1 h/);
+    assert.match(S.tarjetaHtml({ reserva: null }, S.estado({ reserva: null }, T)), /plan-evaluacion\.html/);
+});
+
+test('avisoHtml: colores y textos por estado', () => {
+    assert.match(S.avisoHtml(S.limiteInfo('2026-10-15', '2026-10-03', false)), /sala-aviso-info[\s\S]*faltan 12 días/);
+    assert.match(S.avisoHtml(S.limiteInfo('2026-10-15', '2026-10-14', false)), /sala-aviso-warn[\s\S]*faltan 1 día/);
+    assert.match(S.avisoHtml(S.limiteInfo('2026-10-15', '2026-10-15', false)), /hoy es el último día/);
+    assert.match(S.avisoHtml(S.limiteInfo('2026-10-15', '2026-10-20', false)), /sala-aviso-bad[\s\S]*venció/);
+    assert.match(S.avisoHtml(S.limiteInfo('2026-10-15', '2026-10-20', true)), /Evidencia entregada/);
+    assert.equal(S.avisoHtml(null), '');
+});
+
+test('grabacionHtml: pendiente o guardada en el expediente', () => {
+    assert.match(S.grabacionHtml({ grabacion: { en_expediente: false } }), /Pendiente/);
+    assert.match(S.grabacionHtml({ grabacion: { en_expediente: true, fecha: '2026-09-26T18:00:00Z' } }), /Guardada en tu expediente/);
+});
+
+test('selectorHtml: días y horarios como botones; sin horarios avisa', () => {
+    const dias = S.agruparPorDia([{ id: 'h1', inicio: '2026-09-25T16:00:00Z', fin: '2026-09-25T17:30:00Z' }]);
+    const h = S.selectorHtml(dias, null);
+    assert.match(h, /data-sala-dia="2026-09-25"/);
+    assert.match(h, /data-sala-horario="h1"[^>]*>10:00 a 11:30 h/);
+    assert.match(S.selectorHtml([], null), /No hay horarios disponibles/);
+});
