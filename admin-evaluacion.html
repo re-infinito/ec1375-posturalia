@@ -195,7 +195,7 @@
     }
 
     function portafolioHtml() {
-        const plan = E.planPortafolio(row || {});
+        const plan = E.planPortafolio(row || {}, ev);
         const p = ev.portafolio;
         const items = plan.items.filter(i => i.tipo !== 'generado');
         return `

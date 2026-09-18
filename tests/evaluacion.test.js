@@ -116,7 +116,7 @@ test('planPortafolio: distingue "no lo subió" del formulario alterno y avisa si
     assert.ok(p.avisos.some(a => /Comprobante CURP/.test(a) && /formulario alterno/.test(a)));
     assert.ok(p.avisos.some(a => /Identificación oficial/.test(a) && /todavía no lo ha subido/.test(a)));
     assert.ok(p.avisos.some(a => /Encuesta de Satisfacción/.test(a)));
-    assert.ok(p.avisos.some(a => /liga al video/.test(a)));
+    assert.ok(p.avisos.some(a => /grabación de Zoom/.test(a)));
     assert.ok(!p.items.some(i => i.tipo === 'nas' && /MANUAL/.test(i.ruta)));
 });
 
@@ -134,4 +134,18 @@ test('mensajeWhatsApp: arma el aviso con el nombre y el enlace al panel', () => 
     assert.equal(E.telefonoWhatsApp('81 1234-5678'), '528112345678');
     assert.equal(E.telefonoWhatsApp('+52 1 81 1234 5678'), '5218112345678');
     assert.equal(E.telefonoWhatsApp(''), null);
+});
+
+test('ligaVideo: la grabación de Zoom que ligó el equipo gana sobre la liga del candidato', () => {
+    const ev = { video: { partes: [{ zoom: { share_url: 'https://zoom.us/rec/share/abc', clave: 'x1' } }] } };
+    assert.equal(E.ligaVideo(ev, fila()), 'https://zoom.us/rec/share/abc (clave: x1)');
+    const p = E.planPortafolio(fila(), ev);
+    assert.equal(p.videoLink, 'https://zoom.us/rec/share/abc (clave: x1)');
+});
+
+test('ligaVideo: varias partes se enumeran; sin grabación usa la liga de Evidencias', () => {
+    const ev = { video: { partes: [{ zoom: { share_url: 'https://zoom.us/rec/share/a' } }, { zoom: { share_url: 'https://zoom.us/rec/share/b' } }] } };
+    assert.equal(E.ligaVideo(ev, null), 'Parte 1: https://zoom.us/rec/share/a  ·  Parte 2: https://zoom.us/rec/share/b');
+    assert.equal(E.ligaVideo(null, fila()), 'https://youtu.be/x');
+    assert.equal(E.ligaVideo({ video: { partes: [] } }, { evidencias_data: {} }), null);
 });
