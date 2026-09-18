@@ -52,6 +52,49 @@ test('utilidades por lote: a repartir, pagado y pendiente por socio', () => {
     assert.equal(g.pagado, 1200);
 });
 
+test('gastos: por certificado = monto × activos del lote, se descuenta antes de repartir', () => {
+    const d = datos();
+    d.gastos = [{ id: 1, lote: null, concepto: 'Centro Evaluador', tipo: 'por_certificado', monto: 1200 }];
+    // Lote 1: solo 'a' está activo ('b' desistió, el administrador no cuenta) → 1 certificado
+    const g1 = AdminData.gastosLote(d, 1);
+    assert.equal(g1.certificados, 1);
+    assert.equal(g1.total, 1200);
+    const u1 = AdminData.utilidades(d, 1);
+    assert.equal(u1.ingresos, 8250);
+    assert.equal(u1.neto, 8250 - 1200);
+    const chris = u1.socios.find(s => s.id === 'chris');
+    assert.equal(chris.aRepartir, Math.round((8250 - 1200) * 0.5));
+    // Lote 2: 'c' activo → otro certificado; el mismo gasto global aplica también ahí
+    assert.equal(AdminData.gastosLote(d, 2).total, 1200);
+});
+
+test('gastos: el monto se puede editar, fijo y por lote, y aplican solo donde corresponde', () => {
+    const d = datos();
+    d.gastos = [
+        { id: 1, lote: null, concepto: 'Centro Evaluador', tipo: 'por_certificado', monto: 1500 },
+        { id: 2, lote: 1, concepto: 'Publicidad', tipo: 'fijo', monto: 500 }
+    ];
+    assert.equal(AdminData.gastosLote(d, 1).total, 1500 + 500);
+    assert.equal(AdminData.gastosLote(d, 2).total, 1500);          // la publicidad es solo del lote 1
+    assert.deepEqual(AdminData.gastosLote(d, 1).items.map(g => g.cantidad), [1, 1]);
+});
+
+test('gastos: si superan lo cobrado no se reparte nada (nunca negativo) y neto conserva el faltante', () => {
+    const d = datos();
+    d.gastos = [{ id: 1, lote: 1, concepto: 'Fijo grande', tipo: 'fijo', monto: 10000 }];
+    const u = AdminData.utilidades(d, 1);
+    assert.equal(u.neto, 8250 - 10000);
+    assert.equal(u.aRepartir, 0);
+    assert.ok(u.socios.every(s => s.aRepartir === 0 && s.pendiente === 0));
+});
+
+test('gastos: sin gastos el reparto no cambia (tabla vacía o aún sin crear)', () => {
+    const conVacio = Object.assign(datos(), { gastos: [] });
+    const sinClave = datos();
+    assert.equal(AdminData.utilidades(conVacio, 1).aRepartir, AdminData.utilidades(sinClave, 1).aRepartir);
+    assert.equal(AdminData.utilidades(sinClave, 1).gastos.total, 0);
+});
+
 test('candidatos: paso real con computeSteps, docs, nombre y fase pagada', () => {
     const lista = AdminData.candidatos(datos());
     const a = lista.find(c => c.email === 'a@x.com');

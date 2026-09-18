@@ -12,6 +12,7 @@
     <script src="auth.js"></script>
     <script src="flow-status.js"></script>
     <script src="crm-shell.js" data-crm-mode="admin" data-crm-page="admin-kpis"></script>
+    <script src="admin-data.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -145,6 +146,7 @@
     let candidatos = [];
     let pagosPorEmail = {};
     let configLotes = {};
+    let gastos = [];
     let loteFiltro = null; // null = todos los lotes
 
     function renderGateShell() {
@@ -166,11 +168,14 @@
     }
 
     async function cargarDatos() {
-        const [precios, pagos, reparto] = await Promise.all([
+        const [precios, pagos, reparto, gastosRes] = await Promise.all([
             supabaseClient.from('candidatos_precio').select('*'),
             supabaseClient.from('candidatos_fase_pagos').select('email,fase'),
-            supabaseClient.from('reparto_utilidades').select('*')
+            supabaseClient.from('reparto_utilidades').select('*'),
+            supabaseClient.from('gastos_utilidades').select('*')
         ]);
+        // Si la tabla aún no existe (falta 2026-09-18-gastos-utilidades.sql) no hay gastos que descontar.
+        gastos = gastosRes.error ? [] : (gastosRes.data || []);
         candidatos = precios.data || [];
         pagosPorEmail = {};
         (pagos.data || []).forEach(row => {
@@ -181,10 +186,13 @@
         (reparto.data || []).forEach(row => { configLotes[row.lote] = row; });
     }
 
-    function obtenerConfigLote(lote) {
-        return configLotes[lote] || {
-            incluir_chris: true, porcentaje_chris: 50,
-            porcentaje_fernando: 16.67, porcentaje_lot: 16.67, porcentaje_diego: 16.67
+    // El reparto sale de AdminData.utilidades (misma fórmula que Utilidades y el panel
+    // del equipo): ingresos cobrados − gastos, repartido según la config del lote.
+    function datosParaUtilidades() {
+        return {
+            precio: candidatos,
+            pagos: Object.keys(pagosPorEmail).flatMap(email => [...pagosPorEmail[email]].map(fase => ({ email, fase }))),
+            reparto: Object.values(configLotes), gastos, utilidadesPagos: []
         };
     }
 
@@ -361,17 +369,15 @@
             return `<div class="empty-note">No hay candidatos registrados todavía.</div>`;
         }
 
+        const datosAD = datosParaUtilidades();
         return lotesUnicos.map(lote => {
-            // Ingresos reales del lote: activos + desistidos + cambio_lote
-            // (dinero ya cobrado, sin importar el estado actual).
-            const paraIngresosLote = visibles.filter(c => (c.lote || 1) === lote);
-            const ingresos = ingresosDe(paraIngresosLote);
-            const config = obtenerConfigLote(lote);
-
-            const chris = config.incluir_chris ? Math.round((ingresos * config.porcentaje_chris) / 100) : 0;
-            const fernando = Math.round((ingresos * config.porcentaje_fernando) / 100);
-            const lot = Math.round((ingresos * config.porcentaje_lot) / 100);
-            const diego = Math.round((ingresos * config.porcentaje_diego) / 100);
+            // Ingresos del lote (activos + desistidos + cambio_lote, dinero ya cobrado)
+            // menos sus gastos; el reparto por socio sale de esa utilidad neta.
+            const u = AdminData.utilidades(datosAD, lote);
+            const config = u.config;
+            const ingresos = u.ingresos;
+            const monto = id => (u.socios.find(s => s.id === id) || { aRepartir: 0 }).aRepartir;
+            const chris = monto('chris'), fernando = monto('fernando'), lot = monto('lot'), diego = monto('diego');
             const total = chris + fernando + lot + diego || 1;
 
             const segs = [
@@ -394,9 +400,9 @@
                 <div class="lote-util-block">
                     <div class="lote-util-header">
                         <div class="titulo">📦 Lote ${lote} ${config.incluir_chris ? '(con Chris)' : '(solo socios)'}</div>
-                        <div class="total">Ingresos: ${fmtMX(ingresos)}</div>
+                        <div class="total">${u.gastos.total > 0 ? `Ingresos ${fmtMX(ingresos)} − gastos ${fmtMX(u.gastos.total)} = neto ${fmtMX(Math.max(0, u.neto))}` : `Ingresos: ${fmtMX(ingresos)}`}</div>
                     </div>
-                    <div class="stacked-bar">${barHtml || '<div class="empty-note">Sin ingresos aún</div>'}</div>
+                    <div class="stacked-bar">${u.neto > 0 ? barHtml : '<div class="empty-note" style="padding:6px 10px;">Sin utilidad que repartir aún</div>'}</div>
                     <div class="util-legend">${legendHtml}</div>
                 </div>
             `;

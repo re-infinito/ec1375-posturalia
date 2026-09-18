@@ -71,6 +71,18 @@
         .resumen-row:last-child { border-bottom: none; }
         .resumen-valor { font-size: 1.1rem; font-weight: 700; color: var(--success); }
 
+        .neto-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin: 4px 0 12px; }
+        .neto-label { font-size: 0.78rem; color: var(--text); text-transform: uppercase; letter-spacing: 0.3px; }
+        .neto-valor { font-size: 1.7rem; font-weight: 700; color: var(--text-bright); }
+
+        .gasto-row { display: grid; grid-template-columns: 2fr 1.1fr 1fr 1fr auto; gap: 14px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border); }
+        .gasto-row:last-child { border-bottom: none; }
+        .gasto-row input[type="number"] { width: 100%; padding: 8px 10px; background: var(--dark); border: 1px solid var(--border); border-radius: 8px; color: var(--text-bright); font-size: 0.95rem; font-weight: 700; }
+        .gasto-sub { font-size: 0.74rem; color: var(--text); opacity: 0.8; margin-top: 2px; }
+        .gasto-calc { font-size: 0.85rem; color: var(--text); }
+        .gasto-total { font-size: 1.05rem; font-weight: 700; color: var(--danger); text-align: right; }
+        @media (max-width: 760px) { .gasto-row { grid-template-columns: 1fr 1fr; } .gasto-total { text-align: left; } }
+
         .error { color: var(--danger); font-size: 0.85rem; margin-top: 4px; }
         .loading { text-align: center; padding: 40px; color: var(--text); }
             body.crm-active .top-bar { display: none; }
@@ -140,19 +152,13 @@
         });
     }
 
-    // "administrador" no cuenta en NADA. Para ingresos YA cobrados sí se
-    // incluye a quien desistió o cambió de lote — si pagó una fase, ese
-    // dinero ya entró y debe repartirse igual.
-    function calcularIngresosTotales(lote) {
-        const paraIngresos = candidatos.filter(c => c.estado !== 'administrador' && (c.lote || 1) === lote);
-        return paraIngresos.reduce((sum, c) => {
-            const pagos = pagosPorEmail[c.email] || new Set();
-            let total = 0;
-            ['registro', 'alineacion', 'evaluacion', 'entrega'].forEach(f => {
-                if (pagos.has(f)) total += c[`monto_${f}`] || 0;
-            });
-            return sum + total;
-        }, 0);
+    // Base del reparto = ingresos cobrados − gastos. AdminData.utilidades es la
+    // fuente única (la misma que usan el panel del equipo y los KPIs): "administrador"
+    // no cuenta en nada, quien desistió sí aporta lo que ya pagó, y los gastos
+    // (Centro Evaluador por certificado, etc.) se descuentan antes de repartir.
+    function baseReparto(lote) {
+        const u = AdminData.utilidades(datosParaAdminData(), lote);
+        return { ingresos: u.ingresos, gastos: u.gastos, neto: u.neto, base: Math.max(0, u.neto) };
     }
 
     function obtenerConfiguracion(lote) {
@@ -172,14 +178,17 @@
 
     function calcularReparto(lote) {
         const config = obtenerConfiguracion(lote);
-        const ingresos = calcularIngresosTotales(lote);
+        const b = baseReparto(lote);
 
         return {
-            chris: config.incluir_chris ? Math.round((ingresos * config.porcentaje_chris) / 100) : 0,
-            fernando: Math.round((ingresos * config.porcentaje_fernando) / 100),
-            lot: Math.round((ingresos * config.porcentaje_lot) / 100),
-            diego: Math.round((ingresos * config.porcentaje_diego) / 100),
-            total: ingresos
+            chris: config.incluir_chris ? Math.round((b.base * config.porcentaje_chris) / 100) : 0,
+            fernando: Math.round((b.base * config.porcentaje_fernando) / 100),
+            lot: Math.round((b.base * config.porcentaje_lot) / 100),
+            diego: Math.round((b.base * config.porcentaje_diego) / 100),
+            total: b.base,
+            ingresos: b.ingresos,
+            gastos: b.gastos.total,
+            neto: b.neto
         };
     }
 
@@ -228,7 +237,7 @@
         document.getElementById('perc_chris').disabled = !config.incluir_chris;
 
         // Actualizar preview del resumen
-        const ingresos = calcularIngresosTotales(loteActivo);
+        const ingresos = baseReparto(loteActivo).base;
         const chris = config.incluir_chris ? Math.round((ingresos * config.porcentaje_chris) / 100) : 0;
         const fernando = Math.round((ingresos * config.porcentaje_fernando) / 100);
         const lot = Math.round((ingresos * config.porcentaje_lot) / 100);
@@ -265,12 +274,17 @@
             </div>
 
             <div class="card">
-                <h2>💰 Ingresos Totales — Lote ${loteActivo}</h2>
-                <div style="font-size:2rem;font-weight:700;color:var(--success);margin:20px 0;">
-                    $${reparto.total.toLocaleString('es-MX')} MXN
+                <h2>💰 Ingresos y utilidad neta — Lote ${loteActivo}</h2>
+                <div class="neto-grid">
+                    <div><div class="neto-label">Ingresos cobrados</div><div class="neto-valor" style="color:var(--success);">${fmt(reparto.ingresos)}</div></div>
+                    <div><div class="neto-label">− Gastos</div><div class="neto-valor" style="color:${reparto.gastos > 0 ? 'var(--danger)' : 'var(--text)'};">${fmt(reparto.gastos)}</div></div>
+                    <div><div class="neto-label">= Utilidad neta a repartir</div><div class="neto-valor">${fmt(reparto.total)}</div></div>
                 </div>
-                <p style="font-size:0.85rem;color:var(--text);">Incluye pagos de candidatos activos, desistidos y cambio de lote (dinero ya cobrado) · excluye cuentas de Administrador</p>
+                ${reparto.neto < 0 ? `<p class="error">⚠️ Los gastos superan lo cobrado por ${fmt(-reparto.neto)}: por ahora no hay utilidad que repartir en este lote.</p>` : ''}
+                <p style="font-size:0.85rem;color:var(--text);">Ingresos: pagos de candidatos activos, desistidos y cambio de lote (dinero ya cobrado) · excluye cuentas de Administrador</p>
             </div>
+
+            ${renderGastosCard(loteActivo)}
 
             <div class="card">
                 <h2>⚙️ Configurar Reparto — Lote ${loteActivo}</h2>
@@ -362,7 +376,7 @@
                         <div class="resumen-valor" id="resumen_diego_monto">$${reparto.diego.toLocaleString('es-MX')}</div>
                     </div>
                     <div class="resumen-row" style="border-bottom:none;border-top:1px solid rgba(0,255,136,0.2);padding-top:12px;margin-top:12px;">
-                        <div><strong>TOTAL</strong></div>
+                        <div><strong>TOTAL a repartir (utilidad neta)</strong></div>
                         <div style="text-align:right;"><strong id="total_porcentaje">${(config.porcentaje_chris + config.porcentaje_fernando + config.porcentaje_lot + config.porcentaje_diego).toFixed(2)}%</strong></div>
                         <div class="resumen-valor">$${reparto.total.toLocaleString('es-MX')}</div>
                     </div>
@@ -377,6 +391,7 @@
         app.innerHTML = html;
         app.insertAdjacentHTML('beforeend', renderPagosCard(loteActivo));
         attachPagosListeners(loteActivo);
+        attachGastosListeners(loteActivo);
         document.getElementById('logoutLink').style.display = 'inline';
     }
 
@@ -395,7 +410,85 @@
     }
     function datosParaAdminData() {
         return { precio: candidatos, pagos: Object.keys(pagosPorEmail).flatMap(email => [...pagosPorEmail[email]].map(fase => ({ email, fase }))),
-                 reparto: Object.keys(configuracionLotes).map(k => ({ lote: Number(k.replace('lote_', '')), ...configuracionLotes[k] })), utilidadesPagos };
+                 reparto: Object.keys(configuracionLotes).map(k => ({ lote: Number(k.replace('lote_', '')), ...configuracionLotes[k] })), utilidadesPagos, gastos };
+    }
+
+    /* ---- Gastos fijos (tabla gastos_utilidades, 18 sep 2026) ----
+       Se descuentan de los ingresos ANTES de repartir. 'por_certificado' =
+       monto × candidatos activos del lote (Centro Evaluador: $1,200 por
+       certificado); 'fijo' = monto único. lote null = todos los lotes. El
+       monto es editable. Si la tabla no existe todavía (falta correr
+       2026-09-18-gastos-utilidades.sql) se muestra el aviso y el reparto
+       sigue como antes, sin gastos. */
+    const fmt = n => '$' + Math.round(n || 0).toLocaleString('es-MX');
+    let gastos = [];
+    let gastosError = null;
+    async function cargarGastos() {
+        const { data, error } = await supabaseClient.from('gastos_utilidades').select('*').order('id');
+        gastos = data || [];
+        gastosError = error ? (error.message || String(error)) : null;
+    }
+    function renderGastosCard(lote) {
+        if (gastosError) {
+            return `<div class="card"><h2>🧾 Gastos fijos — Lote ${lote}</h2><p style="font-size:0.85rem;color:var(--accent);margin-top:10px;">⚠️ Falta correr <code>2026-09-18-gastos-utilidades.sql</code> en Supabase para descontar gastos (${escapeHtml(gastosError)}). Mientras tanto el reparto se calcula sobre el ingreso completo.</p></div>`;
+        }
+        const g = AdminData.utilidades(datosParaAdminData(), lote).gastos;
+        const filas = g.items.length ? g.items.map(it => {
+            const porCert = it.tipo === 'por_certificado';
+            return `
+            <div class="gasto-row">
+                <div><strong>${escapeHtml(it.concepto)}</strong><div class="gasto-sub">${porCert ? 'Por certificado' : 'Monto fijo'} · ${it.lote === null ? 'todos los lotes' : 'solo Lote ' + it.lote}</div></div>
+                <div><input type="number" min="0" step="1" value="${it.monto}" data-gasto-monto="${it.id}" aria-label="Monto de ${escapeHtml(it.concepto)}"><div class="gasto-sub">${porCert ? 'MXN por certificado' : 'MXN'}</div></div>
+                <div class="gasto-calc">${porCert ? `× ${it.cantidad} certificado${it.cantidad === 1 ? '' : 's'}` : 'pago único'}</div>
+                <div class="gasto-total">−${fmt(it.total)}</div>
+                <div><button type="button" class="crm-btn crm-btn-danger" data-del-gasto="${it.id}">Eliminar</button></div>
+            </div>`;
+        }).join('') : '<p style="font-size:0.85rem;color:var(--text);">Aún no hay gastos registrados.</p>';
+        return `
+            <div class="card">
+                <h2>🧾 Gastos fijos — Lote ${lote}</h2>
+                <p style="font-size:0.82rem;color:var(--text);margin:-8px 0 12px;">Se descuentan de los ingresos antes de repartir. "Por certificado" se multiplica por los <strong>${g.certificados}</strong> candidato${g.certificados === 1 ? '' : 's'} activo${g.certificados === 1 ? '' : 's'} de este lote. Edita el monto y se guarda al salir del campo.</p>
+                <div class="resumen" style="background:var(--surface-2);border-color:var(--border);">${filas}
+                    <div class="resumen-row" style="border-bottom:none;border-top:1px solid var(--border);padding-top:12px;margin-top:8px;"><div><strong>TOTAL gastos del lote</strong></div><div></div><div class="resumen-valor" style="color:var(--danger);text-align:right;">−${fmt(g.total)}</div></div>
+                </div>
+                <h3 style="margin:18px 0 8px;font-size:0.95rem;color:var(--text-bright);">Agregar gasto</h3>
+                <form class="crm-form" id="formGasto">
+                    <label>Concepto<input type="text" name="concepto" required maxlength="80" placeholder="Ej: Centro Evaluador"></label>
+                    <label>Tipo<select name="tipo"><option value="por_certificado">Por certificado</option><option value="fijo">Monto fijo</option></select></label>
+                    <label>Monto (MXN)<input type="number" name="monto" min="0" step="1" required placeholder="0"></label>
+                    <label>Aplica a<select name="alcance"><option value="todos">Todos los lotes</option><option value="lote">Solo el Lote ${lote}</option></select></label>
+                    <button type="submit" class="crm-btn crm-btn-primary">➕ Agregar</button>
+                </form>
+            </div>`;
+    }
+    function attachGastosListeners(lote) {
+        const recargar = async () => { await cargarGastos(); renderPanel(); };
+        const form = document.getElementById('formGasto');
+        if (form) form.addEventListener('submit', async (ev) => {
+            ev.preventDefault();
+            const fd = new FormData(form);
+            const session = await Auth.getSession();
+            const { error } = await supabaseClient.from('gastos_utilidades').insert({
+                lote: fd.get('alcance') === 'lote' ? lote : null,
+                concepto: String(fd.get('concepto') || '').trim(), tipo: fd.get('tipo'), monto: Number(fd.get('monto')),
+                registrado_por: session && session.user ? session.user.email : null
+            });
+            if (error) { alert('No se pudo agregar el gasto: ' + (error.message || error)); return; }
+            await recargar();
+        });
+        document.querySelectorAll('[data-gasto-monto]').forEach(input => input.addEventListener('change', async () => {
+            const monto = Number(input.value);
+            if (input.value === '' || !isFinite(monto) || monto < 0) { alert('Escribe un monto válido (0 o mayor).'); await recargar(); return; }
+            const { error } = await supabaseClient.from('gastos_utilidades').update({ monto }).eq('id', input.dataset.gastoMonto);
+            if (error) alert('No se pudo guardar el monto: ' + (error.message || error));
+            await recargar();
+        }));
+        document.querySelectorAll('[data-del-gasto]').forEach(btn => btn.addEventListener('click', async () => {
+            if (!confirm('¿Eliminar este gasto? El reparto se recalculará sin él.')) return;
+            const { error } = await supabaseClient.from('gastos_utilidades').delete().eq('id', btn.dataset.delGasto);
+            if (error) { alert('No se pudo eliminar: ' + (error.message || error)); return; }
+            await recargar();
+        }));
     }
     function renderPagosCard(lote) {
         const hoy = new Date().toISOString().slice(0, 10);
@@ -465,6 +558,7 @@
 
         await cargarDatos();
         await cargarPagosUtilidades();
+        await cargarGastos();
         renderPanel();
     }
 

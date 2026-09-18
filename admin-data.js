@@ -118,18 +118,42 @@
         }, 0);
     }
 
+    /* Gastos que se descuentan antes de repartir (gastos_utilidades, 18 sep).
+       'por_certificado' = monto × candidatos ACTIVOS del lote (quien desistió o
+       cambió de lote no recibe certificado, así que no genera el cobro);
+       'fijo' = monto único. lote null = aplica a todos los lotes. */
+    function gastosLote(datos, lote) {
+        var certificados = visibles(datos).filter(function (c) {
+            return (c.lote || 1) === lote && (c.estado || 'activo') === 'activo';
+        }).length;
+        var items = (datos.gastos || []).filter(function (g) {
+            return g.lote === null || g.lote === undefined || Number(g.lote) === Number(lote);
+        }).map(function (g) {
+            var monto = Number(g.monto) || 0;
+            var porCert = g.tipo === 'por_certificado';
+            var cantidad = porCert ? certificados : 1;
+            return { id: g.id, lote: (g.lote === null || g.lote === undefined) ? null : Number(g.lote), concepto: g.concepto || '', tipo: g.tipo, monto: monto, cantidad: cantidad, total: monto * cantidad };
+        });
+        return { items: items, certificados: certificados, total: items.reduce(function (a, g) { return a + g.total; }, 0) };
+    }
+
     function utilidades(datos, lote) {
         var config = configLote(datos, lote);
         var ingresos = ingresosLote(datos, lote);
+        var gastos = gastosLote(datos, lote);
+        /* Utilidad neta = ingresos − gastos. Si los gastos superan lo cobrado no
+           hay nada que repartir (nunca reparto negativo); `neto` conserva el faltante. */
+        var neto = ingresos - gastos.total;
+        var base = Math.max(0, neto);
         var pagos = (datos.utilidadesPagos || []).filter(function (p) { return Number(p.lote) === Number(lote); });
         var socios = SOCIOS.filter(function (s) { return s.id !== 'chris' || config.incluir_chris; }).map(function (s) {
             var pct = Number(config['porcentaje_' + s.id]) || 0;
-            var aRepartir = Math.round((ingresos * pct) / 100);
+            var aRepartir = Math.round((base * pct) / 100);
             var pagado = pagos.filter(function (p) { return p.socio === s.id; }).reduce(function (a, p) { return a + (Number(p.monto) || 0); }, 0);
             return { id: s.id, label: s.label, pct: pct, aRepartir: aRepartir, pagado: pagado, pendiente: Math.max(0, aRepartir - pagado) };
         });
         return {
-            lote: lote, ingresos: ingresos, config: config, socios: socios,
+            lote: lote, ingresos: ingresos, gastos: gastos, neto: neto, config: config, socios: socios,
             aRepartir: socios.reduce(function (a, s) { return a + s.aRepartir; }, 0),
             pagado: socios.reduce(function (a, s) { return a + s.pagado; }, 0),
             pendiente: socios.reduce(function (a, s) { return a + s.pendiente; }, 0)
@@ -259,6 +283,7 @@
             q(sb.from('candidatos_fase_pagos').select('*')),
             q(sb.from('reparto_utilidades').select('*')),
             q(sb.from('utilidades_pagos').select('*').order('fecha', { ascending: false })),
+            q(sb.from('gastos_utilidades').select('*').order('id')),
             q(sb.rpc('admin_lista_nombres')),
             q(sb.rpc('admin_lista_candidatos')),
             q(sb.from('evaluaciones').select('email,etapas,cedula,firma_candidato,portafolio')),
@@ -266,7 +291,7 @@
                 .then(function (d) { return { data: d.sesiones || [], error: null }; }, function (e) { return { data: null, error: e }; })
         ]);
         var errores = {};
-        var nombresClave = ['precio', 'pagos', 'reparto', 'utilidadesPagos', 'nombres', 'candidatosRows', 'evaluaciones', 'sesiones'];
+        var nombresClave = ['precio', 'pagos', 'reparto', 'utilidadesPagos', 'gastos', 'nombres', 'candidatosRows', 'evaluaciones', 'sesiones'];
         var datos = {};
         nombresClave.forEach(function (k, i) {
             datos[k] = res[i].data || (k === 'sesiones' ? null : []);
@@ -295,7 +320,7 @@
 
     var AdminData = {
         FASES: FASES, FASE_LABEL: FASE_LABEL, SOCIOS: SOCIOS, PASOS_EXTRA: PASOS_EXTRA,
-        cargar: cargar, kpis: kpis, utilidades: utilidades, utilidadesGlobal: utilidadesGlobal, lotes: lotes,
+        cargar: cargar, kpis: kpis, utilidades: utilidades, gastosLote: gastosLote, utilidadesGlobal: utilidadesGlobal, lotes: lotes,
         candidatos: candidatos, porPaso: porPaso, ultimosPagos: ultimosPagos, proximasSesiones: proximasSesiones, atencion: atencion,
         declaraciones: declaraciones,
         fmtMX: function (n) { return '$' + Math.round(n || 0).toLocaleString('es-MX'); }

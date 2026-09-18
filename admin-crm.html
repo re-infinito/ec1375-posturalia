@@ -127,6 +127,7 @@
         const atencion = AdminData.atencion(datos, lista);
         const avisos = [];
         if (datos.errores.candidatosRows) avisos.push('El paso y los documentos de cada candidato requieren correr <code>2026-09-15-admin-lista-candidatos.sql</code> en Supabase.');
+        if (datos.errores.gastos) avisos.push('Los gastos que se descuentan de las utilidades requieren correr <code>2026-09-18-gastos-utilidades.sql</code> en Supabase.');
         if (datos.errores.utilidadesPagos) avisos.push('Las utilidades pagadas requieren correr <code>2026-09-15-utilidades-pagos.sql</code> en Supabase.');
         if (datos.errores.sesiones) avisos.push('No se pudieron cargar las sesiones (la API de Vercel no está disponible en este entorno).');
 
