@@ -397,6 +397,15 @@
 
         .btn-full { width: 100%; }
 
+        /* Regresar a secciones ya llenadas (17 sep) — mismo patrón que documentos-sesion.html */
+        .saltar-paso { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+        .saltar-paso label { font-size: 0.8rem; font-weight: 700; color: var(--text); }
+        .saltar-paso select { flex: 1 1 240px; min-width: 0; min-height: 42px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--dark-light); color: var(--text-bright); font: inherit; font-size: 0.88rem; cursor: pointer; }
+        .pasos-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; margin-top: 12px; }
+        .paso-link { display: flex; align-items: center; gap: 10px; text-align: left; padding: 10px 12px; min-height: 44px; border-radius: 8px; border: 1px solid var(--border); background: var(--dark); color: var(--text-bright); font: inherit; font-size: 0.86rem; cursor: pointer; }
+        .paso-link:hover { border-color: var(--primary); }
+        .paso-link .n { flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-size: 0.75rem; font-weight: 700; background: var(--surface-2); color: var(--primary); }
+
         /* NAV BAR (bottom) */
         .nav-bar {
             position: fixed;
@@ -651,6 +660,8 @@
             topBarStep.textContent = 'Resultado';
             await renderResultado(app);
         }
+
+        if (['personal', 'nda', 'e1', 'e2', 'e3', 'e4', 'firma'].includes(step)) app.insertAdjacentHTML('afterbegin', selectorSeccionesHtml());
 
         updateProgressBar();
         updateNavButtons();
@@ -1875,6 +1886,12 @@
             </div>
 
             <div class="card">
+                <h2>↩️ Regresar a una sección</h2>
+                <p style="margin-bottom: 4px; color: var(--text); font-size: 0.9rem;">Toca una sección para revisarla o corregirla. Si cambias algo, tus documentos de Registro se vuelven a subir solos con la versión actualizada.</p>
+                <div class="pasos-grid">${listaSeccionesHtml()}</div>
+            </div>
+
+            <div class="card">
                 <h2>🎯 Siguiente Paso: Reforzamiento</h2>
                 <p style="margin-bottom: 16px; color: var(--text); font-size: 0.9rem;">Refuerza los temas donde marcaste "No" arriba, a tu ritmo — se enfoca automáticamente en tus brechas.</p>
                 <a href="estudio.html?modo=reforzamiento" class="btn btn-primary btn-full" style="display:block; text-decoration:none;">🎯 IR A MI REFORZAMIENTO</a>
@@ -1994,6 +2011,47 @@
                 }
             }
         }
+    }
+
+    /* =========================================================
+       REGRESAR A SECCIONES YA LLENADAS (17 sep, pedido de Diego)
+       Mismo patrón que documentos-sesion.html: selector arriba de cada
+       sección y tarjeta en el Resultado. Solo hasta la primera sección
+       incompleta. Sin los 142 reactivos cargados no se sabe si un Elemento
+       está completo (isStepValid tronaba así antes de e4898e1), así que en
+       ese caso el límite se queda en el primer Elemento.
+    ========================================================= */
+    const SECCIONES_NAVEGABLES = ['personal', 'nda', 'e1', 'e2', 'e3', 'e4', 'firma', 'resultado'];
+    const TITULO_SECCION = {
+        personal: 'Datos personales', nda: 'Acuerdo de Confidencialidad', e1: 'Elemento 1', e2: 'Elemento 2',
+        e3: 'Elemento 3', e4: 'Elemento 4', firma: 'Firma', resultado: 'Tu resultado'
+    };
+    function seccionMaximaPermitida() {
+        for (let i = STEPS.indexOf('personal'); i < STEPS.length - 1; i++) {
+            const st = STEPS[i];
+            if (st.startsWith('e') && !AUTODIAGNOSTICO_DATA.length) return i;
+            if (!isStepValid(st)) return i;
+        }
+        return STEPS.length - 1;
+    }
+    function irASeccion(i) {
+        const n = parseInt(i, 10);
+        if (!(n >= STEPS.indexOf('personal') && n <= seccionMaximaPermitida())) return;
+        currentStepIndex = n;
+        renderStep().catch(mostrarErrorPaso);
+    }
+    function selectorSeccionesHtml() {
+        const max = seccionMaximaPermitida();
+        const opciones = SECCIONES_NAVEGABLES.map(st => {
+            const i = STEPS.indexOf(st), bloqueada = i > max;
+            return `<option value="${i}"${i === currentStepIndex ? ' selected' : ''}${bloqueada ? ' disabled' : ''}>${escapeHtml(TITULO_SECCION[st])}${bloqueada ? ' (completa lo anterior)' : ''}</option>`;
+        }).join('');
+        return `<div class="saltar-paso"><label for="saltarSeccion">Ir a otra sección</label><select id="saltarSeccion" onchange="irASeccion(this.value)">${opciones}</select></div>`;
+    }
+    function listaSeccionesHtml() {
+        return SECCIONES_NAVEGABLES.filter(st => st !== 'resultado').map((st, k) =>
+            `<button type="button" class="paso-link" onclick="irASeccion(${STEPS.indexOf(st)})"><span class="n">${k + 1}</span><span>${escapeHtml(TITULO_SECCION[st])}</span></button>`
+        ).join('');
     }
 
     function goNext() {
