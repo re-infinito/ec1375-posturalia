@@ -12,6 +12,8 @@
     <script src="auth.js"></script>
     <script src="flow-status.js"></script>
     <script src="crm-shell.js" data-crm-mode="admin" data-crm-page="admin-sesiones"></script>
+    <script src="sala-evidencias.js"></script>
+    <script src="admin-sala-evidencias.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/l10n/es.js"></script>
@@ -52,7 +54,8 @@
 
         .tabs {
             display: flex;
-            gap: 12px;
+            flex-wrap: wrap;
+            gap: 4px 12px;
             margin-bottom: 24px;
             border-bottom: 1px solid var(--border);
         }
@@ -169,6 +172,7 @@
 
         @media (max-width: 768px) {
             .grid-2 { grid-template-columns: 1fr; }
+            .tab-btn { padding: 10px 12px; }
             .sesion-item { flex-direction: column; align-items: flex-start; }
         }
 
@@ -621,6 +625,7 @@
             <div class="tabs">
                 <button class="tab-btn active" data-tab="crear" onclick="switchTab('crear')">➕ Crear Sesión</button>
                 <button class="tab-btn" data-tab="listar" onclick="switchTab('listar')">📋 Listar Sesiones</button>
+                <button class="tab-btn" data-tab="sala" onclick="switchTab('sala')">🎥 Sala de evidencias</button>
                 <button class="tab-btn" data-tab="reportes" onclick="switchTab('reportes')">📊 Reportes</button>
             </div>
 
@@ -686,6 +691,11 @@
                 </div>
             </div>
 
+            <!-- TAB: SALA DE EVIDENCIAS (18 sep) -->
+            <div id="tab-sala" class="tab-content">
+                <div class="card"><div id="salaEvidenciasAdmin"></div></div>
+            </div>
+
             <!-- TAB: REPORTES -->
             <div id="tab-reportes" class="tab-content">
                 <div class="card">
@@ -697,6 +707,8 @@
 
         initSelectoresFechaHora();
         cargarSesiones();
+        AdminSala.montar(document.getElementById('salaEvidenciasAdmin'));
+        if (location.hash === '#sala') switchTab('sala', document.querySelector('.tab-btn[data-tab="sala"]'));
     }
 
     function switchTab(tab, clickedBtn) {
