@@ -166,6 +166,9 @@ const FlowStatus = {
        `steps`, nunca un href escrito a mano por página. `container` es
        el elemento donde inyectar el bloque (la página decide dónde). */
     renderNextStepCTA(steps, currentPageId, container) {
+        /* La página pudo volver a pintarse mientras se calculaban los pasos
+           (p. ej. "Editar mis respuestas"): sin contenedor no hay nada que hacer. */
+        if (!container) return;
         var idx = steps.findIndex(function (s) { return s.id === currentPageId; });
         var next = idx >= 0 && idx < steps.length - 1 ? steps[idx + 1] : null;
         if (!next) { container.innerHTML = ''; return; }

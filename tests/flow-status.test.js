@@ -46,3 +46,9 @@ test('bypass: nada bloqueado y Entrega nunca done', () => {
     assert.equal(s[9].done, false);
     assert.equal(s[9].reason, 'esperando_evaluador');
 });
+
+test('renderNextStepCTA: sin contenedor (la página ya se volvió a pintar) no truena', () => {
+    const steps = FlowStatus.computeSteps({ row: null });
+    assert.doesNotThrow(() => FlowStatus.renderNextStepCTA(steps, 'autodiagnostico', null));
+    assert.doesNotThrow(() => FlowStatus.renderNextStepCTA(steps, 'autodiagnostico', undefined));
+});
