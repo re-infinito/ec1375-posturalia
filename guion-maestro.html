@@ -170,6 +170,21 @@
         @media (max-width: 500px) {
             .toc-list { grid-template-columns: 1fr; }
         }
+        /* Imprimir o guardar en PDF (18 sep): solo el guion, con la marca de
+           agua del candidato en cada hoja. */
+        .guion-marca-print { display: none; }
+        .btn-imprimir-guion { margin: 0 0 18px; }
+        @media print {
+            .crm-sidebar, .crm-topbar, .crm-backdrop, .crm-fab, .crm-tut, .btn-imprimir-guion, [data-sala-tarjeta], [data-sala-aviso], #ptWatermark, .no-print { display: none !important; }
+            .crm-main, .crm-shell, body { margin: 0 !important; padding: 0 !important; background: #fff !important; color: #000 !important; }
+            .container { max-width: none !important; }
+            .guion-section { break-inside: avoid-page; }
+            .guion-marca-print {
+                display: block !important; position: fixed; inset: 0; z-index: 9999; pointer-events: none;
+                background-repeat: repeat; background-size: 460px 300px; opacity: 0.16;
+                -webkit-print-color-adjust: exact; print-color-adjust: exact;
+            }
+        }
     </style>
 </head>
 <body>
@@ -352,6 +367,30 @@
         updateChecklistProgress();
     }
 
+    /* 18 sep (pedido de Diego): imprimir o guardar el guion en PDF, con el
+       nombre del candidato como marca de agua en cada hoja. */
+    function marcaImpresionSvg(nombre, correo, fecha) {
+        const x = v => String(v || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="460" height="300">' +
+            '<g transform="rotate(-28 230 150)" font-family="Helvetica,Arial,sans-serif" fill="#0f1428">' +
+            '<text x="230" y="140" text-anchor="middle" font-size="22" font-weight="700">' + x(nombre) + '</text>' +
+            '<text x="230" y="166" text-anchor="middle" font-size="12">' + x(correo) + ' · ' + x(fecha) + '</text></g></svg>';
+        return 'url("data:image/svg+xml;utf8,' + encodeURIComponent(svg) + '")';
+    }
+    function prepararImpresion(nombre, correo) {
+        let capa = document.querySelector('.guion-marca-print');
+        if (!capa) { capa = document.createElement('div'); capa.className = 'guion-marca-print'; capa.setAttribute('aria-hidden', 'true'); document.body.appendChild(capa); }
+        const fecha = new Date().toLocaleDateString('es-MX', { timeZone: 'America/Mexico_City', day: '2-digit', month: '2-digit', year: 'numeric' });
+        capa.style.backgroundImage = marcaImpresionSvg(nombre, correo, fecha);
+    }
+    let detallesAbiertosAntes = [];
+    window.addEventListener('beforeprint', () => {
+        detallesAbiertosAntes = [...document.querySelectorAll('details')].filter(d => !d.open);
+        detallesAbiertosAntes.forEach(d => { d.open = true; });
+    });
+    window.addEventListener('afterprint', () => { detallesAbiertosAntes.forEach(d => { d.open = false; }); detallesAbiertosAntes = []; });
+    function imprimirGuion() { window.print(); }
+
     async function render() {
         const app = document.getElementById('app');
         const result = loadAutodiagnosticoResult();
@@ -391,6 +430,12 @@
         }
 
         app.innerHTML = renderGuionContent();
+        const nombreMarca = (result && result.personalData && result.personalData.nombre) || session.user.email;
+        prepararImpresion(nombreMarca, session.user.email);
+        const heroGuion = app.querySelector('.hero');
+        (heroGuion || app).insertAdjacentHTML(heroGuion ? 'afterend' : 'afterbegin',
+            `<button type="button" class="btn btn-secondary btn-full btn-imprimir-guion" onclick="imprimirGuion()">🖨️ Imprimir o guardar en PDF</button>
+             <p class="no-print" style="font-size:0.78rem;color:var(--text);margin:-10px 0 18px;">En la ventana de impresión elige "Guardar como PDF". Cada hoja lleva tu nombre como marca de agua.</p>`);
         applyChecklistState();
 
         /* Shell CRM: el guion es recurso de la fase de Evaluación; se marca
