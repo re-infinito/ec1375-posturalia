@@ -111,6 +111,11 @@
         .fase-tabla tr.gana td { font-weight: 700; color: var(--success); }
         .fase-tabla td.col-total, .fase-tabla th.col-total { background: var(--surface-2); }
         .fase-tabla .nota { display: block; font-size: 0.72rem; color: var(--text); font-weight: 400; }
+        .corte-tabla td.nom { white-space: normal; min-width: 170px; }
+        .corte-tabla .estado { display: inline-block; font-size: 0.68rem; padding: 1px 7px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border); color: var(--text); margin-top: 2px; }
+        .corte-tabla tr.pie td { font-weight: 700; border-top: 2px solid var(--border); background: var(--surface-2); }
+        .corte-tabla tr.pie-total td { font-weight: 800; color: var(--success); background: var(--surface-2); }
+        details.ref > summary { cursor: pointer; font-size: 1.05rem; font-weight: 700; color: var(--text-bright); }
         .gasto-row select { width: 100%; padding: 6px 8px; background: var(--dark); border: 1px solid var(--border); border-radius: 8px; color: var(--text-bright); font-size: 0.8rem; margin-top: 4px; }
 
         .error { color: var(--danger); font-size: 0.85rem; margin-top: 4px; }
@@ -135,6 +140,7 @@
     let pagosPorEmail = {};
     let loteActivo = 1;
     let configuracionLotes = {};
+    let nombresCandidatos = [];
     // 50 + 16.67 × 3 = 100.01: el reparto estándar (Chris 50% y tres socios iguales) debe poder guardarse.
     const TOLERANCIA_TOTAL = 0.011;
 
@@ -157,11 +163,13 @@
     }
 
     async function cargarDatos() {
-        const [precios, pagos, config] = await Promise.all([
+        const [precios, pagos, config, nombres] = await Promise.all([
             supabaseClient.from('candidatos_precio').select('*'),
             supabaseClient.from('candidatos_fase_pagos').select('email,fase'),
-            supabaseClient.from('reparto_utilidades').select('*')
+            supabaseClient.from('reparto_utilidades').select('*'),
+            supabaseClient.rpc('admin_lista_nombres').then(r => r, () => ({ data: [] }))
         ]);
+        nombresCandidatos = (nombres && nombres.data) || [];
 
         candidatos = precios.data || [];
         pagosPorEmail = {};
@@ -303,6 +311,7 @@
                 <p style="font-size:0.85rem;color:var(--text);margin-top:10px;">Ingresos: pagos de candidatos activos, desistidos y cambio de lote (dinero ya cobrado) · excluye cuentas de Administrador. Cada costo por candidato se descuenta cuando el candidato paga la fase en que se genera.</p>
             </div>
 
+            ${renderCorteCard(loteActivo)}
             ${renderFichaCard(loteActivo)}
             ${renderGastosCard(loteActivo)}
 
@@ -430,7 +439,7 @@
     }
     function datosParaAdminData() {
         return { precio: candidatos, pagos: Object.keys(pagosPorEmail).flatMap(email => [...pagosPorEmail[email]].map(fase => ({ email, fase }))),
-                 reparto: Object.keys(configuracionLotes).map(k => ({ lote: Number(k.replace('lote_', '')), ...configuracionLotes[k] })), utilidadesPagos, gastos };
+                 reparto: Object.keys(configuracionLotes).map(k => ({ lote: Number(k.replace('lote_', '')), ...configuracionLotes[k] })), utilidadesPagos, gastos, nombres: nombresCandidatos };
     }
 
     /* ---- Gastos fijos (tabla gastos_utilidades, 18 sep 2026) ----
@@ -529,6 +538,55 @@
             </div>`;
     }
 
+    /* Corte a hoy: cada candidato con SU precio y solo lo que ya pagó. */
+    function renderCorteCard(lote) {
+        if (gastosError) return '';
+        const c = AdminData.cortePorCandidato(datosParaAdminData(), lote);
+        const u = AdminData.utilidades(datosParaAdminData(), lote);
+        const r = u.reparto;
+        const conChris = c.config.incluir_chris;
+        if (!c.filas.length) return `<div class="card"><h2>🧮 Corte a hoy por candidato — Lote ${lote}</h2><p style="font-size:0.85rem;color:var(--text);">Aún no hay candidatos en este lote.</p></div>`;
+        const ESTADO = { 'desistió': 'Desistió', cambio_lote: 'Cambio de lote' };
+        const fase = (f, k) => f.pagadas[k] ? `<td>${fmt(f.recibido[k])}</td>` : '<td class="vacio">—</td>';
+        const neg = n => n ? `<td class="neg">−${fmt(n)}</td>` : '<td class="vacio">—</td>';
+        const filas = c.filas.map(f => `
+            <tr>
+                <td class="nom"><strong>${escapeHtml(f.nombre || f.email)}</strong>${f.nombre ? `<div class="gasto-sub">${escapeHtml(f.email)}</div>` : ''}${ESTADO[f.estado] ? `<span class="estado">${ESTADO[f.estado]}</span>` : ''}</td>
+                ${FASES_UI.map(k => fase(f, k)).join('')}
+                <td class="col-total"><strong>${fmt(f.totalRecibido)}</strong><div class="gasto-sub">de ${fmt(f.precio)}</div></td>
+                ${conChris ? neg(f.costoChris) + `<td>${fmt(f.chris)}</td>` : ''}
+                ${neg(f.costoReal)}
+                <td><strong>${fmt(f.socios)}</strong></td>
+            </tr>`).join('');
+        const st = c.subtotal;
+        const hayFijos = c.fijos.real > 0 || (conChris && c.fijos.chris > 0);
+        const vacias = FASES_UI.map(() => '<td></td>').join('');
+        const pieFijos = hayFijos ? `
+            <tr class="pie"><td>Subtotal candidatos</td>${vacias}<td class="col-total">${fmt(st.recibido)}</td>${conChris ? `<td class="neg">−${fmt(st.costoChris)}</td><td>${fmt(st.chris)}</td>` : ''}<td class="neg">−${fmt(st.costoReal)}</td><td>${fmt(st.socios)}</td></tr>
+            <tr><td>Costos de monto fijo del lote</td>${vacias}<td class="col-total"></td>${conChris ? `<td class="neg">−${fmt(c.fijos.chris)}</td><td></td>` : ''}<td class="neg">−${fmt(c.fijos.real)}</td><td></td></tr>` : '';
+        const cols = 1 + FASES_UI.length + 1 + (conChris ? 2 : 0) + 2;
+        return `
+            <div class="card">
+                <h2>🧮 Corte a hoy por candidato — Lote ${lote}</h2>
+                <p style="font-size:0.82rem;color:var(--text);margin:-8px 0 10px;">Cada candidato con <strong>su</strong> precio, contando solo las fases que ya pagó y los costos que esas fases generaron. Es lo que se debe repartir hoy.</p>
+                <div class="scroll-x"><table class="fase-tabla corte-tabla">
+                    <thead><tr><th>Candidato</th>${FASES_UI.map(k => `<th>${FASE_UI[k]}</th>`).join('')}<th class="col-total">Recibido</th>${conChris ? '<th>Costos Chris</th><th>Chris</th>' : ''}<th>Costo real</th><th>Socios</th></tr></thead>
+                    <tbody>
+                        ${filas}
+                        ${pieFijos}
+                        <tr class="pie pie-total"><td>Total a repartir hoy</td>${vacias}<td class="col-total">${fmt(u.ingresos)}</td>${conChris ? `<td></td><td>${fmt(r.chris)}</td>` : ''}<td></td><td>${fmt(r.pool)}</td></tr>
+                    </tbody>
+                </table></div>
+                <div class="ficha-res">
+                    ${conChris ? `<div><div class="k">Chris hoy</div><div class="v">${fmt(r.chris)}</div></div>` : ''}
+                    <div><div class="k">Fernando hoy</div><div class="v">${fmt(r.montos.fernando)}</div></div>
+                    <div><div class="k">Lot hoy</div><div class="v">${fmt(r.montos.lot)}</div></div>
+                    <div><div class="k">Diego hoy</div><div class="v">${fmt(r.montos.diego)}</div></div>
+                </div>
+                <p style="font-size:0.78rem;color:var(--text);margin-top:10px;">Cuánto ya se le pagó a cada quien y cuánto queda pendiente está abajo, en "Utilidades pagadas". Los montos por renglón van redondeados; el total sale de la suma exacta.</p>
+            </div>`;
+    }
+
     /* Cómo se reparte UN candidato, fase por fase (la hoja de Diego). */
     function renderFichaCard(lote) {
         if (gastosError) return '';
@@ -546,9 +604,9 @@
             ? `${ord(f.chris.items).map(i => fmt(i.monto)).join(' + ')} de Chris − ${fmt(f.real.total)} real`
             : '';
         return `
-            <div class="card">
-                <h2>📋 Cómo se reparte un candidato — Lote ${lote}</h2>
-                <p style="font-size:0.82rem;color:var(--text);margin:-8px 0 10px;">Candidato ${f.activos === 1 ? 'del lote' : `promedio de los ${f.activos} activos del lote`}, si paga todas las fases. Cada costo aparece en la fase en que se genera.</p>
+            <div class="card"><details class="ref">
+                <summary>📋 Referencia: cómo se reparte un candidato que paga todo — Lote ${lote}</summary>
+                <p style="font-size:0.82rem;color:var(--text);margin:10px 0;">${f.activos === 1 ? 'Con el precio del único activo del lote' : `Con el precio <strong>promedio</strong> de los ${f.activos} activos del lote`}, si pagara todas las fases. Sirve para entender el modelo; lo que se reparte de verdad está en "Corte a hoy por candidato".</p>
                 <div class="scroll-x"><table class="fase-tabla">
                     <thead><tr><th></th>${pf.map(x => `<th>${FASE_UI[x.id]}</th>`).join('')}<th class="col-total">Total</th></tr></thead>
                     <tbody>
@@ -570,7 +628,7 @@
                     <div><div class="k">Fer · Lot · Diego</div><div class="v" style="font-size:1rem;">${fmt(r.montos.fernando)} · ${fmt(r.montos.lot)} · ${fmt(r.montos.diego)}</div><div class="gasto-sub">${pct(f.participacion.fernando)} · ${pct(f.participacion.lot)} · ${pct(f.participacion.diego)} del valor real</div></div>
                     ${diferencialTxt ? `<div><div class="k">Diferencial (para socios)</div><div class="v">${fmt(r.diferencial)}</div><div class="gasto-sub">${diferencialTxt}</div></div>` : ''}
                 </div>
-            </div>`;
+            </details></div>`;
     }
     function attachGastosListeners(lote) {
         const recargar = async () => { await cargarGastos(); renderPanel(); };

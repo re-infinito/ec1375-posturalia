@@ -216,6 +216,49 @@
         };
     }
 
+    /* Corte a hoy, candidato por candidato (18 sep): con el precio de CADA uno
+       (no promedio). Por cada fase pagada: lo recibido y los costos por
+       candidato que esa fase generó; Chris = su % de (recibido − costos de
+       Chris) y socios = (recibido − costo real) − Chris. Mismas reglas que
+       gastosLote/repartir, así que la suma cuadra con el reparto del lote; los
+       costos de monto fijo no son de un candidato y van aparte (`fijos`).
+       Valores sin redondear: la pantalla redondea al mostrar. */
+    function cortePorCandidato(datos, lote) {
+        var idx = indexar(datos);
+        var config = configLote(datos, lote);
+        var g = gastosLote(datos, lote);
+        var conChris = config.incluir_chris !== false;
+        var pct = Number(config.porcentaje_chris) || 0;
+        var porCand = function (l) { return l.filter(function (i) { return i.tipo === 'por_certificado'; }); };
+        var real = porCand(g.items), propios = porCand(g.chris.items);
+        var usaReales = g.chris.items.length === 0;
+        var aplica = function (it, c, pagadas) { return it.fase ? pagadas[it.fase] : (c.estado || 'activo') === 'activo'; };
+        var filas = visibles(datos).filter(function (c) { return (c.lote || 1) === lote; }).map(function (c) {
+            var pagadas = {}, recibido = {};
+            FASES.forEach(function (f) { pagadas[f] = tienePago(datos, c.email, f); recibido[f] = pagadas[f] ? (Number(c['monto_' + f]) || 0) : 0; });
+            var totalRecibido = FASES.reduce(function (a, f) { return a + recibido[f]; }, 0);
+            var costoReal = real.filter(function (i) { return aplica(i, c, pagadas); }).reduce(function (a, i) { return a + i.monto; }, 0);
+            var costoChris = usaReales ? costoReal : propios.filter(function (i) { return aplica(i, c, pagadas); }).reduce(function (a, i) { return a + i.monto; }, 0);
+            var chris = conChris ? (totalRecibido - costoChris) * pct / 100 : 0;
+            var neto = totalRecibido - costoReal;
+            var email = (c.email || '').toLowerCase();
+            return {
+                email: c.email, nombre: idx.nombres[email] || c.nombre || '', estado: c.estado || 'activo',
+                precio: Number(c.total_acordado) || 0, pagadas: pagadas, recibido: recibido, totalRecibido: totalRecibido,
+                pendientePorCobrar: Math.max(0, (Number(c.total_acordado) || 0) - totalRecibido),
+                costoReal: costoReal, costoChris: costoChris, baseChris: totalRecibido - costoChris, chris: chris, neto: neto, socios: neto - chris
+            };
+        }).sort(function (a, b) { return b.totalRecibido - a.totalRecibido || String(a.nombre || a.email).localeCompare(String(b.nombre || b.email)); });
+        var sum = function (k) { return filas.reduce(function (a, f) { return a + f[k]; }, 0); };
+        var fijosReal = g.items.filter(function (i) { return i.tipo !== 'por_certificado'; }).reduce(function (a, i) { return a + i.total; }, 0);
+        var fijosChris = usaReales ? fijosReal : g.chris.items.filter(function (i) { return i.tipo !== 'por_certificado'; }).reduce(function (a, i) { return a + i.total; }, 0);
+        return {
+            config: config, filas: filas,
+            subtotal: { recibido: sum('totalRecibido'), costoReal: sum('costoReal'), costoChris: sum('costoChris'), chris: sum('chris'), neto: sum('neto'), socios: sum('socios') },
+            fijos: { real: fijosReal, chris: fijosChris }
+        };
+    }
+
     /* Las dos tablas de precios de UN candidato típico del lote (como la hoja de
        Diego): precio promedio de los activos por fase, costos por candidato y
        cómo se reparte, fase por fase. Reusa repartir(), así que el total coincide
@@ -416,7 +459,7 @@
 
     var AdminData = {
         FASES: FASES, FASE_LABEL: FASE_LABEL, SOCIOS: SOCIOS, PASOS_EXTRA: PASOS_EXTRA,
-        cargar: cargar, kpis: kpis, utilidades: utilidades, gastosLote: gastosLote, repartir: repartir, fichaCandidato: fichaCandidato, porFaseLote: porFaseLote, utilidadesGlobal: utilidadesGlobal, lotes: lotes,
+        cargar: cargar, kpis: kpis, utilidades: utilidades, gastosLote: gastosLote, repartir: repartir, fichaCandidato: fichaCandidato, porFaseLote: porFaseLote, cortePorCandidato: cortePorCandidato, utilidadesGlobal: utilidadesGlobal, lotes: lotes,
         candidatos: candidatos, porPaso: porPaso, ultimosPagos: ultimosPagos, proximasSesiones: proximasSesiones, atencion: atencion,
         declaraciones: declaraciones,
         fmtMX: function (n) { return '$' + Math.round(n || 0).toLocaleString('es-MX'); }

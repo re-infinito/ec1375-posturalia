@@ -221,6 +221,39 @@ test('fichaCandidato: desglose por fase como la hoja y participación efectiva',
     assert.equal(Math.round(f.participacion.fernando), 20);
 });
 
+test('cortePorCandidato: precio real de cada uno, solo lo cobrado, y cuadra con el reparto del lote', () => {
+    const d = datosFases([]);
+    d.reparto[0].porcentaje_diego = 16.67;
+    d.precio = [
+        { email: 'a@x.com', nombre: 'Ana', lote: 1, estado: 'activo', total_acordado: 14750, monto_registro: 2000, monto_alineacion: 4250, monto_evaluacion: 6000, monto_entrega: 2500 },
+        { email: 'b@x.com', nombre: 'Beto', lote: 1, estado: 'activo', total_acordado: 12000, monto_registro: 2000, monto_alineacion: 3500, monto_evaluacion: 5000, monto_entrega: 1500 },
+        { email: 'y@x.com', nombre: 'Yusel', lote: 1, estado: 'desistió', total_acordado: 14750, monto_registro: 2000, monto_alineacion: 4250 },
+        { email: 'adm@x.com', lote: 1, estado: 'administrador', total_acordado: 99999, monto_registro: 99999 }
+    ];
+    d.pagos = [
+        ...['registro', 'alineacion', 'evaluacion', 'entrega'].map(f => ({ email: 'a@x.com', fase: f })),
+        ...['registro', 'alineacion'].map(f => ({ email: 'b@x.com', fase: f })),
+        { email: 'y@x.com', fase: 'registro' }, { email: 'adm@x.com', fase: 'registro' }
+    ];
+    const c = AdminData.cortePorCandidato(d, 1);
+    assert.equal(c.filas.length, 3);                                 // el administrador no aparece
+    const ana = c.filas.find(f => f.email === 'a@x.com');
+    assert.equal(ana.chris, 5375); assert.equal(ana.socios, 8175);    // la hoja
+    const beto = c.filas.find(f => f.email === 'b@x.com');
+    assert.equal(beto.totalRecibido, 5500);                           // su precio, no el promedio
+    assert.equal(beto.costoChris, 1250);                              // solo Centro 1 (pagó Alineación)
+    assert.equal(beto.costoReal, 0);
+    assert.equal(beto.chris, (5500 - 1250) / 2);
+    assert.equal(beto.pendientePorCobrar, 12000 - 5500);
+    const yusel = c.filas.find(f => f.email === 'y@x.com');
+    assert.equal(yusel.totalRecibido, 2000);                          // desistió: cuenta lo que pagó
+    assert.equal(yusel.chris, 1000);
+    const u = AdminData.utilidades(d, 1);
+    assert.equal(c.subtotal.recibido, u.ingresos);
+    assert.equal(Math.round(c.subtotal.chris), u.reparto.chris);
+    assert.equal(Math.round(c.subtotal.socios), u.reparto.pool);
+});
+
 test('candidatos: paso real con computeSteps, docs, nombre y fase pagada', () => {
     const lista = AdminData.candidatos(datos());
     const a = lista.find(c => c.email === 'a@x.com');
