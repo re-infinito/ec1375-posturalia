@@ -142,6 +142,15 @@
         .pregunta-campo .item-dialogo { margin-bottom: 12px; }
         .pregunta-campo .field-group { margin-bottom: 12px; }
         .doc-actualizando { color: var(--primary); font-weight: 600; }
+
+        /* Navegación entre pasos (17 sep): regresar a cualquier paso ya visto */
+        .saltar-paso { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+        .saltar-paso label { font-size: 0.8rem; font-weight: 700; color: var(--text); }
+        .saltar-paso select { flex: 1 1 240px; min-width: 0; min-height: 42px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--dark-light); color: var(--text-bright); font: inherit; font-size: 0.88rem; cursor: pointer; }
+        .pasos-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; margin-top: 12px; }
+        .paso-link { display: flex; align-items: center; gap: 10px; text-align: left; padding: 10px 12px; min-height: 44px; border-radius: 8px; border: 1px solid var(--border); background: var(--dark); color: var(--text-bright); font: inherit; font-size: 0.86rem; cursor: pointer; }
+        .paso-link:hover { border-color: var(--primary); }
+        .paso-link .n { flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-size: 0.75rem; font-weight: 700; background: var(--surface-2); color: var(--primary); }
     </style>
 </head>
 <body>
@@ -1404,10 +1413,48 @@
         return true;
     }
 
+    /* =========================================================
+       NAVEGACIÓN ENTRE PASOS (pedido de Diego, 17 sep): poder regresar a
+       cualquier paso — durante el llenado con el selector "Ir a otro paso" y
+       desde la pantalla final con la lista de pasos. Solo se puede ir hasta
+       el primer paso que aún falta completar, para no saltarse lo obligatorio.
+    ========================================================= */
+    function pasoMaximoPermitido() {
+        for (let i = 1; i < STEPS.length - 1; i++) {
+            /* 'prep' es un checklist que vive solo en el navegador donde se llenó:
+               no debe dejar sin navegación a quien ya avanzó en otro dispositivo. */
+            if (STEPS[i] !== 'prep' && !isStepValid(STEPS[i])) return i;
+        }
+        return STEPS.length - 1;
+    }
+    function irAPaso(i) {
+        const n = parseInt(i, 10);
+        if (!(n >= 1 && n <= pasoMaximoPermitido())) return;
+        currentStepIndex = n;
+        renderStep();
+        window.scrollTo(0, 0);
+    }
+    function selectorPasosHtml() {
+        const max = pasoMaximoPermitido();
+        const opciones = STEPS.map((st, i) => {
+            if (i === 0) return '';
+            const titulo = st === 'resultado' ? 'Tus documentos' : (STEP_TITLES[st] || st);
+            const bloqueado = i > max;
+            return `<option value="${i}"${i === currentStepIndex ? ' selected' : ''}${bloqueado ? ' disabled' : ''}>${i}. ${escapeHtml(titulo)}${bloqueado ? ' (completa los pasos anteriores)' : ''}</option>`;
+        }).join('');
+        return `<div class="saltar-paso"><label for="saltarPaso">Ir a otro paso</label><select id="saltarPaso" onchange="irAPaso(this.value)">${opciones}</select></div>`;
+    }
+    function listaPasosHtml() {
+        return STEPS.slice(1, STEPS.length - 1).map((st, k) =>
+            `<button type="button" class="paso-link" onclick="irAPaso(${k + 1})"><span class="n">${k + 1}</span><span>${escapeHtml(STEP_TITLES[st] || st)}</span></button>`
+        ).join('');
+    }
+
     function attachNav() {
         const step = STEPS[currentStepIndex];
         if (step === 'intro' || step === 'resultado') return;
         const app = document.getElementById('app');
+        app.insertAdjacentHTML('afterbegin', selectorPasosHtml());
         const isLast = step === 'cierre';
         const navHtml = `
             <div id="validationStatus"></div>
@@ -1785,6 +1832,12 @@ const LOGO_CONOCER_BASE64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAA
                 <h3 style="color:var(--success);margin-bottom:10px;">✅ Tus 4 documentos están listos</h3>
                 <p style="color:var(--text);margin-bottom:20px;">Se suben automáticamente a tu portafolio. Si después corriges algo, se vuelven a subir solos con la versión actualizada.</p>
                 <div id="estadoDocsSesion"></div>
+            </div>
+            <div class="card" style="margin-top:20px;">
+                <h2>↩️ Regresar a un paso</h2>
+                <p class="desc" style="margin-bottom:0;">Toca cualquier paso para revisarlo o corregirlo. Si cambias algo, tus documentos se vuelven a subir solos con la versión actualizada.</p>
+                <div class="pasos-grid">${listaPasosHtml()}</div>
+                <button type="button" class="btn btn-secondary btn-full" style="margin-top:14px;" onclick="irAPaso(${STEPS.indexOf('cierre')})">← Volver al último paso (Cierre y Firma)</button>
             </div>
             <div class="card" style="text-align:center;margin-top:20px;">
                 <a href="plan-evaluacion.html" style="color:var(--primary);text-decoration:none;font-size:0.9rem;">← Volver a mi Plan de Evaluación</a>
