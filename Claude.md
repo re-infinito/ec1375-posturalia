@@ -292,6 +292,8 @@ Pedido de Diego: "si se hace algún ajuste a cualquier documento previo, debe de
 
 Tablas: `sesiones_alineacion` (columna `zoom_link`, renombrada de `google_meet_link` el 15 sep), `inscripciones_alineacion`, `emails_enviados_alineacion` (auditoría de envíos).
 
+**Grabación de la sesión de Alineación (18 sep):** la tarjeta "🎬 Video de capacitación" de `alineacion.html` muestra la grabación de Zoom de la sesión en vivo: botón "▶ Ver la grabación en Zoom" (pestaña nueva; las grabaciones de Zoom no se incrustan de forma confiable) y el código de acceso con "Copiar código". El enlace y el código **no están en el HTML público**: viven en el bloque protegido `alineacion:video` (fase Alineación) de `contenido_ec1375` — sin sesión, Supabase regresa `[]` (verificado). Para cambiar de grabación: editar `_internal_no_publicar/contenido/bloques/alineacion__video.json` (`url`, `codigo`, `plataforma: 'zoom'`; con otra plataforma se incrusta como iframe/mp4), subir `version` en `paquete.json` y correr `python3 publicar_contenido.py publicar`; no requiere deploy. Si el bloque no carga, la tarjeta vuelve a "disponible pronto" (`VIDEO_CAPACITACION_URL` queda solo de respaldo). **Riesgo:** si la grabación se borra en Zoom (retención de la cuenta), el enlace deja de servir; conviene tener una copia descargada.
+
 **✅ Ya aplicado** (verificado 16 sep contra la API REST): `sesiones_alineacion.zoom_link` responde 200 y `google_meet_link` ya no existe, así que el renombre de `2026-09-15-rename-google-meet-link-to-zoom-link.sql` corrió y el código está alineado con la columna real.
 
 ---

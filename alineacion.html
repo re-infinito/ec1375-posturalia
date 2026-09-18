@@ -13,6 +13,7 @@
     <script src="protect.js"></script>
     <script src="flow-status.js"></script>
     <script src="crm-shell.js" data-crm-page="alineacion"></script>
+    <script src="contenido.js"></script>
     <script src="sesiones-alineacion-component.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -90,6 +91,15 @@
             padding: 16px; border: 1px dashed var(--border); border-radius: 8px;
         }
 
+        .video-codigo {
+            display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px;
+            background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; margin-bottom: 12px;
+            font-size: 0.92rem; color: var(--text-bright);
+        }
+        .video-codigo code { font-size: 1.05rem; font-weight: 700; letter-spacing: 0.04em; user-select: all; }
+        .video-codigo .btn { padding: 10px 16px; font-size: 0.85rem; }
+        .video-nota { font-size: 0.8rem; color: var(--text); text-align: center; margin-top: -4px; }
+
         .calendar-cta-box {
             background: linear-gradient(135deg, rgba(0,136,255,0.15), rgba(0,204,255,0.05));
             border: 2px solid var(--primary); border-radius: 12px; padding: 22px; text-align: center;
@@ -107,7 +117,7 @@
        Vacío = la tarjeta correspondiente muestra un aviso de
        "disponible pronto" en vez de romperse.
     ========================================================= */
-    const VIDEO_CAPACITACION_URL = ''; // video de capacitación (YouTube/Vimeo embed o mp4 directo)
+    const VIDEO_CAPACITACION_URL = ''; // respaldo si el bloque alineacion:video no carga (YouTube/Vimeo embed o mp4 directo)
 
     // Widget de Google Calendar Appointment Schedule para agendar Alineación
     // (sesión grupal — activar "varias reservas por horario" al crearlo en
@@ -186,6 +196,36 @@
 
     function renderReservaCard() {
         return `<div id="sesiones-alineacion-container" style="margin-bottom:20px;"></div>`;
+    }
+
+    /* Grabación de la sesión de Alineación (18 sep): enlace y código de
+       acceso viven en Supabase (bloque alineacion:video, fase Alineación),
+       no en este HTML público. Zoom se abre en pestaña nueva: sus
+       grabaciones no se pueden incrustar de forma confiable. */
+    async function cargarVideoCapacitacion() {
+        const el = document.getElementById('videoCapacitacion');
+        if (!el) return;
+        let v = null;
+        try { v = await Contenido.cargar('alineacion:video'); } catch (e) { v = null; }
+        if (!document.body.contains(el)) return;
+        if (!v || typeof v.url !== 'string' || !/^https:\/\//.test(v.url)) {
+            el.innerHTML = embedBlock(VIDEO_CAPACITACION_URL, 'Video de capacitación');
+            return;
+        }
+        if (v.plataforma !== 'zoom') { el.innerHTML = embedBlock(v.url, 'Video de capacitación'); return; }
+        el.innerHTML = `
+            ${v.codigo ? `<div class="video-codigo">
+                <span>Código de acceso: <code id="codigoVideo">${escapeHtml(v.codigo)}</code></span>
+                <button type="button" class="btn btn-secondary" id="btnCopiarCodigo" style="margin:0;">Copiar código</button>
+            </div>` : ''}
+            <a class="btn btn-primary btn-full" href="${escapeHtml(v.url)}" target="_blank" rel="noopener">▶ Ver la grabación en Zoom</a>
+            <p class="video-nota">Se abre en una pestaña nueva. ${v.codigo ? 'Zoom te pide el código de acceso: pégalo y oprime "Ver grabación".' : ''}</p>`;
+        const btn = document.getElementById('btnCopiarCodigo');
+        if (btn) btn.addEventListener('click', async () => {
+            try { await navigator.clipboard.writeText(v.codigo); btn.textContent = '✓ Copiado'; }
+            catch (e) { btn.textContent = 'Cópialo a mano'; }
+            setTimeout(() => { btn.textContent = 'Copiar código'; }, 2500);
+        });
     }
 
     function embedBlock(url, label) {
@@ -363,8 +403,8 @@
 
             <div class="card">
                 <h2>🎬 Video de capacitación</h2>
-                <p class="desc">Explicación a detalle de cómo se lleva a cabo el proceso de evaluación.</p>
-                ${embedBlock(VIDEO_CAPACITACION_URL, 'Video de capacitación')}
+                <p class="desc">Grabación de la sesión de Alineación: explicación a detalle de cómo se lleva a cabo el proceso de evaluación.</p>
+                <div id="videoCapacitacion"><p class="pending-note">Cargando la grabación…</p></div>
             </div>
 
             <!-- TODO: Video de muestra y Material adicional (bonus) se quitaron
@@ -375,6 +415,7 @@
 
             <div id="flowNextStepCta"></div>
         `;
+        cargarVideoCapacitacion();
         const flowSteps = await FlowStatus.getSteps();
         CrmShell.mount({ currentPageId: 'alineacion', steps: flowSteps });
         FlowStatus.renderNextStepCTA(flowSteps, 'alineacion', document.getElementById('flowNextStepCta'));
