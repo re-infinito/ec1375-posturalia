@@ -302,3 +302,15 @@ a.crm-item:hover { background: rgba(255,255,255,0.08); }
    ve en tema claro y oscuro (el color-scheme lo da html[data-theme]). */
 input[type="date"], input[type="time"], input[type="datetime-local"], input[type="month"], input[type="week"] { cursor: pointer; }
 input::-webkit-calendar-picker-indicator { cursor: pointer; opacity: 0.9; }
+
+/* Tutoriales (17 sep): botón «Ver cómo se hace» del encabezado y reproductor en ventana. */
+.crm-tutbtn { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 8px 14px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text-bright); font: inherit; font-size: 0.85rem; font-weight: 700; cursor: pointer; white-space: nowrap; }
+.crm-tutbtn:hover { border-color: var(--primary); color: var(--primary); }
+.crm-tutbtn svg { flex-shrink: 0; }
+@media (max-width: 640px) { .crm-tutbtn { padding: 8px 10px; } .crm-tutbtn span { display: none; } }
+.crm-tut { position: fixed; inset: 0; z-index: 2000; background: rgba(5,10,26,0.78); display: flex; align-items: center; justify-content: center; padding: 16px; }
+.crm-tut-box { width: min(1000px, 100%); max-height: 100%; overflow: auto; background: var(--dark-light); border: 1px solid var(--border); border-radius: 16px; padding: 12px 14px 14px; color: var(--text); }
+.crm-tut-h { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; color: var(--text-bright); font-size: 1rem; }
+.crm-tut video { display: block; width: 100%; aspect-ratio: 16 / 9; background: #000; border-radius: 10px; }
+.crm-tut-pie { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 14px; margin-top: 10px; font-size: 0.85rem; }
+.crm-tut-pie a { color: var(--primary); font-weight: 700; text-decoration: none; }

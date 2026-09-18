@@ -95,6 +95,28 @@
         .btn-sec { background: transparent; border: 2px solid var(--primary); color: var(--primary); }
         .btn:disabled { background: var(--surface-2); border-color: var(--border); color: var(--text); cursor: not-allowed; }
 
+        .tutoriales { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 14px; }
+        .tutorial {
+            display: flex; flex-direction: column; text-align: left; padding: 0; overflow: hidden; cursor: pointer;
+            background: var(--dark-light); border: 1px solid var(--border); border-radius: 12px; color: var(--text); font: inherit; min-width: 0;
+        }
+        .tutorial:hover, .tutorial:focus-visible { border-color: var(--primary); }
+        .tutorial .poster { display: block; position: relative; aspect-ratio: 16 / 9; background: var(--surface-2); }
+        .tutorial .poster img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .tutorial .play {
+            position: absolute; left: 8px; bottom: 8px; width: 34px; height: 34px; border-radius: 50%;
+            background: rgba(5,10,26,0.72); color: #fff; display: flex; align-items: center; justify-content: center;
+        }
+        .tutorial .dur { position: absolute; right: 8px; bottom: 8px; background: rgba(5,10,26,0.8); color: #fff; font-size: 0.75rem; font-weight: 700; padding: 2px 7px; border-radius: 6px; }
+        .tutorial .info { display: block; padding: 10px 12px 12px; }
+        .tutorial .info strong { display: block; color: var(--text-bright); font-size: 0.95rem; margin-bottom: 2px; }
+        .tutorial .info span { font-size: 0.82rem; }
+        @media (max-width: 560px) {
+            .tutoriales { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+            .tutorial .info { padding: 8px 10px 10px; }
+            .tutorial .info strong { font-size: 0.88rem; }
+            .tutorial .info span { display: none; }
+        }
         .nota { font-size: 0.8rem; margin-top: 12px; }
         .toast {
             position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--dark-light);
@@ -188,6 +210,26 @@
         }
     }
 
+    /* Tutoriales: la lista vive en crm-shell.js (también la usa el botón
+       «Ver cómo se hace» de cada paso). Disponibles siempre. */
+    function tutorialesHtml() {
+        const lista = (typeof CrmShell !== 'undefined' && CrmShell.TUTORIALES) || [];
+        if (!lista.length) return '';
+        const dur = t => CrmShell._helpers.duracionTexto(t.dur);
+        return `
+            <section class="seccion" id="tutoriales">
+                <div class="seccion-h"><h2>Tutoriales de la plataforma</h2></div>
+                <p class="seccion-sub">Videos cortos y sin audio que muestran cómo se hace cada paso, con datos de ejemplo.</p>
+                <div class="tutoriales">
+                    ${lista.map(t => `
+                        <button type="button" class="tutorial" onclick="CrmShell.abrirTutorial('${t.id}', this)" aria-label="Ver tutorial: ${escapeHtml(t.titulo)}">
+                            <span class="poster"><img src="tutoriales/${t.id}.jpg" alt="" loading="lazy"><span class="play">${ico('play')}</span>${t.dur ? `<span class="dur">${dur(t)}</span>` : ''}</span>
+                            <span class="info"><strong>${escapeHtml(t.titulo)}</strong><span>${escapeHtml(t.desc)}</span></span>
+                        </button>`).join('')}
+                </div>
+            </section>`;
+    }
+
     function toolkitHtml(datos) {
         const dis = desbloqueado ? '' : ' disabled';
         const tarjetas = FormatosConsultorio.FORMATOS.map(f => `
@@ -251,9 +293,11 @@
         app.innerHTML = `
             <div class="intro">
                 <h1>Recursos</h1>
-                <p>Material de apoyo para tu proceso y para tu práctica profesional.</p>
+                <p>Tutoriales para usar la plataforma y formatos para tu práctica profesional.</p>
             </div>
+            ${tutorialesHtml()}
             ${toolkitHtml(datosDeFila(row))}`;
+        if (location.hash === '#tutoriales') { const el = document.getElementById('tutoriales'); if (el) el.scrollIntoView(); }
     }
 
     window.addEventListener('load', () => {

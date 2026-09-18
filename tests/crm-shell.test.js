@@ -107,3 +107,21 @@ test('escapeHtml neutraliza etiquetas', () => {
     assert.equal(H.escapeHtml('<b>&"'), '&lt;b&gt;&amp;&quot;');
     assert.equal(H.escapeHtml(null), '');
 });
+
+test('tutorialDePagina: cada paso del flujo tiene su tutorial y los ids son únicos', () => {
+    const pasos = ['panel', 'autodiagnostico', 'reforzamiento', 'alineacion', 'biblioteca', 'plan-evaluacion',
+        'documentos-sesion', 'practica', 'examen', 'encuesta', 'evidencias', 'entrega'];
+    for (const p of pasos) assert.ok(H.tutorialDePagina(p), 'sin tutorial: ' + p);
+    assert.equal(H.tutorialDePagina('recursos'), null);
+    assert.equal(H.tutorialDePagina('admin-panel'), null);
+    const ids = CrmShell.TUTORIALES.map(t => t.id);
+    assert.equal(new Set(ids).size, ids.length);
+    assert.ok(CrmShell.TUTORIALES.every(t => t.titulo && t.desc && /^[a-z-]+$/.test(t.id)));
+});
+
+test('duracionTexto: minutos y segundos con dos dígitos', () => {
+    assert.equal(H.duracionTexto(51), '0:51');
+    assert.equal(H.duracionTexto(88), '1:28');
+    assert.equal(H.duracionTexto(60), '1:00');
+    assert.equal(H.duracionTexto(undefined), '0:00');
+});

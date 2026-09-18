@@ -6,7 +6,7 @@
    cada deploy una visita recibía HTML nuevo con JS/CSS viejo — p. ej. la
    búsqueda de la Biblioteca no funcionaba hasta recargar). La caché solo se
    usa sin conexión. Sin conexión y sin caché → página offline mínima. */
-var VERSION = 'paideia-app-v7';
+var VERSION = 'paideia-app-v8';
 var SHELL = ['/panel.html', '/crm-shell.js', '/crm-shell.css', '/auth.js', '/flow-status.js', '/protect.js', '/contenido.js', '/visor-diapositivas.js', '/visor-diapositivas.css', '/estudio.html', '/estudio.css', '/estudio-logica.js', '/firma-candidato.js', '/documentos-nas.js', '/formatos-consultorio.js', '/recursos.html',
              '/Logos/Logo%20Paideia%20Tech%20-%20trimmed.png', '/icons/icon-192.png', '/icons/icon-512.png', '/manifest.json'];
 
@@ -19,7 +19,9 @@ self.addEventListener('activate', function (ev) {
 
 function esMismoOrigen(url) { return url.origin === self.location.origin; }
 function esProtegido(url) {
-    return !esMismoOrigen(url) || url.pathname.indexOf('/api/') === 0;
+    /* /tutoriales/: los videos llegan en respuestas parciales (206), que
+       cache.put rechaza; que los sirva la red directo. */
+    return !esMismoOrigen(url) || url.pathname.indexOf('/api/') === 0 || url.pathname.indexOf('/tutoriales/') === 0;
 }
 
 self.addEventListener('fetch', function (ev) {

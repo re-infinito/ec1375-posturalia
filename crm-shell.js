@@ -570,6 +570,19 @@
             header.className = 'crm-topbar';
             header.innerHTML = headerHtml(title);
             main.appendChild(header);
+            /* «Ver cómo se hace»: el tutorial del paso (el Guion Maestro comparte
+               id con el Plan de Evaluación, pero no es esa página). */
+            var tut = location.pathname.indexOf('guion-maestro') < 0 ? tutorialDePagina(currentPageId) : null;
+            if (tut) {
+                var btnTut = document.createElement('button');
+                btnTut.type = 'button';
+                btnTut.className = 'crm-tutbtn';
+                btnTut.title = 'Tutorial: ' + tut.titulo;
+                btnTut.setAttribute('aria-label', 'Ver cómo se hace: ' + tut.titulo);
+                btnTut.innerHTML = icon('play', 16) + '<span>Ver cómo se hace</span>';
+                btnTut.addEventListener('click', function () { abrirTutorial(tut.id, btnTut); });
+                header.insertBefore(btnTut, header.querySelector('[data-crm-theme-btn="icon"]'));
+            }
             /* Encabezado único: el .top-bar propio de la página (y su barra de
                progreso hermana, en documentos-sesion) se ocultan; su paso
                actual (#topBarStep / #topBarProgress) y su avance
@@ -862,14 +875,74 @@
     }
     if (typeof document !== 'undefined') document.addEventListener('click', abrirSelectorFechaHora);
 
+    /* Tutoriales mudos de la plataforma (17 sep): tutoriales/<id>.mp4 con su
+       portada <id>.jpg, grabados con datos ficticios. `paginas` son los
+       currentPageId donde aparece «Ver cómo se hace» en el encabezado;
+       recursos.html los lista todos. `dur` en segundos. */
+    var TUTORIALES = [
+        { id: 'inicio-sesion', titulo: 'Iniciar sesión', desc: 'Entrar con tu correo y contraseña, y qué hacer si la olvidaste.', paginas: [], dur: 50 },
+        { id: 'panel', titulo: 'Tu panel', desc: 'Dónde ver tu avance, tus documentos y tu siguiente paso.', paginas: ['panel'], dur: 49 },
+        { id: 'autodiagnostico', titulo: 'Autodiagnóstico', desc: 'Tus datos, las 142 preguntas de SÍ o NO y tus documentos de Registro.', paginas: ['autodiagnostico'], dur: 89 },
+        { id: 'reforzamiento', titulo: 'Reforzamiento', desc: 'Repasar los temas que marcaste con NO y dar tu visto bueno.', paginas: ['reforzamiento'], dur: 53 },
+        { id: 'alineacion', titulo: 'Alineación', desc: 'Reservar tu sesión en vivo y recorrer la Ruta de Alineación.', paginas: ['alineacion'], dur: 46 },
+        { id: 'biblioteca', titulo: 'Biblioteca', desc: 'Buscar cualquier tema, ver lo recomendado para ti y la presentación.', paginas: ['biblioteca'], dur: 40 },
+        { id: 'plan-evaluacion', titulo: 'Plan de Evaluación', desc: 'Acordar fecha y lugar, confirmar requisitos y firmar.', paginas: ['plan-evaluacion'], dur: 58 },
+        { id: 'documentos-sesion', titulo: 'Documentos de Sesión', desc: 'La guía paso a paso durante la sesión grabada con tu paciente.', paginas: ['documentos-sesion'], dur: 53 },
+        { id: 'practica', titulo: 'Práctica', desc: 'Contestar por tema, repasar si fallas y volver a intentar.', paginas: ['practica'], dur: 44 },
+        { id: 'examen', titulo: 'Examen de Conocimientos', desc: 'Una pregunta a la vez, con repaso cuando fallas.', paginas: ['examen'], dur: 47 },
+        { id: 'encuesta', titulo: 'Encuesta de Satisfacción', desc: 'Las 7 preguntas de caritas, tu firma y el envío.', paginas: ['encuesta'], dur: 42 },
+        { id: 'evidencias', titulo: 'Evidencias', desc: 'Subir tus archivos, la declaración de autenticidad y confirmar.', paginas: ['evidencias'], dur: 49 },
+        { id: 'entrega', titulo: 'Entrega de certificado', desc: 'Qué pasa después de tu evaluación y cómo pagar la Entrega.', paginas: ['entrega'], dur: 35 }
+    ];
+    function tutorialDePagina(pageId) {
+        return TUTORIALES.filter(function (t) { return t.paginas.indexOf(pageId) >= 0; })[0] || null;
+    }
+    function duracionTexto(seg) {
+        seg = Math.max(0, Math.round(Number(seg) || 0));
+        return Math.floor(seg / 60) + ':' + ('0' + (seg % 60)).slice(-2);
+    }
+    /* Reproductor en ventana: Esc, el fondo o ✕ la cierran; el foco regresa
+       al botón que la abrió. Sin sonido: los videos son mudos. */
+    function abrirTutorial(id, disparador) {
+        var t = TUTORIALES.filter(function (x) { return x.id === id; })[0];
+        if (!t) return;
+        var previo = document.querySelector('.crm-tut');
+        if (previo) previo.remove();
+        var capa = document.createElement('div');
+        capa.className = 'crm-tut';
+        capa.setAttribute('role', 'dialog');
+        capa.setAttribute('aria-modal', 'true');
+        capa.setAttribute('aria-label', 'Tutorial: ' + t.titulo);
+        capa.innerHTML = '<div class="crm-tut-box">' +
+            '<div class="crm-tut-h"><strong>' + escapeHtml(t.titulo) + '</strong>' +
+            '<button type="button" class="crm-iconbtn" data-crm-tut-cerrar aria-label="Cerrar tutorial">' + icon('x') + '</button></div>' +
+            '<video src="tutoriales/' + t.id + '.mp4" poster="tutoriales/' + t.id + '.jpg" controls autoplay muted playsinline preload="metadata"></video>' +
+            '<div class="crm-tut-pie"><span>' + escapeHtml(t.desc) + '</span><a href="recursos.html#tutoriales">Todos los tutoriales</a></div></div>';
+        function cerrar() {
+            var v = capa.querySelector('video');
+            if (v) v.pause();
+            capa.remove();
+            document.removeEventListener('keydown', teclas);
+            if (disparador && disparador.focus) disparador.focus();
+        }
+        function teclas(ev) { if (ev.key === 'Escape') cerrar(); }
+        capa.addEventListener('click', function (ev) { if (ev.target === capa || ev.target.closest('[data-crm-tut-cerrar]')) cerrar(); });
+        document.addEventListener('keydown', teclas);
+        document.body.appendChild(capa);
+        capa.querySelector('[data-crm-tut-cerrar]').focus();
+    }
+
     var CrmShell = {
         icon: icon,
+        TUTORIALES: TUTORIALES,
+        abrirTutorial: abrirTutorial,
         skeleton: skeleton,
         _helpers: {
             escapeHtml: escapeHtml, estadoDocumento: estadoDocumento, contarDocumentos: contarDocumentos,
             pendientesDelPaso: pendientesDelPaso, faseMasAlta: faseMasAlta, tiempoRelativo: tiempoRelativo,
             iniciales: iniciales, proximaInscripcion: proximaInscripcion, formatoSesion: formatoSesion,
-            itemsAtencion: itemsAtencion, fechaSesion: fechaSesion
+            itemsAtencion: itemsAtencion, fechaSesion: fechaSesion,
+            tutorialDePagina: tutorialDePagina, duracionTexto: duracionTexto
         },
         DOC_GRUPOS: DOC_GRUPOS,
         FASES: FASES,
