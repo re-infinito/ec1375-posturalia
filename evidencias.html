@@ -457,6 +457,10 @@
                     <input type="checkbox" id="confirmCheck" ${planData.evidenciasConfirmadas ? 'checked' : ''} onchange="toggleConfirm(this)">
                     <label for="confirmCheck">Confirmo que subí todas mis evidencias obligatorias</label>
                 </div>
+                <div class="checkbox-row">
+                    <input type="checkbox" id="autenticidadCheck" ${planData.declaracionAutenticidad ? 'checked' : ''} onchange="toggleAutenticidad(this)">
+                    <label for="autenticidadCheck"><strong>Declaración de autenticidad.</strong> ${escapeHtml(TEXTO_DECLARACION_AUTENTICIDAD)}</label>
+                </div>
                 <div class="field-group">
                     <label>Notas adicionales (opcional)</label>
                     <textarea id="f_notas" rows="2" placeholder="Ej. Subí 2 videos por límite de tamaño">${escapeHtml(planData.notas)}</textarea>
@@ -491,6 +495,16 @@
         updateGenerateButton();
     }
 
+    /* Declaración de autenticidad (17 sep, pedido de Diego): deslinda al
+       Centro Evaluador de evidencias falsificadas. Texto modelo: validar con
+       el evaluador. Se guarda la fecha; desmarcar la borra. */
+    const VERSION_DECLARACION_AUTENTICIDAD = '2026-09-17';
+    const TEXTO_DECLARACION_AUTENTICIDAD = 'Declaro bajo protesta de decir verdad que las evidencias que entrego —video, capturas, documentos e identificaciones— son auténticas, corresponden a una atención real realizada por mí y no fueron alteradas. Cualquier falsificación o alteración es mi exclusiva responsabilidad, y libero al Centro Evaluador y a Paideia Tech de toda responsabilidad derivada de ella.';
+    function toggleAutenticidad(el) {
+        planData.declaracionAutenticidad = el.checked ? { version: VERSION_DECLARACION_AUTENTICIDAD, fecha: new Date().toISOString() } : null;
+        saveProgress(); updateGenerateButton();
+    }
+
     function toggleConfirm(el) { planData.evidenciasConfirmadas = el.checked; saveProgress(); updateGenerateButton(); }
     function updateVideoLink(value) { planData.videoLink = value; saveProgress(); updateGenerateButton(); }
     function setSignatureMode(mode) { signatureMode = mode; saveProgress(); render(); }
@@ -515,6 +529,7 @@
         if (!documentosNextcloud.curp) missing.push('subir tu comprobante CURP');
         if (!documentosNextcloud.fotoDiploma) missing.push('subir tu foto para el diploma');
         if (!planData.evidenciasConfirmadas) missing.push('marcar la casilla de confirmación');
+        if (!planData.declaracionAutenticidad) missing.push('aceptar la declaración de autenticidad de tus evidencias');
         if (!hasSig) missing.push('proporcionar tu firma');
 
         btn.disabled = missing.length > 0;
@@ -670,7 +685,16 @@
             180
         );
         doc.text(acuerdoText, 14, y);
-        y += acuerdoText.length * 4 + 10;
+        y += acuerdoText.length * 4 + 4;
+        if (planData.declaracionAutenticidad) {
+            const decl = doc.splitTextToSize('Declaración de autenticidad (aceptada el ' + new Date(planData.declaracionAutenticidad.fecha).toLocaleDateString('es-MX') + '): ' + TEXTO_DECLARACION_AUTENTICIDAD, 180);
+            doc.text(decl, 14, y);
+            y += decl.length * 4 + 10;
+        } else {
+            y += 6;
+        }
+
+        if (y > 250) { doc.addPage(); y = 20; }
 
         doc.setFont(undefined, 'normal');
         doc.text('Firma del candidato/a:', 14, y);

@@ -856,7 +856,7 @@ const Auth = {
             },
             evidenciasData: {
                 _demo: true,
-                planData: { evidenciasConfirmadas: true, notas: 'Video grabado en Zoom, 58 minutos, con el paciente de ejemplo.', videoLink: 'https://drive.google.com/file/d/DEMO-VIDEO-EC1375/view' },
+                planData: { evidenciasConfirmadas: true, notas: 'Video grabado en Zoom, 58 minutos, con el paciente de ejemplo.', videoLink: 'https://drive.google.com/file/d/DEMO-VIDEO-EC1375/view', declaracionAutenticidad: { version: '2026-09-17', fecha: new Date().toISOString() } },
                 signatureDataUrl: null, signatureTypedName: nombre, signatureMode: 'type',
                 documentosNextcloud: { zoom: ['demo/zoom-captura-1.png', 'demo/zoom-captura-2.png'], ine: 'demo/ine.pdf', curp: 'demo/curp.pdf', fotoDiploma: 'demo/foto-diploma.jpg' }
             },
