@@ -15,6 +15,8 @@
     <script src="admin-data.js"></script>
     <script src="evaluacion.js"></script>
     <script src="portafolio.js"></script>
+    <script src="sala-evidencias.js"></script>
+    <script src="grabacion-zoom.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         :root {
@@ -276,7 +278,7 @@
     }
 
     function portafolioHtml() {
-        const plan = E.planPortafolio(row || {});
+        const plan = E.planPortafolio(row || {}, ev);
         const p = ev.portafolio;
         const items = plan.items.filter(i => i.tipo !== 'generado');
         return `
@@ -307,8 +309,15 @@
             <section class="crm-card" style="margin-bottom:16px;"><div class="crm-card-h"><span class="crm-stat-ico">${ic('map', 18)}</span>Etapas del Centro Evaluador<span class="crm-count">${t.dictamen ? (t.dictamen === 'competente' ? 'Competente' : 'No competente') : 'Sin dictamen'}</span></div>${etapasHtml()}</section>
             <section class="crm-card" style="margin-bottom:16px;"><div class="crm-card-h"><span class="crm-stat-ico">${ic('file', 18)}</span>Cédula de Evaluación</div>${cedulaHtml()}</section>
             <section class="crm-card" style="margin-bottom:16px;"><div class="crm-card-h"><span class="crm-stat-ico">${ic('file', 18)}</span>Firmas del evaluador</div>${firmasDocHtml()}</section>
+            <section class="crm-card" style="margin-bottom:16px;"><div class="crm-card-h"><span class="crm-stat-ico">${ic('video', 18)}</span>Grabación de la sesión</div><div id="grabacionZoom"></div></section>
             <section class="crm-card"><div class="crm-card-h"><span class="crm-stat-ico">${ic('folder', 18)}</span>Portafolio de Evidencias</div>${portafolioHtml()}</section>`;
         conectar();
+        GrabacionZoom.montarTarjeta(document.getElementById('grabacionZoom'), {
+            email, row, yo, faltaSql,
+            ev: () => ev,
+            guardar: cambios => guardar(cambios),
+            token: async () => (await Auth.getSession()).access_token
+        });
     }
 
     /* ── Firma del evaluador: lienzo simple con puntero (ratón, dedo, pluma) ── */

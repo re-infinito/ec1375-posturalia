@@ -11,6 +11,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="auth.js"></script>
     <script src="flow-status.js"></script>
+    <script src="sala-evidencias.js"></script>
     <script src="evaluacion.js"></script>
     <script src="crm-shell.js"></script>
     <style>
@@ -134,12 +135,17 @@
 
         CrmShell.mount({ currentPageId: 'panel', steps: steps || [], degraded: !steps, row, title: 'Panel de control' });
 
-        const pintar = () => CrmShell.renderDashboard(app, {
-            nombre: row && row.nombre ? row.nombre : 'candidato/a',
-            steps: steps || [],
-            row, fases, inscripciones, evaluacion,
-            onRetryInscripciones: async () => { inscripciones = await cargarInscripciones(email); pintar(); }
-        });
+        const pintar = () => {
+            CrmShell.renderDashboard(app, {
+                nombre: row && row.nombre ? row.nombre : 'candidato/a',
+                steps: steps || [],
+                row, fases, inscripciones, evaluacion,
+                onRetryInscripciones: async () => { inscripciones = await cargarInscripciones(email); pintar(); }
+            });
+            /* Aviso de fecha límite de la evidencia (sala de Zoom, 18 sep). */
+            app.insertAdjacentHTML('afterbegin', '<div data-sala-aviso></div>');
+            SalaEvidencias.montar(app);
+        };
         pintar();
     }
 

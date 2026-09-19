@@ -266,7 +266,7 @@
   if (!exento && !(await Auth.isPhaseAuthorized(email, MODO.fase))) {
     if (MODO.fase === 'registro') pantallaBloqueo('Tu correo no está autorizado todavía', 'Si ya pagaste tu registro, escríbenos por WhatsApp y lo activamos.', 'https://wa.me/528115026729', 'Escribir por WhatsApp');
     else if (MODO.fase === 'alineacion') pantallaBloqueo('Primero completa tu pago de Alineación', MODO.titulo + ' se abre junto con la fase de Alineación.', 'alineacion.html', 'Ir a Alineación');
-    else pantallaBloqueo('Primero completa tus Documentos de Sesión', MODO.titulo + ' se habilita con la fase de Evaluación.', 'documentos-sesion.html', 'Ir a Documentos de Sesión');
+    else pantallaBloqueo('Paga tu Evaluación', MODO.titulo + ' se abre con tu pago de Evaluación.', 'documentos-sesion.html?pagar=evaluacion', 'Pagar Evaluación');
     return;
   }
 

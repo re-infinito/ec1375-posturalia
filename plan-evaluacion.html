@@ -15,6 +15,7 @@
     <script src="protect.js"></script>
     <script src="flow-status.js"></script>
     <script src="firma-candidato.js"></script>
+    <script src="sala-evidencias.js"></script>
     <script src="documentos-nas.js"></script>
     <script src="crm-shell.js" data-crm-page="plan-evaluacion"></script>
     <style>
@@ -907,7 +908,9 @@ const AUTODIAGNOSTICO_DATA = [
 
             <div class="card">
                 <h2>📆 Agenda tu Evaluación</h2>
-                <p class="desc">Selecciona fecha y hora disponible directamente en el calendario de tu evaluador.</p>
+                <p class="desc">Elige el día y la hora en que vas a grabar tu sesión con tu usuario en la sala de Zoom de Paideia. Cada horario es para una sola persona.</p>
+                <div id="agendaSala"><p class="desc">Cargando horarios…</p></div>
+                <div id="agendaManual" hidden>
                 ${GOOGLE_CALENDAR_BOOKING_URL ? `
                     <iframe id="calendarFrame" src="${GOOGLE_CALENDAR_BOOKING_URL}"></iframe>
                 ` : `
@@ -917,6 +920,7 @@ const AUTODIAGNOSTICO_DATA = [
                         <button class="btn btn-whatsapp" onclick="requestScheduleViaWhatsApp()">📱 COORDINAR FECHA POR WHATSAPP</button>
                     </div>
                 `}
+                </div>
                 <div class="field-group" style="margin-top:16px;">
                     <label style="display: flex; justify-content: space-between; align-items: center;">
                         <span>Fecha de tu evaluación <span style="color:var(--danger);">*</span></span>
@@ -925,7 +929,7 @@ const AUTODIAGNOSTICO_DATA = [
                         </span>
                     </label>
                     <input type="date" id="f_fechaEvaluacion" value="${escapeHtml(planData.fechaEvaluacion)}" style="border-color: ${planData.fechaEvaluacion ? 'var(--success)' : 'var(--danger)'}; border-width: 2px;">
-                    <p style="font-size:0.78rem;color:var(--text);margin-top:4px;">📌 La fecha que agendaste por WhatsApp o Google Calendar</p>
+                    <p id="hintFechaManual" style="font-size:0.78rem;color:var(--text);margin-top:4px;">📌 La fecha que agendaste por WhatsApp o Google Calendar</p>
                 </div>
                 <div class="field-group">
                     <label>Lugar para el desarrollo de la evaluación</label>
@@ -1002,6 +1006,56 @@ const AUTODIAGNOSTICO_DATA = [
         if (signatureMode === 'draw') setTimeout(initSignatureCanvas, 50);
         FirmaCandidato.ofrecer(document.getElementById('usarFirmaAuto'), { onUsar: usarFirmaAutodiagnostico });
         updateGenerateButton();
+        montarAgenda();
+    }
+
+    /* Sala de evidencias (18 sep): con horarios en la plataforma, la fecha,
+       el horario y el lugar salen del horario reservado (solo lectura). Sin
+       SQL o sin horarios, vuelve el modo de antes (WhatsApp + fecha manual). */
+    let agendaActiva = false, reservaSala = null;
+    function aplicarReservaAlPlan(r) {
+        reservaSala = r;
+        const antes = JSON.stringify([planData.fechaEvaluacion, planData.horarioDesarrollo, planData.lugarDesarrollo]);
+        if (r) {
+            planData.fechaEvaluacion = r.fecha;
+            planData.horarioDesarrollo = r.horario;
+            planData.lugarDesarrollo = SalaEvidencias.LUGAR_SALA;
+        } else if (planData.lugarDesarrollo === SalaEvidencias.LUGAR_SALA) {
+            planData.fechaEvaluacion = '';
+            planData.horarioDesarrollo = '';
+            planData.lugarDesarrollo = 'Instalaciones del Centro Evaluador';
+        }
+        if (antes !== JSON.stringify([planData.fechaEvaluacion, planData.horarioDesarrollo, planData.lugarDesarrollo])) savePlanProgress();
+        pintarCamposAgenda();
+        updateGenerateButton();
+    }
+    function pintarCamposAgenda() {
+        ['fechaEvaluacion', 'horarioDesarrollo', 'lugarDesarrollo'].forEach(k => {
+            const el = document.getElementById('f_' + k);
+            if (!el) return;
+            el.value = planData[k] || '';
+            el.readOnly = agendaActiva;
+            el.title = agendaActiva ? 'Se llena al elegir tu horario en la sala de Zoom' : '';
+        });
+        /* El indicador "Completado/Pendiente" y el borde se pintan al renderizar;
+           aquí se actualizan porque la fecha llega después, con la reserva. */
+        const fecha = document.getElementById('f_fechaEvaluacion');
+        if (fecha) {
+            fecha.style.borderColor = planData.fechaEvaluacion ? 'var(--success)' : 'var(--danger)';
+            const marca = fecha.closest('.field-group') && fecha.closest('.field-group').querySelector('label > span:last-child');
+            if (marca) { marca.textContent = planData.fechaEvaluacion ? '✓ Completado' : '○ Pendiente'; marca.style.color = planData.fechaEvaluacion ? 'var(--success)' : 'var(--text)'; }
+        }
+        const hint = document.getElementById('hintFechaManual');
+        if (hint) hint.textContent = agendaActiva ? '📌 Se llena sola al elegir tu horario' : '📌 La fecha que agendaste por WhatsApp o Google Calendar';
+    }
+    async function montarAgenda() {
+        const el = document.getElementById('agendaSala');
+        if (!el) return;
+        const r = await SalaEvidencias.agenda(el, { onCambio: aplicarReservaAlPlan });
+        agendaActiva = r.activa;
+        const manual = document.getElementById('agendaManual');
+        if (manual) manual.hidden = r.activa;
+        if (r.activa) aplicarReservaAlPlan(r.reserva); else { pintarCamposAgenda(); updateGenerateButton(); }
     }
 
     function attachFieldListeners() {
@@ -1094,7 +1148,7 @@ const AUTODIAGNOSTICO_DATA = [
 
     function getValidationStatus() {
         const hasSig = signatureMode === 'draw' ? hasSignature : (signatureTypedName && signatureTypedName.trim().length > 0);
-        const fechaCompleta = !!planData.fechaEvaluacion;
+        const fechaCompleta = agendaActiva ? !!reservaSala : !!planData.fechaEvaluacion;
 
         return {
             acuerdo: planData.acuerdoAceptado,
@@ -1112,7 +1166,7 @@ const AUTODIAGNOSTICO_DATA = [
         if (!status.acuerdo) missing.push('✓ Marcar el checkbox de acuerdo');
         if (!status.declaraciones) missing.push('✓ Marcar las 3 confirmaciones (requisitos, material y sin reembolsos)');
         if (!status.firma) missing.push('✓ Proporcionar una firma (dibujada o escrita)');
-        if (!status.fecha) missing.push('✓ Completar la fecha de tu evaluación');
+        if (!status.fecha) missing.push(agendaActiva ? '✓ Elegir tu horario en la sala de Zoom' : '✓ Completar la fecha de tu evaluación');
 
         return missing;
     }
@@ -1235,6 +1289,8 @@ const AUTODIAGNOSTICO_DATA = [
             </div>
         `;
         pintarEstadoDocsAlineacion();
+        const cajaExito = app.querySelector('.success-box');
+        if (cajaExito) { cajaExito.insertAdjacentHTML('afterend', '<div style="margin-top:20px;" data-sala-tarjeta></div>'); SalaEvidencias.montar(app); }
         sincronizarDocsAlineacion({ soloSiYaGenerados: false }).catch(e => {
             console.error('Subida del Plan de Evaluación:', e);
             pintarEstadoDocsAlineacion();

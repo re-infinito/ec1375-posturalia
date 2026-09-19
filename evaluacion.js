@@ -140,7 +140,22 @@
     }
     function mayus(t) { return texto(t).toLocaleUpperCase('es-MX'); }
 
-    function planPortafolio(row) {
+    /* Liga del video para el portafolio (18 sep): la grabación de la sala de
+       Zoom que ligó el equipo (evaluaciones.video.partes); si no hay, la liga
+       que el candidato pegó en Evidencias (grabaciones anteriores a la sala). */
+    function ligaVideo(evaluacion, row) {
+        var partes = evaluacion && evaluacion.video && Array.isArray(evaluacion.video.partes) ? evaluacion.video.partes : [];
+        var ligas = partes.map(function (p, i) {
+            var z = p && p.zoom;
+            if (!z || !texto(z.share_url)) return null;
+            return (partes.length > 1 ? 'Parte ' + (i + 1) + ': ' : '') + texto(z.share_url) + (texto(z.clave) ? ' (clave: ' + texto(z.clave) + ')' : '');
+        }).filter(Boolean);
+        if (ligas.length) return ligas.join('  ·  ');
+        var ev = row && row.evidencias_data && typeof row.evidencias_data === 'object' ? row.evidencias_data : {};
+        return texto(ev.planData && ev.planData.videoLink) || null;
+    }
+
+    function planPortafolio(row, evaluacion) {
         row = row || {};
         var avisos = [];
         function slot(nombre) {
@@ -156,13 +171,12 @@
             return lista.map(function (ruta) { return { tipo: 'nas', ruta: ruta, etiqueta: s[2], slot: nombre }; });
         }
         var g = function (p) { return { tipo: 'generado', pagina: p }; };
-        var ev = row.evidencias_data && typeof row.evidencias_data === 'object' ? row.evidencias_data : {};
-        var videoLink = texto(ev.planData && ev.planData.videoLink) || null;
+        var videoLink = ligaVideo(evaluacion, row);
         var ficha = slot('ficha_registro_candidato'), curp = slot('curp'), ine = slot('ine'), auto = slot('pdf_autodiagnostico'),
             plan = slot('pdf_plan_evaluacion'), fp = slot('ficha_registro_paciente'), carta = slot('carta_consentimiento'),
             ps = slot('plan_sesion'), seg = slot('plan_seguimiento'), enc = slot('pdf_encuesta'),
             at = slot('acuse_triptico'), ap = slot('acuse_plan_evaluacion');
-        if (!videoLink) avisos.push('Falta la liga al video (no está en Evidencias)');
+        if (!videoLink) avisos.push('Falta ligar la grabación de Zoom (Centro Evaluador → Grabación de la sesión)');
         var items = [g('portada'), g('indice'), g('sep1')].concat(ficha, curp, ine, auto, [g('sep2')], plan,
             [{ tipo: 'plantilla', ruta: IEC_RUTA, etiqueta: 'Instrumento de Evaluación (IEC) en blanco', slot: 'iec' }],
             fp, carta, ps, seg, [g('video'), g('sep3'), g('cedula')], enc, [g('sep4')], at, ap);
@@ -234,7 +248,7 @@
         ETAPAS: ETAPAS, JUICIOS: JUICIOS, CAMPOS_CEDULA: CAMPOS_CEDULA, TEXTO_ACUERDO: TEXTO_ACUERDO, IEC_RUTA: IEC_RUTA,
         lineaDeTiempo: lineaDeTiempo, dictamenDe: dictamenDe, cedulaPublicada: cedulaPublicada, firmaValida: firmaValida,
         validarCedula: validarCedula, publicarCedula: publicarCedula, guardarBorrador: guardarBorrador,
-        planPortafolio: planPortafolio, rutaNasPermitida: rutaNasPermitida,
+        planPortafolio: planPortafolio, ligaVideo: ligaVideo, rutaNasPermitida: rutaNasPermitida,
         CENTRO_EVALUACION: CENTRO_EVALUACION, EVALUADOR_PREDETERMINADO: EVALUADOR_PREDETERMINADO,
         fechaLarga: fechaLarga, sellosPortafolio: sellosPortafolio,
         mensajeWhatsApp: mensajeWhatsApp, telefonoWhatsApp: telefonoWhatsApp

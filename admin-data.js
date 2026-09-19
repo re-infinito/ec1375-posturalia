@@ -20,6 +20,10 @@
     var FS = (typeof FlowStatus !== 'undefined') ? FlowStatus : require('./flow-status.js');
     var CS = (typeof CrmShell !== 'undefined') ? CrmShell : require('./crm-shell.js');
     var H = CS._helpers;
+    /* Sala de evidencias (18 sep): en el navegador solo si la página cargó
+       sala-evidencias.js (admin-crm.html); en Node se toma con require. */
+    var SE = (typeof SalaEvidencias !== 'undefined') ? SalaEvidencias
+        : (typeof module !== 'undefined' && module.exports ? require('./sala-evidencias.js') : null);
 
     var FASES = ['registro', 'alineacion', 'evaluacion', 'entrega'];
     var FASE_LABEL = { registro: 'Registro', alineacion: 'Alineación', evaluacion: 'Evaluación', entrega: 'Entrega' };
@@ -408,6 +412,38 @@
         (datos.sesiones || []).forEach(function (s) {
             if (!s.zoom_link) items.push({ tipo: 'sesion', texto: 'Sesión del ' + s.fecha + ' sin liga de Zoom', href: 'admin-sesiones.html' });
         });
+        return items.concat(atencionSala(datos, lista, now));
+    }
+
+    /* Plazos de evidencia (desde el pago de Alineación, o la extensión del
+       equipo) y sesiones ya grabadas sin copia en el NAS. */
+    function atencionSala(datos, lista, now) {
+        if (!SE || (datos.errores && datos.errores.salaConfig)) return [];
+        var ahora = (now || new Date()).getTime(), hoy = SE.fechaISO(ahora);
+        var dias = (datos.salaConfig && Number(datos.salaConfig.dias_limite)) || 30;
+        var ev = {}; (datos.evalSala || []).forEach(function (r) { if (r && r.email) ev[r.email.toLowerCase()] = r; });
+        var porEmail = {}; lista.forEach(function (c) { porEmail[c.email.toLowerCase()] = c; });
+        var items = [];
+        lista.filter(function (c) { return c.estado === 'activo' && c.fases.alineacion; }).forEach(function (c) {
+            var email = c.email.toLowerCase();
+            var pago = (datos.pagos || []).filter(function (p) { return (p.email || '').toLowerCase() === email && p.fase === 'alineacion'; })[0];
+            var limite = (ev[email] && ev[email].limite_evidencia) || (pago ? SE.limiteDesde(pago.autorizado_en, dias) : null);
+            var evid = (c.steps || []).filter(function (s) { return s.id === 'evidencias'; })[0];
+            var info = SE.limiteInfo(limite, hoy, !!(evid && evid.done));
+            if (!info) return;
+            var href = 'admin-evaluacion.html?email=' + encodeURIComponent(c.email), nom = c.nombre || c.email;
+            if (info.clave === 'vencido') items.push({ tipo: 'plazo_vencido', texto: nom + ' — su plazo de evidencia venció el ' + SE.fechaCorta(limite), email: email, href: href });
+            else if (info.clave === 'pronto') items.push({ tipo: 'plazo_pronto', texto: nom + ' entrega su evidencia a más tardar el ' + SE.fechaCorta(limite) + ' (' + (info.dias === 0 ? 'hoy' : info.dias + (info.dias === 1 ? ' día' : ' días')) + ')', email: email, href: href });
+        });
+        (datos.reservasSala || []).forEach(function (r) {
+            var h = r && r.horarios_evidencia;
+            if (!h || Date.parse(h.fin) > ahora) return;
+            var email = (r.email || '').toLowerCase(), v = ev[email] && ev[email].video;
+            var partes = v && Array.isArray(v.partes) ? v.partes : [];
+            if (partes.length && partes.every(function (p) { return p && p.nas && p.nas.ruta; })) return;
+            var c = porEmail[email];
+            items.push({ tipo: 'sin_grabacion', texto: 'Sesión grabada del ' + SE.fechaCorta(h.inicio) + ' (' + ((c && c.nombre) || email) + ') sin copiar al NAS', email: email, href: 'admin-evaluacion.html?email=' + encodeURIComponent(email) });
+        });
         return items;
     }
 
@@ -427,13 +463,16 @@
             q(sb.rpc('admin_lista_candidatos')),
             q(sb.from('evaluaciones').select('email,etapas,cedula,firma_candidato,portafolio')),
             fetch('/api/sesiones-alineacion').then(function (r) { return r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)); })
-                .then(function (d) { return { data: d.sesiones || [], error: null }; }, function (e) { return { data: null, error: e }; })
+                .then(function (d) { return { data: d.sesiones || [], error: null }; }, function (e) { return { data: null, error: e }; }),
+            q(sb.from('sala_evidencias_config').select('dias_limite').eq('id', 1).maybeSingle()),
+            q(sb.from('reservas_evidencia').select('email,estado,horarios_evidencia(inicio,fin)').in('estado', ['reservada', 'asistio'])),
+            q(sb.from('evaluaciones').select('email,limite_evidencia,video'))
         ]);
         var errores = {};
-        var nombresClave = ['precio', 'pagos', 'reparto', 'utilidadesPagos', 'gastos', 'nombres', 'candidatosRows', 'evaluaciones', 'sesiones'];
+        var nombresClave = ['precio', 'pagos', 'reparto', 'utilidadesPagos', 'gastos', 'nombres', 'candidatosRows', 'evaluaciones', 'sesiones', 'salaConfig', 'reservasSala', 'evalSala'];
         var datos = {};
         nombresClave.forEach(function (k, i) {
-            datos[k] = res[i].data || (k === 'sesiones' ? null : []);
+            datos[k] = res[i].data || (k === 'sesiones' || k === 'salaConfig' ? null : []);
             if (res[i].error) errores[k] = (res[i].error.message || String(res[i].error));
         });
         datos.errores = errores;
@@ -460,7 +499,7 @@
     var AdminData = {
         FASES: FASES, FASE_LABEL: FASE_LABEL, SOCIOS: SOCIOS, PASOS_EXTRA: PASOS_EXTRA,
         cargar: cargar, kpis: kpis, utilidades: utilidades, gastosLote: gastosLote, repartir: repartir, fichaCandidato: fichaCandidato, porFaseLote: porFaseLote, cortePorCandidato: cortePorCandidato, utilidadesGlobal: utilidadesGlobal, lotes: lotes,
-        candidatos: candidatos, porPaso: porPaso, ultimosPagos: ultimosPagos, proximasSesiones: proximasSesiones, atencion: atencion,
+        candidatos: candidatos, porPaso: porPaso, ultimosPagos: ultimosPagos, proximasSesiones: proximasSesiones, atencion: atencion, atencionSala: atencionSala,
         declaraciones: declaraciones,
         fmtMX: function (n) { return '$' + Math.round(n || 0).toLocaleString('es-MX'); }
     };

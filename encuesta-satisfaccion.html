@@ -320,6 +320,23 @@
             return;
         }
 
+        /* 18 sep: la Encuesta, el Examen, la Práctica y la entrega de
+           Evidencias son parte de la fase de Evaluación. */
+        const sesionFase = await Auth.getSession();
+        if (!Auth._isBypassSession && !(await Auth.isPhaseAuthorized(sesionFase.user.email, 'evaluacion'))) {
+            app.innerHTML = `
+                <div class="hero">
+                    <div class="hero-icon">📝</div>
+                    <h1 class="hero-title">Encuesta de Satisfacción</h1>
+                    <p class="hero-subtitle">Parte de tu fase de Evaluación</p>
+                </div>
+                <div class="blocked-box">
+                    <p><strong>Paga tu Evaluación para continuar</strong><br>La Encuesta, el Examen, la Práctica y la entrega de tus Evidencias son parte de la fase de Evaluación.</p>
+                    <a href="documentos-sesion.html?pagar=evaluacion" class="btn btn-primary">💳 Pagar Evaluación</a>
+                </div>`;
+            return;
+        }
+
         const filaCandidato = await Auth.pullMyRow();
         const sesionCompleta = Auth._isBypassSession || documentosFaseCompletos(filaCandidato && filaCandidato.documentos_sesion_data, ['ficha', 'consentimiento', 'plan_sesion', 'plan_seguimiento']);
         if (!sesionCompleta) {

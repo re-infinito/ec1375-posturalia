@@ -404,7 +404,7 @@
         await asegurarLib();
         var L = root.PDFLib, E = root.Evaluacion;
         var progreso = ctx.onProgreso || function () {};
-        var plan = E.planPortafolio(ctx.row);
+        var plan = E.planPortafolio(ctx.row, ctx.evaluacion);
         var avisos = plan.avisos.slice();
         var ev = ctx.evaluacion || {};
         var ced = E.cedulaPublicada(ev);
