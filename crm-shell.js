@@ -935,12 +935,12 @@
         { id: 'reforzamiento', titulo: 'Reforzamiento', desc: 'Repasar los temas que marcaste con NO y dar tu visto bueno.', paginas: ['reforzamiento'], dur: 53 },
         { id: 'alineacion', titulo: 'Alineación', desc: 'Reservar tu sesión en vivo y recorrer la Ruta de Alineación.', paginas: ['alineacion'], dur: 46 },
         { id: 'biblioteca', titulo: 'Biblioteca', desc: 'Buscar cualquier tema, ver lo recomendado para ti y la presentación.', paginas: ['biblioteca'], dur: 40 },
-        { id: 'plan-evaluacion', titulo: 'Plan de Evaluación', desc: 'Acordar fecha y lugar, confirmar requisitos y firmar.', paginas: ['plan-evaluacion'], dur: 58 },
-        { id: 'documentos-sesion', titulo: 'Documentos de Sesión', desc: 'La guía paso a paso durante la sesión grabada con tu paciente.', paginas: ['documentos-sesion'], dur: 53 },
+        { id: 'plan-evaluacion', titulo: 'Plan de Evaluación', desc: 'Agendar tu sesión grabada en la sala de Zoom, confirmar requisitos y firmar.', paginas: ['plan-evaluacion'], dur: 69 },
+        { id: 'documentos-sesion', titulo: 'Documentos de Sesión', desc: 'Entrar a tu sala de Zoom y la guía paso a paso durante la sesión grabada con tu paciente.', paginas: ['documentos-sesion'], dur: 68 },
         { id: 'practica', titulo: 'Práctica', desc: 'Contestar por tema, repasar si fallas y volver a intentar.', paginas: ['practica'], dur: 44 },
         { id: 'examen', titulo: 'Examen de Conocimientos', desc: 'Una pregunta a la vez, con repaso cuando fallas.', paginas: ['examen'], dur: 47 },
         { id: 'encuesta', titulo: 'Encuesta de Satisfacción', desc: 'Las 7 preguntas de caritas, tu firma y el envío.', paginas: ['encuesta'], dur: 42 },
-        { id: 'evidencias', titulo: 'Evidencias', desc: 'Subir tus archivos, la declaración de autenticidad y confirmar.', paginas: ['evidencias'], dur: 49 },
+        { id: 'evidencias', titulo: 'Evidencias', desc: 'Subir tus archivos y confirmar tu entrega (tu grabación la guarda el equipo).', paginas: ['evidencias'], dur: 48 },
         { id: 'entrega', titulo: 'Entrega de certificado', desc: 'Qué pasa después de tu evaluación y cómo pagar la Entrega.', paginas: ['entrega'], dur: 35 }
     ];
     function tutorialDePagina(pageId) {
