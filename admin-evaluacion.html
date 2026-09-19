@@ -62,7 +62,13 @@
         .ev-firma-tabs { display: flex; gap: 8px; margin-bottom: 8px; }
         .ev-firma-tabs button { flex: 1; min-height: 40px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text-bright); font-weight: 700; cursor: pointer; font-family: inherit; }
         .ev-firma-tabs button.on { border-color: var(--primary); color: var(--primary); }
-        #firmaCanvas { width: 100%; height: 150px; background: #fff; border-radius: 10px; border: 1px solid var(--border); touch-action: none; display: block; }
+        #firmaCanvas, .ev-canvas { width: 100%; height: 150px; background: #fff; border-radius: 10px; border: 1px solid var(--border); touch-action: none; display: block; }
+        .ev-firma-doc { border-top: 1px solid var(--border); padding: 14px 0 6px; }
+        .ev-firma-doc:first-of-type { border-top: none; padding-top: 4px; }
+        .ev-firma-doc h3 { font-size: 0.95rem; color: var(--text-bright); margin-bottom: 2px; }
+        .ev-doc-tabs { display: flex; gap: 8px; margin: 10px 0 8px; }
+        .ev-doc-tabs button { flex: 1; min-height: 40px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text-bright); font-weight: 700; cursor: pointer; font-family: inherit; }
+        .ev-doc-tabs button.on { border-color: var(--primary); color: var(--primary); }
         .ev-acciones { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
         .ev-estado { font-size: 0.84rem; margin-top: 10px; }
         .ev-estado.ok { color: var(--success); } .ev-estado.bad { color: var(--danger); }
@@ -99,6 +105,14 @@
     let sesion = null, yo = '', rol = null;
     let row = null, cand = null, ev = null, faltaSql = null;
     let firma = { mode: 'draw', dataUrl: null, typedName: '' };
+    /* Firmas del evaluador por documento (19 sep, "firmar cada entrega"):
+       se estampan en el Plan de Evaluación y en las rúbricas del IEC al
+       generar el portafolio. evaluaciones.firmas_evaluador = { plan, iec }. */
+    const DOCS_FIRMA = [
+        { clave: 'plan', titulo: 'Plan de Evaluación', desc: 'Va en "Nombre y firma de la Evaluadora", junto a la firma del candidato.' },
+        { clave: 'iec', titulo: 'Instrumento de Evaluación (IEC)', desc: 'Va como rúbrica al pie de sus 83 páginas, junto a la del candidato.' }
+    ];
+    let firmasDoc = {}, faltaSqlFirmas = null;
 
     async function boot(session) {
         sesion = session; yo = session.user.email.toLowerCase();
@@ -120,6 +134,13 @@
         ev = r.data || { email, etapas: {}, cedula: null, cedulas_anteriores: [], firma_candidato: null, portafolio: null };
         const ced = ev.cedula || {};
         firma = ced.firmaEvaluador ? Object.assign({}, ced.firmaEvaluador) : { mode: 'draw', dataUrl: null, typedName: '' };
+        const probe = faltaSql ? null : await supabaseClient.from('evaluaciones').select('firmas_evaluador').limit(1);
+        faltaSqlFirmas = probe && probe.error ? (probe.error.message || String(probe.error)) : null;
+        firmasDoc = {};
+        DOCS_FIRMA.forEach(d => {
+            const f = ev.firmas_evaluador && ev.firmas_evaluador[d.clave];
+            firmasDoc[d.clave] = f ? Object.assign({}, f) : { mode: 'draw', dataUrl: null, typedName: '' };
+        });
     }
 
     function contexto() {
@@ -162,6 +183,7 @@
         const fc = ev.firma_candidato;
         let evaluadora = c.evaluadora || '';
         try { if (!evaluadora) evaluadora = localStorage.getItem('paideia-evaluadora') || ''; } catch (e) { /* sin storage */ }
+        if (!evaluadora) evaluadora = E.EVALUADOR_PREDETERMINADO;
         const estado = !c.juicio ? 'Aún no se captura.'
             : c.borrador ? 'Borrador: el candidato todavía no la ve.'
             : `Publicada el ${esc(fechaCorta(c.publicada_at))}. ` + (fc ? `<span class="ev-estado ok">Firmada por el candidato el ${esc(fechaCorta(fc.fecha))}.</span>` : 'Pendiente la firma del candidato.');
@@ -192,6 +214,65 @@
                 </div>
                 <div class="ev-estado" id="estadoCedula" role="status"></div>
             </form>`;
+    }
+
+    function firmasDocHtml() {
+        const sinSql = faltaSql || faltaSqlFirmas;
+        return `
+            <p class="crm-muted" style="font-size:0.84rem;margin-bottom:6px;">El evaluador firma cada documento por separado. Las firmas se estampan al generar el portafolio, junto con su nombre y el del Centro de Evaluación (${esc(E.CENTRO_EVALUACION.clave)}).</p>
+            ${sinSql && !faltaSql ? `<div class="crm-note">${ic('alert', 14)} Para guardar estas firmas hay que correr <code>2026-09-19-firmas-evaluador.sql</code> en Supabase.</div>` : ''}
+            ${DOCS_FIRMA.map(d => {
+                const guardada = ev.firmas_evaluador && ev.firmas_evaluador[d.clave];
+                const f = firmasDoc[d.clave];
+                return `<div class="ev-firma-doc">
+                    <h3>${esc(d.titulo)}</h3>
+                    <div class="crm-muted" style="font-size:0.8rem;">${esc(d.desc)}</div>
+                    <div class="ev-estado ${guardada ? 'ok' : ''}">${guardada ? 'Firmada el ' + esc(fechaCorta(guardada.fecha)) : 'Sin firmar'}</div>
+                    <div class="ev-doc-tabs" data-doc="${d.clave}">
+                        <button type="button" data-modo="draw" class="${f.mode !== 'type' ? 'on' : ''}">Dibujar firma</button>
+                        <button type="button" data-modo="type" class="${f.mode === 'type' ? 'on' : ''}">Escribir mi nombre</button>
+                    </div>
+                    <div data-draw="${d.clave}" ${f.mode === 'type' ? 'hidden' : ''}><canvas class="ev-canvas" id="firmaDoc_${d.clave}" aria-label="Recuadro para dibujar la firma: ${esc(d.titulo)}"></canvas>
+                        <button type="button" class="crm-btn crm-btn-sm crm-btn-ghost" style="margin-top:6px;border-color:var(--border);color:var(--text);background:transparent;" data-borrar-doc="${d.clave}">Borrar firma</button></div>
+                    <div data-type="${d.clave}" ${f.mode === 'type' ? '' : 'hidden'}><input type="text" class="ev-form-input" id="firmaDocTyped_${d.clave}" value="${esc(f.typedName || '')}" placeholder="Nombre completo como firma" maxlength="120" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:var(--dark);color:var(--text-bright);font-family:inherit;min-height:40px;"></div>
+                    <div class="ev-acciones" style="margin-top:10px;"><button type="button" class="crm-btn crm-btn-primary crm-btn-sm" data-guardar-doc="${d.clave}" ${sinSql ? 'disabled' : ''}>Guardar firma del ${esc(d.titulo)}</button></div>
+                    <div class="ev-estado" id="estadoFirma_${d.clave}" role="status"></div>
+                </div>`;
+            }).join('')}`;
+    }
+
+    /* Lienzo de firma por documento (mismo trazo que el de la Cédula). */
+    function prepararLienzoDoc(clave) {
+        const cv = document.getElementById('firmaDoc_' + clave);
+        if (!cv) return;
+        const r = cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+        cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr);
+        const ctx = cv.getContext('2d');
+        ctx.scale(dpr, dpr); ctx.lineWidth = 2.2; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#000';
+        const f = firmasDoc[clave];
+        if (f.mode === 'draw' && f.dataUrl) { const img = new Image(); img.onload = () => ctx.drawImage(img, 0, 0, r.width, r.height); img.src = f.dataUrl; }
+        let dibujando = false;
+        const pt = e => { const b = cv.getBoundingClientRect(); return [e.clientX - b.left, e.clientY - b.top]; };
+        cv.addEventListener('pointerdown', e => { dibujando = true; cv.setPointerCapture(e.pointerId); const [x, y] = pt(e); ctx.beginPath(); ctx.moveTo(x, y); });
+        cv.addEventListener('pointermove', e => { if (!dibujando) return; const [x, y] = pt(e); ctx.lineTo(x, y); ctx.stroke(); });
+        const fin = () => { if (!dibujando) return; dibujando = false; firmasDoc[clave] = { mode: 'draw', dataUrl: cv.toDataURL('image/png'), typedName: '' }; };
+        cv.addEventListener('pointerup', fin); cv.addEventListener('pointercancel', fin);
+    }
+
+    async function guardarFirmaDoc(clave) {
+        const el = document.getElementById('estadoFirma_' + clave);
+        let f = firmasDoc[clave];
+        if (f.mode === 'type') f = { mode: 'type', dataUrl: null, typedName: ((document.getElementById('firmaDocTyped_' + clave) || {}).value || '').trim() };
+        if (!E.firmaValida(f)) { el.className = 'ev-estado bad'; el.textContent = 'Dibuja la firma o escribe el nombre completo.'; return; }
+        const ced = ev.cedula || {};
+        const nuevas = Object.assign({}, ev.firmas_evaluador || {});
+        nuevas[clave] = Object.assign({}, f, { nombre: ced.evaluadora || E.EVALUADOR_PREDETERMINADO, fecha: new Date().toISOString(), por: yo });
+        if (await guardar({ firmas_evaluador: nuevas })) {
+            firmasDoc[clave] = Object.assign({}, nuevas[clave]);
+            render();
+            const e2 = document.getElementById('estadoFirma_' + clave);
+            if (e2) { e2.className = 'ev-estado ok'; e2.textContent = 'Firma guardada. Se estampa la próxima vez que generes el portafolio.'; }
+        }
     }
 
     function portafolioHtml() {
@@ -225,6 +306,7 @@
             ${decl.some(d => !d.fecha) ? `<div class="crm-note">${ic('alert', 14)} Declaraciones pendientes: ${decl.filter(d => !d.fecha).map(d => esc(d.label)).join(' · ')}.</div>` : ''}
             <section class="crm-card" style="margin-bottom:16px;"><div class="crm-card-h"><span class="crm-stat-ico">${ic('map', 18)}</span>Etapas del Centro Evaluador<span class="crm-count">${t.dictamen ? (t.dictamen === 'competente' ? 'Competente' : 'No competente') : 'Sin dictamen'}</span></div>${etapasHtml()}</section>
             <section class="crm-card" style="margin-bottom:16px;"><div class="crm-card-h"><span class="crm-stat-ico">${ic('file', 18)}</span>Cédula de Evaluación</div>${cedulaHtml()}</section>
+            <section class="crm-card" style="margin-bottom:16px;"><div class="crm-card-h"><span class="crm-stat-ico">${ic('file', 18)}</span>Firmas del evaluador</div>${firmasDocHtml()}</section>
             <section class="crm-card"><div class="crm-card-h"><span class="crm-stat-ico">${ic('folder', 18)}</span>Portafolio de Evidencias</div>${portafolioHtml()}</section>`;
         conectar();
     }
@@ -350,6 +432,19 @@
             const bytes = await Portafolio.cedulaPdf({ cedula: c, firmaCandidato: E.cedulaPublicada(ev) ? ev.firma_candidato : null, nombre: nombreCand() });
             descargarBytes(bytes, 'Cedula_Evaluacion_' + Portafolio.nombreArchivo(nombreCand()).replace(/^Portafolio_EC1375_/, ''));
         });
+        document.querySelectorAll('.ev-doc-tabs button').forEach(b => b.addEventListener('click', () => {
+            const clave = b.closest('.ev-doc-tabs').dataset.doc, modo = b.dataset.modo;
+            b.closest('.ev-doc-tabs').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+            document.querySelector('[data-draw="' + clave + '"]').hidden = modo !== 'draw';
+            document.querySelector('[data-type="' + clave + '"]').hidden = modo !== 'type';
+            if (modo === 'type') firmasDoc[clave] = { mode: 'type', dataUrl: null, typedName: (document.getElementById('firmaDocTyped_' + clave) || {}).value || '' };
+            else { const f = firmasDoc[clave]; firmasDoc[clave] = { mode: 'draw', dataUrl: f.mode === 'draw' ? f.dataUrl : null, typedName: '' }; prepararLienzoDoc(clave); }
+        }));
+        document.querySelectorAll('[data-borrar-doc]').forEach(b => b.addEventListener('click', () => {
+            firmasDoc[b.dataset.borrarDoc] = { mode: 'draw', dataUrl: null, typedName: '' }; prepararLienzoDoc(b.dataset.borrarDoc);
+        }));
+        document.querySelectorAll('[data-guardar-doc]').forEach(b => b.addEventListener('click', () => guardarFirmaDoc(b.dataset.guardarDoc)));
+        DOCS_FIRMA.forEach(d => { if (firmasDoc[d.clave].mode !== 'type') prepararLienzoDoc(d.clave); });
         const g = document.getElementById('btnGenerar'); if (g) g.addEventListener('click', generar);
         const u = document.getElementById('btnUltimo');
         if (u) u.addEventListener('click', async () => {

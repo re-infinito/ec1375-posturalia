@@ -617,7 +617,7 @@ const AUTODIAGNOSTICO_DATA = [
        datos/respuestas del Autodiagnóstico que el Plan resume — más la
        versión de plantilla: cualquier corrección los vuelve a subir.
     ========================================================= */
-    const VERSION_DOCS_ALINEACION = '2026-09-17';
+    const VERSION_DOCS_ALINEACION = '2026-09-19'; // 19 sep: fecha del encabezado en DD-MM-AAAA
     const DOCS_ALINEACION = ['planEvaluacion', 'acusePlanEvaluacion'];
     const DOCS_ALINEACION_ETIQUETAS = [
         { key: 'planEvaluacion', label: '📄 Plan de Evaluación' },
@@ -1272,7 +1272,7 @@ const AUTODIAGNOSTICO_DATA = [
             body: [
                 ['Evaluadora:', ''],
                 ['Centro de Evaluación:', ''],
-                ['Fecha:', new Date().toLocaleDateString('es-MX')],
+                ['Fecha:', formatFechaDDMMYYYY(new Date().toLocaleDateString('en-CA', { timeZone: 'America/Mexico_City' }))],
                 ['Estándar de Competencia:', 'EC1375 - Prestación de servicios auxiliares en la contribución tradicional y complementaria de la recuperación de las condiciones físicas y socioemocionales de las personas.'],
                 ['Candidata/o:', pd.nombre || '']
             ]
