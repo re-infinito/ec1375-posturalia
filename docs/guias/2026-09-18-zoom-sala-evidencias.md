@@ -21,12 +21,12 @@ Panel del equipo → Sesiones de Alineación → pestaña **🎥 Sala de evidenc
 1. Entra a https://marketplace.zoom.us con la cuenta dueña de la sala → **Develop → Build App → Server-to-Server OAuth App**. Nombre: "Paideia Sala Evidencias".
 2. Copia **Account ID**, **Client ID** y **Client Secret**.
 3. Information: nombre de la empresa y correo de contacto.
-4. Scopes → Add Scopes: busca y marca
-   - ver una reunión (`meeting:read:meeting:admin` o "View a meeting"),
-   - listar grabaciones de usuario (`cloud_recording:read:list_user_recordings:admin` o "View all user recordings"),
-   - ver las grabaciones de una reunión (`cloud_recording:read:list_recording_files:admin` o "Get meeting recordings"),
-   - borrar grabaciones de una reunión (`cloud_recording:delete:meeting_recording:admin` o "Delete meeting recordings").
-   (Zoom cambia los nombres; si no aparecen exactos, elige los de "recording" y "meeting" que digan lo mismo.)
+4. Scopes → **+ Add Scopes** → busca y marca estos 4 (nombres exactos de la documentación de Zoom):
+   - `meeting:read:meeting:admin` — ver la reunión de la sala (para saber quién es el anfitrión).
+   - `cloud_recording:read:list_user_recordings:admin` — listar las grabaciones.
+   - `cloud_recording:read:list_recording_files:admin` — ver los archivos de una grabación y descargarlos.
+   - `cloud_recording:delete:meeting_recording:admin` — mandar la grabación a la papelera ("Borrar de Zoom").
+   Si no aparecen, la cuenta con la que entraste no es dueña/administradora de la cuenta de Zoom.
 5. **Activate your app**.
 6. Vercel → proyecto ec1375-posturalia → Settings → Environment Variables (Production), marcar como Sensitive:
    `ZOOM_ACCOUNT_ID`, `ZOOM_CLIENT_ID`, `ZOOM_CLIENT_SECRET`. Luego **Redeploy**.
