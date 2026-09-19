@@ -149,3 +149,51 @@ test('ligaVideo: varias partes se enumeran; sin grabación usa la liga de Eviden
     assert.equal(E.ligaVideo(null, fila()), 'https://youtu.be/x');
     assert.equal(E.ligaVideo({ video: { partes: [] } }, { evidencias_data: {} }), null);
 });
+
+test('Centro de Evaluación y evaluador del expediente (confirmados por Diego el 19 sep)', () => {
+    assert.equal(E.CENTRO_EVALUACION.clave, 'CE1399-OC063-18');
+    assert.equal(E.CENTRO_EVALUACION.nombre, 'COLEGIO ILUSTRE DE CIENCIAS FORENSES DE MÉXICO AC CE1399-OC063-18');
+    assert.equal(E.EVALUADOR_PREDETERMINADO, 'HUMBERTO LOT NAVARRO NAVARRO');
+});
+
+test('fechaLarga: como la "Fecha de Aplicación" del IEC de referencia ("agosto 23 2025")', () => {
+    assert.equal(E.fechaLarga('2025-08-23'), 'agosto 23 2025');
+    assert.equal(E.fechaLarga('2026-09-07'), 'septiembre 7 2026');
+    assert.equal(E.fechaLarga('17/09/2026'), '');
+    assert.equal(E.fechaLarga(null), '');
+});
+
+test('planPortafolio: cada archivo lleva su slot (para saber qué sellar)', () => {
+    const p = E.planPortafolio(fila());
+    const slots = p.items.filter(i => i.tipo !== 'generado').map(i => i.slot);
+    assert.ok(slots.includes('pdf_plan_evaluacion') && slots.includes('acuse_triptico') && slots.includes('acuse_plan_evaluacion') && slots.includes('iec'));
+});
+
+const firmaDibujada = { mode: 'draw', dataUrl: 'data:image/png;base64,AAAA', fecha: '2026-09-19T10:00:00Z' };
+test('sellosPortafolio: evaluador de la Cédula, Centro, fecha del Plan y firmas por documento', () => {
+    const f = fila();
+    f.plan_evaluacion_data.planData = { fechaEvaluacion: '2026-09-17' };
+    const ev = { cedula: publicada('COMPETENTE', { evaluadora: 'Humberto Lot Navarro Navarro' }), firma_candidato: firmaDibujada,
+        firmas_evaluador: { plan: firmaDibujada, iec: { mode: 'type', typedName: 'H. Lot' } } };
+    const s = E.sellosPortafolio(f, ev);
+    assert.equal(s.evaluador, 'Humberto Lot Navarro Navarro');
+    assert.equal(s.evaluadorMayus, 'HUMBERTO LOT NAVARRO NAVARRO');
+    assert.equal(s.candidatoMayus, 'ANA DEMO');
+    assert.equal(s.ceClave, 'CE1399-OC063-18');
+    assert.equal(s.ceNombre, E.CENTRO_EVALUACION.nombre);
+    assert.equal(s.fechaAplicacion, 'septiembre 17 2026');
+    assert.equal(s.firmaPlan, firmaDibujada);
+    assert.equal(s.firmaIec.typedName, 'H. Lot');
+    assert.equal(s.firmaCandidato, firmaDibujada);
+    assert.deepEqual(s.avisos, []);
+});
+
+test('sellosPortafolio: sin Cédula usa el evaluador predeterminado y avisa lo que falta firmar', () => {
+    const s = E.sellosPortafolio(fila(), { firmas_evaluador: { plan: { mode: 'draw', dataUrl: 'javascript:x' } } });
+    assert.equal(s.evaluador, E.EVALUADOR_PREDETERMINADO);
+    assert.equal(s.firmaPlan, null);
+    assert.equal(s.firmaCandidato, null);
+    assert.ok(s.avisos.some(a => /firma del evaluador en el Plan/.test(a)));
+    assert.ok(s.avisos.some(a => /rúbrica del evaluador en el IEC/.test(a)));
+    assert.ok(s.avisos.some(a => /Fecha de Aplicación/.test(a)));
+});

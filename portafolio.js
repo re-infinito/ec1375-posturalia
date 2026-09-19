@@ -84,6 +84,51 @@
     function nombreArchivo(nombre) {
         return 'Portafolio_EC1375_' + (sinAcentos(nombre).replace(/[^A-Za-z0-9]+/g, '_').replace(/^_|_$/g, '') || 'candidato') + '.pdf';
     }
+    /* ── Lectura de texto con pdf.js (19 sep): para ubicar en el Plan y los
+       acuses las etiquetas "Evaluadora:", "Centro de Evaluación:" y "Nombre y
+       firma de la Evaluadora:" sin depender de coordenadas fijas (sirve con
+       documentos de cualquier versión). Las funciones puras se prueban en
+       tests/portafolio.test.js. items: { str, x, y (línea base), w, h }. */
+    var URL_PDFJS = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+    var URL_PDFJS_WORKER = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+    function agruparLineas(items) {
+        var lineas = [];
+        items.filter(function (it) { return it && String(it.str || '').trim(); }).forEach(function (it) {
+            var l = lineas.filter(function (x) { return Math.abs(x.y - it.y) <= 2; })[0];
+            if (!l) { l = { y: it.y, items: [] }; lineas.push(l); }
+            l.items.push(it);
+        });
+        lineas.forEach(function (l) {
+            l.items.sort(function (a, b) { return a.x - b.x; });
+            l.texto = l.items.map(function (it) { return String(it.str).trim(); }).join(' ');
+        });
+        return lineas.sort(function (a, b) { return b.y - a.y; });
+    }
+    /* Renglón de una tabla "Etiqueta: | valor": el valor va en la misma
+       columna que el nombre del candidato (renglón "Candidato/a:"). */
+    function ubicarCampo(lineas, etiqueta) {
+        var linea = lineas.filter(function (l) { return etiqueta.test(String(l.items[0].str).trim()); })[0];
+        var ref = lineas.filter(function (l) { return /^Candidat[oa]/.test(String(l.items[0].str).trim()) && l.items.length > 1; })[0];
+        if (!linea || !ref) return null;
+        var lab = linea.items[0], val = ref.items[1];
+        return { x: val.x, y: lab.y, size: val.h || 8, lleno: linea.items.length > 1 };
+    }
+    async function lineasPdf(bytes) {
+        if (!root.pdfjsLib) await cargarScript(URL_PDFJS);
+        root.pdfjsLib.GlobalWorkerOptions.workerSrc = URL_PDFJS_WORKER;
+        var pdf = await root.pdfjsLib.getDocument({ data: bytes.slice() }).promise;
+        var paginas = [];
+        for (var i = 1; i <= pdf.numPages; i++) {
+            var tc = await (await pdf.getPage(i)).getTextContent();
+            paginas.push(agruparLineas(tc.items.map(function (t) {
+                return { str: t.str, x: t.transform[4], y: t.transform[5], w: t.width, h: t.height || Math.abs(t.transform[3]) };
+            })));
+        }
+        pdf.destroy();
+        return paginas;
+    }
+
     async function bytesDeUrl(url) {
         var r = await fetch(url);
         if (!r.ok) throw new Error('No se pudo leer ' + url);
@@ -131,8 +176,11 @@
         var L = root.PDFLib, p = pagina(rec);
         p.drawRectangle({ x: 60, y: H - 280, width: W - 120, height: 200, color: L.rgb(0.9, 0.9, 0.9) });
         texto(p, rec, 'Portafolio de Evidencias', 70, H - 100, 20, rec.negrita);
-        var filas = [['Candidata/o:', nombre], ['Clave y nombre del estándar:', ESTANDAR[0]], ['', ESTANDAR[1]], ['', ESTANDAR[2]],
-            ['Clave del CE:', '1399-OC063-18'], ['Evaluadora:', evaluadora || '']];
+        /* El nombre del estándar se envuelve dentro del recuadro gris (antes
+           el segundo renglón se salía por la derecha). */
+        var est = envolver(ESTANDAR.join(' '), rec.normal, 10, W - 60 - 280 - 12);
+        var filas = [['Candidata/o:', nombre]].concat(est.map(function (l, i) { return [i ? '' : 'Clave y nombre del estándar:', l]; }),
+            [['Clave del CE:', '1399-OC063-18'], ['Evaluadora:', evaluadora || '']]);
         var y = H - 130;
         filas.forEach(function (f) {
             if (f[0]) texto(p, rec, f[0], 80, y, 10, rec.negrita);
@@ -275,6 +323,69 @@
         return L;
     }
 
+    /* ── Estampado sobre documentos del candidato (19 sep) ── */
+    function textoAjustado(p, rec, t, x, y, size, ancho, font) {
+        t = limpiar(t); font = font || rec.normal;
+        while (size > 5.5 && font.widthOfTextAtSize(t, size) > ancho) size -= 0.5;
+        texto(p, rec, t, x, y, size, font);
+    }
+    /* Firma dentro de una caja (x, y abajo, ancho, alto): imagen ajustada o
+       nombre escrito en itálica. */
+    async function firmaEnCaja(p, rec, firma, x, y, ancho, alto) {
+        var img = await imagenFirma(rec, firma);
+        if (img) {
+            var esc = Math.min(ancho / img.width, alto / img.height);
+            p.drawImage(img, { x: x + (ancho - img.width * esc) / 2, y: y + (alto - img.height * esc) / 2, width: img.width * esc, height: img.height * esc });
+            return true;
+        }
+        if (firma && firma.mode === 'type' && firma.typedName) {
+            textoAjustado(p, rec, firma.typedName, x + 4, y + alto / 2 - 4, 13, ancho - 8, rec.italica);
+            return true;
+        }
+        return false;
+    }
+    /* Plan y acuses: nombre del evaluador y del Centro en su renglón. */
+    function sellarCampos(p, rec, lineas, campos, etiquetaDoc, avisos) {
+        campos.forEach(function (c) {
+            var u = ubicarCampo(lineas, c.re);
+            if (!u) { avisos.push("No se encontró '" + c.nombre + "' en " + etiquetaDoc + ': revisar a mano'); return; }
+            if (!u.lleno) textoAjustado(p, rec, c.valor, u.x, u.y, u.size, p.getWidth() - u.x - 30);
+        });
+    }
+    /* Firma del evaluador en el Plan: misma caja que la del candidato en
+       plan-evaluacion.html (55 × 20 mm, 3 mm bajo su etiqueta) y su nombre
+       donde el candidato tiene "Estoy de acuerdo" (26 mm abajo). */
+    async function sellarFirmaPlan(paginas, lineasPorPag, rec, firma, nombre, avisos) {
+        var MM = 72 / 25.4;
+        for (var i = lineasPorPag.length - 1; i >= 0; i--) {
+            var l = lineasPorPag[i].filter(function (x) { return /^Nombre y firma de la Evaluadora/.test(x.texto); })[0];
+            if (!l) continue;
+            var lab = l.items[0], p = paginas[i];
+            if (firma) await firmaEnCaja(p, rec, firma, lab.x, lab.y - 23 * MM, 55 * MM, 20 * MM);
+            textoAjustado(p, rec, nombre, lab.x, lab.y - 26 * MM, 8, 70 * MM, rec.negrita);
+            return;
+        }
+        avisos.push("No se encontró el espacio de firma del evaluador en el Plan de Evaluación: revisar a mano");
+    }
+    /* IEC: posiciones de la plantilla (las mismas del expediente de Humberto,
+       medidas con pdftotext -bbox): nombres y fecha en la página 1 y rúbricas
+       con nombre en las 83 páginas. */
+    async function sellarIec(paginas, rec, s) {
+        var p1 = paginas[0];
+        if (p1) {
+            textoAjustado(p1, rec, s.evaluadorMayus, 208, 619.3, 10, 230);
+            textoAjustado(p1, rec, s.candidatoMayus, 205.4, 589.3, 10, 215);
+            if (s.fechaAplicacion) textoAjustado(p1, rec, s.fechaAplicacion, 426, 589.3, 10, 150);
+        }
+        for (var i = 0; i < paginas.length; i++) {
+            var p = paginas[i];
+            textoAjustado(p, rec, s.evaluadorMayus, 68, 48.3, 10, 280);
+            textoAjustado(p, rec, s.candidatoMayus, 355, 49.3, 10, 230);
+            if (s.firmaIec) await firmaEnCaja(p, rec, s.firmaIec, 106, 56, 120, 38);
+            if (s.firmaCandidato) await firmaEnCaja(p, rec, s.firmaCandidato, 392, 56, 120, 38);
+        }
+    }
+
     async function asegurarLib() { if (!root.PDFLib) await cargarScript(URL_PDF_LIB); }
 
     /* Solo la Cédula (botón "Descargar Cédula"). d = { cedula, firmaCandidato, nombre } */
@@ -298,7 +409,10 @@
         var ev = ctx.evaluacion || {};
         var ced = E.cedulaPublicada(ev);
         if (!ced) avisos.push('La Cédula de Evaluación no está publicada: se incluye en blanco');
-        else if (!ev.firma_candidato) avisos.push('La Cédula de Evaluación todavía no tiene la firma del candidato');
+        else if (!ev.firma_candidato) avisos.push('La Cédula de Evaluación todavía no tiene la firma del candidato (también es su rúbrica en el IEC)');
+        var sellos = E.sellosPortafolio(ctx.row, ev);
+        avisos = avisos.concat(sellos.avisos);
+        var SELLAR = { pdf_plan_evaluacion: 'el Plan de Evaluación', acuse_triptico: 'el Acuse del Tríptico', acuse_plan_evaluacion: 'el Acuse del Plan de Evaluación' };
 
         /* 1. Descargar del NAS (en orden, para reportar avance). */
         var cargados = {}, porDescargar = plan.items.filter(function (i) { return i.tipo !== 'generado'; });
@@ -307,7 +421,13 @@
             progreso('Descargando ' + (k + 1) + ' de ' + porDescargar.length + ': ' + it.etiqueta);
             try {
                 var bytes = await descargarNas(it.ruta, ctx.token), ext = extension(it.ruta);
-                if (ext === 'pdf') cargados[it.ruta] = { pdf: await L.PDFDocument.load(bytes, { ignoreEncryption: true }) };
+                if (ext === 'pdf') {
+                    cargados[it.ruta] = { pdf: await L.PDFDocument.load(bytes, { ignoreEncryption: true }) };
+                    if (SELLAR[it.slot]) {
+                        try { cargados[it.ruta].lineas = await lineasPdf(bytes); }
+                        catch (e) { avisos.push('No se pudo leer ' + SELLAR[it.slot] + ' para poner los datos del evaluador: revisar a mano (' + (e.message || e) + ')'); }
+                    }
+                }
                 else if (ext === 'jpg' || ext === 'jpeg' || ext === 'png') cargados[it.ruta] = { img: bytes, png: ext === 'png' };
                 else avisos.push("'" + it.etiqueta + "': formato ." + ext + ' no se puede insertar, revisar a mano (' + it.ruta + ')');
             } catch (e) {
@@ -324,7 +444,7 @@
         for (var n = 0; n < plan.items.length; n++) {
             var item = plan.items[n];
             if (item.tipo === 'generado') {
-                if (item.pagina === 'portada') dibujarPortada(rec, plan.nombre, ced ? ced.evaluadora : '');
+                if (item.pagina === 'portada') dibujarPortada(rec, plan.nombre, sellos.evaluador);
                 else if (item.pagina === 'indice') dibujarIndice(rec, avisos);
                 else if (SEP[item.pagina]) dibujarSeparador(rec, SEP[item.pagina]);
                 else if (item.pagina === 'video') dibujarVideo(rec, plan.videoLink);
@@ -336,6 +456,16 @@
             if (c.pdf) {
                 var paginas = await doc.copyPages(c.pdf, c.pdf.getPageIndices());
                 paginas.forEach(function (pg) { doc.addPage(pg); });
+                /* Datos del evaluador que el candidato no podía conocer al generar. */
+                if (item.slot === 'iec') await sellarIec(paginas, rec, sellos);
+                else if (SELLAR[item.slot] && c.lineas) {
+                    var esPlan = item.slot === 'pdf_plan_evaluacion';
+                    sellarCampos(paginas[0], rec, c.lineas[0], [
+                        { re: /^Evaluador[a]?:/, nombre: 'Evaluadora:', valor: sellos.evaluador },
+                        { re: /^Centro de Evaluaci[oó]n:/, nombre: 'Centro de Evaluación:', valor: esPlan ? sellos.ceClave : sellos.ceNombre }
+                    ], SELLAR[item.slot], avisos);
+                    if (esPlan) await sellarFirmaPlan(paginas, c.lineas, rec, sellos.firmaPlan, sellos.evaluador, avisos);
+                }
             } else {
                 try {
                     var img = c.png ? await doc.embedPng(c.img) : await doc.embedJpg(c.img);
@@ -349,7 +479,8 @@
         return { bytes: out, paginas: doc.getPageCount(), avisos: avisos, nombreArchivo: nombreArchivo(plan.nombre) };
     }
 
-    var api = { generar: generar, cedulaPdf: cedulaPdf, descargarNas: descargarNas, nombreArchivo: nombreArchivo, _limpiar: limpiar, _fechaDMY: fechaDMY };
+    var api = { generar: generar, cedulaPdf: cedulaPdf, descargarNas: descargarNas, nombreArchivo: nombreArchivo, _limpiar: limpiar, _fechaDMY: fechaDMY,
+        _agruparLineas: agruparLineas, _ubicarCampo: ubicarCampo };
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
     else root.Portafolio = api;
 })(typeof window !== 'undefined' ? window : this);

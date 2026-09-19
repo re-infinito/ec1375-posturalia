@@ -125,6 +125,21 @@
     };
     var IEC_RUTA = 'Plantillas/plantilla_IEC_blanco.pdf';
 
+    /* Centro de Evaluación y evaluador del expediente (confirmados por Diego
+       el 19 sep). En el expediente aprobado de Humberto la clave corta va en
+       el Plan de Evaluación y la Cédula, y el nombre completo del Centro en
+       los acuses. */
+    var CENTRO_EVALUACION = { clave: 'CE1399-OC063-18', nombre: 'COLEGIO ILUSTRE DE CIENCIAS FORENSES DE MÉXICO AC CE1399-OC063-18' };
+    var EVALUADOR_PREDETERMINADO = 'HUMBERTO LOT NAVARRO NAVARRO';
+    var MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+
+    /* '2025-08-23' → 'agosto 23 2025', como la "Fecha de Aplicación" del IEC de referencia. */
+    function fechaLarga(iso) {
+        var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(texto(iso));
+        return m && +m[2] >= 1 && +m[2] <= 12 ? MESES[+m[2] - 1] + ' ' + (+m[3]) + ' ' + m[1] : '';
+    }
+    function mayus(t) { return texto(t).toLocaleUpperCase('es-MX'); }
+
     /* Liga del video para el portafolio (18 sep): la grabación de la sala de
        Zoom que ligó el equipo (evaluaciones.video.partes); si no hay, la liga
        que el candidato pegó en Evidencias (grabaciones anteriores a la sala). */
@@ -153,7 +168,7 @@
                     : "Falta '" + s[2] + "' (el candidato todavía no lo ha subido)");
                 return [];
             }
-            return lista.map(function (ruta) { return { tipo: 'nas', ruta: ruta, etiqueta: s[2] }; });
+            return lista.map(function (ruta) { return { tipo: 'nas', ruta: ruta, etiqueta: s[2], slot: nombre }; });
         }
         var g = function (p) { return { tipo: 'generado', pagina: p }; };
         var videoLink = ligaVideo(evaluacion, row);
@@ -163,9 +178,36 @@
             at = slot('acuse_triptico'), ap = slot('acuse_plan_evaluacion');
         if (!videoLink) avisos.push('Falta ligar la grabación de Zoom (Centro Evaluador → Grabación de la sesión)');
         var items = [g('portada'), g('indice'), g('sep1')].concat(ficha, curp, ine, auto, [g('sep2')], plan,
-            [{ tipo: 'plantilla', ruta: IEC_RUTA, etiqueta: 'Instrumento de Evaluación (IEC) en blanco' }],
+            [{ tipo: 'plantilla', ruta: IEC_RUTA, etiqueta: 'Instrumento de Evaluación (IEC) en blanco', slot: 'iec' }],
             fp, carta, ps, seg, [g('video'), g('sep3'), g('cedula')], enc, [g('sep4')], at, ap);
         return { items: items, avisos: avisos, videoLink: videoLink, nombre: row.nombre || '' };
+    }
+
+    /* Lo que el portafolio estampa sobre los documentos que el candidato
+       generó sin evaluador (19 sep): nombre del evaluador y del Centro en el
+       Plan y los acuses, firma del evaluador en el Plan, y en el IEC nombres,
+       fecha de aplicación y rúbricas. El evaluador firma cada documento por
+       separado (evaluaciones.firmas_evaluador.plan / .iec); la rúbrica del
+       candidato es la firma de su Cédula. */
+    function sellosPortafolio(row, ev) {
+        row = row || {}; ev = ev || {};
+        var ced = cedulaPublicada(ev);
+        var firmas = ev.firmas_evaluador && typeof ev.firmas_evaluador === 'object' ? ev.firmas_evaluador : {};
+        var evaluador = (ced && texto(ced.evaluadora)) || EVALUADOR_PREDETERMINADO;
+        var planData = row.plan_evaluacion_data && row.plan_evaluacion_data.planData ? row.plan_evaluacion_data.planData : {};
+        var fechaAplicacion = fechaLarga(planData.fechaEvaluacion) || fechaLarga(ced && ced.fecha);
+        var s = {
+            evaluador: evaluador, evaluadorMayus: mayus(evaluador), candidatoMayus: mayus(row.nombre),
+            ceClave: CENTRO_EVALUACION.clave, ceNombre: CENTRO_EVALUACION.nombre, fechaAplicacion: fechaAplicacion,
+            firmaPlan: firmaValida(firmas.plan) ? firmas.plan : null,
+            firmaIec: firmaValida(firmas.iec) ? firmas.iec : null,
+            firmaCandidato: ced && firmaValida(ev.firma_candidato) ? ev.firma_candidato : null,
+            avisos: []
+        };
+        if (!s.firmaPlan) s.avisos.push('Falta la firma del evaluador en el Plan de Evaluación (Centro Evaluador → Firmas del evaluador)');
+        if (!s.firmaIec) s.avisos.push('Falta la rúbrica del evaluador en el IEC (Centro Evaluador → Firmas del evaluador)');
+        if (!fechaAplicacion) s.avisos.push('El IEC va sin Fecha de Aplicación: falta la fecha de evaluación en el Plan');
+        return s;
     }
 
     /* Rutas que el proxy del NAS acepta: solo Portafolios/ o Plantillas/,
@@ -207,6 +249,8 @@
         lineaDeTiempo: lineaDeTiempo, dictamenDe: dictamenDe, cedulaPublicada: cedulaPublicada, firmaValida: firmaValida,
         validarCedula: validarCedula, publicarCedula: publicarCedula, guardarBorrador: guardarBorrador,
         planPortafolio: planPortafolio, ligaVideo: ligaVideo, rutaNasPermitida: rutaNasPermitida,
+        CENTRO_EVALUACION: CENTRO_EVALUACION, EVALUADOR_PREDETERMINADO: EVALUADOR_PREDETERMINADO,
+        fechaLarga: fechaLarga, sellosPortafolio: sellosPortafolio,
         mensajeWhatsApp: mensajeWhatsApp, telefonoWhatsApp: telefonoWhatsApp
     };
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
