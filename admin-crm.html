@@ -178,7 +178,7 @@
             <div class="crm-muted" style="margin-top:4px;">${u.socios.map(s => `${esc(s.label)} ${fmt(s.pagado)} / ${fmt(s.aRepartir)}`).join(' · ')}</div></span></li>`).join('') + '</ul>' : '<p class="crm-empty">Sin lotes.</p>';
 
         const atencionHtml = atencion.length ? '<ul class="crm-list">' + atencion.map(i => `
-            <li><span class="crm-st">${ic(i.tipo === 'sesion' || i.tipo === 'sin_grabacion' ? 'video' : i.tipo === 'evaluador' ? 'award' : i.tipo === 'inactivo' || i.tipo === 'plazo_pronto' || i.tipo === 'plazo_vencido' ? 'clock' : 'inbox', 16)}</span><a href="${esc(i.href)}">${esc(i.texto)}</a></li>`).join('') + '</ul>' : '<p class="crm-empty crm-ok">Todo en orden</p>';
+            <li><span class="crm-st">${ic(i.tipo === 'sesion' || i.tipo === 'sin_grabacion' ? 'video' : i.tipo === 'evaluador' ? 'award' : i.tipo === 'sin_alta' ? 'dollar' : i.tipo === 'inactivo' || i.tipo === 'plazo_pronto' || i.tipo === 'plazo_vencido' ? 'clock' : 'inbox', 16)}</span><a href="${esc(i.href)}">${esc(i.texto)}</a></li>`).join('') + '</ul>' : '<p class="crm-empty crm-ok">Todo en orden</p>';
 
         const modulosHtml = MODULOS.map(g => `<div class="crm-group-lbl">${esc(g.grupo.replace(/^[^\p{L}\d]+/u, ''))}</div><div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;">${g.items.map(([href, name]) => `<a class="crm-chip" href="${href}" target="_blank" rel="noopener" style="text-decoration:none;">${esc(name)}</a>`).join('')}</div>`).join('');
 

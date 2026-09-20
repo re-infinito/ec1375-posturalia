@@ -336,3 +336,105 @@ test('atencionSala: sin el SQL de la sala no avisa nada', () => {
     const d = datos(); d.errores = { salaConfig: 'relation does not exist' };
     assert.deepEqual(AdminData.atencionSala(d, AdminData.candidatos(d), new Date('2026-10-12T18:00:00Z')), []);
 });
+
+/* ---------- Auto-registrados (registro.html, 20 sep) ----------
+   Quien firma su NDA por la liga existe en candidatos_ec1375 pero todavía no
+   en candidatos_precio. Antes desaparecía del panel del equipo; ahora sale
+   como 'prospecto' para que un admin le capture lote y montos. Lo que estas
+   pruebas cuidan es que aparecer en la lista NO mueva un solo peso: todo el
+   cálculo financiero pasa por visibles(), que lee candidatos_precio. */
+
+function conProspecto() {
+    const d = datos();
+    d.candidatosRows.push({
+        email: 'Nueva@Ejemplo.MX', nombre: 'Nueva Candidata', updated_at: '2026-09-20T12:00:00Z',
+        autodiagnostico_data: { ndaAccepted: true, ndaSignedAt: '2026-09-20T12:00:00Z', answers: {} }
+    });
+    return d;
+}
+
+test('auto-registrado: aparece en la lista como prospecto, con lote y montos SIN capturar', () => {
+    const lista = AdminData.candidatos(conProspecto());
+    const p = lista.find(c => c.email === 'nueva@ejemplo.mx');
+    assert.ok(p, 'el que se registró por la liga debe salir en el panel');
+    assert.equal(p.estado, AdminData.ESTADO_PROSPECTO);
+    assert.equal(p.tieneAlta, false);
+    // sin capturar es null, no 1 ni 0: la UI tiene que poder decir "—"
+    assert.equal(p.lote, null);
+    assert.equal(p.totalAcordado, null);
+    assert.equal(p.nombre, 'Nueva Candidata');
+    assert.equal(p.tieneFila, true);
+    assert.equal(p.fasePagada, 'Sin pago');
+    // y los que sí están dados de alta siguen igual
+    const a = lista.find(c => c.email === 'a@x.com');
+    assert.equal(a.tieneAlta, true);
+    assert.equal(a.lote, 1);
+    assert.equal(a.totalAcordado, 14750);
+});
+
+test('auto-registrado: no mueve NI UN PESO de KPIs, ingresos, gastos ni reparto', () => {
+    const antes = datos(), despues = conProspecto();
+    assert.deepEqual(AdminData.kpis(despues), AdminData.kpis(antes));
+    for (const lote of [1, 2]) {
+        assert.deepEqual(AdminData.utilidades(despues, lote), AdminData.utilidades(antes, lote));
+        assert.deepEqual(AdminData.gastosLote(despues, lote), AdminData.gastosLote(antes, lote));
+        assert.deepEqual(AdminData.porFaseLote(despues, lote), AdminData.porFaseLote(antes, lote));
+        assert.deepEqual(AdminData.cortePorCandidato(despues, lote), AdminData.cortePorCandidato(antes, lote));
+    }
+    assert.deepEqual(AdminData.lotes(despues), AdminData.lotes(antes));
+    assert.deepEqual(AdminData.utilidadesGlobal(despues), AdminData.utilidadesGlobal(antes));
+});
+
+test('auto-registrado: no cuenta como activo en el embudo por paso', () => {
+    const lista = AdminData.candidatos(conProspecto());
+    assert.deepEqual(AdminData.porPaso(lista), AdminData.porPaso(AdminData.candidatos(datos())));
+});
+
+test('auto-registrado: sale en "Requieren atención" con la liga para darlo de alta', () => {
+    const d = conProspecto();
+    const at = AdminData.atencion(d, AdminData.candidatos(d), new Date('2026-09-21T00:00:00Z'));
+    const it = at.find(i => i.tipo === 'sin_alta');
+    assert.ok(it, 'el equipo se entera por aquí de que hay alguien sin datos financieros');
+    assert.equal(it.email, 'nueva@ejemplo.mx');
+    assert.ok(it.href.startsWith('admin-precios.html?alta='));
+    assert.ok(it.href.includes(encodeURIComponent('nueva@ejemplo.mx')));
+    assert.ok(/se registró/.test(it.texto) && /Nueva Candidata/.test(it.texto));
+});
+
+test('auto-registrado: darlo de alta lo saca de prospectos sin duplicarlo', () => {
+    const d = conProspecto();
+    d.precio.push({ email: 'nueva@ejemplo.mx', lote: 2, estado: 'activo', total_acordado: 14750, monto_registro: 2000 });
+    const lista = AdminData.candidatos(d);
+    assert.equal(lista.filter(c => c.email === 'nueva@ejemplo.mx').length, 1);
+    const p = lista.find(c => c.email === 'nueva@ejemplo.mx');
+    assert.equal(p.estado, 'activo');
+    assert.equal(p.tieneAlta, true);
+    assert.equal(p.lote, 2);
+    assert.equal(p.totalAcordado, 14750);
+    assert.equal(AdminData.atencion(d, lista, new Date('2026-09-21T00:00:00Z')).filter(i => i.tipo === 'sin_alta').length, 0);
+});
+
+test('auto-registrado: el correo se compara sin importar mayúsculas (no se duplica)', () => {
+    const d = datos();
+    d.candidatosRows.push({ email: 'A@X.com', nombre: 'Ana Otra Vez', updated_at: '2026-09-20T12:00:00Z' });
+    const lista = AdminData.candidatos(d);
+    assert.equal(lista.filter(c => c.email.toLowerCase() === 'a@x.com').length, 1);
+    assert.equal(lista.find(c => c.email === 'a@x.com').tieneAlta, true);
+});
+
+test('auto-registrado: la cuenta demo nunca entra como prospecto', () => {
+    const d = datos();
+    d.candidatosRows.push({ email: 'paideia.tech@outlook.com', nombre: 'Ana Sofía Demo Ramírez', updated_at: '2026-09-20T12:00:00Z' });
+    const lista = AdminData.candidatos(d);
+    assert.equal(lista.filter(c => c.email.toLowerCase() === 'paideia.tech@outlook.com').length, 1);
+    assert.equal(lista.find(c => c.email === 'paideia.tech@outlook.com').estado, 'administrador');
+});
+
+test('auto-registrado: un evaluador (sin acceso a precios) sigue viendo su lista igual', () => {
+    const d = { precio: [], pagos: [], reparto: [], utilidadesPagos: [], nombres: [], errores: {},
+        candidatosRows: [{ email: 'ana@ejemplo.com', nombre: 'Ana', updated_at: '2026-09-18T00:00:00Z', fases_pagadas: ['registro'] }] };
+    const l = AdminData.candidatos(d);
+    assert.equal(l.length, 1);
+    assert.equal(l[0].estado, 'activo');   // no 'prospecto': el evaluador no ve precios por diseño
+    assert.equal(l[0].lote, 1);
+});

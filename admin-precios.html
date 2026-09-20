@@ -437,6 +437,36 @@
         app.innerHTML = `<div class="container narrow"><p style="text-align:center;margin-top:60px;">Cargando...</p></div>`;
         await cargarDatos();
         renderPanel();
+        precargarAlta();
+    }
+
+    /* Llegó desde admin-candidatos.html con ?alta=<correo>&nombre=<nombre>:
+       alguien se registró por la liga (registro.html) y falta capturarle sus
+       datos financieros. Se deja el formulario de alta listo y enfocado en el
+       primer monto, para que el admin solo teclee cifras. Si ese correo YA
+       está dado de alta, no se prellena nada: se le avisa y se resalta su
+       fila, que es lo que en realidad quiere ver. */
+    function precargarAlta() {
+        const params = new URLSearchParams(location.search);
+        const email = (params.get('alta') || '').trim().toLowerCase();
+        if (!email) return;
+        const form = document.querySelector('.add-form');
+        if (!form) return;
+        if (candidatos.some(c => (c.email || '').toLowerCase() === email)) {
+            filtroBusqueda = email;
+            renderPanel();
+            const aviso = document.createElement('p');
+            aviso.style.cssText = 'font-size:0.8rem;color:var(--success);margin-top:10px;';
+            aviso.textContent = email + ' ya está dado de alta — aquí abajo puedes ajustar sus montos.';
+            document.querySelector('.add-form').after(aviso);
+            return;
+        }
+        document.getElementById('newEmail').value = email;
+        const nombre = (params.get('nombre') || '').trim();
+        if (nombre) document.getElementById('newNombre').value = nombre;
+        form.scrollIntoView({ block: 'center' });
+        const primerMonto = document.getElementById('newMonto_' + FASES[0]);
+        if (primerMonto) primerMonto.focus();
     }
 
     window.addEventListener('load', async () => {

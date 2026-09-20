@@ -51,34 +51,17 @@ El Acuerdo de esta liga es **el mismo documento** que el paso "Confidencialidad"
 
 No hay que hacer nada manual para que esto pase.
 
-## 6. ⚠️ Lo que todavía **no** hace (decisión pendiente)
+## 6. Dónde lo ves y cómo le capturas sus datos financieros
 
-Un candidato que se registra por esta liga **no aparece todavía en el panel del equipo** (`admin-candidatos.html`, `admin-crm.html`). Esas pantallas arman su lista desde `candidatos_precio`, y un auto-registrado no tiene fila ahí hasta que alguien lo da de alta.
+En cuanto alguien termina su registro **aparece solo** en `admin-candidatos.html`, sin que nadie haga nada. Se ve así:
 
-Es una decisión de producto, no un error: falta acordar **cómo se trata a un prospecto** que se registró pero no ha pagado (¿se le crea fila automáticamente con un `estado` nuevo tipo `prospecto`? ¿el equipo lo da de alta a mano cuando aparta?). Meterlo de golpe en `candidatos_precio` cambiaría los conteos de KPIs y del reparto de utilidades, así que no se hizo sin decidirlo.
+- En el **panel del equipo** (`admin-crm.html`), dentro de "Requieren atención": *"Fulana se registró y falta capturarle lote y montos"*.
+- En la **lista de candidatos**, con el chip **"sin datos financieros"**, un guion en la columna Lote, y un aviso arriba con cuántas personas están en esa situación. El filtro de estado tiene su propia opción para verlos a todos juntos.
+- Al abrir su ficha: la fecha en que firmó su Acuerdo, el aviso de que todavía no cuenta en KPIs ni en el reparto, y el botón **"Capturar sus datos financieros"**.
 
-**Mientras tanto**, para ver quién se registró y no está dado de alta, corre esto en el SQL Editor de Supabase:
+Ese botón te lleva a `admin-precios.html` con **su correo y su nombre ya escritos** y el cursor puesto en el primer monto: solo tecleas las cifras, eliges lote y estado, y le das Agregar. En ese momento deja de ser "prospecto" y pasa a ser un candidato normal, contando en KPIs, ingresos y reparto de utilidades como cualquier otro.
 
-```sql
-select c.nombre,
-       u.email,
-       (c.autodiagnostico_data ->> 'ndaSignedAt') as nda_firmado,
-       c.updated_at
-from candidatos_ec1375 c
-join auth.users u on u.id = c.user_id
-left join candidatos_precio p on lower(p.email) = lower(u.email)
-where p.email is null
-  and (c.autodiagnostico_data ->> 'ndaAccepted')::boolean is true
-order by c.updated_at desc;
-```
-
-Y para dar de alta a uno como candidato (mismo camino que ya usas desde `admin-precios.html`):
-
-```sql
-insert into candidatos_precio (email, lote, estado, total_acordado)
-values ('correo@del.candidato', 1, 'activo', 14750)
-on conflict (email) do nothing;
-```
+**Mientras no le captures nada, no afecta ningún número.** Un prospecto no tiene lote ni montos, así que no entra en KPIs, ingresos, gastos, el embudo por paso ni el reparto entre socios. Es solo una persona que ya firmó y está esperando que alguien del equipo la dé de alta.
 
 ## 7. Para revisar una firma concreta
 
