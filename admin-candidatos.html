@@ -89,8 +89,13 @@
     }
 
     function chipEstado(estado) {
+        if (estado === AdminData.ESTADO_PROSPECTO) return `<span class="crm-chip warn" title="Se registró por la liga; falta capturarle lote y montos">sin datos financieros</span>`;
         const cls = estado === 'activo' ? 'ok' : estado === 'administrador' ? 'info' : 'warn';
         return `<span class="crm-chip ${cls}">${esc(estado)}</span>`;
+    }
+    /* Liga al alta de admin-precios.html con el correo y el nombre ya puestos. */
+    function ligaAlta(c) {
+        return 'admin-precios.html?alta=' + encodeURIComponent(c.email) + (c.nombre ? '&nombre=' + encodeURIComponent(c.nombre) : '');
     }
     function chipPaso(c) {
         const cls = c.paso.id === 'certificado' ? 'ok' : c.paso.id === 'sin_iniciar' ? 'bad' : c.paso.id === 'esperando_evaluador' ? 'warn' : 'info';
@@ -111,7 +116,7 @@
     function exportarCsv(rows) {
         const cab = ['Nombre', 'Correo', 'CURP', 'Lote', 'Estado', 'Fase pagada', 'Paso actual', 'Pasos hechos', 'Documentos', 'Última actividad', 'Total acordado'];
         const esc2 = v => '"' + String(v === null || v === undefined ? '' : v).replace(/"/g, '""') + '"';
-        const lineas = [cab.map(esc2).join(',')].concat(rows.map(c => [c.nombre, c.email, c.curp, c.lote, c.estado, c.fasePagada, c.paso.label, c.hechos + '/10', c.docs.completos + '/' + c.docs.total, c.ultimaActividad || '', c.totalAcordado].map(esc2).join(',')));
+        const lineas = [cab.map(esc2).join(',')].concat(rows.map(c => [c.nombre, c.email, c.curp, c.lote || '', c.estado, c.fasePagada, c.paso.label, c.hechos + '/10', c.docs.completos + '/' + c.docs.total, c.ultimaActividad || '', c.tieneAlta ? c.totalAcordado : ''].map(esc2).join(',')));
         const blob = new Blob(['\ufeff' + lineas.join('\n')], { type: 'text/csv;charset=utf-8' });
         const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'candidatos-ec1375-' + new Date().toISOString().slice(0, 10) + '.csv'; a.click();
         setTimeout(() => URL.revokeObjectURL(a.href), 2000);
@@ -131,15 +136,19 @@
         const lotes = AdminData.lotes(datosGlobal);
         const pasos = AdminData.porPaso(lista);
         const aviso = datosGlobal.errores.candidatosRows ? `<div class="crm-note">${ic('alert', 14)} Para ver el paso y los documentos de cada candidato hay que correr <code>2026-09-15-admin-lista-candidatos.sql</code> en Supabase. Mientras, solo se muestran datos de pagos.</div>` : '';
+        /* Se registraron por la liga y firmaron su NDA, pero nadie les ha
+           capturado lote ni montos: sin este aviso se pierden entre la lista. */
+        const sinAlta = lista.filter(c => !c.tieneAlta);
+        const avisoAlta = sinAlta.length ? `<div class="crm-note">${ic('alert', 14)} <strong>${sinAlta.length} ${sinAlta.length === 1 ? 'persona se registró' : 'personas se registraron'} y ${sinAlta.length === 1 ? 'no tiene' : 'no tienen'} datos financieros capturados.</strong> ${sinAlta.slice(0, 3).map(c => `<a href="${ligaAlta(c)}">${esc(c.nombre || c.email)}</a>`).join(' · ')}${sinAlta.length > 3 ? ` · <a href="#" id="verSinAlta">ver ${sinAlta.length - 3} más</a>` : ''}</div>` : '';
         const th = (key, label) => `<th data-sort="${key}" class="${orden.key === key ? 'is-sorted' : ''}">${label}${orden.key === key ? (orden.dir === 'asc' ? ' ↑' : ' ↓') : ''}</th>`;
-        app.innerHTML = aviso + `
+        app.innerHTML = aviso + avisoAlta + `
             <section class="crm-card">
                 <div class="crm-card-h"><span class="crm-stat-ico">${ic('users', 18)}</span>Candidatos<span class="crm-count">${vis.length} de ${lista.length}</span>
                     <div class="crm-toolbar"><button type="button" class="crm-btn crm-btn-sm crm-btn-ghost" id="btnCsv" style="background:var(--surface-2);color:var(--text-bright);border-color:var(--border);">${ic('download', 14)}Exportar CSV</button></div></div>
                 <div class="crm-filters">
                     <input type="search" id="fq" placeholder="Buscar por nombre, correo o CURP" value="${esc(filtros.q)}">
                     <select id="flote"><option value="">Todos los lotes</option>${lotes.map(l => `<option value="${l}" ${String(l) === filtros.lote ? 'selected' : ''}>Lote ${l}</option>`).join('')}</select>
-                    <select id="festado"><option value="">Todos los estados</option>${['activo', 'desistió', 'cambio_lote', 'administrador'].map(e => `<option value="${e}" ${e === filtros.estado ? 'selected' : ''}>${e}</option>`).join('')}</select>
+                    <select id="festado"><option value="">Todos los estados</option>${[AdminData.ESTADO_PROSPECTO, 'activo', 'desistió', 'cambio_lote', 'administrador'].map(e => `<option value="${e}" ${e === filtros.estado ? 'selected' : ''}>${e === AdminData.ESTADO_PROSPECTO ? 'sin datos financieros' : e}</option>`).join('')}</select>
                     <select id="fpaso"><option value="">Todos los pasos</option>${pasos.map(p => `<option value="${p.id}" ${p.id === filtros.paso ? 'selected' : ''}>${esc(p.label)} (${p.n})</option>`).join('')}</select>
                 </div>
                 <div class="crm-table-wrap"><table class="crm-table">
@@ -147,12 +156,15 @@
                     <tbody>${vis.length ? vis.map((c, i) => `
                         <tr class="is-clickable" data-email="${esc(c.email)}">
                             <td><strong style="color:var(--text-bright);">${esc(c.nombre || '(sin nombre)')}</strong><div class="crm-muted" style="font-size:0.76rem;">${esc(c.email)}</div></td>
-                            <td>${c.lote}</td><td>${chipEstado(c.estado)}</td><td>${esc(c.fasePagada)}</td><td>${chipPaso(c)}</td>
+                            <td>${c.lote || '—'}</td><td>${chipEstado(c.estado)}</td><td>${esc(c.fasePagada)}</td><td>${chipPaso(c)}</td>
                             <td><div style="min-width:90px;"><div class="crm-bar"><span style="width:${c.hechos * 10}%"></span></div><div class="crm-muted" style="font-size:0.72rem;">${c.hechos} / 10</div></div></td>
                             <td>${c.docs.completos} / ${c.docs.total}</td><td>${fechaCorta(c.ultimaActividad)}</td>
                         </tr>`).join('') : '<tr><td colspan="8" class="crm-empty">Sin resultados.</td></tr>'}</tbody>
                 </table></div>
             </section>`;
+        if (document.getElementById('verSinAlta')) document.getElementById('verSinAlta').addEventListener('click', ev => {
+            ev.preventDefault(); filtros.estado = AdminData.ESTADO_PROSPECTO; render();
+        });
         document.getElementById('fq').addEventListener('input', ev => { filtros.q = ev.target.value; render(); document.getElementById('fq').focus(); });
         ['lote', 'estado', 'paso'].forEach(k => document.getElementById('f' + k).addEventListener('change', ev => { filtros[k] = ev.target.value; render(); }));
         app.querySelectorAll('tr.is-clickable').forEach(tr => tr.addEventListener('click', () => abrirDetalle(tr.dataset.email)));
@@ -224,11 +236,13 @@
             </div>
             <dl class="crm-kv">
                 <dt>CURP</dt><dd>${esc(c.curp || '—')}</dd>
-                ${esEvaluador ? '' : `<dt>Lote / estado</dt><dd>Lote ${c.lote} · ${chipEstado(c.estado)}</dd>
-                <dt>Total acordado</dt><dd>${fmt(c.totalAcordado)}</dd>`}
+                ${esEvaluador ? '' : `<dt>Lote / estado</dt><dd>${c.lote ? 'Lote ' + c.lote + ' · ' : ''}${chipEstado(c.estado)}</dd>
+                <dt>Total acordado</dt><dd>${c.tieneAlta ? fmt(c.totalAcordado) : '<span class="crm-muted">Sin capturar</span>'}</dd>`}
                 <dt>Paso actual</dt><dd>${chipPaso(c)}</dd>
                 <dt>Última actividad</dt><dd>${fechaCorta(c.ultimaActividad)}</dd>
             </dl>
+            ${(!esEvaluador && !c.tieneAlta) ? `<div class="crm-note">${ic('alert', 14)} Se registró por la liga${c.row && c.row.autodiagnostico_data && c.row.autodiagnostico_data.ndaSignedAt ? ' y firmó su Acuerdo de Confidencialidad el ' + esc(fechaCorta(c.row.autodiagnostico_data.ndaSignedAt)) : ''}, pero <strong>todavía no tiene lote ni montos capturados</strong>. Hasta que se los captures no cuenta en KPIs ni en el reparto de utilidades.
+                <div style="margin-top:8px;"><a class="crm-btn crm-btn-sm crm-btn-primary" href="${ligaAlta(c)}">${ic('dollar', 14)}Capturar sus datos financieros</a></div></div>` : ''}
             ${evalHtml}
             ${esEvaluador ? '' : `<div class="crm-card-h"><span class="crm-stat-ico">${ic('file', 18)}</span>Nota interna</div>
             <textarea id="notaInterna" rows="2" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:var(--dark);color:var(--text-bright);font-family:inherit;font-size:0.86rem;resize:vertical;" placeholder="Solo la ve el equipo (ej. acordó pagar en 3 partes, llamar el lunes…)">${esc(nota)}</textarea>

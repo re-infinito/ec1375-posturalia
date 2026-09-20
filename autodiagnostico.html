@@ -636,7 +636,13 @@
             navBar.style.display = 'flex';
             topBarStep.textContent = 'Confidencialidad';
             app.innerHTML = renderNdaStep();
-            setTimeout(initNdaSignatureCanvas, 50);
+            /* initNdaSignatureCanvas() va SÍNCRONO, no en un setTimeout: el
+               canvas ya existe en cuanto se asigna innerHTML, y diferirlo
+               abría una ventana de 50 ms en la que un trazo inmediato
+               (palomear la casilla y firmar de corrido) se perdía porque los
+               listeners todavía no estaban puestos. El insertAdjacentHTML de
+               más abajo PREPENDE, así que no destruye el canvas ni su firma. */
+            initNdaSignatureCanvas();
         } else if (step.startsWith('e')) {
             const elementoIdx = parseInt(step.substring(1)) - 1;
             navBar.style.display = 'flex';
@@ -646,7 +652,7 @@
             navBar.style.display = 'flex';
             topBarStep.textContent = 'Firma';
             app.innerHTML = renderFirmaStep();
-            setTimeout(initSignatureCanvas, 50);
+            initSignatureCanvas();   /* síncrono, misma razón que en el paso 'nda' */
             /* Aquí la fuente es solo la firma del Acuerdo de Confidencialidad
                (se firmó en el paso 'nda'): la principal es la que se captura aquí. */
             FirmaCandidato.ofrecer(document.getElementById('usarFirmaAuto'), {

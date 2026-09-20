@@ -36,6 +36,9 @@
     var BYPASS_EMAIL = 'paideia.tech@outlook.com';
     var CONFIG_DEFAULT = { incluir_chris: true, porcentaje_chris: 50, porcentaje_fernando: 16.67, porcentaje_lot: 16.67, porcentaje_diego: 16.67, notas: '' };
     var PASOS_EXTRA = { sin_iniciar: 'Sin iniciar', esperando_evaluador: 'Esperando evaluador', certificado: 'Certificado entregado' };
+    /* Se registró por registro.html y nadie le ha capturado lote ni montos:
+       existe en candidatos_ec1375 pero todavía no en candidatos_precio. */
+    var ESTADO_PROSPECTO = 'prospecto';
 
     /* ---------- índices ---------- */
 
@@ -322,16 +325,45 @@
 
     /* ---------- Candidatos con su paso real ---------- */
 
+    /* Quien se registró por la liga (registro.html) existe en
+       candidatos_ec1375 —y por lo tanto en admin_lista_candidatos()— pero NO
+       en candidatos_precio, porque el precio es dinero y lo captura el
+       equipo, nunca el candidato desde su navegador. Antes esa persona
+       desaparecía del panel: firmaba su NDA y nadie se enteraba. Aquí se le
+       arma una fila 'prospecto' para que el admin la vea y le llene sus
+       datos financieros — mismo patrón que la fila "sin precio capturado"
+       que admin-precios.html ya arma para quien pagó sin estar dado de alta.
+
+       **No cambia ningún cálculo financiero**: kpis(), ingresosLote(),
+       gastosLote(), porFaseLote(), cortePorCandidato(), fichaCandidato() y
+       lotes() pasan todos por visibles(), que lee candidatos_precio directo
+       y nunca esta lista. Un prospecto no tiene lote ni monto, así que no
+       hay nada que sumar hasta que lo den de alta. */
+    function prospectos(datos) {
+        var enPrecio = {};
+        (datos.precio || []).forEach(function (c) { enPrecio[(c.email || '').toLowerCase()] = true; });
+        var vistos = {};
+        var out = [];
+        (datos.candidatosRows || []).forEach(function (r) {
+            var email = (r && r.email) ? r.email.toLowerCase() : '';
+            if (!email || enPrecio[email] || vistos[email] || email === BYPASS_EMAIL) return;
+            vistos[email] = true;
+            out.push({ email: email, nombre: r.nombre || '', _sinAlta: true });
+        });
+        return out;
+    }
+
     function candidatos(datos) {
         var idx = indexar(datos);
         /* Un evaluador (18 sep) no lee candidatos_precio ni los pagos: su
            lista sale de las filas del RPC, con las fases que el RPC regresa
            en fases_pagadas (2026-09-18-centro-evaluador.sql). */
-        var base = (datos.precio && datos.precio.length) ? datos.precio
+        var base = (datos.precio && datos.precio.length) ? datos.precio.concat(prospectos(datos))
             : (datos.candidatosRows || []).filter(function (r) { return r && r.email; })
                 .map(function (r) { return { email: r.email.toLowerCase(), lote: 1, estado: 'activo', total_acordado: 0 }; });
         return base.map(function (c) {
             var email = (c.email || '').toLowerCase();
+            var sinAlta = c._sinAlta === true;
             var row = idx.rowsByEmail[email] || null;
             var fases = {};
             FASES.forEach(function (f) {
@@ -348,7 +380,13 @@
             return {
                 email: c.email, nombre: (row && row.nombre) || idx.nombres[email] || c.nombre || '',
                 curp: (row && row.curp) || null,
-                lote: c.lote || 1, estado: c.estado || 'activo', totalAcordado: c.total_acordado || 0,
+                /* lote/estado/total de un prospecto no son 0 ni 1: están SIN
+                   CAPTURAR, y la UI tiene que poder decir eso en vez de
+                   inventar "Lote 1 · activo · $0". */
+                lote: sinAlta ? null : (c.lote || 1),
+                estado: sinAlta ? ESTADO_PROSPECTO : (c.estado || 'activo'),
+                totalAcordado: sinAlta ? null : (c.total_acordado || 0),
+                tieneAlta: !sinAlta,
                 fases: fases, fasePagada: H.faseMasAlta(fases), origenPagos: idx.pagosOrigen[c.email] || {},
                 steps: steps, paso: paso, hechos: steps.filter(function (s) { return s.done; }).length,
                 docs: docs, ultimaActividad: (row && row.updated_at) || null, tieneFila: !!row, row: row,
@@ -408,6 +446,18 @@
             if (c.paso.id === 'esperando_evaluador') {
                 items.push({ tipo: 'evaluador', texto: (c.nombre || c.email) + ' terminó todo: falta revisar su evaluación y autorizar Entrega', email: c.email, href: 'admin-precios.html' });
             }
+        });
+        /* Se registró y firmó su NDA, pero nadie le ha capturado sus datos
+           financieros. Va aparte del filtro de arriba (que solo mira
+           'activo') porque un prospecto todavía no es un candidato activo:
+           justamente falta la decisión del equipo. */
+        lista.filter(function (c) { return c.estado === ESTADO_PROSPECTO; }).forEach(function (c) {
+            items.push({
+                tipo: 'sin_alta',
+                texto: (c.nombre || c.email) + ' se registró y falta capturarle lote y montos',
+                email: c.email,
+                href: 'admin-precios.html?alta=' + encodeURIComponent(c.email)
+            });
         });
         (datos.sesiones || []).forEach(function (s) {
             if (!s.zoom_link) items.push({ tipo: 'sesion', texto: 'Sesión del ' + s.fecha + ' sin liga de Zoom', href: 'admin-sesiones.html' });
@@ -497,7 +547,7 @@
     }
 
     var AdminData = {
-        FASES: FASES, FASE_LABEL: FASE_LABEL, SOCIOS: SOCIOS, PASOS_EXTRA: PASOS_EXTRA,
+        FASES: FASES, FASE_LABEL: FASE_LABEL, SOCIOS: SOCIOS, PASOS_EXTRA: PASOS_EXTRA, ESTADO_PROSPECTO: ESTADO_PROSPECTO,
         cargar: cargar, kpis: kpis, utilidades: utilidades, gastosLote: gastosLote, repartir: repartir, fichaCandidato: fichaCandidato, porFaseLote: porFaseLote, cortePorCandidato: cortePorCandidato, utilidadesGlobal: utilidadesGlobal, lotes: lotes,
         candidatos: candidatos, porPaso: porPaso, ultimosPagos: ultimosPagos, proximasSesiones: proximasSesiones, atencion: atencion, atencionSala: atencionSala,
         declaraciones: declaraciones,
