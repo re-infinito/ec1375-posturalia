@@ -289,6 +289,13 @@
     var dibujando = false, ultX = 0, ultY = 0;
     var faseAbierta = false;       /* el RPC abrió su fase de Registro (ver auth.js) */
     var reRegistro = false;        /* ya había firmado antes: no se toca su fase */
+    /* 'crear' = cuenta nueva; 'entrar' = el correo ya tenía cuenta y lo que
+       toca es su contraseña. Cambia cuál es el botón PRINCIPAL de la
+       pantalla: dejar "Crear mi cuenta" como principal después de decir
+       "este correo ya tiene cuenta" mandaba a la gente a un ciclo — le
+       vuelven a picar al botón grande y azul y sale el mismo error. */
+    var modoCuenta = 'crear';
+    var passwordEscrita = '';      /* para no borrarle lo que ya tecleó al re-pintar */
 
     function escapeHtml(str) {
         var div = document.createElement('div');
@@ -358,12 +365,20 @@
         var error = mensaje ? '<p class="msg error">' + escapeHtml(mensaje) + '</p>' : '';
 
         if (paso === 'datos') app.innerHTML = vistaDatos(error);
+        else if (paso === 'cuenta') {
+            app.innerHTML = vistaCuenta(error);
+            /* Un error re-pinta la tarjeta y se llevaba la contraseña que ya
+               había escrito: tecleaba de nuevo, le picaba al botón grande y
+               volvía a salir lo mismo. Se la devolvemos. */
+            var campo = document.getElementById('f_password');
+            if (campo && passwordEscrita) { campo.value = passwordEscrita; }
+            if (campo) campo.focus();
+        }
         /* initCanvas() va SÍNCRONO, no en un setTimeout: el canvas ya existe en
            cuanto se asigna innerHTML, y diferirlo abría una ventana en la que
            un trazo inmediato (tocar la casilla y firmar de corrido) se perdía
            porque los listeners todavía no estaban puestos. */
         else if (paso === 'nda') { app.innerHTML = vistaNda(error); initCanvas(); }
-        else if (paso === 'cuenta') app.innerHTML = vistaCuenta(error);
         else if (paso === 'listo') app.innerHTML = vistaListo();
     }
 
@@ -465,6 +480,30 @@
     }
 
     function vistaCuenta(error) {
+        var recordar =
+            '<label style="display:flex;align-items:center;gap:8px;font-size:0.85rem;margin:-4px 0 14px;cursor:pointer;color:var(--text);">' +
+                '<input type="checkbox" id="authRememberInput" checked style="width:auto;margin:0;"> Mantener mi sesión iniciada en este dispositivo' +
+            '</label>';
+
+        /* El correo ya tenía cuenta: aquí NO se crea nada, se entra. Una sola
+           contraseña, sin confirmación, y el botón principal es "Entrar". */
+        if (modoCuenta === 'entrar') {
+            return '' +
+            '<div class="card">' +
+                '<h2>' + ic('lock', 20) + 'Entra con tu contraseña</h2>' +
+                '<p class="field-hint" style="margin-bottom:16px;"><strong>' + escapeHtml(datos.email) + '</strong> ya tiene cuenta en la plataforma. Escribe tu contraseña de siempre y guardamos tu Acuerdo firmado.</p>' +
+                '<div class="field-group">' +
+                    '<label for="f_password">Tu contraseña</label>' +
+                    '<input type="password" id="f_password" placeholder="Tu contraseña" autocomplete="current-password">' +
+                '</div>' +
+                recordar +
+                error +
+                '<button class="btn btn-primary btn-full" onclick="entrarConCuentaExistente()">Entrar y guardar mi firma' + ic('arrow') + '</button>' +
+                '<button class="btn btn-secondary btn-full" onclick="olvideContrasena()">No recuerdo mi contraseña</button>' +
+                '<button class="btn btn-ghost btn-full" onclick="usarOtroCorreo()">Usar otro correo</button>' +
+            '</div>';
+        }
+
         return '' +
         '<div class="card">' +
             '<h2>' + ic('lock', 20) + 'Crea tu contraseña</h2>' +
@@ -477,14 +516,43 @@
                 '<label for="f_passwordConfirm">Confirma tu contraseña</label>' +
                 '<input type="password" id="f_passwordConfirm" placeholder="Repite tu contraseña" autocomplete="new-password">' +
             '</div>' +
-            '<label style="display:flex;align-items:center;gap:8px;font-size:0.85rem;margin:-4px 0 14px;cursor:pointer;color:var(--text);">' +
-                '<input type="checkbox" id="authRememberInput" checked style="width:auto;margin:0;"> Mantener mi sesión iniciada en este dispositivo' +
-            '</label>' +
+            recordar +
             error +
             '<button class="btn btn-primary btn-full" onclick="crearCuenta()">Crear mi cuenta y registrar mi firma' + ic('arrow') + '</button>' +
-            '<button class="btn btn-secondary btn-full" onclick="entrarConCuentaExistente()">Ya tengo cuenta con este correo</button>' +
+            '<button class="btn btn-secondary btn-full" onclick="pasarAEntrar()">Ya tengo cuenta con este correo</button>' +
             '<button class="btn btn-ghost btn-full" onclick="irA(\'nda\')">Regresar</button>' +
         '</div>';
+    }
+
+    function pasarAEntrar(mensaje) {
+        modoCuenta = 'entrar';
+        render(mensaje);
+    }
+
+    function usarOtroCorreo() {
+        modoCuenta = 'crear';
+        passwordEscrita = '';
+        irA('datos');
+    }
+
+    /* Sin esto, quien ya tenía cuenta y no recuerda su contraseña se queda
+       sin salida en esta pantalla. Mismo correo de restablecimiento que usa
+       el resto del sitio (auth.js), que aterriza en restablecer-password.html. */
+    async function olvideContrasena() {
+        document.getElementById('app').innerHTML = '<div class="card"><p class="spinner">Enviando...</p></div>';
+        try {
+            await supabaseClient.auth.resetPasswordForEmail(datos.email, {
+                redirectTo: location.origin + '/restablecer-password.html'
+            });
+        } catch (e) { /* nunca se le revela si la cuenta existe o no */ }
+        document.getElementById('app').innerHTML =
+            '<div class="card">' +
+                '<h2>' + ic('inbox', 20) + 'Revisa tu correo</h2>' +
+                '<p style="margin-bottom:18px;">Si <strong>' + escapeHtml(datos.email) + '</strong> tiene cuenta, te mandamos una liga para poner tu contraseña. Revisa tu bandeja y también la carpeta de spam.</p>' +
+                '<p class="field-hint" style="margin-bottom:18px;">Cuando la pongas, vuelve a abrir esta liga de registro y entra con ella: tu firma se guarda igual.</p>' +
+                '<button class="btn btn-secondary btn-full" onclick="pasarAEntrar()">Ya la puse, quiero entrar</button>' +
+                '<button class="btn btn-ghost btn-full" onclick="usarOtroCorreo()">Usar otro correo</button>' +
+            '</div>';
     }
 
     function vistaListo() {
@@ -658,8 +726,12 @@
     /* ---------- paso 3: cuenta ---------- */
 
     async function crearCuenta() {
-        var password = document.getElementById('f_password').value || '';
-        var confirm = document.getElementById('f_passwordConfirm').value || '';
+        var campoP = document.getElementById('f_password');
+        var campoC = document.getElementById('f_passwordConfirm');
+        if (!campoP || !campoC) { pasarAEntrar(); return; }   /* estamos en modo "entrar" */
+        var password = campoP.value || '';
+        var confirm = campoC.value || '';
+        passwordEscrita = password;
         if (password.length < 6) { render('La contraseña debe tener al menos 6 caracteres.'); return; }
         if (password !== confirm) { render('Las contraseñas no coinciden.'); return; }
 
@@ -668,7 +740,11 @@
         try {
             var res = await supabaseClient.auth.signUp({ email: datos.email, password: password });
             if (res.error) {
-                irA('cuenta', 'Este correo ya tiene cuenta. Usa "Ya tengo cuenta con este correo" para entrar con tu contraseña y guardar tu firma.');
+                /* Ya existe: se CAMBIA la pantalla a "entrar" en vez de solo
+                   avisar. Antes el botón principal seguía siendo "Crear mi
+                   cuenta", así que le volvían a picar y salía el mismo error
+                   una y otra vez. */
+                pasarAEntrar('Este correo ya está registrado. Escribe tu contraseña de siempre para entrar y guardar tu firma.');
                 return;
             }
             if (!res.data.session) {
@@ -686,19 +762,23 @@
     /* Para quien ya se registró antes (o el equipo le creó la cuenta) y
        vuelve por esta liga solo a firmar el Acuerdo. */
     async function entrarConCuentaExistente() {
-        var password = document.getElementById('f_password').value || '';
-        if (!password) { render('Escribe tu contraseña arriba para entrar con tu cuenta.'); return; }
+        var campo = document.getElementById('f_password');
+        var password = (campo && campo.value) || '';
+        passwordEscrita = password;
+        modoCuenta = 'entrar';
+        if (!password) { render('Escribe tu contraseña para entrar.'); return; }
         Auth._applyRememberChoice();
         document.getElementById('app').innerHTML = '<div class="card"><p class="spinner">Entrando...</p></div>';
         try {
             var res = await supabaseClient.auth.signInWithPassword({ email: datos.email, password: password });
             if (res.error || !res.data.session) {
-                irA('cuenta', 'Contraseña incorrecta, o todavía no la has creado. Si no la recuerdas, pídela desde "Iniciar sesión" en el panel.');
+                passwordEscrita = '';   /* esa no era: que la escriba de nuevo */
+                render('Esa contraseña no es la de ' + datos.email + '. Si no la recuerdas, usa "No recuerdo mi contraseña".');
                 return;
             }
             await guardarRegistro();
         } catch (e) {
-            irA('cuenta', 'No se pudo iniciar sesión. Intenta de nuevo.');
+            render('No se pudo entrar. Revisa tu conexión e intenta de nuevo.');
         }
     }
 
@@ -717,6 +797,7 @@
         }
         faseAbierta = !!res.faseAbierta;
         reRegistro = !!res.reRegistro;
+        passwordEscrita = '';
         borrarBorrador();
         document.getElementById('heroTitulo').textContent = '¡Bienvenido a Paideia Tech!';
         document.getElementById('heroSubtitulo').textContent = 'Tu cuenta y tu Acuerdo de Confidencialidad quedaron guardados.';

@@ -36,7 +36,7 @@ Abre en **modo claro** por default, como el resto de la plataforma, y funciona i
 
 | Situación | Qué hace la liga |
 |---|---|
-| El correo **ya tiene cuenta** | Le avisa y le ofrece **"Ya tengo cuenta con este correo"**: entra con su contraseña y su firma se guarda igual. |
+| El correo **ya tiene cuenta** | La pantalla **cambia sola** a "Entra con tu contraseña": su contraseña sigue escrita, el botón grande pasa a ser **Entrar**, y con un clic queda dentro y firmado. Si no la recuerda, ahí mismo hay **"No recuerdo mi contraseña"** (le llega la liga para ponerla). |
 | **Ya tenía la sesión abierta** en ese dispositivo | El correo aparece precargado **pero se puede cambiar**. Si es el mismo, se salta el paso de contraseña; si escribe otro, cerramos esa sesión y el alta sigue normal. |
 | **Tú abres la liga** con tu sesión del equipo | Igual: el correo se puede cambiar. Escribe el de la persona que registras y al continuar se cierra tu sesión. |
 | Está abierta la **cuenta de demostración** (`paideia.tech@outlook.com`) | La liga lo detecta y **no la deja registrar** — esa cuenta no guarda nada real. Pide el correo de la persona y cierra esa sesión al continuar. |
