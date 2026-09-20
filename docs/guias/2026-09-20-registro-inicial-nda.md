@@ -20,7 +20,7 @@ Después de eso ya puede entrar a `panel.html` con su correo y contraseña como 
 
 ## 2. A quién se la mandas
 
-**A quien ya dejó su 50% del registro.** Al terminar su alta, la liga le **abre sola su fase de Registro**, así que sus 142 preguntas del Autodiagnóstico le cargan de inmediato, sin que nadie del equipo tenga que hacer nada.
+**A quien ya dejó el primer abono del anticipo.** El anticipo de Registro son $2,000 en **dos pagos de 50%** —uno en la primera intervención y otro en la segunda— y el acceso se libera desde el primero. Al terminar su alta, la liga le **abre sola su fase de Registro**, así que sus 142 preguntas del Autodiagnóstico le cargan de inmediato, sin que nadie del equipo tenga que hacer nada.
 
 ⚠️ **Por eso importa a quién se la mandas.** La liga es pública: cualquiera que la tenga puede registrarse y quedar con acceso al material. Y las ligas de WhatsApp se reenvían. El control es después: cada cierto tiempo revisa quién entró por ahí (salen con el badge 🪪 en Precios y pagos) y **apaga el badge de quien no haya pagado**, con un clic.
 
@@ -70,6 +70,17 @@ Ese botón te lleva a `admin-precios.html` con **su correo y su nombre ya escrit
 Es a propósito y es conservador: preferimos reportar de menos y corregir, que repartir entre socios dinero que todavía no llegó.
 
 **El badge 🪪 en Precios y pagos** marca justo eso: fase abierta por la liga, monto real pendiente de capturar. Para quitarle el acceso a alguien que se rajó, un clic en ese badge.
+
+## 6 bis. Capturar los dos abonos del anticipo
+
+En **Precios y pagos**, debajo del precio de cada fase ya liberada aparece un segundo campo: **cuánto se lleva cobrado** de esa fase (acumulado, no el abono suelto).
+
+- Tras la **primera intervención** escribe `1000`. El campo se pone **ámbar**: falta por cobrar.
+- Tras la **segunda** cámbialo a `2000`. Se pone **verde**: completo.
+
+De ese número salen los ingresos reales. Si lo dejas vacío en una fase liberada a mano, se usa el precio de lista (como siempre); en una fase abierta por la liga (🪪) cuenta como $0 hasta que escribas la cifra.
+
+**Es el paso que evita repartir dinero que no ha llegado.** Mientras no lo captures, o reportas de menos (🪪) o de más (liberación a mano), pero nunca lo real.
 
 ## 7. Para revisar una firma concreta
 

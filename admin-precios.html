@@ -65,6 +65,9 @@
         td { padding: 4px 3px; border-bottom: 1px solid var(--surface-2); vertical-align: middle; }
         td input { width: 52px; padding: 4px 4px; background: var(--dark); border: 1px solid var(--border); border-radius: 4px; color: var(--text-bright); font-size: 0.7rem; }
         td input[type="number"] { width: 48px; }
+        td input.cobrado { margin-top: 3px; border-color: rgba(0,255,136,0.35); color: var(--success); }
+        td input.cobrado.parcial { border-color: var(--accent); color: var(--accent); }
+        td input.cobrado:focus { border-color: var(--primary); }
         td select { font-size: 0.7rem; padding: 4px 4px; }
         .email-cell { color: var(--text-bright); font-weight: 600; white-space: nowrap; }
         .total-cell { color: var(--accent); font-weight: 700; white-space: nowrap; }
@@ -121,6 +124,7 @@
        la liga de registro, con un anticipo cuyo monto nadie ha capturado. */
     const ORIGEN_ANTICIPO = 'registro-50';
     let candidatos = []; // filas de candidatos_precio
+    let cobradoPorEmail = {}; // cobradoPorEmail[email][fase] = acumulado cobrado (o null)
     let pagosPorEmail = {}; // { email: Set(fases autorizadas) }
     let nombresAutoPorEmail = {}; // { email: nombre } — real, cruzado desde candidatos_ec1375 (ya hizo su Autodiagnóstico)
     let filtroEstado = ''; // '' = todos, 'activo', 'desistió', 'cambio_lote'
@@ -198,15 +202,18 @@
     async function cargarDatos() {
         const [precios, pagos, nombres] = await Promise.all([
             supabaseClient.from('candidatos_precio').select('*').order('email'),
-            supabaseClient.from('candidatos_fase_pagos').select('email,fase,origen'),
+            supabaseClient.from('candidatos_fase_pagos').select('email,fase,origen,monto'),
             supabaseClient.rpc('admin_lista_nombres')
         ]);
         candidatos = precios.data || [];
         // pagosPorEmail[email][fase] = 'mercadopago' | 'manual' | undefined (no liberada)
         pagosPorEmail = {};
+        cobradoPorEmail = {};
         (pagos.data || []).forEach(row => {
-            if (!pagosPorEmail[row.email]) pagosPorEmail[row.email] = {};
+            if (!pagosPorEmail[row.email]) { pagosPorEmail[row.email] = {}; cobradoPorEmail[row.email] = {}; }
             pagosPorEmail[row.email][row.fase] = row.origen || 'manual';
+            /* Acumulado cobrado de esa fase. null = nadie lo capturó todavía. */
+            cobradoPorEmail[row.email][row.fase] = (row.monto === null || row.monto === undefined || row.monto === '') ? null : Number(row.monto);
         });
         // Nombre real (candidato ya hizo su Autodiagnóstico) — manda sobre
         // cualquier nombre capturado a mano en candidatos_precio.nombre.
@@ -224,6 +231,38 @@
     // lo escribe el webhook (service_role, no pasa por aquí); esto solo
     // toca liberaciones manuales, aunque también puede revocar una que llegó
     // por Mercado Pago (p.ej. un pago que hay que anular).
+    /* Captura cuánto se lleva COBRADO de una fase (acumulado, no el abono).
+       El registro se paga en dos partes de 50%: tras la primera intervención
+       aquí va 1000, tras la segunda 2000. De este número salen los ingresos
+       reales (AdminData.montoCobrado); vacío = nadie lo capturó y se usa el
+       precio de lista, salvo las fases abiertas por la liga de registro, que
+       cuentan 0 hasta que alguien escriba la cifra. */
+    async function guardarCobrado(email, fase, inputEl) {
+        const crudo = (inputEl.value || '').trim();
+        const monto = crudo === '' ? null : Number(crudo);
+        if (monto !== null && (!isFinite(monto) || monto < 0)) {
+            alert('Escribe un monto válido (o déjalo vacío).');
+            inputEl.value = (cobradoPorEmail[email] || {})[fase] ?? '';
+            return;
+        }
+        inputEl.disabled = true;
+        try {
+            const { error } = await supabaseClient.from('candidatos_fase_pagos')
+                .update({ monto }).eq('email', email).eq('fase', fase);
+            if (error) throw error;
+            if (!cobradoPorEmail[email]) cobradoPorEmail[email] = {};
+            cobradoPorEmail[email][fase] = monto;
+            renderPanel();
+        } catch (e) {
+            console.error(e);
+            /* Si RLS no deja actualizar esta tabla, hay que verlo de inmediato:
+               en silencio el equipo creería haber capturado el cobro. */
+            alert('No se pudo guardar el monto cobrado. Revisa la consola; puede faltar el permiso de UPDATE sobre candidatos_fase_pagos (ver docs/sql/2026-09-20-autorizar-registro-inicial.sql).');
+            inputEl.disabled = false;
+            inputEl.value = (cobradoPorEmail[email] || {})[fase] ?? '';
+        }
+    }
+
     async function toggleFase(email, fase, badgeEl) {
         const origen = (pagosPorEmail[email] || {})[fase];
         const liberada = !!origen;
@@ -346,9 +385,24 @@
                     : 'No liberada — clic para liberar manualmente';
                 return `<button type="button" class="badge ${cls}" title="${title}" onclick="toggleFase('${c.email}','${fase}',this)">${FASE_LABEL[fase]}${marca}</button>`;
             }).join('');
-            const montoInputs = FASES.map(fase => `
-                <td><input type="number" id="${prefix}_${fase}" value="${c[`monto_${fase}`] ?? ''}" oninput="calcularTotal('${prefix}')"></td>
-            `).join('');
+            /* Debajo del PRECIO de cada fase liberada va lo COBRADO de verdad.
+               El registro se paga en dos abonos de 50% (uno en cada
+               intervención) y la fase se libera con el primero, así que sin
+               este campo no hay forma de decirle al sistema que entraron
+               $1,000 de $2,000 — y los ingresos se calcularían con el precio
+               de lista, que es el error que se corrigió el 20 sep. */
+            const montoInputs = FASES.map(fase => {
+                const liberada = !!fasesOrigen[fase];
+                const cobrado = (cobradoPorEmail[c.email] || {})[fase];
+                const precio = Number(c[`monto_${fase}`]) || 0;
+                const falta = liberada && typeof cobrado === 'number' && cobrado < precio;
+                return `<td>
+                    <input type="number" id="${prefix}_${fase}" value="${c[`monto_${fase}`] ?? ''}" oninput="calcularTotal('${prefix}')" title="Precio acordado de ${FASE_LABEL[fase]}">
+                    ${liberada ? `<input type="number" class="cobrado${falta ? ' parcial' : ''}" value="${cobrado ?? ''}" placeholder="cobrado"
+                        title="Cuánto se lleva COBRADO de ${FASE_LABEL[fase]} (acumulado). Vacío = nadie lo ha capturado y se cuenta el precio de lista."
+                        onchange="guardarCobrado('${c.email}','${fase}',this)">` : ''}
+                </td>`;
+            }).join('');
             const nombreAuto = nombresAutoPorEmail[c.email];
             const nombreCell = nombreAuto
                 ? `<div class="nombre-cell">${escapeHtml(nombreAuto)}<div class="email-sub">${escapeHtml(c.email)}</div></div>`
@@ -427,7 +481,8 @@
                     <select id="filtroEstado" style="padding:7px;background:var(--dark);border:1px solid var(--border);border-radius:6px;color:var(--text-bright);font-size:0.75rem;" onchange="filtroEstado = this.value; renderPanel()"><option value="">🎯 Todos</option><option value="activo">✅ Activo</option><option value="desistió">❌ Desistió</option><option value="cambio_lote">🔄 Cambio lote</option><option value="administrador">👤 Administrador</option></select>
                 </div>
 
-                <p style="font-size:0.78rem;color:var(--text);margin-bottom:14px;">💳 = pagada por Mercado Pago · ✋ = liberada a mano · 🪪 = abierta sola al registrarse (anticipo del 50%, <strong>falta capturar el monto real</strong>) · clic en una fase para liberarla o revocarla · el nombre se llena solo en cuanto el candidato hace su Autodiagnóstico</p>
+                <p style="font-size:0.78rem;color:var(--text);margin-bottom:14px;">💳 = pagada por Mercado Pago · ✋ = liberada a mano · 🪪 = abierta sola al registrarse · clic en una fase para liberarla o revocarla · el nombre se llena solo en cuanto el candidato hace su Autodiagnóstico<br>
+                    <strong>Debajo del precio de cada fase liberada</strong> se captura lo <strong>cobrado</strong> (acumulado): el registro se paga en dos abonos de 50%, así que tras la primera intervención va <strong>1000</strong> y tras la segunda <strong>2000</strong>. De ahí salen los ingresos reales — en <span style="color:var(--accent);">ámbar</span> mientras falte por cobrar, en <span style="color:var(--success);">verde</span> cuando ya está completo.</p>
                 <div class="table-wrap">
                     <table>
                         <thead><tr><th>Nombre / Correo</th>${FASES.map(f => `<th>${FASE_LABEL[f]}</th>`).join('')}<th>Total</th><th>Fases pagadas</th><th>Estado</th><th>Lote</th><th>Motivo</th><th></th></tr></thead>
