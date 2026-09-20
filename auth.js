@@ -373,13 +373,20 @@ const Auth = {
         if (error) console.warn('No se pudo guardar el registro:', error);
         if (error) return { data: data, error: error };
 
-        /* Quien llega por esta liga ya dejó el 50% del registro (decisión de
-           Diego, 20 sep), así que se le abre la fase 'registro' en el momento
-           — si no, se registra, firma, abre su Autodiagnóstico y choca con
-           "Este contenido se habilita al pagar su fase". Si alguien se raja,
-           el equipo apaga el badge desde admin-precios.html. */
-        const faseAbierta = await Auth.autorizarRegistroInicial();
-        return { data: data, error: null, faseAbierta: faseAbierta };
+        /* Quien llega por esta liga ya dejó el primer abono del anticipo
+           (decisión de Diego, 20 sep), así que se le abre la fase 'registro'
+           en el momento — si no, se registra, firma, abre su Autodiagnóstico
+           y choca con "Este contenido se habilita al pagar su fase".
+
+           **Solo en el PRIMER registro.** Si ya había firmado antes, no se
+           toca la fase: de otro modo, a quien el equipo le apagó el badge por
+           rajarse le bastaría volver a abrir la liga y re-firmar para
+           recuperar el acceso solo, y "apagamos a los que se rajen" dejaría
+           de servir. Volver a abrirle el acceso es una decisión del equipo,
+           con su clic en admin-precios.html. */
+        const yaHabiaFirmado = !!(row && row.autodiagnostico_data && row.autodiagnostico_data.ndaAccepted);
+        const faseAbierta = yaHabiaFirmado ? false : await Auth.autorizarRegistroInicial();
+        return { data: data, error: null, faseAbierta: faseAbierta, reRegistro: yaHabiaFirmado };
     },
 
     /* Abre la fase 'registro' del candidato recién registrado, vía el RPC
