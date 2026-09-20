@@ -7,8 +7,10 @@
 --    a mano desde admin-precios.html, como hasta ahora.
 --
 -- QUÉ HACE
---   Quien llega por la liga de registro (registro.html) ya dejó el 50% del
---   registro, así que al terminar su alta se le abre la fase 'registro'.
+--   Quien llega por la liga de registro (registro.html) ya dejó el primer
+--   abono del anticipo (el anticipo son $2,000 en dos pagos de 50%: uno en
+--   la primera intervención y otro en la segunda, y la fase se libera desde
+--   el primero), así que al terminar su alta se le abre la fase 'registro'.
 --   Sin esto, la persona se registra, firma su Acuerdo, abre su
 --   Autodiagnóstico y choca con "Este contenido se habilita al pagar su
 --   fase": los 142 reactivos viven en contenido_ec1375, con RLS por fase.
@@ -116,4 +118,38 @@ grant execute on function public.autorizar_registro_inicial() to authenticated;
 -- PARA DESACTIVAR EL AUTOMATISMO POR COMPLETO
 --      drop function if exists public.autorizar_registro_inicial();
 --   registro.html lo tolera: vuelve a guardar el registro sin abrir la fase.
+-- =====================================================================
+
+-- =====================================================================
+-- SOLO SI HACE FALTA: permiso de UPDATE sobre candidatos_fase_pagos
+--
+-- admin-precios.html ahora captura, debajo del precio de cada fase
+-- liberada, cuánto se lleva COBRADO de esa fase (acumulado). El registro se
+-- paga en dos abonos de 50% —uno en cada intervención— y la fase se libera
+-- con el primero, así que sin ese dato los ingresos se calcularían con el
+-- precio de lista: $2,000 dados por cobrados cuando solo entraron $1,000.
+--
+-- Ese campo hace un UPDATE de candidatos_fase_pagos.monto. Las políticas que
+-- ya existen permiten a un admin insertar y borrar (el badge de liberar y
+-- revocar); si además cubren UPDATE, no hay nada que correr aquí. Si al
+-- capturar un monto sale la alerta "No se pudo guardar el monto cobrado",
+-- falta esta política:
+--
+--   create policy "admins actualizan montos cobrados"
+--     on candidatos_fase_pagos for update
+--     using (is_admin(auth.jwt() ->> 'email'))
+--     with check (is_admin(auth.jwt() ->> 'email'));
+--
+-- (Ajusta la llamada a is_admin() a la firma que ya use el proyecto; el
+--  resto de las políticas de esta tabla son la referencia.)
+--
+-- LÍMITE CONOCIDO
+--   `monto` es UN número por (email, fase): el acumulado cobrado. Si una
+--   misma fase se pagara en dos transacciones DE MERCADO PAGO, el webhook
+--   (api/mercadopago-webhook.js, Prefer: resolution=merge-duplicates)
+--   sobrescribe la fila y dejaría solo el monto de la última, no la suma.
+--   Hoy no aplica: el Payment Link de Registro es de $2,000 completos y los
+--   abonos de 50% se cobran en las intervenciones, fuera de Mercado Pago.
+--   Si algún día se cobran abonos por MP, hay que acumular en el webhook en
+--   vez de reemplazar.
 -- =====================================================================
