@@ -24,7 +24,13 @@ A cualquier prospecto que quieras dar de alta **antes** de que pague, o a quien 
 
 **No la publiques en la landing ni en redes.** La página nombra el estándar EC1375, y la decisión de negocio sigue siendo que el nombre del estándar se revela hasta después del pago (`index.html`, `quiz.html` y los retornos de pago lo siguen ocultando). La página lleva `noindex, nofollow` para que Google no la indexe, pero eso no la esconde de quien tenga el enlace: compártela por WhatsApp, correo o en llamada, no en un post.
 
-## 3. Qué pasa si…
+## 3. Cómo se ve
+
+Usa la **identidad oficial de la plataforma**, la misma que ve el candidato en su panel y en el Autodiagnóstico: el logo de Paideia Tech arriba, los mismos colores, tarjetas, campos y botones, y el mismo **botón de tema claro/oscuro**. Si el candidato ya eligió tema en otra parte del sitio, esta página respeta esa elección (comparten la misma preferencia guardada).
+
+Abre en **modo claro** por default, como el resto de la plataforma, y funciona igual en celular que en computadora (probada a 360, 375, 414 y 768 px de ancho, sin barras de scroll horizontal, en los dos temas).
+
+## 4. Qué pasa si…
 
 | Situación | Qué hace la liga |
 |---|---|
@@ -35,7 +41,7 @@ A cualquier prospecto que quieras dar de alta **antes** de que pague, o a quien 
 | **Se le cae el internet** al guardar | Se lo dice claramente y le pide reintentar. Nunca le muestra "listo" si no se guardó. |
 | **Recarga la página** a media firma | Su firma sigue ahí (borrador en el navegador, se borra al terminar). |
 
-## 4. El NDA se firma **una sola vez**
+## 5. El NDA se firma **una sola vez**
 
 El Acuerdo de esta liga es **el mismo documento** que el paso "Confidencialidad" del Autodiagnóstico, y se guarda en el mismo lugar. Entonces:
 
@@ -45,7 +51,7 @@ El Acuerdo de esta liga es **el mismo documento** que el paso "Confidencialidad"
 
 No hay que hacer nada manual para que esto pase.
 
-## 5. ⚠️ Lo que todavía **no** hace (decisión pendiente)
+## 6. ⚠️ Lo que todavía **no** hace (decisión pendiente)
 
 Un candidato que se registra por esta liga **no aparece todavía en el panel del equipo** (`admin-candidatos.html`, `admin-crm.html`). Esas pantallas arman su lista desde `candidatos_precio`, y un auto-registrado no tiene fila ahí hasta que alguien lo da de alta.
 
@@ -74,7 +80,7 @@ values ('correo@del.candidato', 1, 'activo', 14750)
 on conflict (email) do nothing;
 ```
 
-## 6. Para revisar una firma concreta
+## 7. Para revisar una firma concreta
 
 ```sql
 select nombre,
@@ -89,7 +95,7 @@ where lower(nombre) like '%apellido%';
 
 La imagen de la firma dibujada está en `ndaSignatureDataUrl` (es un PNG en base64; se ve pegándolo en la barra del navegador). El documento formal que se entrega es el PDF del acuse, que se genera desde el Autodiagnóstico.
 
-## 7. Dónde vive el código
+## 8. Dónde vive el código
 
 | Qué | Dónde |
 |---|---|
