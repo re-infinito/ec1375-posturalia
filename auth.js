@@ -349,9 +349,15 @@ const Auth = {
         /* Igual que en todo el sitio: localStorage primero, red después. */
         try { localStorage.setItem('autodiagnosticoData', JSON.stringify(data)); } catch (e) { /* ignore */ }
 
-        /* La cuenta demo nunca escribe en Supabase (ver "Datos demo" abajo);
-           su progreso se lee de localStorage, que ya quedó escrito arriba. */
-        if (await Auth.isBypassSession()) return { data: data, error: null };
+        /* La cuenta demo nunca escribe en Supabase (ver "Datos demo" abajo).
+           Aquí eso NO puede reportarse como éxito: un registro que no quedó
+           guardado y dice "listo" es peor que uno que falla de frente — el
+           equipo creería tener a esa persona dada de alta. Se devuelve el
+           motivo para que la página lo diga; localStorage ya quedó escrito,
+           igual que con cualquier otro progreso de esa cuenta. */
+        if (await Auth.isBypassSession()) {
+            return { data: data, error: { demo: true, message: 'Es la cuenta de demostración del equipo: su registro no se guarda en Supabase. Cierra sesión y usa el correo real de quien se registra.' } };
+        }
 
         /* curp: se manda el que ya tuviera la fila (o '' si es nueva) para
            no pisar con vacío un CURP capturado antes en el Autodiagnóstico. */

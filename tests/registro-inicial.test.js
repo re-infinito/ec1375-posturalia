@@ -205,10 +205,13 @@ test('registrarCandidato: un error de Supabase se devuelve (el candidato debe en
     assert.equal(res.error.message, 'sin red');
 });
 
-test('registrarCandidato: la cuenta demo nunca escribe en Supabase', async () => {
+test('registrarCandidato: la cuenta demo no escribe en Supabase Y lo dice (nunca un "listo" falso)', async () => {
     const { Auth, localStorage, upserts } = cargarAuth({ correo: 'paideia.tech@outlook.com', bypass: true });
     const res = await Auth.registrarCandidato({ nombre: 'Ana Sofía Demo Ramírez', nda: { mode: 'draw', dataUrl: PNG } });
-    assert.equal(res.error, null);
     assert.equal(upserts.length, 0);
+    // un registro que no quedó guardado JAMÁS debe reportarse como exitoso
+    assert.ok(res.error, 'tiene que devolver el motivo, no null');
+    assert.equal(res.error.demo, true);
+    assert.match(res.error.message, /demostración/);
     assert.equal(JSON.parse(localStorage.getItem('autodiagnosticoData')).ndaAccepted, true);
 });

@@ -35,7 +35,9 @@ Abre en **modo claro** por default, como el resto de la plataforma, y funciona i
 | Situación | Qué hace la liga |
 |---|---|
 | El correo **ya tiene cuenta** | Le avisa y le ofrece **"Ya tengo cuenta con este correo"**: entra con su contraseña y su firma se guarda igual. |
-| **Ya tenía la sesión abierta** en ese dispositivo | Se salta el paso de contraseña: solo confirma su nombre y firma. |
+| **Ya tenía la sesión abierta** en ese dispositivo | El correo aparece precargado **pero se puede cambiar**. Si es el mismo, se salta el paso de contraseña; si escribe otro, cerramos esa sesión y el alta sigue normal. |
+| **Tú abres la liga** con tu sesión del equipo | Igual: el correo se puede cambiar. Escribe el de la persona que registras y al continuar se cierra tu sesión. |
+| Está abierta la **cuenta de demostración** (`paideia.tech@outlook.com`) | La liga lo detecta y **no la deja registrar** — esa cuenta no guarda nada real. Pide el correo de la persona y cierra esa sesión al continuar. |
 | **Ya había firmado** antes | Se lo dice arriba, y puede volver a firmar si algo cambió (por ejemplo, su nombre legal). |
 | **Ya había avanzado** en el Autodiagnóstico | **No se borra nada.** El registro solo actualiza nombre, correo y el Acuerdo; sus respuestas, certificados, CURP y documentos siguen ahí. |
 | **Se le cae el internet** al guardar | Se lo dice claramente y le pide reintentar. Nunca le muestra "listo" si no se guardó. |
