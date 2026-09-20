@@ -72,6 +72,7 @@
         .badge { font-size: 0.6rem; padding: 2px 5px; border-radius: 4px; font-weight: 700; white-space: nowrap; border: none; cursor: pointer; font-family: inherit; }
         .badge.on-mp { background: rgba(0,255,136,0.15); color: var(--success); }
         .badge.on-manual { background: rgba(255,215,0,0.15); color: var(--accent); }
+        .badge.on-anticipo { background: rgba(0,136,255,0.18); color: var(--primary-light); }
         .badge.off { background: var(--surface-2); color: var(--text); }
         .badge:hover { filter: brightness(1.3); }
         .badge:disabled { cursor: wait; opacity: 0.6; }
@@ -115,6 +116,10 @@
     const FASE_LABEL = { registro: 'Registro', alineacion: 'Alineación', evaluacion: 'Evaluación', entrega: 'Entrega' };
     const ESTADO_COLOR = { activo: '#1a4d2e', desistió: '#5a1a1a', cambio_lote: '#4a3a0a', administrador: '#2a2a4a' }; // RGB más oscuro para fondo
 
+    /* Mismo valor que AdminData.ORIGEN_ANTICIPO y que el RPC
+       autorizar_registro_inicial() (docs/sql/2026-09-20-...): fase abierta por
+       la liga de registro, con un anticipo cuyo monto nadie ha capturado. */
+    const ORIGEN_ANTICIPO = 'registro-50';
     let candidatos = []; // filas de candidatos_precio
     let pagosPorEmail = {}; // { email: Set(fases autorizadas) }
     let nombresAutoPorEmail = {}; // { email: nombre } — real, cruzado desde candidatos_ec1375 (ya hizo su Autodiagnóstico)
@@ -332,9 +337,11 @@
             const fasesOrigen = pagosPorEmail[c.email] || {};
             const badges = FASES.map(fase => {
                 const origen = fasesOrigen[fase];
-                const cls = origen === 'mercadopago' ? 'on-mp' : (origen ? 'on-manual' : 'off');
-                const marca = origen === 'mercadopago' ? ' 💳' : (origen ? ' ✋' : '');
+                const anticipo = origen === ORIGEN_ANTICIPO;
+                const cls = origen === 'mercadopago' ? 'on-mp' : anticipo ? 'on-anticipo' : (origen ? 'on-manual' : 'off');
+                const marca = origen === 'mercadopago' ? ' 💳' : anticipo ? ' 🪪' : (origen ? ' ✋' : '');
                 const title = origen === 'mercadopago' ? 'Pagada por Mercado Pago — clic para revocar'
+                    : anticipo ? 'Abierta sola al registrarse (anticipo del 50%) — falta capturar el monto real; clic para revocar'
                     : origen ? 'Liberada a mano — clic para revocar'
                     : 'No liberada — clic para liberar manualmente';
                 return `<button type="button" class="badge ${cls}" title="${title}" onclick="toggleFase('${c.email}','${fase}',this)">${FASE_LABEL[fase]}${marca}</button>`;
@@ -420,7 +427,7 @@
                     <select id="filtroEstado" style="padding:7px;background:var(--dark);border:1px solid var(--border);border-radius:6px;color:var(--text-bright);font-size:0.75rem;" onchange="filtroEstado = this.value; renderPanel()"><option value="">🎯 Todos</option><option value="activo">✅ Activo</option><option value="desistió">❌ Desistió</option><option value="cambio_lote">🔄 Cambio lote</option><option value="administrador">👤 Administrador</option></select>
                 </div>
 
-                <p style="font-size:0.78rem;color:var(--text);margin-bottom:14px;">💳 = pagada por Mercado Pago · ✋ = liberada a mano · clic en una fase para liberarla o revocarla · el nombre se llena solo en cuanto el candidato hace su Autodiagnóstico</p>
+                <p style="font-size:0.78rem;color:var(--text);margin-bottom:14px;">💳 = pagada por Mercado Pago · ✋ = liberada a mano · 🪪 = abierta sola al registrarse (anticipo del 50%, <strong>falta capturar el monto real</strong>) · clic en una fase para liberarla o revocarla · el nombre se llena solo en cuanto el candidato hace su Autodiagnóstico</p>
                 <div class="table-wrap">
                     <table>
                         <thead><tr><th>Nombre / Correo</th>${FASES.map(f => `<th>${FASE_LABEL[f]}</th>`).join('')}<th>Total</th><th>Fases pagadas</th><th>Estado</th><th>Lote</th><th>Motivo</th><th></th></tr></thead>

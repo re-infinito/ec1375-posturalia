@@ -20,7 +20,9 @@ Después de eso ya puede entrar a `panel.html` con su correo y contraseña como 
 
 ## 2. A quién se la mandas
 
-A cualquier prospecto que quieras dar de alta **antes** de que pague, o a quien ya pagó y todavía no tiene cuenta. La liga **no exige haber pagado** — es al revés que el resto del sitio, y es a propósito: sin esto nadie podría registrarse.
+**A quien ya dejó su 50% del registro.** Al terminar su alta, la liga le **abre sola su fase de Registro**, así que sus 142 preguntas del Autodiagnóstico le cargan de inmediato, sin que nadie del equipo tenga que hacer nada.
+
+⚠️ **Por eso importa a quién se la mandas.** La liga es pública: cualquiera que la tenga puede registrarse y quedar con acceso al material. Y las ligas de WhatsApp se reenvían. El control es después: cada cierto tiempo revisa quién entró por ahí (salen con el badge 🪪 en Precios y pagos) y **apaga el badge de quien no haya pagado**, con un clic.
 
 **No la publiques en la landing ni en redes.** La página nombra el estándar EC1375, y la decisión de negocio sigue siendo que el nombre del estándar se revela hasta después del pago (`index.html`, `quiz.html` y los retornos de pago lo siguen ocultando). La página lleva `noindex, nofollow` para que Google no la indexe, pero eso no la esconde de quien tenga el enlace: compártela por WhatsApp, correo o en llamada, no en un post.
 
@@ -63,7 +65,11 @@ En cuanto alguien termina su registro **aparece solo** en `admin-candidatos.html
 
 Ese botón te lleva a `admin-precios.html` con **su correo y su nombre ya escritos** y el cursor puesto en el primer monto: solo tecleas las cifras, eliges lote y estado, y le das Agregar. En ese momento deja de ser "prospecto" y pasa a ser un candidato normal, contando en KPIs, ingresos y reparto de utilidades como cualquier otro.
 
-**Mientras no le captures nada, no afecta ningún número.** Un prospecto no tiene lote ni montos, así que no entra en KPIs, ingresos, gastos, el embudo por paso ni el reparto entre socios. Es solo una persona que ya firmó y está esperando que alguien del equipo la dé de alta.
+**Mientras no le captures nada, no infla ningún número.** Su fase de Registro sí cuenta como pagada —de eso depende que vea su material—, pero como nadie ha capturado cuánto entró, **cuenta como $0 de ingreso**. En cuanto le pongas sus montos reales, entra a KPIs, ingresos y reparto como cualquier otro.
+
+Es a propósito y es conservador: preferimos reportar de menos y corregir, que repartir entre socios dinero que todavía no llegó.
+
+**El badge 🪪 en Precios y pagos** marca justo eso: fase abierta por la liga, monto real pendiente de capturar. Para quitarle el acceso a alguien que se rajó, un clic en ese badge.
 
 ## 7. Para revisar una firma concreta
 

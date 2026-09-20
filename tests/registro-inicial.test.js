@@ -33,10 +33,13 @@ function almacenEnMemoria() {
 /* opts.correo: sesión iniciada de ese correo (null = sin sesión).
    opts.fila: la fila de candidatos_ec1375 que ya existiera.
    opts.bypass: respuesta del RPC is_current_user_flow_bypass_admin.
-   opts.errorUpsert: error que devuelve el upsert (null = escribe bien). */
+   opts.errorUpsert: error que devuelve el upsert (null = escribe bien).
+   opts.faseAbierta: lo que responde autorizar_registro_inicial().
+   opts.rpcAusente: true simula que el SQL todavía no se ha corrido. */
 function cargarAuth(opts = {}) {
     const localStorage = almacenEnMemoria();
     const upserts = [];
+    const rpcs = [];
     const sesion = () => (opts.correo ? { user: { id: 'u-' + opts.correo, email: opts.correo } } : null);
     const sandbox = {
         localStorage,
@@ -50,7 +53,14 @@ function cargarAuth(opts = {}) {
                     getSession: async () => ({ data: { session: sesion() } }),
                     signOut: async () => {}
                 },
-                rpc: async () => ({ data: opts.bypass ?? false, error: null }),
+                rpc: async (nombre) => {
+                    rpcs.push(nombre);
+                    if (nombre === 'autorizar_registro_inicial') {
+                        if (opts.rpcAusente) return { data: null, error: { message: 'function does not exist' } };
+                        return { data: opts.faseAbierta ?? true, error: null };
+                    }
+                    return { data: opts.bypass ?? false, error: null };
+                },
                 from: () => ({
                     select: () => ({
                         eq: () => ({ maybeSingle: async () => ({ data: opts.fila ?? null, error: null }) })
@@ -63,7 +73,7 @@ function cargarAuth(opts = {}) {
     sandbox.window = sandbox;
     vm.createContext(sandbox);
     vm.runInContext(fs.readFileSync(path.join(RAIZ, 'auth.js'), 'utf8'), sandbox, { filename: 'auth.js' });
-    return { Auth: sandbox.Auth, localStorage, upserts };
+    return { Auth: sandbox.Auth, localStorage, upserts, rpcs };
 }
 
 /* ---------- construirRegistroInicial (función pura) ---------- */
@@ -214,4 +224,51 @@ test('registrarCandidato: la cuenta demo no escribe en Supabase Y lo dice (nunca
     assert.equal(res.error.demo, true);
     assert.match(res.error.message, /demostración/);
     assert.equal(JSON.parse(localStorage.getItem('autodiagnosticoData')).ndaAccepted, true);
+});
+
+
+/* ---------- Apertura automática de la fase 'registro' (20 sep) ----------
+   Quien llega por la liga ya dejó el 50% del registro, así que al terminar se
+   le abre la fase — si no, se registra, firma y choca con "Este contenido se
+   habilita al pagar su fase" en su propio Autodiagnóstico. Lo hace el RPC
+   autorizar_registro_inicial() (docs/sql/2026-09-20-...), nunca un insert
+   desde el navegador: candidatos_fase_pagos decide quién ve el contenido
+   protegido, y abrirle RLS al candidato sería regalarle la llave. */
+
+test('registro: al guardar se abre la fase de Registro y se avisa a la página', async () => {
+    const { Auth, rpcs } = cargarAuth({ correo: 'ana@ejemplo.mx' });
+    const res = await Auth.registrarCandidato({ nombre: 'Ana Lucía', nda: { mode: 'draw', dataUrl: PNG } });
+    assert.equal(res.error, null);
+    assert.equal(res.faseAbierta, true);
+    assert.ok(rpcs.includes('autorizar_registro_inicial'));
+});
+
+test('registro: si el SQL todavía no se corre, el registro SE GUARDA igual', async () => {
+    // Falla en silencio a propósito: el equipo abre la fase a mano, como hasta ahora.
+    const { Auth, upserts } = cargarAuth({ correo: 'ana@ejemplo.mx', rpcAusente: true });
+    const res = await Auth.registrarCandidato({ nombre: 'Ana Lucía', nda: { mode: 'draw', dataUrl: PNG } });
+    assert.equal(res.error, null, 'el registro no puede fallar porque falte el RPC');
+    assert.equal(res.faseAbierta, false);
+    assert.equal(upserts.length, 1);
+});
+
+test('registro: si el RPC dice que no, no se miente sobre la fase', async () => {
+    const { Auth } = cargarAuth({ correo: 'ana@ejemplo.mx', faseAbierta: false });
+    const res = await Auth.registrarCandidato({ nombre: 'Ana Lucía', nda: { mode: 'draw', dataUrl: PNG } });
+    assert.equal(res.error, null);
+    assert.equal(res.faseAbierta, false);
+});
+
+test('registro: si el guardado falla, NI SIQUIERA se intenta abrir la fase', async () => {
+    const { Auth, rpcs } = cargarAuth({ correo: 'ana@ejemplo.mx', errorUpsert: { message: 'sin red' } });
+    const res = await Auth.registrarCandidato({ nombre: 'Ana Lucía', nda: { mode: 'draw', dataUrl: PNG } });
+    assert.ok(res.error);
+    assert.equal(res.faseAbierta, undefined);
+    assert.ok(!rpcs.includes('autorizar_registro_inicial'), 'no se abre acceso a un registro que no quedó');
+});
+
+test('registro: la cuenta demo no abre ninguna fase', async () => {
+    const { Auth, rpcs } = cargarAuth({ correo: 'paideia.tech@outlook.com', bypass: true });
+    await Auth.registrarCandidato({ nombre: 'Ana Sofía Demo Ramírez', nda: { mode: 'draw', dataUrl: PNG } });
+    assert.ok(!rpcs.includes('autorizar_registro_inicial'));
 });

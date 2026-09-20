@@ -39,16 +39,24 @@
     /* Se registró por registro.html y nadie le ha capturado lote ni montos:
        existe en candidatos_ec1375 pero todavía no en candidatos_precio. */
     var ESTADO_PROSPECTO = 'prospecto';
+    /* origen de candidatos_fase_pagos que pone autorizar_registro_inicial():
+       la fase se abrió por la liga de registro, con un anticipo cuyo monto
+       todavía nadie capturó. */
+    var ORIGEN_ANTICIPO = 'registro-50';
 
     /* ---------- índices ---------- */
 
     function indexar(datos) {
         if (datos._idx) return datos._idx;
-        var pagosPorEmail = {}, pagosOrigen = {};
+        var pagosPorEmail = {}, pagosOrigen = {}, pagosMonto = {};
         (datos.pagos || []).forEach(function (r) {
-            if (!pagosPorEmail[r.email]) { pagosPorEmail[r.email] = {}; pagosOrigen[r.email] = {}; }
+            if (!pagosPorEmail[r.email]) { pagosPorEmail[r.email] = {}; pagosOrigen[r.email] = {}; pagosMonto[r.email] = {}; }
             pagosPorEmail[r.email][r.fase] = true;
             pagosOrigen[r.email][r.fase] = r.origen || 'manual';
+            /* null/vacío = nadie capturó cuánto entró (p. ej. liberación a mano
+               con el badge, que no pide monto). Ojo: Number(null) es 0, así que
+               el vacío se distingue ANTES de convertir. */
+            pagosMonto[r.email][r.fase] = (r.monto === null || r.monto === undefined || r.monto === '') ? null : Number(r.monto);
         });
         var rowsByEmail = {};
         (datos.candidatosRows || []).forEach(function (r) { if (r && r.email) rowsByEmail[r.email.toLowerCase()] = r; });
@@ -58,13 +66,42 @@
         (datos.evaluaciones || []).forEach(function (r) { if (r && r.email) evaluaciones[r.email.toLowerCase()] = r; });
         var configLotes = {};
         (datos.reparto || []).forEach(function (r) { configLotes[r.lote] = r; });
-        datos._idx = { pagosPorEmail: pagosPorEmail, pagosOrigen: pagosOrigen, rowsByEmail: rowsByEmail, nombres: nombres, configLotes: configLotes, evaluaciones: evaluaciones };
+        datos._idx = { pagosPorEmail: pagosPorEmail, pagosOrigen: pagosOrigen, pagosMonto: pagosMonto, rowsByEmail: rowsByEmail, nombres: nombres, configLotes: configLotes, evaluaciones: evaluaciones };
         return datos._idx;
     }
 
     function tienePago(datos, email, fase) {
         var idx = indexar(datos);
         return !!(idx.pagosPorEmail[email] && idx.pagosPorEmail[email][fase]);
+    }
+
+    /* Lo que DE VERDAD entró por esa fase de ese candidato.
+
+       `candidatos_fase_pagos.monto` guarda el pago real: lo escribe el webhook
+       de Mercado Pago y lo puede capturar el equipo al liberar a mano.
+       `candidatos_precio.monto_<fase>` es solo el PRECIO DE LISTA.
+
+       Hasta el 20 sep todos los ingresos se calculaban con el precio de lista,
+       así que un anticipo se contaba como pago completo: con el 50% del
+       registro, los KPIs reportaban $2,000 de $1,000 que habían entrado, y el
+       reparto entre socios se hacía sobre dinero que no estaba en la cuenta.
+       Ahora manda el monto real y el precio de lista queda solo de respaldo
+       para cuando nadie lo capturó (liberaciones a mano viejas, que es como
+       venía funcionando). `ultimosPagos()` ya usaba esta misma regla. */
+    function montoCobrado(datos, filaPrecio, fase) {
+        if (!tienePago(datos, filaPrecio.email, fase)) return 0;
+        var idx = indexar(datos);
+        var porFase = idx.pagosMonto[filaPrecio.email];
+        var real = porFase ? porFase[fase] : null;
+        if (typeof real === 'number' && isFinite(real) && real >= 0) return real;
+        /* Fase abierta sola por la liga de registro (origen ORIGEN_ANTICIPO):
+           sabemos que dejaron un anticipo pero NO cuánto, así que se cuenta 0
+           hasta que el equipo capture la cifra real al darlo de alta. Aquí el
+           precio de lista sería justo el error que se acaba de corregir: daría
+           por cobrado el 100% de una fase que se pagó a medias. */
+        var origen = (idx.pagosOrigen[filaPrecio.email] || {})[fase];
+        if (origen === ORIGEN_ANTICIPO) return 0;
+        return Number(filaPrecio['monto_' + fase]) || 0;
     }
 
     function visibles(datos) {
@@ -86,7 +123,7 @@
         /* Ingresos: dinero YA cobrado — incluye a quien desistió o cambió de lote. */
         var ingresosPorFase = {};
         FASES.forEach(function (f) {
-            ingresosPorFase[f] = vis.reduce(function (sum, c) { return tienePago(datos, c.email, f) ? sum + (c['monto_' + f] || 0) : sum; }, 0);
+            ingresosPorFase[f] = vis.reduce(function (sum, c) { return sum + montoCobrado(datos, c, f); }, 0);
         });
         var ingresosTotales = FASES.reduce(function (a, f) { return a + ingresosPorFase[f]; }, 0);
         /* Proyectado: solo lo que se espera cobrar de candidatos activos. */
@@ -120,7 +157,7 @@
     function ingresosLote(datos, lote) {
         return visibles(datos).filter(function (c) { return (c.lote || 1) === lote; }).reduce(function (sum, c) {
             var t = 0;
-            FASES.forEach(function (f) { if (tienePago(datos, c.email, f)) t += c['monto_' + f] || 0; });
+            FASES.forEach(function (f) { t += montoCobrado(datos, c, f); });
             return sum + t;
         }, 0);
     }
@@ -166,7 +203,7 @@
         var sumaFase = function (l, f) { return l.filter(function (i) { return i.fase === f; }).reduce(function (a, i) { return a + i.total; }, 0); };
         var sinFase = function (l) { return l.filter(function (i) { return !i.fase; }).reduce(function (a, i) { return a + i.total; }, 0); };
         var fases = FASES.map(function (f) {
-            var ingresos = enLote.reduce(function (a, c) { return tienePago(datos, c.email, f) ? a + (Number(c['monto_' + f]) || 0) : a; }, 0);
+            var ingresos = enLote.reduce(function (a, c) { return a + montoCobrado(datos, c, f); }, 0);
             return { id: f, label: FASE_LABEL[f], pagaron: g.pagaron[f], ingresos: ingresos, costoReal: sumaFase(g.items, f), costoChris: sumaFase(g.chris.items, f) };
         });
         return { fases: fases, otrosReal: sinFase(g.items), otrosChris: sinFase(g.chris.items), gastos: g };
@@ -242,7 +279,7 @@
         var aplica = function (it, c, pagadas) { return it.fase ? pagadas[it.fase] : (c.estado || 'activo') === 'activo'; };
         var filas = visibles(datos).filter(function (c) { return (c.lote || 1) === lote; }).map(function (c) {
             var pagadas = {}, recibido = {};
-            FASES.forEach(function (f) { pagadas[f] = tienePago(datos, c.email, f); recibido[f] = pagadas[f] ? (Number(c['monto_' + f]) || 0) : 0; });
+            FASES.forEach(function (f) { pagadas[f] = tienePago(datos, c.email, f); recibido[f] = montoCobrado(datos, c, f); });
             var totalRecibido = FASES.reduce(function (a, f) { return a + recibido[f]; }, 0);
             var costoReal = real.filter(function (i) { return aplica(i, c, pagadas); }).reduce(function (a, i) { return a + i.monto; }, 0);
             var costoChris = usaReales ? costoReal : propios.filter(function (i) { return aplica(i, c, pagadas); }).reduce(function (a, i) { return a + i.monto; }, 0);
@@ -547,7 +584,7 @@
     }
 
     var AdminData = {
-        FASES: FASES, FASE_LABEL: FASE_LABEL, SOCIOS: SOCIOS, PASOS_EXTRA: PASOS_EXTRA, ESTADO_PROSPECTO: ESTADO_PROSPECTO,
+        FASES: FASES, FASE_LABEL: FASE_LABEL, SOCIOS: SOCIOS, PASOS_EXTRA: PASOS_EXTRA, ESTADO_PROSPECTO: ESTADO_PROSPECTO, ORIGEN_ANTICIPO: ORIGEN_ANTICIPO,
         cargar: cargar, kpis: kpis, utilidades: utilidades, gastosLote: gastosLote, repartir: repartir, fichaCandidato: fichaCandidato, porFaseLote: porFaseLote, cortePorCandidato: cortePorCandidato, utilidadesGlobal: utilidadesGlobal, lotes: lotes,
         candidatos: candidatos, porPaso: porPaso, ultimosPagos: ultimosPagos, proximasSesiones: proximasSesiones, atencion: atencion, atencionSala: atencionSala,
         declaraciones: declaraciones,

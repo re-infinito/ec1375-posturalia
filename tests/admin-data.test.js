@@ -438,3 +438,83 @@ test('auto-registrado: un evaluador (sin acceso a precios) sigue viendo su lista
     assert.equal(l[0].estado, 'activo');   // no 'prospecto': el evaluador no ve precios por diseño
     assert.equal(l[0].lote, 1);
 });
+
+/* ---------- Ingresos: lo COBRADO, no el precio de lista (20 sep) ----------
+   Las personas dejan el 50% del registro al registrarse. Hasta hoy todos los
+   ingresos se calculaban con candidatos_precio.monto_<fase>, así que un
+   anticipo se contaba como pago completo: $2,000 reportados de $1,000 que
+   entraron, y el reparto entre socios sobre dinero que no estaba en la cuenta.
+   Ahora manda candidatos_fase_pagos.monto, con el precio de lista de respaldo
+   para las liberaciones a mano que no capturan monto. */
+
+function conPago(pagos) {
+    return {
+        precio: [{ email: 'media@x.com', lote: 1, estado: 'activo', total_acordado: 14750,
+                   monto_registro: 2000, monto_alineacion: 4250, monto_evaluacion: 6000, monto_entrega: 2500 }],
+        pagos: pagos,
+        reparto: [{ lote: 1, incluir_chris: false, porcentaje_fernando: 33.34, porcentaje_lot: 33.33, porcentaje_diego: 33.33 }],
+        utilidadesPagos: [], gastos: [], nombres: [], candidatosRows: [], evaluaciones: [], sesiones: [], errores: {}
+    };
+}
+
+test('ingresos: un anticipo cuenta por lo que entró, no por el precio de lista', () => {
+    const d = conPago([{ email: 'media@x.com', fase: 'registro', monto: 1000, origen: 'manual' }]);
+    assert.equal(AdminData.kpis(d).ingresosTotales, 1000);
+    assert.equal(AdminData.utilidades(d, 1).ingresos, 1000);
+    assert.equal(AdminData.porFaseLote(d, 1).fases.find(f => f.id === 'registro').ingresos, 1000);
+    assert.equal(AdminData.cortePorCandidato(d, 1).filas[0].recibido.registro, 1000);
+});
+
+test('ingresos: el reparto entre socios sale del dinero que SÍ entró', () => {
+    const conAnticipo = AdminData.utilidades(conPago([{ email: 'media@x.com', fase: 'registro', monto: 1000, origen: 'manual' }]), 1);
+    const completo = AdminData.utilidades(conPago([{ email: 'media@x.com', fase: 'registro', monto: 2000, origen: 'manual' }]), 1);
+    assert.equal(Math.round(conAnticipo.socios[0].aRepartir), 333);
+    assert.equal(Math.round(completo.socios[0].aRepartir), 667);
+});
+
+test('ingresos: liberar a mano sin capturar monto sigue usando el precio de lista', () => {
+    // toggleFase() de admin-precios.html inserta {email, fase, origen} sin monto:
+    // ese caso no debe volverse $0 de la noche a la mañana.
+    for (const monto of [null, undefined, '']) {
+        const d = conPago([{ email: 'media@x.com', fase: 'registro', monto: monto, origen: 'manual' }]);
+        assert.equal(AdminData.kpis(d).ingresosTotales, 2000, 'monto ' + JSON.stringify(monto));
+    }
+    const sinCampo = conPago([{ email: 'media@x.com', fase: 'registro', origen: 'manual' }]);
+    assert.equal(AdminData.kpis(sinCampo).ingresosTotales, 2000);
+});
+
+test('ingresos: un monto 0 capturado a propósito (cortesía) cuenta como 0, no como el precio', () => {
+    const d = conPago([{ email: 'media@x.com', fase: 'registro', monto: 0, origen: 'manual' }]);
+    assert.equal(AdminData.kpis(d).ingresosTotales, 0);
+});
+
+test('ingresos: una fase sin pagar sigue sin sumar nada', () => {
+    const d = conPago([]);
+    assert.equal(AdminData.kpis(d).ingresosTotales, 0);
+    assert.equal(AdminData.utilidades(d, 1).ingresos, 0);
+});
+
+test('ingresos: el precio de lista sigue siendo el proyectado (lo que falta por cobrar)', () => {
+    const d = conPago([{ email: 'media@x.com', fase: 'registro', monto: 1000, origen: 'manual' }]);
+    const k = AdminData.kpis(d);
+    assert.equal(k.ingresosTotales, 1000);      // cobrado
+    assert.equal(k.proyectado, 14750);          // lo acordado, no cambia
+});
+
+test('ingresos: la fase abierta por la liga (anticipo) cuenta $0, NUNCA el precio de lista', () => {
+    // autorizar_registro_inicial() inserta sin monto: sabemos que dejaron un
+    // anticipo pero no cuánto. Contarlo al precio de lista sería justo el error
+    // que se acaba de corregir — dar por cobrada una fase pagada a medias.
+    const d = conPago([{ email: 'media@x.com', fase: 'registro', monto: null, origen: AdminData.ORIGEN_ANTICIPO }]);
+    assert.equal(AdminData.kpis(d).ingresosTotales, 0);
+    assert.equal(AdminData.utilidades(d, 1).ingresos, 0);
+    // ...pero la fase SÍ cuenta como pagada: de eso depende que vea su contenido
+    assert.equal(AdminData.kpis(d).porFase.registro, 1);
+    assert.equal(AdminData.candidatos(d)[0].fases.registro, true);
+    assert.equal(AdminData.candidatos(d)[0].fasePagada, 'Registro');
+});
+
+test('ingresos: en cuanto el equipo captura el monto del anticipo, ya cuenta', () => {
+    const d = conPago([{ email: 'media@x.com', fase: 'registro', monto: 1000, origen: AdminData.ORIGEN_ANTICIPO }]);
+    assert.equal(AdminData.kpis(d).ingresosTotales, 1000);
+});
