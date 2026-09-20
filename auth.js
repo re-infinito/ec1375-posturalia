@@ -371,7 +371,41 @@ const Auth = {
                 updated_at: new Date().toISOString()
             }, { onConflict: 'user_id' });
         if (error) console.warn('No se pudo guardar el registro:', error);
-        return { data: data, error: error || null };
+        if (error) return { data: data, error: error };
+
+        /* Quien llega por esta liga ya dejó el 50% del registro (decisión de
+           Diego, 20 sep), así que se le abre la fase 'registro' en el momento
+           — si no, se registra, firma, abre su Autodiagnóstico y choca con
+           "Este contenido se habilita al pagar su fase". Si alguien se raja,
+           el equipo apaga el badge desde admin-precios.html. */
+        const faseAbierta = await Auth.autorizarRegistroInicial();
+        return { data: data, error: null, faseAbierta: faseAbierta };
+    },
+
+    /* Abre la fase 'registro' del candidato recién registrado, vía el RPC
+       `autorizar_registro_inicial()` (SECURITY DEFINER).
+
+       **Por qué un RPC y no un insert desde el navegador:** `candidatos_fase_pagos`
+       es la tabla que decide quién ve el contenido protegido. Abrirle RLS al
+       candidato para que se autorice solo sería regalarle la llave. El RPC
+       corre en el servidor, no recibe parámetros (usa `auth.uid()`/`auth.jwt()`,
+       que el navegador no puede falsificar), solo puede tocar la fase
+       'registro' del propio usuario, exige que ya haya firmado su Acuerdo, y
+       nunca pisa un pago que ya exista. Tampoco es un endpoint de Vercel
+       porque el plan Hobby ya está en su límite de 12 funciones.
+
+       **Falla en silencio a propósito:** mientras el SQL no se corra, el RPC
+       no existe y el registro debe quedar guardado igual — el equipo abre la
+       fase a mano, como hasta ahora. Devuelve true solo si de verdad se abrió. */
+    async autorizarRegistroInicial() {
+        try {
+            const { data, error } = await supabaseClient.rpc('autorizar_registro_inicial');
+            if (error) { console.warn('No se abrió la fase de Registro automáticamente:', error); return false; }
+            return !!data;
+        } catch (e) {
+            console.warn('No se abrió la fase de Registro automáticamente:', e);
+            return false;
+        }
     },
 
     /* =========================================================

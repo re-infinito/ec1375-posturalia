@@ -577,9 +577,35 @@ Spec: `docs/superpowers/specs/2026-09-18-sala-evidencias-zoom-design.md` · Plan
 
 **Decisión de negocio a respetar:** "EC1375" sigue oculto en `index.html`/`quiz.html`/retornos de pago. Esta página **sí** nombra el estándar (el NDA protege justamente su contenido), así que **no se enlaza desde la landing** — se comparte como liga directa, y lleva `noindex, nofollow`.
 
+## Ingresos: lo COBRADO, no el precio de lista (20 sep 2026)
+
+**El problema.** Las personas dejan el **50% del registro** al registrarse (proceso real de Diego). Hasta el 20 sep, TODOS los cálculos de ingreso usaban `candidatos_precio.monto_<fase>` —el **precio de lista**— en cuanto existía fila en `candidatos_fase_pagos`. O sea que un anticipo se contaba como pago completo: **$2,000 reportados de $1,000 que entraron**, y el **reparto entre socios se hacía sobre dinero que no estaba en la cuenta** (con un lote de 20 a medio pagar, $20,000 de ingreso fantasma).
+
+**El arreglo.** `AdminData.montoCobrado(datos, filaPrecio, fase)` es ahora la fuente única de "cuánto entró por esta fase", y la usan los 4 cálculos que antes leían el precio de lista: `kpis().ingresosPorFase`, `ingresosLote()`, `porFaseLote()` y `cortePorCandidato()`. Manda `candidatos_fase_pagos.monto` (el real: lo escribe el webhook de Mercado Pago y lo captura el equipo al liberar a mano) y el precio de lista queda solo de **respaldo**. Reglas, todas con prueba:
+- Monto capturado → ese, incluido un **0 explícito** (cortesía). Ojo: `Number(null)` es 0, así que el vacío se distingue ANTES de convertir.
+- Sin monto (`null`/`undefined`/`''`/columna ausente) → precio de lista, **como venía funcionando**: las liberaciones a mano con el badge no capturan monto y no debían volverse $0 de golpe.
+- Sin monto y `origen = 'registro-50'` → **$0** (ver abajo).
+- `proyectado` de `kpis()` NO cambia: sigue siendo `total_acordado`, que es lo acordado, no lo cobrado. `fichaCandidato()` tampoco: su `prom('monto_<fase>')` es el precio del candidato promedio, no ingreso.
+
+`ultimosPagos()` ya usaba esta regla desde antes — era la única que la tenía.
+
+## Apertura automática de la fase 'registro' (20 sep 2026)
+
+**Decisión de Diego:** quien llega por `registro.html` ya dejó el 50%, así que al terminar su alta se le **abre la fase `registro`**; a quien se raje, el equipo le apaga el badge. Sin esto, la persona se registra, firma su Acuerdo, abre su Autodiagnóstico y choca con *"Este contenido se habilita al pagar su fase"* (los 142 reactivos viven en `contenido_ec1375`, con RLS por fase).
+
+**Lo hace un RPC, nunca un insert desde el navegador.** `Auth.autorizarRegistroInicial()` llama `autorizar_registro_inicial()` (SECURITY DEFINER, **⚠️ hay que correr `docs/sql/2026-09-20-autorizar-registro-inicial.sql`**). `candidatos_fase_pagos` es la tabla que decide quién ve el contenido protegido: abrirle RLS al candidato para que se autorice solo sería regalarle la llave. El RPC **no recibe parámetros** (saca la identidad de `auth.uid()`/`auth.jwt()`, que el navegador no puede falsificar), solo toca la fase `registro` del propio usuario, exige que ya haya firmado su Acuerdo, nunca pisa un pago existente y es idempotente. Tampoco es un endpoint de Vercel: el plan Hobby ya está en **12/12 funciones**.
+
+**Falla en silencio a propósito:** mientras el SQL no se corra, el RPC no existe, el registro **se guarda igual** y el equipo abre la fase a mano como hasta ahora. `registrarCandidato()` devuelve `faseAbierta` y la pantalla final cambia según eso ("Empezar mi Autodiagnóstico" vs. "escríbenos y lo activamos"). Si el guardado falla, ni siquiera se intenta abrir la fase: nunca se da acceso a un registro que no quedó.
+
+**Ingresos:** la fila se inserta **sin monto** y con `origen = 'registro-50'` (`AdminData.ORIGEN_ANTICIPO`), que `montoCobrado()` cuenta como **$0** hasta que alguien capture la cifra real al dar de alta al candidato. Deliberadamente conservador: la fase cuenta como pagada para el acceso, pero **nunca infla ingresos**. En `admin-precios.html` ese badge sale distinto (🪪, azul) con el aviso de que falta capturar el monto.
+
+**⚠️ Riesgo asumido, que conviene no olvidar:** la liga de registro es **pública** y se comparte por WhatsApp — y las ligas de WhatsApp se reenvían. Con este RPC, cualquiera que la tenga puede registrarse y quedar con acceso a los 142 reactivos. El control es **a posteriori**: revisar quién entró por `origen = 'registro-50'` y apagar el badge de quien no pagó. Si eso deja de alcanzar, la salida natural es exigir un código en la liga (`registro.html?c=XXXX`) y validarlo dentro del mismo RPC.
+
 ## Cambios recientes (20 de septiembre, 2026)
 
 - **Liga de registro inicial `registro.html`** — ver la sección de arriba. Nuevo en `auth.js`: `construirRegistroInicial()` (pura) y `registrarCandidato()`. Nuevas pruebas: `tests/registro-inicial.test.js` (11). `sw.js` → `paideia-app-v12`.
+- **Ingresos: ahora cuentan lo cobrado, no el precio de lista** — ver la sección dedicada arriba. 8 pruebas nuevas en `tests/admin-data.test.js`.
+- **La fase `registro` se abre sola al registrarse** (anticipo del 50%) vía el RPC `autorizar_registro_inicial()` — ⚠️ hay que correr `docs/sql/2026-09-20-autorizar-registro-inicial.sql`. 5 pruebas nuevas en `tests/registro-inicial.test.js`.
 - **Arreglo (reportado por Diego el mismo día): el campo de correo de `registro.html` se bloqueaba** cuando el navegador traía una sesión abierta — y con la cuenta demo el registro habría dicho "listo" sin guardar nada. Ver "El campo de correo NUNCA se bloquea" arriba. Verificado en navegador los 4 casos: sesión demo, sesión normal con otro correo, sesión normal con su mismo correo, y sin sesión.
 - **El auto-registrado aparece en `admin-candidatos.html` para que un admin le capture sus datos financieros** (decisión de Diego) — ver "Registro inicial (liga pública)" arriba. Nuevo en `admin-data.js`: `prospectos()`, `ESTADO_PROSPECTO` y el ítem `sin_alta` de `atencion()`; nuevo en `admin-precios.html`: `precargarAlta()` con `?alta=&nombre=`. 8 pruebas nuevas en `tests/admin-data.test.js`, una de ellas comparando `deepEqual` de los 7 cálculos financieros con y sin prospecto.
 - **La página usa la UI oficial de la marca** (tokens compartidos, tema claro/oscuro de `crm-shell.js` sin montar el shell, iconos SVG de `CrmShell.icon()`, logo sobre teja blanca) — ver "Sistema visual" en esa sección. Verificado en navegador: tema claro por default y toggle persistido en `paideia-theme`, **0px de desborde horizontal a 360/375/414/768px en los dos temas**, y contraste mínimo de texto 11.6:1 en modo claro (el verde `--success` da 4.4:1 sobre la tarjeta clara, por debajo del 4.5:1 de AA para texto normal: se usa como **señal** en el ✓, nunca como color de texto).
