@@ -271,6 +271,104 @@ const Auth = {
     },
 
     /* =========================================================
+       REGISTRO INICIAL (registro.html, 20 sep 2026)
+
+       Liga pública que se comparte con un candidato nuevo: nombre, correo
+       y firma del Acuerdo de Confidencialidad ANTES de que exista en
+       cualquier otra parte del flujo (antes incluso de pagar el apartado).
+       Por eso esta liga NO pasa por isEmailAuthorized() — es justo el
+       trámite con el que un correo empieza a existir.
+
+       **Se guarda en la MISMA columna y con las MISMAS llaves que el paso
+       'nda' de autodiagnostico.html** (autodiagnostico_data:
+       ndaAccepted/ndaSignedAt/ndaSignature*), no en una columna nueva: es
+       literalmente el mismo documento. Consecuencias buscadas: el
+       candidato no lo firma dos veces (llega al Autodiagnóstico con el
+       paso ya palomeado), los gates que ya exigen NDA
+       (Reforzamiento/Práctica) lo reconocen sin tocarlos, el PDF "Acuse de
+       Recibido — NDA" se genera después con estos mismos datos, y
+       FirmaCandidato puede reutilizar esta firma. Cero migraciones de SQL
+       y cero funciones nuevas de Vercel (el límite de 12 del plan Hobby ya
+       está tocado — ver Claude.md).
+
+       El correo: `candidatos_ec1375` no tiene columna de correo. Vive en
+       Supabase Auth (auth.users, lo crea signUp) y, para que también se
+       lea desde la fila, en personalData.email — la misma llave que ya
+       escribe handleAuthVerified() del Autodiagnóstico.
+    ========================================================= */
+
+    /* Función PURA (sin red ni storage). `previo` es el autodiagnostico_data
+       que ya existiera (null la primera vez): nunca se borra avance, solo se
+       escriben nombre, correo y las 5 llaves del Acuerdo. Probada en
+       tests/registro-inicial.test.js. */
+    construirRegistroInicial(previo, datos) {
+        datos = datos || {};
+        const base = (previo && typeof previo === 'object') ? previo : {};
+        const firma = datos.nda || {};
+        const modo = firma.mode === 'type' ? 'type' : 'draw';
+        const fecha = datos.fecha || new Date().toISOString();
+        const personalData = Object.assign(
+            { nombre: '', curp: '', domicilio: '', escolaridad: '', telefonoCasa: '', telefonoCelular: '', email: '', fecha: '', renapAutorizado: false },
+            base.personalData || {}
+        );
+        personalData.nombre = String(datos.nombre || personalData.nombre || '').trim();
+        personalData.email = String(datos.email || personalData.email || '').trim().toLowerCase();
+        if (!personalData.fecha) personalData.fecha = fecha.slice(0, 10);
+        return Object.assign({}, base, {
+            personalData: personalData,
+            certificados: base.certificados || [],
+            sinCertificadosPrevios: base.sinCertificadosPrevios || false,
+            answers: base.answers || {},
+            ndaAccepted: true,
+            ndaSignedAt: fecha,
+            ndaSignatureMode: modo,
+            ndaSignatureDataUrl: modo === 'draw' ? (firma.dataUrl || null) : null,
+            ndaSignatureTypedName: modo === 'type' ? String(firma.typedName || '').trim() : ''
+        });
+    },
+
+    /* Da de alta al candidato recién autenticado: nombre + correo + NDA
+       firmado. A diferencia de syncToSupabase() (debounced, silencioso,
+       best-effort), este SÍ espera la escritura y SÍ devuelve el error —
+       si el registro no quedó guardado hay que decírselo, no dejarlo creer
+       que sí. Devuelve { data, error }. */
+    async registrarCandidato(datos) {
+        datos = datos || {};
+        const session = await Auth.getSession();
+        if (!session) return { data: null, error: { message: 'No hay sesión iniciada.' } };
+        const nombre = String(datos.nombre || '').trim();
+        if (!nombre) return { data: null, error: { message: 'Falta tu nombre completo.' } };
+
+        const row = await Auth.pullMyRow();
+        const data = Auth.construirRegistroInicial(row && row.autodiagnostico_data, {
+            nombre: nombre,
+            email: datos.email || session.user.email || '',
+            nda: datos.nda,
+            fecha: new Date().toISOString()
+        });
+        /* Igual que en todo el sitio: localStorage primero, red después. */
+        try { localStorage.setItem('autodiagnosticoData', JSON.stringify(data)); } catch (e) { /* ignore */ }
+
+        /* La cuenta demo nunca escribe en Supabase (ver "Datos demo" abajo);
+           su progreso se lee de localStorage, que ya quedó escrito arriba. */
+        if (await Auth.isBypassSession()) return { data: data, error: null };
+
+        /* curp: se manda el que ya tuviera la fila (o '' si es nueva) para
+           no pisar con vacío un CURP capturado antes en el Autodiagnóstico. */
+        const { error } = await supabaseClient
+            .from('candidatos_ec1375')
+            .upsert({
+                user_id: session.user.id,
+                nombre: nombre,
+                curp: (row && row.curp) || '',
+                autodiagnostico_data: data,
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'user_id' });
+        if (error) console.warn('No se pudo guardar el registro:', error);
+        return { data: data, error: error || null };
+    },
+
+    /* =========================================================
        UI compartida: correo → contraseña (iniciar sesión o crearla la
        primera vez) → verificar. Reutiliza .field-group / .btn-primary /
        .btn-secondary / .btn-full ya definidos en cada página — no
