@@ -192,6 +192,11 @@
         .msg { font-size: 0.88rem; margin: 12px 0; text-align: center; }
         .msg.error { color: var(--danger); }
         .msg.success { color: var(--success); }
+        /* Detalle técnico del fallo: discreto para el candidato, legible en
+           una captura de pantalla para quien tiene que arreglarlo. */
+        .msg-detalle { font-size: 0.72rem; line-height: 1.45; text-align: center;
+                       color: var(--text); opacity: .72; margin: -6px 0 12px; word-break: break-word; }
+        .msg-detalle code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.72rem; }
         .spinner { text-align: center; color: var(--text); font-size: 0.9rem; padding: 10px 0; }
 
         /* ---- Resumen final ---- */
@@ -295,7 +300,8 @@
        "este correo ya tiene cuenta" mandaba a la gente a un ciclo — le
        vuelven a picar al botón grande y azul y sale el mismo error. */
     var modoCuenta = 'crear';
-    var passwordEscrita = '';      /* para no borrarle lo que ya tecleó al re-pintar */
+    var passwordEscrita = '';   /* para no borrarle lo que ya tecleó al re-pintar */
+    var detalleError = '';      /* detalle técnico del fallo que se está pintando */
 
     function escapeHtml(str) {
         var div = document.createElement('div');
@@ -330,9 +336,9 @@
 
     /* ---------- render ---------- */
 
-    function irA(nuevo, mensaje) {
+    function irA(nuevo, mensaje, detalle) {
         paso = nuevo;
-        render(mensaje);
+        render(mensaje, detalle);
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
@@ -359,10 +365,17 @@
         document.getElementById('heroIcono').innerHTML = ic(ICONOS_PASO[paso], 26);
     }
 
-    function render(mensaje) {
+    function render(mensaje, detalle) {
         var app = document.getElementById('app');
         pintarPasos();
+        /* El detalle viaja como argumento, no como estado suelto: si no lo
+           manda quien pinta, no hay detalle. Así el tecnicismo de un fallo
+           anterior nunca se queda pegado debajo de un mensaje distinto. */
+        detalleError = detalle || '';
         var error = mensaje ? '<p class="msg error">' + escapeHtml(mensaje) + '</p>' : '';
+        if (mensaje && detalleError) {
+            error += '<p class="msg-detalle">Detalle para el equipo: <code>' + escapeHtml(detalleError) + '</code></p>';
+        }
 
         if (paso === 'datos') app.innerHTML = vistaDatos(error);
         else if (paso === 'cuenta') {
@@ -789,10 +802,17 @@
         var res = await Auth.registrarCandidato({ nombre: datos.nombre, email: datos.email, nda: firmaActual() });
         if (res.error) {
             /* Falla honesta: la cuenta puede haber quedado creada, pero el
-               registro no — decirlo, no dejarlo creer que ya quedó. */
+               registro no — decirlo, no dejarlo creer que ya quedó.
+
+               Y el DETALLE TÉCNICO va en pantalla, no solo en la consola.
+               La primera falla real de esta liga ("new row violates
+               row-level security policy") llegó como una foto del celular
+               de un candidato: sin el código de Postgres a la vista, esa
+               foto no alcanzaba para saber qué se rompió. Ahora sí. */
             irA(res.error.demo ? 'datos' : (sesionPrevia ? 'nda' : 'cuenta'), res.error.demo
                 ? res.error.message
-                : 'Tu cuenta quedó lista, pero no se pudo guardar tu registro. Revisa tu conexión y vuelve a intentar; si sigue fallando, escríbenos por WhatsApp.');
+                : 'Tu cuenta quedó lista, pero no se pudo guardar tu registro. Revisa tu conexión y vuelve a intentar; si sigue fallando, mándanos esta pantalla por WhatsApp.',
+                res.error.demo ? '' : res.error.detalle);
             return;
         }
         faseAbierta = !!res.faseAbierta;

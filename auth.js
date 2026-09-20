@@ -331,7 +331,29 @@ const Auth = {
        firmado. A diferencia de syncToSupabase() (debounced, silencioso,
        best-effort), este SÍ espera la escritura y SÍ devuelve el error —
        si el registro no quedó guardado hay que decírselo, no dejarlo creer
-       que sí. Devuelve { data, error }. */
+       que sí. Devuelve { data, error }.
+
+       **Por qué pasa por un RPC y no escribe la tabla directo (20 sep 2026).**
+       Escribirla directo es lo que se intentó primero, y falla en producción
+       con `new row violates row-level security policy`. La política RLS de
+       `candidatos_ec1375` exige `is_fase_authorized(email, 'registro')`: la
+       fila solo la puede escribir quien YA tiene su fase de Registro pagada.
+       Eso era coherente mientras el único camino fuera "el equipo da de alta
+       el pago, luego el candidato entra"; con la liga pública el orden se
+       invierte y queda un candado circular:
+
+           la fila necesita la fase pagada
+           la fase la abre autorizar_registro_inicial()
+           ...que exige que la fila ya exista con el Acuerdo firmado
+
+       Nadie nuevo puede entrar. La salida NO es abrirle RLS al candidato
+       (`candidatos_fase_pagos` es la tabla que decide quién ve el contenido
+       protegido: darle escritura sería regalarle la llave), sino hacer las
+       dos escrituras del lado del servidor, en el orden correcto y en una
+       sola transacción: `registrar_candidato_inicial()`, SECURITY DEFINER,
+       que solo puede tocar la fila de `auth.uid()` y solo puede escribir
+       nombre, correo y las 5 llaves del Acuerdo. El merge vive en SQL justo
+       por eso: ni un cliente manipulado puede pisar su propio avance. */
     async registrarCandidato(datos) {
         datos = datos || {};
         const session = await Auth.getSession();
@@ -359,6 +381,73 @@ const Auth = {
             return { data: data, error: { demo: true, message: 'Es la cuenta de demostración del equipo: su registro no se guarda en Supabase. Cierra sesión y usa el correo real de quien se registra.' } };
         }
 
+        const firma = datos.nda || {};
+        const modo = firma.mode === 'type' ? 'type' : 'draw';
+        let rpc;
+        try {
+            rpc = await supabaseClient.rpc('registrar_candidato_inicial', {
+                p_nombre: nombre,
+                p_nda_mode: modo,
+                p_nda_data_url: modo === 'draw' ? (firma.dataUrl || null) : null,
+                p_nda_typed_name: modo === 'type' ? String(firma.typedName || '').trim() : ''
+            });
+        } catch (e) {
+            rpc = { data: null, error: { message: String((e && e.message) || e) } };
+        }
+
+        /* Mientras el SQL no se corra el RPC no existe. Se intenta entonces
+           la escritura directa de siempre: a quien YA tiene su fase abierta
+           (el equipo le capturó el pago antes) le funciona igual que hoy. */
+        if (rpc.error && Auth._rpcNoExiste(rpc.error)) {
+            return await Auth._registrarPorEscrituraDirecta(session, row, nombre, data);
+        }
+        if (rpc.error) {
+            console.warn('No se pudo guardar el registro:', rpc.error);
+            return { data: data, error: Auth._errorLegible(rpc.error) };
+        }
+        const res = rpc.data || {};
+        if (!res.ok) {
+            const motivos = {
+                cuenta_demo: 'Es la cuenta de demostración del equipo: su registro no se guarda en Supabase. Cierra sesión y usa el correo real de quien se registra.',
+                sin_sesion: 'Se perdió tu sesión antes de guardar. Vuelve a abrir la liga e intenta de nuevo.',
+                sin_nombre: 'Falta tu nombre completo.'
+            };
+            return { data: data, error: { demo: res.motivo === 'cuenta_demo', codigo: res.motivo, message: motivos[res.motivo] || 'No se pudo guardar tu registro.' } };
+        }
+        /* El servidor es la verdad: su merge es el que quedó guardado. */
+        if (res.datos) {
+            try { localStorage.setItem('autodiagnosticoData', JSON.stringify(res.datos)); } catch (e) { /* ignore */ }
+        }
+        return { data: res.datos || data, error: null, faseAbierta: !!res.faseAbierta, reRegistro: !!res.reRegistro };
+    },
+
+    /* ¿El error es "esa función no existe"? (SQL todavía sin correr) */
+    _rpcNoExiste(error) {
+        const codigo = String((error && error.code) || '');
+        const texto = String((error && error.message) || '').toLowerCase();
+        return codigo === '42883' || codigo === 'PGRST202' ||
+               texto.indexOf('does not exist') !== -1 ||
+               texto.indexOf('could not find the function') !== -1;
+    },
+
+    /* Un error de Postgres tal cual ("new row violates row-level security
+       policy for table ...") no le dice nada al candidato, pero al equipo le
+       dice TODO. Va el texto para la persona + el detalle técnico aparte,
+       para que la página lo pueda mostrar en chiquito: una captura de
+       pantalla desde el celular tiene que bastar para diagnosticar. */
+    _errorLegible(error) {
+        const codigo = String((error && error.code) || '');
+        const detalle = String((error && error.message) || 'error desconocido');
+        return {
+            codigo: codigo,
+            detalle: codigo ? (codigo + ': ' + detalle) : detalle,
+            message: 'No se pudo guardar tu registro.'
+        };
+    },
+
+    /* Camino viejo: escritura directa a la tabla. Solo se usa si el RPC
+       todavía no está instalado (ver registrarCandidato). */
+    async _registrarPorEscrituraDirecta(session, row, nombre, data) {
         /* curp: se manda el que ya tuviera la fila (o '' si es nueva) para
            no pisar con vacío un CURP capturado antes en el Autodiagnóstico. */
         const { error } = await supabaseClient
@@ -371,7 +460,7 @@ const Auth = {
                 updated_at: new Date().toISOString()
             }, { onConflict: 'user_id' });
         if (error) console.warn('No se pudo guardar el registro:', error);
-        if (error) return { data: data, error: error };
+        if (error) return { data: data, error: Auth._errorLegible(error) };
 
         /* Quien llega por esta liga ya dejó el primer abono del anticipo
            (decisión de Diego, 20 sep), así que se le abre la fase 'registro'
