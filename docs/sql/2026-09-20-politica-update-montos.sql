@@ -5,17 +5,18 @@
 -- Sin esto, el campo "cobrado" de admin-precios.html no guarda nada: el
 -- UPDATE se va en silencio como "0 filas afectadas".
 --
--- ⚠️ VA EN DOS PASOS, Y NINGUNO USA `$$`.
---    La primera versión de este archivo traía un bloque DO ... $$ y el
---    editor de Supabase lo cortó a media función ("unterminated
---    dollar-quoted string"): ese editor parte el texto por `;` y el
---    dollar-quoting lo confunde. Así que aquí no hay un solo `$$`: el
---    PASO 1 es un SELECT que IMPRIME el statement, y el PASO 2 es pegar
---    esa línea y correrla. A prueba de editor.
+-- ⚠️ AQUÍ NO HAY UN SOLO `$$`. Una versión anterior traía un bloque
+--    DO ... $$ y el editor de Supabase lo cortaba a media función
+--    ("unterminated dollar-quoted string"): ese editor parte el texto por
+--    `;` y el dollar-quoting lo confunde. Esto es un solo CREATE POLICY.
 --
--- NO SE ADIVINA LA FIRMA DE is_admin(): el PASO 1 copia el predicado de la
--- política de INSERT que la tabla ya tiene (la del badge de liberar
--- fases), así que actualizar queda igual de restringido que insertar.
+-- ⚠️ ESTE ARCHIVO NO ES el de la función. autorizar_registro_inicial() ya
+--    está instalada y funcionando; volver a correr ESE archivo es lo que
+--    daba el error de `$$`. No hace falta.
+--
+-- is_admin(check_email text) es la firma que ya usa el sitio
+-- (auth.js -> rpc('is_admin', { check_email })). Si aun así no existiera
+-- con esa firma, abajo está el plan B.
 --
 -- PROBADO CONTRA UN POSTGRES 16 REAL antes de mandarlo:
 --   · sin la política, el UPDATE como 'authenticated' da "UPDATE 0";
@@ -25,43 +26,36 @@
 
 
 -- =====================================================================
--- PASO 1 — Córrelo tal cual. NO crea nada: solo imprime una línea.
---          Copia el contenido de la celda que devuelve.
+-- ESTO ES TODO. Una sola instrucción. Pégala en una pestaña VACÍA y Run.
+-- Debe responder: CREATE POLICY
 -- =====================================================================
 
-select format(
-  'create policy "admins actualizan montos cobrados" on public.candidatos_fase_pagos for update to %s using (%s) with check (%s);',
-  (select string_agg(quote_ident(r), ', ') from unnest(p.roles) as r),
-  coalesce(p.with_check, p.qual),
-  coalesce(p.with_check, p.qual)
-) as copia_esta_linea_y_correla
-from pg_policies p
-where p.schemaname = 'public'
-  and p.tablename  = 'candidatos_fase_pagos'
-  and p.cmd        = 'INSERT'
-limit 1;
+create policy "admins actualizan montos cobrados"
+  on public.candidatos_fase_pagos for update to authenticated
+  using (public.is_admin(auth.jwt() ->> 'email'))
+  with check (public.is_admin(auth.jwt() ->> 'email'));
 
 
--- =====================================================================
--- PASO 2 — Pega aquí la línea que te dio el PASO 1 y córrela.
---          Debe responder "CREATE POLICY". Se verá parecido a:
---
---   create policy "admins actualizan montos cobrados"
---     on public.candidatos_fase_pagos for update to authenticated
---     using (is_admin(...)) with check (is_admin(...));
---
---   (El predicado real sale de TU política de INSERT; no lo edites.)
--- =====================================================================
-
-
--- =====================================================================
--- PASO 3 — Comprobación. Deben salir cuatro: SELECT, INSERT, UPDATE, DELETE.
--- =====================================================================
-
-select cmd, policyname, roles::text, coalesce(with_check, qual) as predicado
-  from pg_policies
+-- Comprobación: deben salir cuatro (SELECT, INSERT, UPDATE, DELETE).
+select cmd, policyname from pg_policies
  where schemaname = 'public' and tablename = 'candidatos_fase_pagos'
  order by cmd;
+
+
+-- =====================================================================
+-- SI LO DE ARRIBA FALLA con "function is_admin(text) does not exist",
+-- es que el proyecto usa otra firma. Entonces corre ESTO, que imprime la
+-- instrucción ya armada copiando el permiso de la política de INSERT que
+-- la tabla ya tiene, y pega el resultado:
+-- =====================================================================
+--
+-- select format(
+--   'create policy "admins actualizan montos cobrados" on public.candidatos_fase_pagos for update to %s using (%s) with check (%s);',
+--   (select string_agg(quote_ident(r), ', ') from unnest(p.roles) as r),
+--   coalesce(p.with_check, p.qual), coalesce(p.with_check, p.qual))
+-- from pg_policies p
+-- where p.schemaname='public' and p.tablename='candidatos_fase_pagos' and p.cmd='INSERT'
+-- limit 1;
 
 
 -- =====================================================================
