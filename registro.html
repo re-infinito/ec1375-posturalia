@@ -282,6 +282,8 @@
 
     var paso = 'datos';
     var sesionPrevia = false;      /* ya había sesión iniciada al abrir la liga */
+    var sesionDemo = false;        /* ...y es la cuenta de demostración del equipo */
+    var correoSesion = null;       /* el correo de esa sesión */
     var datos = { nombre: '', email: '' };
     var nda = { aceptado: false, mode: 'draw', dataUrl: null, typedName: '' };
     var dibujando = false, ultX = 0, ultY = 0;
@@ -363,6 +365,22 @@
         else if (paso === 'listo') app.innerHTML = vistaListo();
     }
 
+    /* El correo SIEMPRE se puede escribir. Antes, con una sesión abierta en
+       el dispositivo, el campo se bloqueaba con ese correo: el equipo abría
+       su propia liga y no podía registrar a nadie más (y con la cuenta demo
+       era peor, ver abajo). Ahora la sesión abierta es solo un valor por
+       omisión: si escriben otro correo, se cierra esa sesión y sigue el alta
+       normal. */
+    function pistaCorreo() {
+        if (sesionDemo) {
+            return 'En este dispositivo está abierta la <strong>cuenta de demostración del equipo</strong> (' + escapeHtml(correoSesion) + '), que no guarda registros reales. Escribe el correo de la persona que se registra y al continuar cerramos esa sesión.';
+        }
+        if (sesionPrevia) {
+            return 'En este dispositivo ya está abierta la sesión de <strong>' + escapeHtml(correoSesion) + '</strong>. Si vas a registrar a alguien más, escribe su correo: al continuar cerramos esa sesión.';
+        }
+        return 'Con este correo entras a la plataforma y recibes todos los avisos de tu proceso. Úsalo bien: cambiarlo después implica volver a empezar tu cuenta.';
+    }
+
     function vistaDatos(error) {
         return '' +
         '<div class="card">' +
@@ -374,10 +392,8 @@
             '</div>' +
             '<div class="field-group">' +
                 '<label for="f_email">Correo electrónico</label>' +
-                '<input type="email" id="f_email" value="' + escapeHtml(datos.email) + '" placeholder="tu@email.com" autocomplete="email"' + (sesionPrevia ? ' disabled' : '') + '>' +
-                '<p class="field-hint">' + (sesionPrevia
-                    ? 'Es el correo de la sesión que ya tienes abierta en este dispositivo.'
-                    : 'Con este correo entras a la plataforma y recibes todos los avisos de tu proceso. Úsalo bien: cambiarlo después implica volver a empezar tu cuenta.') + '</p>' +
+                '<input type="email" id="f_email" value="' + escapeHtml(datos.email) + '" placeholder="tu@email.com" autocomplete="email">' +
+                '<p class="field-hint">' + pistaCorreo() + '</p>' +
             '</div>' +
             error +
             '<button class="btn btn-primary btn-full" onclick="continuarDatos()">Continuar' + ic('arrow') + '</button>' +
@@ -498,13 +514,26 @@
 
     /* ---------- paso 1: datos ---------- */
 
-    function continuarDatos() {
+    async function continuarDatos() {
         var nombre = (document.getElementById('f_nombre').value || '').trim();
-        var email = sesionPrevia ? datos.email : (document.getElementById('f_email').value || '').trim().toLowerCase();
-        if (nombre.length < 3) { datos.nombre = nombre; datos.email = email; render('Escribe tu nombre completo.'); return; }
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { datos.nombre = nombre; datos.email = email; render('Escribe un correo válido.'); return; }
+        var email = (document.getElementById('f_email').value || '').trim().toLowerCase();
         datos.nombre = nombre;
         datos.email = email;
+        if (nombre.length < 3) { render('Escribe tu nombre completo.'); return; }
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { render('Escribe un correo válido.'); return; }
+        /* La cuenta demo nunca escribe en Supabase (ver Auth.registrarCandidato):
+           registrarse con ella diría "listo" sin guardar nada. */
+        if (sesionDemo && email === correoSesion) {
+            render('Ese es el correo de la cuenta de demostración del equipo: con él el registro no se guarda. Escribe el correo real de la persona que se registra.');
+            return;
+        }
+        /* Registrando a alguien distinto de quien tiene la sesión abierta:
+           se cierra esa sesión para no mezclar las dos cuentas. */
+        if ((sesionPrevia || sesionDemo) && email !== correoSesion) {
+            document.getElementById('app').innerHTML = '<div class="card"><p class="spinner">Cerrando la sesión anterior...</p></div>';
+            try { await Auth.signOut(); } catch (e) { /* seguimos: el alta pedirá contraseña igual */ }
+            sesionPrevia = false; sesionDemo = false; correoSesion = null;
+        }
         guardarBorrador();
         irA('nda');
     }
@@ -668,7 +697,9 @@
         if (res.error) {
             /* Falla honesta: la cuenta puede haber quedado creada, pero el
                registro no — decirlo, no dejarlo creer que ya quedó. */
-            irA(sesionPrevia ? 'nda' : 'cuenta', 'Tu cuenta quedó lista, pero no se pudo guardar tu registro. Revisa tu conexión y vuelve a intentar; si sigue fallando, escríbenos por WhatsApp.');
+            irA(res.error.demo ? 'datos' : (sesionPrevia ? 'nda' : 'cuenta'), res.error.demo
+                ? res.error.message
+                : 'Tu cuenta quedó lista, pero no se pudo guardar tu registro. Revisa tu conexión y vuelve a intentar; si sigue fallando, escríbenos por WhatsApp.');
             return;
         }
         borrarBorrador();
@@ -688,9 +719,14 @@
         try {
             var session = await Auth.getSession();
             if (session && session.user) {
-                sesionPrevia = true;
-                datos.email = session.user.email || datos.email;
-                if (!datos.nombre) {
+                correoSesion = (session.user.email || '').toLowerCase();
+                /* La cuenta demo del equipo NO puede registrar: su progreso
+                   nunca llega a Supabase, así que se trata como si no hubiera
+                   sesión (pide correo y contraseña de verdad). */
+                sesionDemo = await Auth.isBypassSession();
+                sesionPrevia = !sesionDemo;
+                if (!datos.email) datos.email = sesionDemo ? '' : correoSesion;
+                if (sesionPrevia && !datos.nombre) {
                     var row = await Auth.pullMyRow();
                     if (row && row.nombre) datos.nombre = row.nombre;
                     /* Ya firmado antes: se le dice, y puede volver a firmar
