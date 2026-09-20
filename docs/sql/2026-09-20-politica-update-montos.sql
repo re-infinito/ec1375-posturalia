@@ -87,18 +87,27 @@ group by p.fase
 order by 3 desc nulls last;
 
 
--- El detalle, para ir capturando (empieza por las de 'registro'):
+-- QUIÉNES SON, con nombre (probado contra un Postgres 16 real).
+-- Empieza por las de 'registro': son las de dos abonos.
 
-select p.email, p.fase, p.origen, p.autorizado_en,
-       case p.fase
-         when 'registro'   then pr.monto_registro
-         when 'alineacion' then pr.monto_alineacion
-         when 'evaluacion' then pr.monto_evaluacion
-         when 'entrega'    then pr.monto_entrega
-       end as precio_de_lista
+select
+  coalesce(c.nombre, pr.nombre, '(sin nombre)') as candidato,
+  p.email,
+  p.fase,
+  p.origen,
+  p.autorizado_en::date                         as liberada_el,
+  case p.fase
+    when 'registro'   then pr.monto_registro
+    when 'alineacion' then pr.monto_alineacion
+    when 'evaluacion' then pr.monto_evaluacion
+    when 'entrega'    then pr.monto_entrega
+  end                                           as se_esta_contando
 from candidatos_fase_pagos p
 left join candidatos_precio pr on lower(pr.email) = lower(p.email)
-where p.monto is null and coalesce(p.origen, 'manual') <> 'registro-50'
+left join auth.users u        on lower(u.email)  = lower(p.email)
+left join candidatos_ec1375 c on c.user_id = u.id
+where p.monto is null
+  and coalesce(p.origen, 'manual') <> 'registro-50'
 order by (p.fase = 'registro') desc, p.autorizado_en desc;
 
 -- Capturar el monto: en admin-precios.html, debajo del precio de esa fase.
