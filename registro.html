@@ -288,6 +288,7 @@
     var nda = { aceptado: false, mode: 'draw', dataUrl: null, typedName: '' };
     var dibujando = false, ultX = 0, ultY = 0;
     var faseAbierta = false;       /* el RPC abrió su fase de Registro (ver auth.js) */
+    var reRegistro = false;        /* ya había firmado antes: no se toca su fase */
 
     function escapeHtml(str) {
         var div = document.createElement('div');
@@ -507,7 +508,12 @@
                 ? '<p style="margin-bottom:18px;">Tu <strong>Autodiagnóstico ya está abierto</strong>: son 142 preguntas sobre tu práctica, y al terminar sabes exactamente qué tan lista estás para tu evaluación. Puedes empezarlo ahora o cuando tengas un rato con calma.</p>' +
                   '<a class="btn btn-primary btn-full" href="autodiagnostico.html">Empezar mi Autodiagnóstico' + ic('arrow') + '</a>' +
                   '<a class="btn btn-secondary btn-full" href="panel.html">Ver mi panel</a>'
-                /* Sin el RPC (o si falló): el equipo le abre la fase a mano. */
+                : reRegistro
+                /* Volvió a firmar: su acceso es el que ya tenía, ni se abre ni
+                   se cierra aquí. No se le promete ni se le niega nada. */
+                ? '<p style="margin-bottom:18px;">Actualizamos tus datos y tu Acuerdo. Tu acceso sigue igual que antes: continúa desde tu panel.</p>' +
+                  '<a class="btn btn-primary btn-full" href="panel.html">Ir a mi panel' + ic('arrow') + '</a>'
+                /* Primer registro sin que la fase se abriera: el equipo la prende. */
                 : '<p style="margin-bottom:18px;">Tu panel te va diciendo, paso por paso, qué sigue en tu proceso de certificación. Si tu Autodiagnóstico todavía no te carga las preguntas, es que falta confirmar tu pago: escríbenos y lo activamos.</p>' +
                   '<a class="btn btn-primary btn-full" href="panel.html">Ir a mi panel' + ic('arrow') + '</a>') +
             '<a class="btn btn-secondary btn-full" href="https://wa.me/528115026729?text=' + encodeURIComponent('Hola, acabo de registrarme en la plataforma con el correo ' + datos.email + '. ¿Cuál es mi siguiente paso?') + '" target="_blank" rel="noopener">' + ic('message') + 'Escribirle al equipo por WhatsApp</a>' +
@@ -710,6 +716,7 @@
             return;
         }
         faseAbierta = !!res.faseAbierta;
+        reRegistro = !!res.reRegistro;
         borrarBorrador();
         document.getElementById('heroTitulo').textContent = '¡Bienvenido a Paideia Tech!';
         document.getElementById('heroSubtitulo').textContent = 'Tu cuenta y tu Acuerdo de Confidencialidad quedaron guardados.';

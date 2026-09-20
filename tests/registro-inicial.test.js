@@ -272,3 +272,35 @@ test('registro: la cuenta demo no abre ninguna fase', async () => {
     await Auth.registrarCandidato({ nombre: 'Ana Sofía Demo Ramírez', nda: { mode: 'draw', dataUrl: PNG } });
     assert.ok(!rpcs.includes('autorizar_registro_inicial'));
 });
+
+test('registro: volver a firmar NO reabre la fase (a quien el equipo apagó por rajarse)', async () => {
+    // Si re-registrarse reabriera la fase, "apagamos a los que se rajen"
+    // dejaría de servir: bastaría con volver a abrir la liga y re-firmar.
+    const { Auth, rpcs, upserts } = cargarAuth({
+        correo: 'ana@ejemplo.mx',
+        fila: { user_id: 'u-ana@ejemplo.mx', nombre: 'Ana', curp: '',
+                autodiagnostico_data: { ndaAccepted: true, ndaSignedAt: '2026-09-15T10:00:00Z', answers: {} } }
+    });
+    const res = await Auth.registrarCandidato({ nombre: 'Ana Lucía', nda: { mode: 'draw', dataUrl: PNG } });
+    assert.equal(res.error, null);
+    assert.equal(res.reRegistro, true);
+    assert.equal(res.faseAbierta, false);
+    assert.ok(!rpcs.includes('autorizar_registro_inicial'), 'no se toca la fase de quien ya había firmado');
+    // ...pero su firma y sus datos SÍ se actualizan
+    assert.equal(upserts.length, 1);
+    assert.equal(upserts[0].nombre, 'Ana Lucía');
+});
+
+test('registro: una fila previa SIN el Acuerdo firmado sí cuenta como primer registro', async () => {
+    // Caso real: empezó el Autodiagnóstico, no llegó a firmar, y ahora se
+    // registra por la liga. Es su primera firma, así que su fase sí se abre.
+    const { Auth, rpcs } = cargarAuth({
+        correo: 'ana@ejemplo.mx',
+        fila: { user_id: 'u-ana@ejemplo.mx', nombre: 'Ana', curp: '',
+                autodiagnostico_data: { ndaAccepted: false, answers: { e1_c0_g0_i0: 'SI' } } }
+    });
+    const res = await Auth.registrarCandidato({ nombre: 'Ana Lucía', nda: { mode: 'draw', dataUrl: PNG } });
+    assert.equal(res.reRegistro, false);
+    assert.equal(res.faseAbierta, true);
+    assert.ok(rpcs.includes('autorizar_registro_inicial'));
+});
