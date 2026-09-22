@@ -178,8 +178,43 @@
         @media print {
             .crm-sidebar, .crm-topbar, .crm-backdrop, .crm-fab, .crm-tut, .btn-imprimir-guion, [data-sala-tarjeta], [data-sala-aviso], #ptWatermark, .no-print { display: none !important; }
             .crm-main, .crm-shell, body { margin: 0 !important; padding: 0 !important; background: #fff !important; color: #000 !important; }
-            .container { max-width: none !important; }
-            .guion-section { break-inside: avoid-page; }
+            .container { max-width: none !important; padding: 0 !important; }
+            /* 22 sep (pedido de Diego): lo impreso cabe en el menor número de
+               hojas. Sin videos, índice, casillas de "video grabado" ni botones;
+               letra y espacios compactos, listas en 2 columnas, y las secciones
+               pueden partirse entre hojas (antes cada una saltaba completa a la
+               siguiente y dejaba medias hojas en blanco). */
+            @page { size: letter; margin: 10mm 11mm; }
+            html { font-size: 12px; }
+            body { line-height: 1.26 !important; font-size: 9pt; }
+            .video-ejemplo, .video-proximamente, .section-checkpoint, .toc, .hero-icon, .hero-subtitle,
+            #app > a.btn, .checklist-progress, .progress-bar-bg, #checklist-card > .desc { display: none !important; }
+            .hero { padding: 0 0 4px !important; text-align: left; }
+            .hero-title { font-size: 14pt !important; margin: 0 !important; color: #000 !important; }
+            .card, .guion-section { background: none !important; border-radius: 0; padding: 0 !important; margin: 0 0 6px !important; }
+            .card p.desc { font-size: 8.5pt; color: #333 !important; }
+            .card h2 { font-size: 10.5pt; margin: 4px 0 3px; color: #000 !important; break-after: avoid; }
+            .guion-section { border-top: 1px solid #999 !important; padding-top: 4px !important; }
+            .guion-section h3 { display: block; font-size: 10.5pt; margin: 0 0 4px; color: #000 !important; break-after: avoid; break-inside: avoid; }
+            .guion-section .num-badge { vertical-align: -3px; margin-right: 4px; }
+            .guion-section .num-badge { width: 18px; height: 18px; font-size: 7.5pt; background: #000 !important; color: #fff !important;
+                -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .subtitulo { font-size: 8pt; margin: 5px 0 2px; color: #000 !important; break-after: avoid; }
+            .item-accion { font-size: 8.8pt; margin-bottom: 2px; gap: 5px; color: #000 !important; }
+            .item-accion .tag { font-size: 6.5pt; padding: 0 4px; margin-top: 1px; background: none !important; border: 1px solid #555; color: #000 !important; }
+            .item-dialogo, .item-usuario { font-size: 8.8pt; padding: 1px 0 1px 7px; margin: 0 0 2px; background: none !important;
+                border-left: 2px solid #666 !important; color: #222 !important; border-radius: 0; }
+            .item-usuario { margin-left: 12px; }
+            .item-nota { font-size: 8.3pt; padding: 2px 6px; margin: 3px 0; background: none !important; border: 1px dashed #888 !important; color: #222 !important; }
+            .item-lista { font-size: 8.5pt; margin: 1px 0 4px 16px; columns: 2; column-gap: 18px; color: #000 !important; }
+            .item-lista li { margin-bottom: 1px; break-inside: avoid; }
+            .mini-checklist { columns: 2; column-gap: 18px; }
+            #checklist-card { columns: 3; column-gap: 14px; }
+            #checklist-card > h2 { column-span: all; }
+            .mini-checklist { margin: 1px 0 4px; }
+            .checklist-item, .mini-checklist .checklist-item { padding: 1px 0 !important; gap: 5px; font-size: 8.5pt !important; border: none !important; break-inside: avoid; }
+            .checklist-item input[type="checkbox"] { width: 10px; height: 10px; margin-top: 2px; }
+            .checklist-item label, .checklist-item.checked label { color: #000 !important; text-decoration: none; opacity: 1; }
             .guion-marca-print {
                 display: block !important; position: fixed; inset: 0; z-index: 9999; pointer-events: none;
                 background-repeat: repeat; background-size: 460px 300px; opacity: 0.16;
@@ -290,7 +325,7 @@
             <div class="guion-section" id="seccion-${s.num}">
                 <h3><span class="num-badge">${s.num}</span> ${escapeHtml(s.titulo)}</h3>
                 ${s.items.map(renderItem).join('')}
-                ${s.checkpoint ? renderVideoEjemplo(s) + checkboxRow(`checkpoint-${s.num}`, '🎬 Video de esta sección grabado', 'section-checkpoint') : ''}
+                ${s.checkpoint ? renderVideoEjemplo(s) + checkboxRow(`checkpoint-${s.num}`, '🎬 Video de esta sección grabado', 'section-checkpoint') : (s.videoId ? renderVideoEjemplo(s) : '')}
             </div>
         `).join('');
 

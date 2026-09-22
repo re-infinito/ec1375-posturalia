@@ -161,6 +161,7 @@
   function mostrarFin(icono, titulo, texto, botones) {
     $('finBox').innerHTML = '<div class="bib-fin-ic" aria-hidden="true">' + icono + '</div><h2 id="finTit">' + esc(titulo) + '</h2>' +
       '<p>' + texto + '</p><div class="bib-acciones">' + botones.map(btnHtml).join('') + '</div>';
+    if (document.body.classList.contains('pres')) V.presentacion(false);
     abreModal('fin');
   }
   accion('cerrarFin', function () { cierraModal('fin'); });
@@ -214,6 +215,8 @@
       nextB.disabled = !!b.disabled;
       nextB.classList.toggle('fin', !!b.fin);
     }
+    document.body.toggleAttribute('data-pres-sin-ant', !NAV.prev || !!NAV.prev.disabled);
+    document.body.toggleAttribute('data-pres-sin-sig', !b || !!b.disabled);
   }
   prevB.onclick = function () { if (NAV.prev && NAV.prev.fn) NAV.prev.fn(); };
   nextB.onclick = function () { if (NAV.btn && NAV.btn.fn && !NAV.btn.disabled) NAV.btn.fn(); };
@@ -231,7 +234,18 @@
   $('ayudaOk').onclick = function () { cierraModal('ayuda'); try { localStorage.setItem('ec1375-biblioteca-guia', '1'); } catch (e) { /* sin storage */ } };
   $('ayuda').addEventListener('click', function (ev) { if (ev.target === $('ayuda')) $('ayudaOk').onclick(); });
   $('fin').addEventListener('click', function (ev) { if (ev.target === $('fin')) cierraModal('fin'); });
-  $('btn-pres').onclick = function () { V.presentacion(!document.body.classList.contains('pres')); };
+  /* Botones propios de la presentación (en el celular no hay teclado ni mouse):
+     mismas acciones que la barra inferior; la última ("Terminé…") sale antes
+     de la presentación para que se vea la ventana de "¡…completo!". */
+  var PRES_NAV = {
+    anterior: function () { if (NAV.prev && NAV.prev.fn && !NAV.prev.disabled) NAV.prev.fn(); },
+    siguiente: function () {
+      if (!NAV.btn || !NAV.btn.fn || NAV.btn.disabled) return;
+      if (NAV.btn.fin) V.presentacion(false);
+      NAV.btn.fn();
+    }
+  };
+  $('btn-pres').onclick = function () { V.presentacion(!document.body.classList.contains('pres'), PRES_NAV); };
   notesBtn.onclick = function () { notesBox.classList.toggle('show'); };
   V.enlazarBotonTema($('btn-theme'), $('theme-lbl'));
 

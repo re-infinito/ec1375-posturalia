@@ -231,10 +231,51 @@
         });
     }
 
-    function presentacion(on) {
+    /* Presentación (22 sep: también en celular). En el celular no hay mouse
+       para descubrir la barra de navegación ni tecla Esc, así que se agregan
+       botones propios siempre visibles: Salir, Anterior y Siguiente
+       (`opts.anterior` / `opts.siguiente`, que da la página). Se intenta
+       pantalla completa y girar a horizontal (Android); si el teléfono sigue
+       vertical (iPhone no deja bloquear el giro), el CSS rota la diapositiva
+       90° para que se lea de lado. Salir de pantalla completa con el gesto de
+       "atrás" también sale de la presentación. */
+    var presOpts = {}, presUi = null, presPantalla = false;
+    function presBoton(cls, etiqueta, svg, fn) {
+        var b = document.createElement('button');
+        b.type = 'button'; b.className = cls; b.setAttribute('aria-label', etiqueta); b.title = etiqueta;
+        b.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="' + svg + '"/></svg>' +
+            (cls.indexOf('pres-salir') >= 0 ? '<span>Salir</span>' : '');
+        b.addEventListener('click', function (e) { e.stopPropagation(); fn(); });
+        return b;
+    }
+    function creaPresUi() {
+        if (presUi) return presUi;
+        presUi = document.createElement('div');
+        presUi.className = 'pres-ui';
+        presUi.appendChild(presBoton('pres-salir', 'Salir de la presentación', 'M6 6l12 12M18 6L6 18', function () { presentacion(false); }));
+        presUi.appendChild(presBoton('pres-flecha pres-ant', 'Pantalla anterior', 'M15 5l-7 7 7 7', function () { if (presOpts.anterior) presOpts.anterior(); }));
+        presUi.appendChild(presBoton('pres-flecha pres-sig', 'Pantalla siguiente', 'M9 5l7 7-7 7', function () { if (presOpts.siguiente) presOpts.siguiente(); }));
+        document.body.appendChild(presUi);
+        document.addEventListener('fullscreenchange', function () {
+            if (document.fullscreenElement) { presPantalla = true; return; }
+            if (presPantalla && document.body.classList.contains('pres')) { presPantalla = false; presentacion(false); }
+            presPantalla = false;
+        });
+        return presUi;
+    }
+    function presentacion(on, opts) {
+        if (opts) presOpts = opts;
+        if (on) creaPresUi();
         document.body.classList.toggle('pres', on);
-        if (on && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(function () {});
-        else if (!on && document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(function () {});
+        var so = window.screen && screen.orientation;
+        if (on && document.documentElement.requestFullscreen) {
+            document.documentElement.requestFullscreen().then(function () {
+                if (so && so.lock) so.lock('landscape').catch(function () {});
+            }).catch(function () {});
+        } else if (!on) {
+            if (so && so.unlock) try { so.unlock(); } catch (e) {}
+            if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(function () {});
+        }
     }
 
     /* Tema: misma llave 'paideia-theme' que crm-shell.js. Sin data-theme la

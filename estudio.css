@@ -130,7 +130,7 @@ details.bib-como .bib-instr{margin-top:6px}
 .bib .sm{display:none}
 @media (max-width:760px){
   .bib .sm{display:inline}.bib .lg{display:none}
-  .bib .counter,.bib #btn-pres{display:none}
+  .bib .counter{display:none}
   .bib .topbar{gap:8px}
   .bib[data-repaso] .frame{display:none}
   .bib-guia{padding:11px 12px;gap:8px}
