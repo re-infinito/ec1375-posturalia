@@ -1,0 +1,59 @@
+# .vercelignore — qué NO se sube al deploy de sepconocer.paideiatech.com
+#
+# Por qué existe (2026-09-22): el proyecto despliega desde Git con
+# outputDirectory "./" y sin build, así que Vercel sirve por URL directa
+# CUALQUIER archivo trackeado en el repo. Auditoría con curl contra
+# producción: 5 documentos internos en la raíz y el árbol completo de
+# docs/ (31 archivos, incluidos scripts SQL con políticas RLS y las guías
+# de la pasarela de pago) se descargaban públicamente.
+#
+# REGLA AL AGREGAR ALGO A LA RAÍZ: revisar archivos Y directorios
+# (`for f in *` y `for d in */ .*/`) y confirmar 404 con curl DESPUÉS
+# del deploy, no antes.
+#
+# NO excluir: *.html, *.js, *.css, api/, assets/, lib/, icons/, Logos/
+# (lo usan index.html y quiz.html), tutoriales/ (enlazado desde
+# recursos.html), manifest.json, favicons, ni package.json /
+# package-lock.json — Vercel los necesita para instalar las
+# dependencias de las funciones de api/.
+
+# --- Memoria y documentación interna del proyecto ---
+/*.md
+/*.sh
+docs/
+tests/
+_internal_no_publicar/
+
+# --- Herramientas de agentes (skills, planes, brainstorms) ---
+.claude/
+.superpowers/
+.codex/
+.agents/
+
+# --- Contenido de evaluación: reactivos, autodiagnóstico, examen ---
+# Descargables darían el examen al candidato antes de presentarlo.
+*.rtf
+
+# --- Documentos de trabajo y expedientes personales ---
+/*.pdf
+/*.docx
+/*.doc
+/*.pages
+/*.xlsx
+/*.xls
+/*.pptx
+/*.ppt
+
+# --- Credenciales (redundante con .gitignore, a propósito) ---
+.env
+.env.*
+client_secret*.json
+token.json
+ec1375-paideaia-*.json
+
+# --- Salidas locales y pesados ---
+node_modules/
+brag-output/
+Videos EC1375 Diego Editados/
+*.log
+.DS_Store
