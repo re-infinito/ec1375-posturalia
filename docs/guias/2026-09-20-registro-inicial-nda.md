@@ -4,6 +4,8 @@
 **Página:** `registro.html`
 **Liga para compartir:** `https://sepconocer.paideiatech.com/registro.html`
 
+> ⚠️ **Antes de compartirla:** hay que correr `docs/sql/2026-09-20-registrar-candidato-inicial.sql` en el SQL Editor de Supabase. Sin eso, nadie nuevo puede registrarse (la fila del candidato choca con una política de seguridad de la base de datos). Es una sola función, se pega completa en una pestaña vacía y se le da Run.
+
 ---
 
 ## 1. Qué hace la liga
@@ -43,6 +45,7 @@ Abre en **modo claro** por default, como el resto de la plataforma, y funciona i
 | **Ya había firmado** antes | Se lo dice arriba, y puede volver a firmar si algo cambió (por ejemplo, su nombre legal). |
 | **Ya había avanzado** en el Autodiagnóstico | **No se borra nada.** El registro solo actualiza nombre, correo y el Acuerdo; sus respuestas, certificados, CURP y documentos siguen ahí. |
 | **Se le cae el internet** al guardar | Se lo dice claramente y le pide reintentar. Nunca le muestra "listo" si no se guardó. |
+| **Algo falla al guardar** | Además del mensaje, sale un renglón chiquito: *"Detalle para el equipo: `<código>`"*. **Pídele esa captura de pantalla.** Con ese código se diagnostica en minutos; sin él, no. |
 | **Recarga la página** a media firma | Su firma sigue ahí (borrador en el navegador, se borra al terminar). |
 
 ## 5. El NDA se firma **una sola vez**
@@ -102,6 +105,7 @@ La imagen de la firma dibujada está en `ndaSignatureDataUrl` (es un PNG en base
 | Qué | Dónde |
 |---|---|
 | La página | `registro.html` |
-| El guardado (alta + NDA) | `Auth.registrarCandidato()` y `Auth.construirRegistroInicial()` en `auth.js` |
+| El guardado (alta + NDA) | `Auth.registrarCandidato()` en `auth.js` → RPC `registrar_candidato_inicial()` |
+| El SQL que hay que correr | `docs/sql/2026-09-20-registrar-candidato-inicial.sql` |
 | Las pruebas | `tests/registro-inicial.test.js` (`node --test tests/*.test.js`) |
 | El diseño y el porqué | sección "Registro inicial (liga pública)" en `Claude.md` |
