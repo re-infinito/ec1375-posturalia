@@ -60,32 +60,93 @@
         .btn-small { padding: 4px 8px; font-size: 0.65rem; }
         .btn-full { width: 100%; }
 
-        table { width: 100%; border-collapse: collapse; font-size: 0.75rem; }
-        th { text-align: left; color: var(--primary-light); font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.2px; padding: 4px 3px; border-bottom: 1px solid var(--border); }
-        td { padding: 4px 3px; border-bottom: 1px solid var(--surface-2); vertical-align: middle; }
-        td input { width: 52px; padding: 4px 4px; background: var(--dark); border: 1px solid var(--border); border-radius: 4px; color: var(--text-bright); font-size: 0.7rem; }
-        td input[type="number"] { width: 48px; }
-        td input.cobrado { margin-top: 3px; border-color: rgba(0,255,136,0.35); color: var(--success); }
-        td input.cobrado.parcial { border-color: var(--accent); color: var(--accent); }
-        td input.cobrado:focus { border-color: var(--primary); }
-        td select { font-size: 0.7rem; padding: 4px 4px; }
-        .email-cell { color: var(--text-bright); font-weight: 600; white-space: nowrap; }
-        .total-cell { color: var(--accent); font-weight: 700; white-space: nowrap; }
-        .badges { display: flex; gap: 2px; flex-wrap: wrap; }
-        .badge { font-size: 0.6rem; padding: 2px 5px; border-radius: 4px; font-weight: 700; white-space: nowrap; border: none; cursor: pointer; font-family: inherit; }
-        .badge.on-mp { background: rgba(0,255,136,0.15); color: var(--success); }
-        .badge.on-manual { background: rgba(255,215,0,0.15); color: var(--accent); }
-        .badge.on-anticipo { background: rgba(0,136,255,0.18); color: var(--primary-light); }
-        .badge.off { background: var(--surface-2); color: var(--text); }
-        .badge:hover { filter: brightness(1.3); }
-        .badge:disabled { cursor: wait; opacity: 0.6; }
-        .row-status { font-size: 0.7rem; margin-left: 4px; }
+        /* ===== LISTA DE CANDIDATOS (rediseñada 22 sep) =====
+           Antes era una <table> de 11 columnas con scroll lateral: en
+           celular había que arrastrar de lado para ver una fila completa, y
+           en computadora tampoco cabía. Ahora es una rejilla que se adapta:
+
+           · Cada FASE es UNA sola celda con sus tres cosas juntas —
+             liberada (badge), precio y cobrado. Antes el precio vivía en una
+             columna y su badge en otra ("Fases pagadas") al otro extremo de
+             la fila: para saber si los $2,000 de Registro ya entraron había
+             que cruzar la pantalla con la vista. Eso eliminó 4 columnas.
+           · "Motivo" solo aparece cuando el estado lo pide (desistió /
+             cambio de lote). En un candidato activo era una columna vacía.
+           · En celular cada candidato es una TARJETA, no una fila. Cero
+             scroll horizontal en ningún ancho. */
+
+        .lista { display: flex; flex-direction: column; gap: 8px; }
+        .lista-head {
+            display: grid; gap: 8px; align-items: end; padding: 0 12px 6px;
+            grid-template-columns: var(--cols);
+            color: var(--primary-light); font-size: 0.6rem;
+            text-transform: uppercase; letter-spacing: 0.3px; font-weight: 700;
+            border-bottom: 1px solid var(--border);
+        }
+        .fila {
+            display: grid; gap: 8px; align-items: start;
+            grid-template-columns: var(--cols);
+            padding: 10px 12px; border-radius: 10px;
+            border: 1px solid var(--border); background: var(--surface-2);
+        }
+        /* El estado tiñe la fila, pero con transparencias sobre el fondo del
+           tema — no con hex oscuros fijos. Aquellos se veían como una banda
+           negra encima del tema claro y dejaban los correos ilegibles. */
+        .fila.e-activo       { background: color-mix(in srgb, var(--success) 9%, transparent); border-color: color-mix(in srgb, var(--success) 28%, transparent); }
+        .fila.e-desistio     { background: color-mix(in srgb, var(--danger)  9%, transparent); border-color: color-mix(in srgb, var(--danger)  28%, transparent); }
+        .fila.e-cambio_lote  { background: color-mix(in srgb, var(--accent)  10%, transparent); border-color: color-mix(in srgb, var(--accent) 30%, transparent); }
+        .fila.e-administrador{ background: color-mix(in srgb, var(--primary) 8%, transparent); border-color: color-mix(in srgb, var(--primary) 25%, transparent); }
+        .fila.destacada      { outline: 2px solid var(--primary); }
+
+        .cel-label { display: none; }          /* solo se usa en celular */
+        .fase-box .cel-label { display: none !important; }  /* el badge ya dice el nombre de la fase */
+        .nombre-cell { color: var(--text-bright); font-weight: 600; font-size: 0.82rem; min-width: 0; }
+        .nombre-cell .email-sub { font-size: 0.72rem; color: var(--text); font-weight: 400; margin-top: 2px; word-break: break-all; }
+        .nombre-cell input { width: 100%; margin-top: 4px; padding: 6px 8px; background: var(--dark); border: 1px solid var(--border); border-radius: 6px; color: var(--text-bright); font-size: 0.78rem; font-family: inherit; }
+
+        /* --- bloque de una fase: badge + precio + cobrado --- */
+        .fase-box { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+        .fase-box input { width: 100%; padding: 5px 6px; background: var(--dark); border: 1px solid var(--border); border-radius: 5px; color: var(--text-bright); font-size: 0.72rem; font-family: inherit; }
+        .fase-box input.cobrado { border-color: color-mix(in srgb, var(--success) 45%, transparent); color: var(--success); }
+        .fase-box input.cobrado.parcial { border-color: var(--accent); color: var(--accent); }
+        .fase-box input:focus { border-color: var(--primary); outline: none; }
+
+        .badge { font-size: 0.6rem; padding: 3px 5px; border-radius: 5px; font-weight: 700; border: 1px solid transparent; cursor: pointer; font-family: inherit; width: 100%; text-align: center; }
+        .badge.on-mp { background: color-mix(in srgb, var(--success) 16%, transparent); color: var(--success); border-color: color-mix(in srgb, var(--success) 35%, transparent); }
+        .badge.on-manual { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); border-color: color-mix(in srgb, var(--accent) 35%, transparent); }
+        .badge.on-anticipo { background: color-mix(in srgb, var(--primary) 16%, transparent); color: var(--primary); border-color: color-mix(in srgb, var(--primary) 35%, transparent); }
+        .badge.off { background: var(--surface-2); color: var(--text); border-color: var(--border); opacity: 0.75; }
+        .badge:hover { filter: brightness(1.15); }
+        .badge:disabled { cursor: wait; opacity: 0.5; }
+
+        .total-cell { color: var(--accent); font-weight: 700; font-size: 0.85rem; white-space: nowrap; }
+        .meta-cell { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+        .meta-cell select, .meta-cell input { width: 100%; padding: 5px 6px; background: var(--dark); border: 1px solid var(--border); border-radius: 5px; color: var(--text-bright); font-size: 0.72rem; font-family: inherit; }
+        .acciones-cell { display: flex; flex-direction: column; gap: 4px; }
+        .btn-borrar { background: transparent; border: 1px solid color-mix(in srgb, var(--danger) 45%, transparent); color: var(--danger); }
+        .btn-borrar:hover { background: color-mix(in srgb, var(--danger) 12%, transparent); }
+        .row-status { font-size: 0.68rem; text-align: center; }
         .row-status.ok { color: var(--success); }
         .row-status.err { color: var(--danger); }
-        .table-wrap { overflow-x: auto; width: 100%; }
-        table { font-size: 0.8rem; }
-        th { padding: 6px 4px; font-size: 0.65rem; }
-        td { padding: 6px 4px; }
+        .aviso-fila { color: var(--accent); font-weight: 400; font-size: 0.68rem; margin-top: 4px; }
+
+        /* --- celular: cada candidato es una tarjeta --- */
+        @media (max-width: 860px) {
+            .lista-head { display: none; }
+            .fila { grid-template-columns: 1fr 1fr; padding: 12px; gap: 10px; }
+            .fila > .nombre-cell,
+            .fila > .acciones-cell { grid-column: 1 / -1; }
+            .acciones-cell { flex-direction: row; align-items: center; gap: 8px; }
+            .acciones-cell .btn { flex: 1; }
+            .cel-label { display: block; font-size: 0.58rem; text-transform: uppercase; letter-spacing: 0.3px; color: var(--primary-light); font-weight: 700; margin-bottom: 2px; }
+        }
+        @media (max-width: 360px) {
+            .fila { grid-template-columns: 1fr; }
+        }
+
+        .filtros { display: grid; grid-template-columns: 2fr 1fr 1fr 1.4fr; gap: 8px; margin-bottom: 12px; }
+        .filtros input, .filtros select { padding: 8px; background: var(--dark); border: 1px solid var(--border); border-radius: 6px; color: var(--text-bright); font-size: 0.78rem; font-family: inherit; width: 100%; }
+        @media (max-width: 700px) { .filtros { grid-template-columns: 1fr 1fr; } }
 
         .add-form { display: grid; grid-template-columns: 1.6fr 1.6fr repeat(4, 1fr) auto; gap: 8px; align-items: end; }
         @media (max-width: 800px) { .add-form { grid-template-columns: 1fr 1fr; } }
@@ -117,18 +178,29 @@
     <script>
     const FASES = ['registro', 'alineacion', 'evaluacion', 'entrega'];
     const FASE_LABEL = { registro: 'Registro', alineacion: 'Alineación', evaluacion: 'Evaluación', entrega: 'Entrega' };
-    const ESTADO_COLOR = { activo: '#1a4d2e', desistió: '#5a1a1a', cambio_lote: '#4a3a0a', administrador: '#2a2a4a' }; // RGB más oscuro para fondo
+    /* El color de estado ya no se inyecta como hex: lo pone la clase
+       .fila.e-<estado>, con transparencias sobre el fondo del tema. Los hex
+       oscuros de antes (#1a4d2e y compañía) se veían como una banda negra
+       encima del tema claro y dejaban los correos casi ilegibles. */
 
     /* Mismo valor que AdminData.ORIGEN_ANTICIPO y que el RPC
        autorizar_registro_inicial() (docs/sql/2026-09-20-...): fase abierta por
        la liga de registro, con un anticipo cuyo monto nadie ha capturado. */
     const ORIGEN_ANTICIPO = 'registro-50';
+    /* Anchos de la rejilla: candidato · 4 fases · total · estado/lote · acciones.
+       Las fases van en minmax(0,1fr) para que se encojan en vez de desbordar
+       — con `1fr` a secas el contenido marca un mínimo y reaparece el scroll
+       horizontal que esto vino a quitar. */
+    const COLS = 'minmax(0,1.7fr) repeat(4, minmax(0,1fr)) minmax(0,0.7fr) minmax(0,0.9fr) minmax(0,0.75fr)';
     let candidatos = []; // filas de candidatos_precio
     let cobradoPorEmail = {}; // cobradoPorEmail[email][fase] = acumulado cobrado (o null)
     let pagosPorEmail = {}; // { email: Set(fases autorizadas) }
     let nombresAutoPorEmail = {}; // { email: nombre } — real, cruzado desde candidatos_ec1375 (ya hizo su Autodiagnóstico)
     let filtroEstado = ''; // '' = todos, 'activo', 'desistió', 'cambio_lote'
     let filtroBusqueda = ''; // búsqueda por email/nombre
+    let filtroLote = '';     // '' = todos, o el número de lote
+    let filtroPendiente = ''; // '' = todos | 'sin_cobrado' | 'sin_precio' | 'sin_liberar'
+    let destacado = '';      // correo a resaltar (llega de ?alta=)
 
     function escapeHtml(str) {
         if (!str) return '';
@@ -137,23 +209,74 @@
         return div.innerHTML;
     }
 
-    function aplicarFiltros(filas) {
+    /* FUNCIÓN PURA (sin DOM ni red): recibe el estado de los filtros y
+       devuelve las filas que pasan. Vive aparte para poder probarla —
+       tests/admin-precios-filtros.test.js. `ctx` trae los índices que ya
+       arma cargarDatos(): nombres cruzados, fases liberadas y cobrados. */
+    function filtrar(filas, f, ctx) {
+        const nombres = (ctx && ctx.nombres) || {};
+        const pagos = (ctx && ctx.pagos) || {};
+        const cobrado = (ctx && ctx.cobrado) || {};
         return filas.filter(c => {
-            const estado = c.estado || 'activo';
-            const nombre = (nombresAutoPorEmail[c.email] || c.nombre || c.email).toLowerCase();
             const email = (c.email || '').toLowerCase();
+            const estado = c.estado || 'activo';
 
-            // Filtro de estado
-            if (filtroEstado && estado !== filtroEstado) return false;
+            if (f.estado && estado !== f.estado) return false;
+            if (f.lote && String(c.lote || 1) !== String(f.lote)) return false;
 
-            // Filtro de búsqueda
-            if (filtroBusqueda) {
-                const busqueda = filtroBusqueda.toLowerCase();
-                if (!nombre.includes(busqueda) && !email.includes(busqueda)) return false;
+            if (f.busqueda) {
+                const q = String(f.busqueda).toLowerCase();
+                const nombre = (nombres[c.email] || c.nombre || c.email || '').toLowerCase();
+                if (!nombre.includes(q) && !email.includes(q)) return false;
             }
 
+            if (f.pendiente) {
+                const fases = pagos[c.email] || {};
+                const cob = cobrado[c.email] || {};
+                const liberadas = FASES.filter(fa => !!fases[fa]);
+                if (f.pendiente === 'sin_precio') {
+                    /* Nadie le ha capturado precio: o no tiene fila en
+                       candidatos_precio, o la tiene con todo en cero. */
+                    if (!c._sinPrecio && FASES.some(fa => Number(c['monto_' + fa]) > 0)) return false;
+                } else if (f.pendiente === 'sin_cobrado') {
+                    /* Tiene fases liberadas cuyo monto real nadie capturó. */
+                    if (!liberadas.some(fa => cob[fa] === null || cob[fa] === undefined)) return false;
+                } else if (f.pendiente === 'sin_liberar') {
+                    if (liberadas.length > 0) return false;
+                }
+            }
             return true;
         });
+    }
+
+    function aplicarFiltros(filas) {
+        return filtrar(filas,
+            { estado: filtroEstado, busqueda: filtroBusqueda, lote: filtroLote, pendiente: filtroPendiente },
+            { nombres: nombresAutoPorEmail, pagos: pagosPorEmail, cobrado: cobradoPorEmail });
+    }
+
+    /* Cuánto entró DE VERDAD de un candidato. Misma regla que
+       AdminData.montoCobrado() — si las dos difieren, este panel y los KPIs
+       dirían números distintos del mismo dinero, y no habría forma de saber
+       cuál creer:
+         · hay cifra capturada  → esa (es el dato duro);
+         · fase abierta por la liga sin capturar → 0, no el precio de lista
+           (sabemos que dejaron un anticipo, no cuánto);
+         · liberada a mano o por Mercado Pago sin capturar → precio de lista.
+           Si el equipo la liberó, es porque cobró esa fase.
+       El caso a vigilar es 'registro' liberada a mano: son dos abonos de
+       50%, así que ahí el precio de lista puede ser el doble de lo que
+       entró. Para eso está el campo "cobrado". */
+    function montoCobradoLocal(c) {
+        const fases = pagosPorEmail[c.email] || {};
+        const cob = cobradoPorEmail[c.email] || {};
+        return FASES.reduce((total, f) => {
+            if (!fases[f]) return total;
+            const real = cob[f];
+            if (typeof real === 'number' && isFinite(real) && real >= 0) return total + real;
+            if (fases[f] === ORIGEN_ANTICIPO) return total;
+            return total + (Number(c[`monto_${f}`]) || 0);
+        }, 0);
     }
 
     function calcularEstadisticas(filas) {
@@ -168,12 +291,7 @@
             const proyectado = activos.reduce((sum, c) => sum + (c.total_acordado || 0), 0);
             // Realizado: dinero YA cobrado, sin importar si después desistió o
             // cambió de lote — si pagó, ese ingreso ya ocurrió y cuenta.
-            const realizado = visibles.reduce((sum, c) => {
-                const pagos = pagosPorEmail[c.email] || {};
-                let total = 0;
-                FASES.forEach(f => { if (pagos[f]) total += (c[`monto_${f}`] || 0); });
-                return sum + total;
-            }, 0);
+            const realizado = visibles.reduce((sum, c) => sum + montoCobradoLocal(c), 0);
             return {
                 activos: activos.length, desistieron: desistieron.length, cambioLote: cambioLote.length,
                 administrador: administrador.length, proyectado, realizado
@@ -294,6 +412,75 @@
         }
     }
 
+    /* ---------- Borrar ----------
+       Tres tablas distintas guardan pedazos de una persona, y RLS puede
+       dejar borrar en unas y no en otras. Por eso cada delete lleva
+       .select(): PostgREST devuelve las filas que DE VERDAD se borraron, y
+       si una política lo impide el resultado llega vacío SIN error — sin
+       esto el panel diría "borrado" y al recargar la persona seguiría ahí.
+
+       La cuenta de Supabase Auth NO se puede borrar desde el navegador
+       (hace falta la service_role). Se dice, no se esconde: si no, el
+       correo quedaría "ocupado" y nadie entendería por qué. */
+    async function borrarCandidato(email) {
+        const nombre = nombresAutoPorEmail[email] || email;
+        const tienePrecio = candidatos.some(c => c.email === email);
+        const fases = Object.keys(pagosPorEmail[email] || {});
+        const detalle = [
+            tienePrecio ? '· sus precios, lote y estado (Precios y pagos)' : null,
+            fases.length ? `· sus ${fases.length} fase(s) liberada(s) — PIERDE EL ACCESO al contenido` : null,
+            '· su avance del flujo (Autodiagnóstico, documentos, evidencias)'
+        ].filter(Boolean).join('\n');
+        if (!confirm(`¿Borrar a ${nombre}?\n\n${detalle}\n\nEsto NO se puede deshacer.`)) return;
+        if (!confirm(`Confirma otra vez: se borra TODO el expediente de ${email}.`)) return;
+
+        const hecho = [];
+        const fallo = [];
+        try {
+            if (tienePrecio) {
+                const { data, error } = await supabaseClient.from('candidatos_precio')
+                    .delete().eq('email', email).select();
+                if (error) throw error;
+                (data && data.length) ? hecho.push('precios') : fallo.push('candidatos_precio');
+            }
+            if (fases.length) {
+                const { data, error } = await supabaseClient.from('candidatos_fase_pagos')
+                    .delete().eq('email', email).select();
+                if (error) throw error;
+                (data && data.length) ? hecho.push('fases liberadas') : fallo.push('candidatos_fase_pagos');
+            }
+            /* El avance vive en candidatos_ec1375, que no tiene columna de
+               correo: se localiza por user_id vía el RPC de admin. Si ese
+               RPC no existe, se avisa en vez de dar por hecho el borrado. */
+            const { data: borradoFlujo, error: errFlujo } =
+                await supabaseClient.rpc('admin_borrar_candidato', { correo: email });
+            if (errFlujo) fallo.push('avance del flujo (falta el RPC admin_borrar_candidato)');
+            else if (borradoFlujo) hecho.push('avance del flujo');
+
+            await cargarDatos();
+            renderPanel();
+            if (fallo.length) {
+                alert(`Se borró: ${hecho.join(', ') || 'nada'}.\n\nNO se pudo borrar: ${fallo.join(', ')}.\nFalta el permiso o la función en Supabase (ver docs/sql/2026-09-22-borrar-candidato.sql).`);
+            } else {
+                alert(`Listo: ${nombre} quedó borrado.\n\nSu cuenta de acceso (correo y contraseña) sigue existiendo en Supabase → Authentication → Users; bórrala ahí si quieres liberar el correo.`);
+            }
+        } catch (e) {
+            console.error(e);
+            alert('No se pudo borrar: ' + (e.message || e) + '\n\nNo se borró nada a medias que el panel no te esté mostrando: recarga para ver el estado real.');
+        }
+    }
+
+    /* El campo "Motivo" solo aparece donde significa algo (desistió /
+       cambio de lote). Se enseña y se esconde EN EL SITIO, sin re-pintar el
+       panel: un re-pintado completo borraría lo que otras filas tengan
+       tecleado y todavía sin guardar. */
+    function mostrarMotivoSiHaceFalta(prefix, selectEl) {
+        const motivo = document.getElementById(prefix + '_motivo');
+        if (!motivo) return;
+        const v = selectEl.value;
+        motivo.hidden = !(v === 'desistió' || v === 'cambio_lote');
+    }
+
     function calcularTotal(prefix) {
         let total = 0;
         FASES.forEach(fase => {
@@ -371,72 +558,70 @@
         const filasOriginales = candidatos.concat(emailsConPagoSinPrecio.map(email => ({ email, _sinPrecio: true })));
         const filas = aplicarFiltros(filasOriginales);
         const stats = calcularEstadisticas(filasOriginales);
+        const lotesDisponibles = [...new Set(filasOriginales.map(c => c.lote || 1))].sort((a, b) => a - b);
         const rowsHtml = filas.map(c => {
             const prefix = `row_${btoa(c.email).replace(/=/g, '')}`;
             const fasesOrigen = pagosPorEmail[c.email] || {};
-            const badges = FASES.map(fase => {
+            /* Cada fase es UN bloque: si está liberada (y por quién), cuánto
+               se acordó y cuánto entró de verdad. Antes el precio y su badge
+               vivían en columnas opuestas de la fila. */
+            const faseBoxes = FASES.map(fase => {
                 const origen = fasesOrigen[fase];
                 const anticipo = origen === ORIGEN_ANTICIPO;
                 const cls = origen === 'mercadopago' ? 'on-mp' : anticipo ? 'on-anticipo' : (origen ? 'on-manual' : 'off');
-                const marca = origen === 'mercadopago' ? ' 💳' : anticipo ? ' 🪪' : (origen ? ' ✋' : '');
+                const marca = origen === 'mercadopago' ? '💳' : anticipo ? '🪪' : (origen ? '✋' : '—');
                 const title = origen === 'mercadopago' ? 'Pagada por Mercado Pago — clic para revocar'
-                    : anticipo ? 'Abierta sola al registrarse (anticipo del 50%) — falta capturar el monto real; clic para revocar'
+                    : anticipo ? 'Abierta sola al registrarse (anticipo) — falta capturar el monto real; clic para revocar'
                     : origen ? 'Liberada a mano — clic para revocar'
                     : 'No liberada — clic para liberar manualmente';
-                return `<button type="button" class="badge ${cls}" title="${title}" onclick="toggleFase('${c.email}','${fase}',this)">${FASE_LABEL[fase]}${marca}</button>`;
-            }).join('');
-            /* Debajo del PRECIO de cada fase liberada va lo COBRADO de verdad.
-               El registro se paga en dos abonos de 50% (uno en cada
-               intervención) y la fase se libera con el primero, así que sin
-               este campo no hay forma de decirle al sistema que entraron
-               $1,000 de $2,000 — y los ingresos se calcularían con el precio
-               de lista, que es el error que se corrigió el 20 sep. */
-            const montoInputs = FASES.map(fase => {
-                const liberada = !!fasesOrigen[fase];
+                const liberada = !!origen;
                 const cobrado = (cobradoPorEmail[c.email] || {})[fase];
                 const precio = Number(c[`monto_${fase}`]) || 0;
                 const falta = liberada && typeof cobrado === 'number' && cobrado < precio;
-                return `<td>
-                    <input type="number" id="${prefix}_${fase}" value="${c[`monto_${fase}`] ?? ''}" oninput="calcularTotal('${prefix}')" title="Precio acordado de ${FASE_LABEL[fase]}">
+                return `<div class="fase-box">
+                    <div class="cel-label">${FASE_LABEL[fase]}</div>
+                    <button type="button" class="badge ${cls}" title="${title}" onclick="toggleFase('${c.email}','${fase}',this)">${marca} ${FASE_LABEL[fase]}</button>
+                    <input type="number" id="${prefix}_${fase}" value="${c[`monto_${fase}`] ?? ''}" placeholder="precio" oninput="calcularTotal('${prefix}')" title="Precio acordado de ${FASE_LABEL[fase]}">
                     ${liberada ? `<input type="number" class="cobrado${falta ? ' parcial' : ''}" value="${cobrado ?? ''}" placeholder="cobrado"
                         title="Cuánto se lleva COBRADO de ${FASE_LABEL[fase]} (acumulado). Vacío = nadie lo ha capturado y se cuenta el precio de lista."
                         onchange="guardarCobrado('${c.email}','${fase}',this)">` : ''}
-                </td>`;
+                </div>`;
             }).join('');
             const nombreAuto = nombresAutoPorEmail[c.email];
             const nombreCell = nombreAuto
-                ? `<div class="nombre-cell">${escapeHtml(nombreAuto)}<div class="email-sub">${escapeHtml(c.email)}</div></div>`
+                ? `<div class="nombre-cell">${escapeHtml(nombreAuto)}<div class="email-sub">${escapeHtml(c.email)}</div>`
                 : `<div class="nombre-cell"><div class="email-sub" style="margin-top:0;">${escapeHtml(c.email)}</div>
-                     <input type="text" id="${prefix}_nombre" placeholder="Nombre (aún sin Autodiagnóstico)" value="${escapeHtml(c.nombre || '')}"></div>`;
+                     <input type="text" id="${prefix}_nombre" placeholder="Nombre (aún sin Autodiagnóstico)" value="${escapeHtml(c.nombre || '')}">`;
             const estadoActual = c.estado || 'activo';
             const loteActual = c.lote || 1;
             const motivoActual = c.motivo_cambio || '';
-            const bgColor = ESTADO_COLOR[estadoActual] || ESTADO_COLOR.activo;
+            /* "Motivo" solo donde significa algo: en un activo era una
+               columna vacía ocupando ancho en las 26 filas. */
+            const pideMotivo = estadoActual === 'desistió' || estadoActual === 'cambio_lote';
+            const claseEstado = 'e-' + estadoActual.replace('ó', 'o');
+            const resaltar = destacado && c.email.toLowerCase() === destacado ? ' destacada' : '';
             return `
-                <tr style="background-color:${bgColor}">
-                    <td>${nombreCell}${c._sinPrecio ? '<div style="color:var(--accent);font-weight:400;font-size:0.68rem;margin-top:4px;">Sin precio capturado — guarda montos para agregarlo a Precios</div>' : ''}</td>
-                    ${montoInputs}
-                    <td class="total-cell" id="${prefix}_total">$${Number(c.total_acordado || 0).toLocaleString('es-MX')}</td>
-                    <td><div class="badges">${badges}</div></td>
-                    <td>
-                        <select id="${prefix}_estado" style="width:70px;padding:4px 3px;background:var(--dark);border:1px solid var(--border);border-radius:4px;color:var(--text-bright);font-size:0.7rem;">
+                <div class="fila ${claseEstado}${resaltar}">
+                    ${nombreCell}${c._sinPrecio ? '<div class="aviso-fila">Sin precio capturado — escribe sus montos y Guardar para darlo de alta</div>' : ''}</div>
+                    ${faseBoxes}
+                    <div><div class="cel-label">Total</div><span class="total-cell" id="${prefix}_total">$${Number(c.total_acordado || 0).toLocaleString('es-MX')}</span></div>
+                    <div class="meta-cell">
+                        <div class="cel-label">Estado y lote</div>
+                        <select id="${prefix}_estado" onchange="mostrarMotivoSiHaceFalta('${prefix}', this)">
                             <option value="activo" ${estadoActual === 'activo' ? 'selected' : ''}>Activo</option>
                             <option value="desistió" ${estadoActual === 'desistió' ? 'selected' : ''}>Desistió</option>
-                            <option value="cambio_lote" ${estadoActual === 'cambio_lote' ? 'selected' : ''}>Cambio</option>
-                            <option value="administrador" ${estadoActual === 'administrador' ? 'selected' : ''}>Admin</option>
+                            <option value="cambio_lote" ${estadoActual === 'cambio_lote' ? 'selected' : ''}>Cambio de lote</option>
+                            <option value="administrador" ${estadoActual === 'administrador' ? 'selected' : ''}>Administrador</option>
                         </select>
-                    </td>
-                    <td>
-                        <input type="number" id="${prefix}_lote" min="1" max="10" value="${loteActual}" style="width:40px;padding:4px 3px;background:var(--dark);border:1px solid var(--border);border-radius:4px;color:var(--text-bright);font-size:0.7rem;">
-                    </td>
-                    <td>
-                        <input type="text" id="${prefix}_motivo" placeholder="Motivo" value="${escapeHtml(motivoActual)}" style="width:65px;padding:4px 3px;background:var(--dark);border:1px solid var(--border);border-radius:4px;color:var(--text-bright);font-size:0.7rem;">
-                    </td>
-                    <td>
+                        <input type="number" id="${prefix}_lote" min="1" max="10" value="${loteActual}" title="Lote">
+                        <input type="text" id="${prefix}_motivo" placeholder="Motivo del cambio" value="${escapeHtml(motivoActual)}" ${pideMotivo ? '' : 'hidden'}>
+                    </div>
+                    <div class="acciones-cell">
                         <button class="btn btn-primary btn-small" onclick="guardarFila('${c.email}')">Guardar</button>
+                        <button class="btn btn-small btn-borrar" onclick="borrarCandidato('${c.email}')" title="Borrar a esta persona y todo su expediente">Borrar</button>
                         <span class="row-status" id="${prefix}_status"></span>
-                    </td>
-                </tr>`;
+                    </div>
+                </div>`;
         }).join('');
 
         const addFormFields = FASES.map(fase => `
@@ -475,19 +660,38 @@
                 </div>
             </div>
             <div class="card">
-                <h2>💰 Candidatos (${filas.length})</h2>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
-                    <input type="text" id="filtroBusqueda" placeholder="🔍 Buscar nombre/email..." style="padding:7px;background:var(--dark);border:1px solid var(--border);border-radius:6px;color:var(--text-bright);font-size:0.75rem;" oninput="filtroBusqueda = this.value.toLowerCase(); renderPanel()">
-                    <select id="filtroEstado" style="padding:7px;background:var(--dark);border:1px solid var(--border);border-radius:6px;color:var(--text-bright);font-size:0.75rem;" onchange="filtroEstado = this.value; renderPanel()"><option value="">🎯 Todos</option><option value="activo">✅ Activo</option><option value="desistió">❌ Desistió</option><option value="cambio_lote">🔄 Cambio lote</option><option value="administrador">👤 Administrador</option></select>
+                <h2>💰 Candidatos (${filas.length}${filas.length !== filasOriginales.length ? ` de ${filasOriginales.length}` : ''})</h2>
+                <div class="filtros">
+                    <input type="text" id="filtroBusqueda" placeholder="🔍 Buscar nombre o correo..." value="${escapeHtml(filtroBusqueda)}"
+                           oninput="filtroBusqueda = this.value; renderPanel(); const i = document.getElementById('filtroBusqueda'); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); }">
+                    <select id="filtroEstado" onchange="filtroEstado = this.value; renderPanel()">
+                        <option value="">Todos los estados</option>
+                        <option value="activo" ${filtroEstado === 'activo' ? 'selected' : ''}>Activo</option>
+                        <option value="desistió" ${filtroEstado === 'desistió' ? 'selected' : ''}>Desistió</option>
+                        <option value="cambio_lote" ${filtroEstado === 'cambio_lote' ? 'selected' : ''}>Cambio de lote</option>
+                        <option value="administrador" ${filtroEstado === 'administrador' ? 'selected' : ''}>Administrador</option>
+                    </select>
+                    <select id="filtroLote" onchange="filtroLote = this.value; renderPanel()">
+                        <option value="">Todos los lotes</option>
+                        ${lotesDisponibles.map(l => `<option value="${l}" ${String(filtroLote) === String(l) ? 'selected' : ''}>Lote ${l}</option>`).join('')}
+                    </select>
+                    <select id="filtroPendiente" onchange="filtroPendiente = this.value; renderPanel()">
+                        <option value="">Sin filtro de pendientes</option>
+                        <option value="sin_cobrado" ${filtroPendiente === 'sin_cobrado' ? 'selected' : ''}>Falta capturar lo cobrado</option>
+                        <option value="sin_precio" ${filtroPendiente === 'sin_precio' ? 'selected' : ''}>Sin precio capturado</option>
+                        <option value="sin_liberar" ${filtroPendiente === 'sin_liberar' ? 'selected' : ''}>Sin ninguna fase liberada</option>
+                    </select>
                 </div>
 
-                <p style="font-size:0.78rem;color:var(--text);margin-bottom:14px;">💳 = pagada por Mercado Pago · ✋ = liberada a mano · 🪪 = abierta sola al registrarse · clic en una fase para liberarla o revocarla · el nombre se llena solo en cuanto el candidato hace su Autodiagnóstico<br>
-                    <strong>Debajo del precio de cada fase liberada</strong> se captura lo <strong>cobrado</strong> (acumulado): el registro se paga en dos abonos de 50%, así que tras la primera intervención va <strong>1000</strong> y tras la segunda <strong>2000</strong>. De ahí salen los ingresos reales — en <span style="color:var(--accent);">ámbar</span> mientras falte por cobrar, en <span style="color:var(--success);">verde</span> cuando ya está completo.</p>
-                <div class="table-wrap">
-                    <table>
-                        <thead><tr><th>Nombre / Correo</th>${FASES.map(f => `<th>${FASE_LABEL[f]}</th>`).join('')}<th>Total</th><th>Fases pagadas</th><th>Estado</th><th>Lote</th><th>Motivo</th><th></th></tr></thead>
-                        <tbody>${rowsHtml || '<tr><td colspan="12" style="text-align:center;color:var(--text);padding:20px;">Sin candidatos todavía.</td></tr>'}</tbody>
-                    </table>
+                <p style="font-size:0.75rem;color:var(--text);margin-bottom:14px;">
+                    En cada fase: <strong>💳</strong> pagada por Mercado Pago · <strong>✋</strong> liberada a mano · <strong>🪪</strong> abierta sola al registrarse · <strong>—</strong> no liberada. Clic en la fase para liberarla o revocarla.<br>
+                    Debajo va el <strong>precio</strong> y, si ya está liberada, lo <strong>cobrado</strong> de verdad (acumulado): el registro se paga en dos abonos de 50%, así que tras la primera intervención va <strong>1000</strong> y tras la segunda <strong>2000</strong>. En <span style="color:var(--accent);">ámbar</span> mientras falte, en <span style="color:var(--success);">verde</span> cuando esté completo.
+                </p>
+                <div class="lista" style="--cols: ${COLS};">
+                    <div class="lista-head" style="--cols: ${COLS};">
+                        <div>Candidato</div>${FASES.map(f => `<div>${FASE_LABEL[f]}</div>`).join('')}<div>Total</div><div>Estado / Lote</div><div></div>
+                    </div>
+                    ${rowsHtml || '<p style="text-align:center;color:var(--text);padding:20px;">Ningún candidato coincide con estos filtros.</p>'}
                 </div>
             </div>
         `;
@@ -516,6 +720,7 @@
         if (!form) return;
         if (candidatos.some(c => (c.email || '').toLowerCase() === email)) {
             filtroBusqueda = email;
+            destacado = email;
             renderPanel();
             const aviso = document.createElement('p');
             aviso.style.cssText = 'font-size:0.8rem;color:var(--success);margin-top:10px;';
