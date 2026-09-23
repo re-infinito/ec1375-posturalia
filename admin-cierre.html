@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="favicon.ico" sizes="any">
+    <link rel="icon" href="favicon-32x32.png" type="image/png" sizes="32x32">
+    <link rel="icon" href="favicon-16x16.png" type="image/png" sizes="16x16">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <title>Formatos de cierre - EC1375 Paideia Tech</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="auth.js"></script>
+    <script src="flow-status.js"></script>
+    <script src="crm-shell.js" data-crm-mode="admin" data-crm-page="admin-evaluacion"></script>
+    <script src="admin-data.js"></script>
+    <script src="evaluacion.js"></script>
+    <script src="cierre.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --dark: #050a1a; --dark-light: #0f1428; --primary: #0088FF; --primary-light: #00CCFF;
+            --accent: #FFD700; --text: #D0D0D0; --text-bright: #FFFFFF; --danger: #FF3333; --success: #00FF88;
+            --border: rgba(255,255,255,0.12); --surface-2: rgba(255,255,255,0.05);
+        }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--dark); color: var(--text); line-height: 1.6; min-height: 100vh; padding-bottom: 96px; }
+        .container { max-width: 980px; margin: 0 auto; padding: 20px; }
+        .container.narrow { max-width: 560px; }
+        .top-bar { position: sticky; top: 0; background: var(--dark); border-bottom: 1px solid var(--dark-light); padding: 16px 20px; z-index: 100; }
+        .top-bar-inner { font-size: 0.95rem; color: var(--text-bright); font-weight: 700; }
+        body.crm-active .top-bar { display: none; }
+        .hero { text-align: center; padding: 30px 0; }
+        .hero-icon { font-size: 3rem; margin-bottom: 14px; }
+        .hero-title { font-size: 1.6rem; font-weight: 700; color: var(--text-bright); margin-bottom: 10px; }
+        .card { background: var(--dark-light); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 18px; }
+        .msg { font-size: 0.88rem; margin-top: 12px; }
+        .msg.error { color: var(--danger); }
+        .msg.ok { color: var(--success); }
+        a { color: var(--primary); }
+
+        .btn { padding: 11px 18px; border-radius: 8px; font-weight: 700; font-size: 0.9rem; border: none; cursor: pointer;
+               text-align: center; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-family: inherit; min-height: 42px; }
+        .btn-primary { background: var(--primary); color: #fff; }
+        .btn-sec { background: transparent; border: 2px solid var(--primary); color: var(--primary); }
+        .btn-chip { padding: 5px 11px; min-height: 32px; font-size: 0.78rem; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border); color: var(--text); }
+        .btn-chip:hover { border-color: var(--primary); color: var(--text-bright); }
+        .btn:disabled { opacity: .5; cursor: not-allowed; }
+
+        .iec-head h1 { font-size: 1.3rem; color: var(--text-bright); }
+        .iec-head p { font-size: 0.88rem; }
+        .iec-cifras { display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); gap: 10px; margin-top: 14px; }
+        .cifra { background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+        .cifra span { display: block; font-size: 0.72rem; text-transform: uppercase; letter-spacing: .04em; }
+        .cifra strong { font-size: 1.25rem; color: var(--text-bright); }
+        .cifra.ok strong { color: var(--success); }
+        .cifra.mal strong { color: var(--danger); }
+
+        .elem { margin-bottom: 26px; }
+        .elem > h2 { font-size: 1.05rem; color: var(--text-bright); margin-bottom: 4px; }
+        .elem > p.sub { font-size: 0.82rem; margin-bottom: 12px; }
+        .grupo { border: 1px solid var(--border); border-radius: 12px; margin-bottom: 12px; overflow: hidden; background: var(--dark-light); }
+        .grupo > header { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; justify-content: space-between; padding: 12px 14px; background: var(--surface-2); }
+        .grupo > header .t { flex: 1 1 260px; min-width: 0; }
+        .grupo > header .t strong { display: block; color: var(--text-bright); font-size: 0.9rem; }
+        .grupo > header .t span { font-size: 0.75rem; }
+        .react { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: flex-start; padding: 12px 14px; border-top: 1px solid var(--border); }
+        .react .txt { flex: 1 1 300px; min-width: 0; font-size: 0.88rem; }
+        .react .txt code { font-size: 0.72rem; color: var(--accent); display: block; }
+        .react .txt .fuente { font-size: 0.74rem; color: var(--success); }
+        .react .sn { display: flex; gap: 6px; flex: 0 0 auto; }
+        .sn button { min-width: 54px; min-height: 40px; border-radius: 8px; border: 1px solid var(--border); background: var(--dark); color: var(--text); font-weight: 700; font-size: 0.82rem; cursor: pointer; font-family: inherit; }
+        .sn button[aria-pressed="true"].si { background: var(--success); border-color: var(--success); color: #04220f; }
+        .sn button[aria-pressed="true"].no { background: var(--danger); border-color: var(--danger); color: #fff; }
+        .react .obs { flex: 1 1 100%; }
+        .react .obs textarea { width: 100%; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--dark); color: var(--text-bright); font-family: inherit; font-size: 0.82rem; resize: vertical; min-height: 38px; }
+        .react.pend { border-left: 3px solid var(--accent); }
+        .peso { font-size: 0.72rem; opacity: .75; }
+
+        .barra { position: fixed; left: 0; right: 0; bottom: 0; background: var(--dark-light); border-top: 1px solid var(--border);
+                 padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px)); display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; justify-content: space-between; z-index: 120; }
+        body.crm-active .barra { left: 0; }
+        @media (min-width: 1024px) { body.crm-active .barra { left: 260px; } }
+        .barra .info { flex: 1 1 200px; min-width: 0; font-size: 0.82rem; }
+        .barra .info strong { color: var(--text-bright); }
+        .prog { height: 6px; border-radius: 999px; background: var(--surface-2); overflow: hidden; margin-top: 5px; }
+        .prog i { display: block; height: 100%; background: var(--primary); }
+        .filtros { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+        .aviso { border: 1px solid var(--accent); background: rgba(255,215,0,0.08); border-radius: 10px; padding: 12px 14px; font-size: 0.85rem; margin-bottom: 14px; }
+        .aviso.rojo { border-color: var(--danger); background: rgba(255,51,51,0.08); }
+    </style>
+</head>
+<body>
+    <div class="top-bar"><div class="top-bar-inner">Formatos de cierre</div></div>
+    <div class="container" id="app"></div>
+
+    <script>
+    const esc = s => CrmShell._helpers.escapeHtml(s);
+    const E = Evaluacion, C = Cierre;
+    const email = (new URLSearchParams(location.search).get('email') || '').trim().toLowerCase();
+
+    let sesion = null, yo = '', rol = null;
+    let row = null, cand = null, ev = null, faltaSql = null, faltaColumna = null;
+    let d = null;                       /* { servicio, verificacion, atencion } */
+    let sucio = false, guardando = false, mensaje = null;
+
+    function renderGateShell() {
+        document.getElementById('app').innerHTML = `
+            <div class="container narrow" style="padding:0;">
+                <div class="hero"><div class="hero-icon">🔐</div><h1 class="hero-title">Acceso del equipo</h1></div>
+                <div class="card" id="adminGateContainer"></div>
+            </div>`;
+        Auth.renderAdminGate(document.getElementById('adminGateContainer'), { onVerified: boot, permitirEvaluador: true });
+    }
+
+    async function boot(session) {
+        sesion = session; yo = session.user.email.toLowerCase();
+        rol = await Auth.rolEquipo(yo);
+        CrmShell.mount({ mode: 'admin', currentPageId: 'admin-evaluacion', title: 'Formatos de cierre', rol });
+        const app = document.getElementById('app');
+        if (!email) { app.innerHTML = `<p class="msg error">Falta el candidato. Ábrelo desde <a href="admin-candidatos.html">Candidatos</a>.</p>`; return; }
+        app.innerHTML = CrmShell.skeleton('cards');
+        await cargar();
+        render();
+        window.addEventListener('beforeunload', e => { if (sucio) { e.preventDefault(); e.returnValue = ''; } });
+    }
+
+    async function cargar() {
+        const datos = await AdminData.cargar();
+        cand = AdminData.candidatos(datos).find(c => c.email.toLowerCase() === email) || null;
+        row = cand ? cand.row : null;
+        const r = await supabaseClient.from('evaluaciones').select('*').eq('email', email).maybeSingle();
+        faltaSql = r.error ? (r.error.message || String(r.error)) : null;
+        ev = r.data || { email };
+        const probe = faltaSql ? null : await supabaseClient.from('evaluaciones').select('cierre').limit(1);
+        faltaColumna = probe && probe.error ? (probe.error.message || String(probe.error)) : null;
+
+        const ced = E.cedulaPublicada(ev);
+        const evaluador = (ced && ced.evaluadora) || E.EVALUADOR_PREDETERMINADO;
+        const base = C.prellenar(row || {}, evaluador);
+        const g = (ev && ev.cierre) || {};
+        /* Lo guardado manda; lo que falte se precarga del expediente. */
+        d = {
+            servicio: Object.assign({}, base.servicio, g.servicio || {}),
+            verificacion: Object.assign({}, base.verificacion, g.verificacion || {}),
+            atencion: Object.assign({}, base.atencion, g.atencion || {})
+        };
+        d.servicio.aspectos = Object.assign({}, (g.servicio || {}).aspectos || {});
+        d.verificacion.items = Object.assign({}, (g.verificacion || {}).items || {});
+        d.atencion.respuestas = Object.assign({}, (g.atencion || {}).respuestas || {});
+    }
+
+    function nombreCand() { return (cand && cand.nombre) || (row && row.nombre) || email; }
+    function toca() { sucio = true; mensaje = null; }
+
+    /* Fila de opciones Bueno/Regular/Malo o Sí/No. */
+    function opciones(texto, valor, opts, attr, extra) {
+        return `<div class="react ${valor ? '' : 'pend'}">
+            <div class="txt">${extra ? `<code>${esc(extra)}</code>` : ''}${esc(texto)}</div>
+            <div class="sn">${opts.map(o => `<button type="button" ${attr}="${esc(o.v)}" aria-pressed="${valor === o.v}" class="${o.clase}">${esc(o.t)}</button>`).join('')}</div>
+        </div>`;
+    }
+    const BRM = [{ v: 'Bueno', t: 'Bueno', clase: 'si' }, { v: 'Regular', t: 'Regular', clase: '' }, { v: 'Malo', t: 'Malo', clase: 'no' }];
+    const SINO = [{ v: 'si', t: 'Sí', clase: 'si' }, { v: 'no', t: 'No', clase: 'no' }];
+
+    function campo(label, valor, attr, ancho) {
+        return `<label style="display:block;flex:1 1 ${ancho || 200}px;min-width:0;">
+            <span style="display:block;font-size:0.78rem;font-weight:700;margin-bottom:4px;">${esc(label)}</span>
+            <input type="text" ${attr} value="${esc(valor || '')}" maxlength="160"
+                style="width:100%;min-height:40px;padding:9px 11px;border-radius:8px;border:1px solid var(--border);background:var(--dark);color:var(--text-bright);font-family:inherit;font-size:0.88rem;">
+        </label>`;
+    }
+
+    function render() {
+        const av = C.avance(d), falta = C.validar(d);
+        document.getElementById('app').innerHTML = `
+            <div class="card iec-head">
+                <p style="font-size:0.8rem;"><a href="admin-evaluacion.html?email=${encodeURIComponent(email)}">← Volver a la evaluación</a></p>
+                <h1>Formatos de cierre · ${esc(nombreCand())}</h1>
+                <p>Las tres hojas del cierre del portafolio: la Cédula del Servicio a usuarios, la Verificación Interna y el Formato de Atención a Usuarios. Se imprimen llenas al generar el portafolio.</p>
+                <div class="iec-cifras">
+                    <div class="cifra ${av.completo ? 'ok' : ''}"><span>Casillas</span><strong>${av.hechas} / ${av.total}</strong></div>
+                    <div class="cifra ${falta.length ? 'mal' : 'ok'}"><span>Estado</span><strong style="font-size:0.95rem;">${falta.length ? 'Incompleto' : 'Listo'}</strong></div>
+                </div>
+            </div>
+            ${faltaSql ? `<div class="aviso rojo"><strong>Falta correr el SQL del Centro Evaluador.</strong> ${esc(faltaSql)}</div>` : ''}
+            ${!faltaSql && faltaColumna ? `<div class="aviso rojo"><strong>Falta correr <code>2026-09-22-iec-evaluador.sql</code></strong> (agrega las columnas <code>iec</code> y <code>cierre</code>). Se puede llenar, pero no guardar.<br><span style="font-size:0.78rem;">${esc(faltaColumna)}</span></div>` : ''}
+
+            <div class="elem">
+                <h2>1. Cédula de Evaluación del Servicio a usuarios</h2>
+                <p class="sub">Cómo calificó el candidato el servicio que recibió. Su nombre y su firma se imprimen solos.</p>
+                <div class="grupo">
+                    <header><div class="t"><strong>Medio por el que contactó al Centro</strong><span>Una sola opción</span></div></header>
+                    <div class="react ${d.servicio.medio ? '' : 'pend'}">
+                        <div class="sn" style="flex-wrap:wrap;">${C.MEDIOS_EVALUACION.map(m => `<button type="button" data-medioev="${esc(m)}" aria-pressed="${d.servicio.medio === m}" class="${d.servicio.medio === m ? 'si' : ''}" style="min-width:auto;padding:0 12px;">${esc(m)}</button>`).join('')}</div>
+                        ${d.servicio.medio === 'Otro' ? `<div class="obs">${campo('¿Cuál?', d.servicio.otroMedio, 'data-otroev', 300)}</div>` : ''}
+                    </div>
+                </div>
+                <div class="grupo">
+                    <header><div class="t"><strong>Aspectos a calificar</strong><span>${C.ASPECTOS_SERVICIO.length} aspectos</span></div>
+                        <button class="btn btn-chip" data-todo="servicio">Todo Bueno</button></header>
+                    ${C.ASPECTOS_SERVICIO.map((a, i) => opciones(a, d.servicio.aspectos[i], BRM, `data-asp="${i}" data-v`)).join('')}
+                    <div class="react"><div class="obs" style="flex:1 1 100%;">
+                        <span style="display:block;font-size:0.78rem;font-weight:700;margin-bottom:4px;">Comentarios y/o sugerencias</span>
+                        <textarea data-comentarios rows="2">${esc(d.servicio.comentarios || '')}</textarea>
+                    </div></div>
+                </div>
+            </div>
+
+            <div class="elem">
+                <h2>2. Verificación Interna del Proceso de Evaluación</h2>
+                <p class="sub">La revisión del portafolio antes de entregarlo.</p>
+                ${['Integración del portafolio de evidencias', 'Verificación del Instrumento de evaluación', 'Productos y entrega'].map(g => `
+                    <div class="grupo">
+                        <header><div class="t"><strong>${esc(g)}</strong><span>${C.VERIFICACION.filter(v => v.grupo === g).length} puntos</span></div>
+                            <button class="btn btn-chip" data-todo="ver:${esc(g)}">Todo Sí</button></header>
+                        ${C.VERIFICACION.filter(v => v.grupo === g).map(v => opciones(v.texto, d.verificacion.items[v.n], SINO, `data-ver="${v.n}" data-v`, String(v.n))).join('')}
+                    </div>`).join('')}
+                <div class="grupo"><div class="react">
+                    <div class="obs" style="flex:1 1 100%;">
+                        <span style="display:block;font-size:0.78rem;font-weight:700;margin-bottom:4px;">Observaciones</span>
+                        <textarea data-verobs rows="2">${esc(d.verificacion.observaciones || '')}</textarea>
+                    </div>
+                    <div class="obs" style="flex:1 1 100%;display:flex;gap:12px;flex-wrap:wrap;">${campo('Nombre de quien verifica el proceso', d.verificacion.verificador, 'data-verificador', 300)}</div>
+                </div></div>
+            </div>
+
+            <div class="elem">
+                <h2>3. Formato de Atención a Usuarios</h2>
+                <p class="sub">Cómo se atendió al candidato cuando llegó. Lo que ya está en su expediente viene precargado.</p>
+                <div class="grupo">
+                    <header><div class="t"><strong>Medio de contacto</strong><span>Una sola opción</span></div></header>
+                    <div class="react ${d.atencion.medio ? '' : 'pend'}">
+                        <div class="sn" style="flex-wrap:wrap;">${C.MEDIOS_ATENCION.map(m => `<button type="button" data-medioat="${esc(m)}" aria-pressed="${d.atencion.medio === m}" class="${d.atencion.medio === m ? 'si' : ''}" style="min-width:auto;padding:0 12px;">${esc(m)}</button>`).join('')}</div>
+                        ${d.atencion.medio === 'Otro' ? `<div class="obs">${campo('¿Cuál?', d.atencion.otroMedio, 'data-otroat', 300)}</div>` : ''}
+                    </div>
+                    <div class="react"><div class="obs" style="flex:1 1 100%;display:flex;gap:12px;flex-wrap:wrap;">
+                        ${C.CAMPOS_ATENCION.map(c => campo(c.label, d.atencion[c.id], `data-at="${c.id}"`)).join('')}
+                    </div></div>
+                </div>
+                <div class="grupo">
+                    <header><div class="t"><strong>Cómo califica la atención</strong><span>${C.ATENCION_PREGUNTAS.length} preguntas</span></div>
+                        <button class="btn btn-chip" data-todo="atencion">Todo Bueno</button></header>
+                    ${C.ATENCION_PREGUNTAS.map((q, i) => opciones(q, d.atencion.respuestas[i], BRM, `data-at2="${i}" data-v`)).join('')}
+                </div>
+            </div>
+
+            <div class="barra">
+                <div class="info">
+                    <strong>${av.hechas} de ${av.total}</strong> casillas${falta.length ? ' · falta: ' + esc(falta[0]) : ' · listo'}
+                    <div class="prog"><i style="width:${Math.round(av.hechas / av.total * 100)}%"></i></div>
+                </div>
+                <button class="btn btn-primary" id="guardar" ${guardando ? 'disabled' : ''}>${guardando ? 'Guardando…' : (sucio ? 'Guardar cambios' : 'Guardar')}</button>
+            </div>
+            ${mensaje ? `<p class="msg ${mensaje.tipo}" style="text-align:center;">${esc(mensaje.texto)}</p>` : ''}`;
+        enlazar();
+    }
+
+    function enlazar() {
+        const q = s => Array.from(document.querySelectorAll(s));
+        q('[data-asp]').forEach(b => b.onclick = () => { d.servicio.aspectos[b.dataset.asp] = b.dataset.v; toca(); render(); });
+        q('[data-ver]').forEach(b => b.onclick = () => { d.verificacion.items[b.dataset.ver] = b.dataset.v; toca(); render(); });
+        q('[data-at2]').forEach(b => b.onclick = () => { d.atencion.respuestas[b.dataset.at2] = b.dataset.v; toca(); render(); });
+        q('[data-medioev]').forEach(b => b.onclick = () => { d.servicio.medio = b.dataset.medioev; toca(); render(); });
+        q('[data-medioat]').forEach(b => b.onclick = () => { d.atencion.medio = b.dataset.medioat; toca(); render(); });
+        q('[data-at]').forEach(i => i.oninput = () => { d.atencion[i.dataset.at] = i.value; toca(); });
+        const liga = (sel, set) => { const e = document.querySelector(sel); if (e) e.oninput = () => { set(e.value); toca(); }; };
+        liga('[data-comentarios]', v => { d.servicio.comentarios = v; });
+        liga('[data-verobs]', v => { d.verificacion.observaciones = v; });
+        liga('[data-verificador]', v => { d.verificacion.verificador = v; });
+        liga('[data-otroev]', v => { d.servicio.otroMedio = v; });
+        liga('[data-otroat]', v => { d.atencion.otroMedio = v; });
+        q('[data-todo]').forEach(b => b.onclick = () => {
+            const t = b.dataset.todo;
+            if (t === 'servicio') C.ASPECTOS_SERVICIO.forEach((_, i) => { d.servicio.aspectos[i] = 'Bueno'; });
+            else if (t === 'atencion') C.ATENCION_PREGUNTAS.forEach((_, i) => { d.atencion.respuestas[i] = 'Bueno'; });
+            else C.VERIFICACION.filter(v => v.grupo === t.slice(4)).forEach(v => { d.verificacion.items[v.n] = 'si'; });
+            toca(); render();
+        });
+        const g = document.getElementById('guardar');
+        if (g) g.onclick = guardar;
+    }
+
+    async function guardar() {
+        if (faltaSql || faltaColumna) { mensaje = { tipo: 'error', texto: 'Falta correr el SQL antes de poder guardar.' }; render(); return; }
+        guardando = true; mensaje = null; render();
+        const cierre = C.guardar(ev && ev.cierre, d, { por: yo });
+        const { error } = await supabaseClient.from('evaluaciones').upsert({ email, cierre }, { onConflict: 'email' });
+        guardando = false;
+        if (error) { mensaje = { tipo: 'error', texto: 'No se pudo guardar: ' + (error.message || error) }; render(); return; }
+        ev = Object.assign({}, ev, { cierre });
+        sucio = false;
+        const falta = C.validar(d);
+        mensaje = { tipo: falta.length ? 'error' : 'ok', texto: falta.length ? 'Guardado. Todavía falta: ' + falta.join('; ') : 'Guardado. Las tres hojas entran llenas al portafolio.' };
+        render();
+    }
+
+    window.addEventListener('load', () => {
+        if (!window.supabaseClient) { document.getElementById('app').innerHTML = '<p class="msg error">No se pudo conectar.</p>'; return; }
+        renderGateShell();
+    });
+    </script>
+</body>
+</html>

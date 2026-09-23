@@ -131,7 +131,13 @@
         plan_seguimiento: ['documentos_sesion_data', 'plan_seguimiento', 'Plan de Seguimiento'],
         pdf_encuesta: ['encuesta_data', 'encuesta', 'PDF de Encuesta de Satisfacción'],
         acuse_triptico: ['autodiagnostico_data', 'acuseTriptico', 'Acuse de Recibido - Tríptico'],
-        acuse_plan_evaluacion: ['plan_evaluacion_data', 'acusePlanEvaluacion', 'Acuse de Recibido - Plan de Evaluación']
+        acuse_plan_evaluacion: ['plan_evaluacion_data', 'acusePlanEvaluacion', 'Acuse de Recibido - Plan de Evaluación'],
+        /* 22 sep, decisión de Diego: van al final, en ANEXOS. El expediente de
+           Humberto no los trae, así que se agregan en su propia sección y no
+           tocan el orden que la SEP ya aceptó. Los certificados son
+           opcionales en Evidencias, así que su ausencia no genera aviso. */
+        foto_diploma: ['evidencias_data', 'fotoDiploma', 'Foto para el diploma'],
+        certificados: ['evidencias_data', 'certificados', 'Certificados / diplomas de formación', true]
     };
     var IEC_RUTA = 'Plantillas/plantilla_IEC_blanco.pdf';
 
@@ -173,6 +179,7 @@
             var val = data && typeof data === 'object' && data.documentosNextcloud ? data.documentosNextcloud[s[1]] : null;
             var lista = (Array.isArray(val) ? val : (val ? [val] : [])).filter(function (e) { return e && e !== FORM_FALLBACK_MARK; });
             if (!lista.length) {
+                if (s[3] && !val) return [];
                 avisos.push(val
                     ? "Falta '" + s[2] + "' — quedó marcado como enviado por el formulario alterno de respaldo, revisar a mano (no está en Nextcloud)"
                     : "Falta '" + s[2] + "' (el candidato todavía no lo ha subido)");
@@ -186,14 +193,15 @@
         var ficha = slot('ficha_registro_candidato'), curp = slot('curp'), ine = slot('ine'), auto = slot('pdf_autodiagnostico'),
             plan = slot('pdf_plan_evaluacion'), fp = slot('ficha_registro_paciente'), carta = slot('carta_consentimiento'),
             ps = slot('plan_sesion'), seg = slot('plan_seguimiento'), enc = slot('pdf_encuesta'),
-            at = slot('acuse_triptico'), ap = slot('acuse_plan_evaluacion');
+            at = slot('acuse_triptico'), ap = slot('acuse_plan_evaluacion'),
+            foto = slot('foto_diploma'), certs = slot('certificados');
         if (!videoLink) avisos.push('Falta ligar la grabación de Zoom (Centro Evaluador → Grabación de la sesión)');
         var items = [g('portada'), g('indice'), g('sep1'), m('FICHA REGISTRO SNC')].concat(
             ficha, [m('CURP')], curp, [m('INE')], ine, auto, [g('triptico'), g('sep2')], plan,
             [m('IEC'), { tipo: 'plantilla', ruta: IEC_RUTA, etiqueta: 'Instrumento de Evaluación (IEC)', slot: 'iec' }, m('PRODUCTOS')],
             fp, carta, ps, seg, [g('video'), g('sep3'), g('cedula')], enc,
             [g('cedula_servicio'), g('verificacion'), g('atencion_usuarios'), g('sep4'), g('autorizacion_firma')],
-            at, ap, [g('contraportada')]);
+            at, ap, foto.length || certs.length ? [m('FOTO Y CERTIFICADOS')] : [], foto, certs, [g('contraportada')]);
         return { items: items, avisos: avisos, videoLink: videoLink, nombre: row.nombre || '' };
     }
 
@@ -219,15 +227,20 @@
             lote: extra.lote === 0 || extra.lote ? String(extra.lote) : '',
             firmaPlan: firmaValida(firmas.plan) ? firmas.plan : null,
             firmaIec: firmaValida(firmas.iec) ? firmas.iec : null,
+            firmaCierre: firmaValida(firmas.cierre) ? firmas.cierre : null,
             firmaCandidato: ced && firmaValida(ev.firma_candidato) ? ev.firma_candidato : null,
             iec: iec,
+            cierre: ev.cierre && typeof ev.cierre === 'object' ? ev.cierre : null,
             avisos: []
         };
         if (!iec || !iec.respuestas) s.avisos.push('El Instrumento de Evaluación (IEC) va en blanco: llénalo en Centro Evaluador → Instrumento de Evaluación');
         else if (!iec.completo) s.avisos.push('El IEC está incompleto: hay reactivos sin contestar y el instrumento no admite dejarlos en blanco');
         if (!s.lote) s.avisos.push('La portada va sin lote: captúralo en Precios y pagos');
+        if (!s.cierre) s.avisos.push('Los tres formatos de cierre van en blanco: llénalos en Centro Evaluador → Formatos de cierre');
+        else if (!s.cierre.completo) s.avisos.push('Los formatos de cierre están incompletos: hay casillas sin contestar');
         if (!s.firmaPlan) s.avisos.push('Falta la firma del evaluador en el Plan de Evaluación (Centro Evaluador → Firmas del evaluador)');
         if (!s.firmaIec) s.avisos.push('Falta la rúbrica del evaluador en el IEC (Centro Evaluador → Firmas del evaluador)');
+        if (!s.firmaCierre) s.avisos.push('Faltan las firmas del evaluador en los formatos de cierre (Centro Evaluador → Firmas del evaluador)');
         if (!fechaAplicacion) s.avisos.push('El IEC va sin Fecha de Aplicación: falta la fecha de evaluación en el Plan');
         return s;
     }

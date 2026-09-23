@@ -263,8 +263,8 @@
         return y;
     }
     /* Tabla de opciones (Bueno/Regular/Malo, SÍ/NO): una fila por concepto. */
-    function tablaOpciones(p, rec, x, y, ancho, encabezados, filas, anchoOpc) {
-        anchoOpc = anchoOpc || 52;
+    function tablaOpciones(p, rec, x, y, ancho, encabezados, filas, anchoOpc, marcas) {
+        anchoOpc = anchoOpc || 52; marcas = marcas || [];
         var anchoTxt = ancho - anchoOpc * encabezados.length, alto = 15;
         p.drawRectangle({ x: x, y: y - alto, width: anchoTxt, height: alto, borderColor: rec.negro, borderWidth: 0.7 });
         texto(p, rec, 'Aspecto a calificar', x + 4, y - 11, 7.5, rec.negrita);
@@ -273,12 +273,14 @@
             centrado2(p, rec, h, x + anchoTxt + i * anchoOpc, anchoOpc, y - 11, 7.5, rec.negrita);
         });
         y -= alto;
-        filas.forEach(function (f) {
+        filas.forEach(function (f, fi) {
             var lineas = envolver(f, rec.normal, 7, anchoTxt - 8), h = Math.max(15, lineas.length * 9 + 6);
             p.drawRectangle({ x: x, y: y - h, width: anchoTxt, height: h, borderColor: rec.negro, borderWidth: 0.7 });
             lineas.forEach(function (l, i) { texto(p, rec, l, x + 4, y - 11 - i * 9, 7); });
             encabezados.forEach(function (_, i) {
-                p.drawRectangle({ x: x + anchoTxt + i * anchoOpc, y: y - h, width: anchoOpc, height: h, borderColor: rec.negro, borderWidth: 0.7 });
+                var cx = x + anchoTxt + i * anchoOpc;
+                p.drawRectangle({ x: cx, y: y - h, width: anchoOpc, height: h, borderColor: rec.negro, borderWidth: 0.7 });
+                if (marcas[fi] === i) centrado2(p, rec, 'X', cx, anchoOpc, y - h / 2 - 3.5, 10, rec.negrita);
             });
             y -= h;
         });
@@ -334,110 +336,115 @@
         });
     }
 
-    var ASPECTOS_SERVICIO = ['Trato general del personal que le atendió', 'Explicación del proceso evaluación - certificación',
-        'Claridad en el uso del lenguaje', 'Transparencia en información sobre costos', 'Aclaración de dudas',
-        'Estado de las Instalaciones en las que se evaluó', 'Estado del equipo con el que se evaluó',
-        'Proceso de Evaluación de la competencia', 'Comunicación general para dar seguimiento a su proceso',
-        'Entrega del certificado (oportunidad)'];
-    function dibujarCedulaServicio(rec, d) {
+    /* Qué pregunta cada formato vive en cierre.js, que es también lo que
+       llena el evaluador en admin-cierre.html: una sola fuente. */
+    function C() { return root.Cierre || {}; }
+    function marcaDe(valor, opciones) { var i = opciones.indexOf(valor); return i < 0 ? -1 : i; }
+    async function dibujarCedulaServicio(rec, d) {
+        var c = C(), datos = (d.cierre && d.cierre.servicio) || {}, asp = datos.aspectos || {};
+        var aspectos = c.ASPECTOS_SERVICIO || [], escala = c.ESCALA_SERVICIO || ['Bueno', 'Regular', 'Malo'];
         var p = pagina(rec), y = H - 88;
         centrado(p, rec, 'Sistema Nacional de Competencia en la operación de la Evaluación y Certificación', y, 8, rec.negrita); y -= 13;
         centrado(p, rec, 'Cédula de Evaluación del Servicio a usuarios en el Proceso de Evaluación - Certificación', y, 8.5, rec.negrita); y -= 20;
         texto(p, rec, 'DATOS GENERALES DEL USUARIO', 50, y, 8, rec.negrita); y -= 8;
+        var medios = (c.MEDIOS_EVALUACION || []).map(function (m) {
+            return m + ' (' + (datos.medio === m ? 'X' : ' ') + ')' + (datos.medio === m && m === 'Otro' && datos.otroMedio ? ' ' + datos.otroMedio : '');
+        }).join(' · ');
+        var yFirma = y - 12;
         y = rejilla(p, rec, 50, y, 175, W - 225, [
-            ['Nombre y firma del usuario', d.nombre || '', 26],
+            ['Nombre y firma del usuario', d.nombre || '', 30],
             ['Nombre completo del lugar o persona que realizó su evaluación', d.evaluador || '', 26],
-            ['Medio por el cual contactó a la organización o persona que le realizó la evaluación',
-                'Promoción directa ( ) · Por su patrón o su empleador ( ) · Trípticos, folletos o carteles ( ) · Canalizado por ECE u OC ( ) · Otro ( )', 26]
+            ['Medio por el cual contactó a la organización o persona que le realizó la evaluación', medios, 26]
         ]);
+        if (d.firmaCandidato) await firmaEnCaja(p, rec, d.firmaCandidato, W - 170, yFirma - 20, 110, 26);
         y -= 14;
         envolver('Marque con una X la opción que usted considere adecuada de acuerdo a su opinión. Si alguno de los aspectos a evaluar no aplica escriba NA en la columna "Bueno".', rec.normal, 7.5, W - 100)
             .forEach(function (l) { texto(p, rec, l, 50, y, 7.5); y -= 10; });
         y -= 4;
-        y = tablaOpciones(p, rec, 50, y, W - 100, ['Bueno', 'Regular', 'Malo'], ASPECTOS_SERVICIO);
+        y = tablaOpciones(p, rec, 50, y, W - 100, escala, aspectos, null,
+            aspectos.map(function (_, i) { return marcaDe(asp[i], escala); }));
         y -= 14;
         texto(p, rec, 'Comentarios y/o sugerencias:', 50, y, 8, rec.negrita);
         p.drawRectangle({ x: 50, y: y - 46, width: W - 100, height: 40, borderColor: rec.negro, borderWidth: 0.7 });
+        envolver(datos.comentarios || '', rec.normal, 7.5, W - 112).slice(0, 4)
+            .forEach(function (l, i) { texto(p, rec, l, 56, y - 18 - i * 9.5, 7.5); });
         y -= 60;
         envolver('Gracias por su tiempo de llenado de este formato, su opinión es valiosa para mejorar nuestro servicio. Si requiere ampliar la información escriba a contacto@conocer.gob.mx, con gusto le atenderemos.', rec.normal, 6.5, W - 100)
             .forEach(function (l) { centrado(p, rec, l, y, 6.5); y -= 8; });
         pie(p, rec);
     }
 
-    var VERIFICACION = [
-        'El índice corresponde al enviado por el CONOCER - Febrero 2018',
-        'Revisión correcta de logotipos e información del CE o EI',
-        'El diagnóstico, Plan de Evaluación, Instrumento de Evaluación, Cédula de Evaluación se encuentran firmados en su totalidad por candidato y evaluador.',
-        'Diagnóstico calificado con tinta negra, sin lápiz, ni espacios en blanco.',
-        'Plan de evaluación calificado con tinta negra, sin lápiz, ni espacios en blanco.',
-        'Verifica las fechas del acuerdo del Plan de Evaluación, desarrollo de la evaluación, evaluación de conocimientos y entrega de resultados corresponden a la notificación enviada y presentada en el SII.',
-        'Verifica SÍ es el caso el cumplimiento de la aplicación del Instrumento de Evaluación de la Competencia, del ejercicio práctico.',
-        'Verifica la suficiencia de las evidencias recopiladas durante el proceso de la evaluación.',
-        'Verifica la suficiencia de la competencia del candidato en cada uno de los elementos del EC.',
-        'Revisa que el portafolio de evidencias presente todos los registros y la documentación que sustenta el juicio de competencia el cual debe estar ordenado, limpio, sin tachaduras, lápiz o corrector.',
-        'Verifica el cumplimiento de productos conforme al EC',
-        'Asegura el cumplimiento de las verificaciones y revisiones realizadas',
-        'Entrega el "Portafolio de Evidencias" al ECE o al CE conforme a sus lineamientos y en un plazo no mayor a cinco días naturales.',
-        '¿Contiene la firma del EI o Director del CE?'
-    ];
-    function dibujarVerificacion(rec, d) {
+    async function dibujarVerificacion(rec, d) {
+        var c = C(), datos = (d.cierre && d.cierre.verificacion) || {}, items = datos.items || {};
+        var lista = c.VERIFICACION || [];
         var p = pagina(rec), y = H - 92;
         centrado(p, rec, 'Verificación Interna del Proceso de Evaluación', y, 12, rec.negrita); y -= 20;
         y = rejilla(p, rec, 50, y, 110, 220, [['Candidato/a:', d.nombre || ''], ['Centro Evaluador:', 'CE1399-OC063-18'], ['Fecha:', fechaDMY(d.fecha)]]);
         y -= 16;
         texto(p, rec, 'Verifique el proceso de evaluación marcando los criterios descritos:', 50, y, 8); y -= 14;
-        var secciones = [[0, 6, 'Integración del portafolio de evidencias:'], [6, 10, 'Verificación del Instrumento de evaluación'], [10, 14, 'Productos y entrega']];
-        secciones.forEach(function (sec) {
-            texto(p, rec, sec[2], 50, y, 7.5, rec.negrita); y -= 12;
-            for (var i = sec[0]; i < sec[1]; i++) {
+        var grupos = [];
+        lista.forEach(function (v) { if (grupos.indexOf(v.grupo) < 0) grupos.push(v.grupo); });
+        grupos.forEach(function (g) {
+            texto(p, rec, g, 50, y, 7.5, rec.negrita); y -= 12;
+            lista.filter(function (v) { return v.grupo === g; }).forEach(function (v) {
                 var anchoTxt = W - 100 - 24 - 60;
-                var lineas = envolver(VERIFICACION[i], rec.normal, 7, anchoTxt - 10), alto = Math.max(15, lineas.length * 9 + 6);
+                var lineas = envolver(v.texto, rec.normal, 7, anchoTxt - 10), alto = Math.max(15, lineas.length * 9 + 6);
                 p.drawRectangle({ x: 50, y: y - alto, width: 24, height: alto, borderColor: rec.negro, borderWidth: 0.7 });
                 p.drawRectangle({ x: 74, y: y - alto, width: anchoTxt, height: alto, borderColor: rec.negro, borderWidth: 0.7 });
                 p.drawRectangle({ x: W - 110, y: y - alto, width: 60, height: alto, borderColor: rec.negro, borderWidth: 0.7 });
-                texto(p, rec, String(i + 1), 58, y - 11, 7.5);
+                texto(p, rec, String(v.n), 58, y - 11, 7.5);
                 lineas.forEach(function (l, j) { texto(p, rec, l, 78, y - 11 - j * 9, 7); });
-                texto(p, rec, 'SÍ        NO', W - 104, y - 11, 7.5);
+                var marca = items[v.n] === 'si' ? 'SÍ  (X)    NO (  )' : items[v.n] === 'no' ? 'SÍ  (  )    NO (X)' : 'SÍ  (  )    NO (  )';
+                texto(p, rec, marca, W - 106, y - 11, 7);
                 y -= alto;
-            }
+            });
             y -= 8;
         });
         texto(p, rec, 'Observaciones:', 50, y, 8, rec.negrita);
         p.drawRectangle({ x: 50, y: y - 40, width: W - 100, height: 34, borderColor: rec.negro, borderWidth: 0.7 });
+        envolver(datos.observaciones || '', rec.normal, 7.5, W - 112).slice(0, 3)
+            .forEach(function (l, i) { texto(p, rec, l, 56, y - 18 - i * 9.5, 7.5); });
         y -= 66;
+        if (d.firmaCierre) await firmaEnCaja(p, rec, d.firmaCierre, (W - 150) / 2, y + 4, 150, 40);
         p.drawLine({ start: { x: 190, y: y }, end: { x: W - 190, y: y }, thickness: 0.8, color: rec.negro });
-        centrado(p, rec, 'Nombre y firma Verificador/a del proceso', y - 11, 7.5);
+        centrado(p, rec, datos.verificador || '', y - 10, 8, rec.negrita);
+        centrado(p, rec, 'Nombre y firma Verificador/a del proceso', y - 21, 7.5);
         pie(p, rec);
     }
 
-    var ATENCION_PREGUNTAS = [
-        '¿Cómo califica la atención que se le ha dado? (tiempo en que fue atendido y utilidad de la información que se le proporcionó)',
-        'Considera que el tiempo de atención fue el adecuado (Tiempo que duró la explicación y aclaración de dudas)',
-        '¿Considera que se le dio un trato amable? (La persona le saludó, le trató con respeto y cordialidad)',
-        'La persona que le brindó la atención ¿Le dio la confianza necesaria para satisfacer todas sus dudas respecto al proceso de evaluación-certificación?',
-        '¿Para dirigirse a usted la persona que lo atendió utilizó palabras y términos que le facilitaron comprender lo que estaba explicando?'
-    ];
-    function dibujarAtencion(rec, d) {
+    async function dibujarAtencion(rec, d) {
+        var c = C(), datos = (d.cierre && d.cierre.atencion) || {}, resp = datos.respuestas || {};
+        var preguntas = c.ATENCION_PREGUNTAS || [], escala = c.ESCALA_SERVICIO || ['Bueno', 'Regular', 'Malo'];
         var p = pagina(rec), y = H - 88;
         centrado(p, rec, 'Sistema Nacional de Competencia en la operación de la Evaluación y Certificación', y, 8, rec.negrita); y -= 13;
         centrado(p, rec, 'Formato de Atención a Usuarios', y, 9.5, rec.negrita); y -= 20;
-        y = rejilla(p, rec, 50, y, 110, 180, [['Folio:', ''], ['Fecha:', fechaDMY(d.fecha)],
-            ['Medio de Contacto:', 'Presencial ( )   Telefónico ( )   E-Mail ( )   Otro ( )'], ['Lugar:', d.lugar || '']]);
+        var medios = (c.MEDIOS_ATENCION || []).map(function (m) {
+            return m + ' (' + (datos.medio === m ? 'X' : ' ') + ')' + (datos.medio === m && m === 'Otro' && datos.otroMedio ? ' ' + datos.otroMedio : '');
+        }).join('   ');
+        y = rejilla(p, rec, 50, y, 110, 180, [['Folio:', datos.folio || ''], ['Fecha:', fechaDMY(d.fecha)],
+            ['Medio de Contacto:', medios], ['Lugar:', datos.lugar || '']]);
         y -= 14;
         envolver('Estimado usuario, le agradeceremos que conteste el siguiente cuestionario para mejorar nuestro servicio.', rec.normal, 7.5, W - 100)
             .forEach(function (l) { texto(p, rec, l, 50, y, 7.5); y -= 10; });
         y -= 6;
         texto(p, rec, 'DATOS GENERALES DEL USUARIO', 50, y, 8, rec.negrita); y -= 8;
-        y = rejilla(p, rec, 50, y, 110, W - 210, [['Nombre:', d.nombre || ''], ['Domicilio:', ''], ['Colonia / Código Postal:', ''],
-            ['Delegación o Municipio / Estado:', ''], ['Ciudad:', ''], ['Teléfono(s):', ''], ['E-Mail:', d.email || ''],
+        y = rejilla(p, rec, 50, y, 110, W - 210, [['Nombre:', d.nombre || ''], ['Domicilio:', datos.domicilio || ''],
+            ['Colonia / Código Postal:', [datos.colonia, datos.cp].filter(Boolean).join(' · ')],
+            ['Delegación o Municipio / Estado:', [datos.municipio, datos.estado].filter(Boolean).join(' · ')],
+            ['Ciudad:', datos.ciudad || ''], ['Teléfono(s):', datos.telefono || ''], ['E-Mail:', datos.email || ''],
             ['EC o área de interés:', 'EC1375']]);
-        y -= 24;
+        y -= 30;
+        if (d.firmaCandidato) await firmaEnCaja(p, rec, d.firmaCandidato, 80, y + 4, 140, 34);
+        if (d.firmaCierre) await firmaEnCaja(p, rec, d.firmaCierre, W - 240, y + 4, 140, 34);
         p.drawLine({ start: { x: 55, y: y }, end: { x: 265, y: y }, thickness: 0.8, color: rec.negro });
         p.drawLine({ start: { x: W - 265, y: y }, end: { x: W - 55, y: y }, thickness: 0.8, color: rec.negro });
         texto(p, rec, 'Nombre y firma del usuario', 55, y - 10, 7);
         texto(p, rec, 'Nombre y firma de quien atendió al usuario', W - 265, y - 10, 7);
-        y -= 28;
-        y = tablaOpciones(p, rec, 50, y, W - 100, ['Bueno', 'Regular', 'Malo'], ATENCION_PREGUNTAS);
+        textoAjustado(p, rec, d.nombre || '', 55, y - 19, 7, 205, rec.negrita);
+        textoAjustado(p, rec, d.evaluador || '', W - 265, y - 19, 7, 205, rec.negrita);
+        y -= 34;
+        y = tablaOpciones(p, rec, 50, y, W - 100, escala, preguntas, null,
+            preguntas.map(function (_, i) { return marcaDe(resp[i], escala); }));
         pie(p, rec, 'BRASIL 306-2 COL. 27 DE SEPTIEMBRE, POZA RICA, VER. - 7821138710 - centrodeinclusioncicata@gmail.com');
     }
 
@@ -737,7 +744,8 @@
         var rec = await preparar(doc);
         var SEP = { sep1: '1. Datos del Candidato/a', sep2: '2. Recopilación de Evidencias', sep3: '3. Cierre de Evaluación', sep4: '4. ANEXOS' };
         var datosPag = { nombre: plan.nombre, evaluador: sellos.evaluador, fecha: sellos.fechaPortada, lote: sellos.lote,
-            ceNombre: sellos.ceNombre, email: ctx.email || '', firmaCandidato: sellos.firmaCandidato };
+            ceNombre: sellos.ceNombre, email: ctx.email || '', firmaCandidato: sellos.firmaCandidato,
+            cierre: sellos.cierre, firmaCierre: sellos.firmaCierre };
         for (var n = 0; n < plan.items.length; n++) {
             var item = plan.items[n];
             if (item.tipo === 'generado') {
@@ -748,9 +756,9 @@
                 else if (item.pagina === 'triptico') dibujarTriptico(rec);
                 else if (item.pagina === 'video') dibujarVideo(rec, plan.videoLink);
                 else if (item.pagina === 'cedula') await dibujarCedula(rec, { cedula: ced || {}, firmaCandidato: ced ? ev.firma_candidato : null, nombre: plan.nombre });
-                else if (item.pagina === 'cedula_servicio') dibujarCedulaServicio(rec, datosPag);
-                else if (item.pagina === 'verificacion') dibujarVerificacion(rec, datosPag);
-                else if (item.pagina === 'atencion_usuarios') dibujarAtencion(rec, datosPag);
+                else if (item.pagina === 'cedula_servicio') await dibujarCedulaServicio(rec, datosPag);
+                else if (item.pagina === 'verificacion') await dibujarVerificacion(rec, datosPag);
+                else if (item.pagina === 'atencion_usuarios') await dibujarAtencion(rec, datosPag);
                 else if (item.pagina === 'autorizacion_firma') await dibujarAutorizacionFirma(rec, datosPag);
                 else if (item.pagina === 'contraportada') dibujarContraportada(rec);
                 continue;

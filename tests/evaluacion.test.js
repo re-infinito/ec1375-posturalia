@@ -95,7 +95,7 @@ const fila = () => ({
     plan_evaluacion_data: { documentosNextcloud: { planEvaluacion: RUTA('02-Alineacion', 'Plan.pdf'), acusePlanEvaluacion: RUTA('02-Alineacion', 'AcuseP.pdf') } },
     documentos_sesion_data: { documentosNextcloud: { ficha: RUTA('03-Evaluacion', 'F.pdf'), consentimiento: RUTA('03-Evaluacion', 'C.pdf'), plan_sesion: RUTA('03-Evaluacion', 'PS.pdf'), plan_seguimiento: RUTA('03-Evaluacion', 'PSe.pdf') } },
     encuesta_data: { documentosNextcloud: { encuesta: RUTA('03-Evaluacion', 'E.pdf') } },
-    evidencias_data: { planData: { videoLink: 'https://youtu.be/x' }, documentosNextcloud: { curp: [RUTA('04-Entrega', 'curp.pdf')], ine: [RUTA('04-Entrega', 'ine1.jpg'), RUTA('04-Entrega', 'ine2.jpg')] } }
+    evidencias_data: { planData: { videoLink: 'https://youtu.be/x' }, documentosNextcloud: { curp: [RUTA('04-Entrega', 'curp.pdf')], ine: [RUTA('04-Entrega', 'ine1.jpg'), RUTA('04-Entrega', 'ine2.jpg')], fotoDiploma: [RUTA('04-Entrega', 'foto.jpg')], certificados: [RUTA('04-Entrega', 'cert.pdf')] } }
 });
 
 test('planPortafolio: el orden del formato oficial 2026, sin avisos si todo está', () => {
@@ -106,7 +106,7 @@ test('planPortafolio: el orden del formato oficial 2026, sin avisos si todo est�
         '[FICHA REGISTRO SNC]', 'Ficha.pdf', '[CURP]', 'curp.pdf', '[INE]', 'ine1.jpg', 'ine2.jpg', 'Auto.pdf', 'triptico',
         'sep2', 'Plan.pdf', '[IEC]', 'IEC', '[PRODUCTOS]', 'F.pdf', 'C.pdf', 'PS.pdf', 'PSe.pdf', 'video',
         'sep3', 'cedula', 'E.pdf', 'cedula_servicio', 'verificacion', 'atencion_usuarios',
-        'sep4', 'autorizacion_firma', 'AcuseT.pdf', 'AcuseP.pdf', 'contraportada']);
+        'sep4', 'autorizacion_firma', 'AcuseT.pdf', 'AcuseP.pdf', '[FOTO Y CERTIFICADOS]', 'foto.jpg', 'cert.pdf', 'contraportada']);
     assert.deepEqual(p.avisos, []);
     assert.equal(p.videoLink, 'https://youtu.be/x');
     assert.equal(p.nombre, 'Ana Demo');
@@ -130,6 +130,20 @@ test('planPortafolio: distingue "no lo subió" del formulario alterno y avisa si
     assert.ok(p.avisos.some(a => /Encuesta de Satisfacción/.test(a)));
     assert.ok(p.avisos.some(a => /grabación de Zoom/.test(a)));
     assert.ok(!p.items.some(i => i.tipo === 'nas' && /MANUAL/.test(i.ruta)));
+});
+
+test('planPortafolio: los certificados son opcionales; la foto del diploma no', () => {
+    const f = fila();
+    delete f.evidencias_data.documentosNextcloud.certificados;
+    const p = E.planPortafolio(f);
+    assert.deepEqual(p.avisos, [], 'sin certificados no se avisa nada: en Evidencias son opcionales');
+    assert.ok(p.items.some(i => i.slot === 'foto_diploma'));
+    const g = fila();
+    delete g.evidencias_data.documentosNextcloud.fotoDiploma;
+    delete g.evidencias_data.documentosNextcloud.certificados;
+    const q = E.planPortafolio(g);
+    assert.ok(q.avisos.some(a => /Foto para el diploma/.test(a)), 'la foto sí es obligatoria');
+    assert.ok(!q.items.some(i => i.pagina === 'marca' && i.texto === 'FOTO Y CERTIFICADOS'), 'sin nada que anexar no va la marcadora');
 });
 
 test('rutaNasPermitida: solo Portafolios/ o Plantillas/, sin salir de la carpeta', () => {
@@ -199,14 +213,23 @@ test('sellosPortafolio: evaluador de la Cédula, Centro, fecha del Plan y firmas
     assert.equal(s.firmaCandidato, firmaDibujada);
     assert.equal(s.fechaPortada, '2026-09-17');
     assert.equal(s.lote, '2');
-    assert.deepEqual(s.avisos, ['El Instrumento de Evaluación (IEC) va en blanco: llénalo en Centro Evaluador → Instrumento de Evaluación']);
-    // con el IEC llenado y completo ya no queda ningún aviso
-    const conIec = E.sellosPortafolio(f, Object.assign({}, ev, { iec: { respuestas: { 1: 'si' }, completo: true } }), { lote: 2 });
-    assert.deepEqual(conIec.avisos, []);
-    assert.equal(conIec.iec.completo, true);
-    // un IEC a medias se avisa aparte
-    const medio = E.sellosPortafolio(f, Object.assign({}, ev, { iec: { respuestas: { 1: 'si' }, completo: false } }), { lote: 2 });
+    assert.ok(s.avisos.some(a => /\(IEC\) va en blanco/.test(a)));
+    assert.ok(s.avisos.some(a => /formatos de cierre van en blanco/.test(a)));
+    assert.ok(s.avisos.some(a => /firmas del evaluador en los formatos de cierre/.test(a)));
+    // con el IEC, el cierre y las tres firmas ya no queda ningún aviso
+    const completo = Object.assign({}, ev, {
+        iec: { respuestas: { 1: 'si' }, completo: true },
+        cierre: { completo: true },
+        firmas_evaluador: Object.assign({}, ev.firmas_evaluador, { cierre: firmaDibujada })
+    });
+    const conTodo = E.sellosPortafolio(f, completo, { lote: 2 });
+    assert.deepEqual(conTodo.avisos, []);
+    assert.equal(conTodo.iec.completo, true);
+    assert.equal(conTodo.firmaCierre, firmaDibujada);
+    // lo que va a medias se avisa aparte
+    const medio = E.sellosPortafolio(f, Object.assign({}, ev, { iec: { respuestas: { 1: 'si' }, completo: false }, cierre: { completo: false } }), { lote: 2 });
     assert.ok(medio.avisos.some(a => /IEC está incompleto/.test(a)));
+    assert.ok(medio.avisos.some(a => /formatos de cierre están incompletos/.test(a)));
 });
 
 test('sellosPortafolio: sin Cédula usa el evaluador predeterminado y avisa lo que falta firmar', () => {

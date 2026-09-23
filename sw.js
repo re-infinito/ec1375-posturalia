@@ -6,7 +6,7 @@
    cada deploy una visita recibía HTML nuevo con JS/CSS viejo — p. ej. la
    búsqueda de la Biblioteca no funcionaba hasta recargar). La caché solo se
    usa sin conexión. Sin conexión y sin caché → página offline mínima. */
-var VERSION = 'paideia-app-v14';
+var VERSION = 'paideia-app-v15';
 var SHELL = ['/panel.html', '/crm-shell.js', '/crm-shell.css', '/auth.js', '/flow-status.js', '/protect.js', '/contenido.js', '/visor-diapositivas.js', '/visor-diapositivas.css', '/estudio.html', '/estudio.css', '/estudio-logica.js', '/firma-candidato.js', '/sala-evidencias.js', '/documentos-nas.js', '/formatos-consultorio.js', '/recursos.html', '/evaluacion.js',
              '/Logos/Logo%20Paideia%20Tech%20-%20trimmed.png', '/icons/icon-192.png', '/icons/icon-512.png', '/manifest.json'];
 
