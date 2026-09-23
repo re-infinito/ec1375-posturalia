@@ -145,16 +145,56 @@
             italica: await doc.embedFont(L.StandardFonts.HelveticaOblique),
             negro: L.rgb(0, 0, 0)
         };
-        try { rec.logoConocer = await doc.embedJpg(await bytesDeUrl(LOGO_CONOCER)); } catch (e) { rec.logoConocer = null; }
-        try { rec.logoIce = await doc.embedJpg(await bytesDeUrl(LOGO_ICE)); } catch (e) { rec.logoIce = null; }
+        /* Los tres logos salen de formato-oficial.js, que es la misma fuente
+           que usan los PDF del candidato (jsPDF). Si el módulo no está
+           cargado se cae a los dos JPEG de siempre. */
+        var FO = root.FormatoOficial;
+        if (FO) {
+            rec.fo = [];
+            for (var k = 0; k < 3; k++) {
+                var l = FO.LOGOS[['conocer', 'cicfm', 'ice'][k]];
+                try { rec.fo.push({ img: await doc.embedPng(base64ABytes(l.img)), l: l }); } catch (e) { /* sin ese logo */ }
+            }
+            if (rec.fo.length !== 3) rec.fo = null;
+        }
+        if (!rec.fo) {
+            try { rec.logoConocer = await doc.embedJpg(await bytesDeUrl(LOGO_CONOCER)); } catch (e) { rec.logoConocer = null; }
+            try { rec.logoIce = await doc.embedJpg(await bytesDeUrl(LOGO_ICE)); } catch (e) { rec.logoIce = null; }
+        }
         return rec;
     }
-    /* Página nueva con los logos oficiales (draw_header_logos del script). */
+    var MM = 72 / 25.4;
+    function base64ABytes(dataUrl) {
+        var b = atob(String(dataUrl).split(',')[1]), a = new Uint8Array(b.length);
+        for (var i = 0; i < b.length; i++) a[i] = b.charCodeAt(i);
+        return a;
+    }
+    /* Página nueva con el encabezado del Centro: los tres logos en las
+       posiciones medidas sobre el expediente aprobado (formato-oficial.js). */
     function pagina(rec) {
         var p = rec.doc.addPage([W, H]);
-        if (rec.logoConocer) p.drawImage(rec.logoConocer, { x: 40, y: H - 75, width: 42, height: 42 / 1.69 });
-        if (rec.logoIce) p.drawImage(rec.logoIce, { x: W - 40 - 78, y: H - 72, width: 78, height: 78 / 2.92 });
+        if (rec.fo) {
+            rec.fo.forEach(function (o) {
+                p.drawImage(o.img, { x: o.l.x * MM, y: H - (o.l.y + o.l.h) * MM, width: o.l.w * MM, height: o.l.h * MM });
+            });
+        } else {
+            if (rec.logoConocer) p.drawImage(rec.logoConocer, { x: 40, y: H - 75, width: 42, height: 42 / 1.69 });
+            if (rec.logoIce) p.drawImage(rec.logoIce, { x: W - 40 - 78, y: H - 72, width: 78, height: 78 / 2.92 });
+        }
         return p;
+    }
+    /* La paloma del índice. Helvetica no trae ✓ (WinAnsi no lo cubre), así
+       que se dibuja con dos trazos en vez de caer en una "v". */
+    function paloma(p, rec, x, y) {
+        var c = rec.negro;
+        p.drawLine({ start: { x: x, y: y + 3 }, end: { x: x + 3, y: y }, thickness: 1.1, color: c });
+        p.drawLine({ start: { x: x + 3, y: y }, end: { x: x + 8, y: y + 7 }, thickness: 1.1, color: c });
+    }
+
+    /* El bloque gris del formato: las hojas de índice y de separador llevan
+       su contenido dentro de un recuadro gris a casi todo lo ancho. */
+    function bloqueGris(p, rec, y0, y1) {
+        p.drawRectangle({ x: 55, y: y0, width: W - 110, height: y1 - y0, color: root.PDFLib.rgb(0.663, 0.663, 0.663) });
     }
     function texto(p, rec, t, x, y, size, font, extra) {
         t = limpiar(t);
@@ -192,17 +232,19 @@
 
     function dibujarIndice(rec, avisos) {
         var L = root.PDFLib, p = pagina(rec);
-        texto(p, rec, 'Índice', 70, H - 90, 16, rec.negrita);
+        bloqueGris(p, rec, H - 560, H - 120);
+        texto(p, rec, 'Índice', 75, H - 155, 18, rec.negrita);
         var items = ['1. Datos del candidato', '   Ficha de registro del candidato', '   Diagnóstico del candidato',
             '   Tríptico de Derechos y Obligaciones', '2. Recopilación de Evidencias',
             '   Plan de Evaluación Acordado con el Candidato', '   Instrumento de Evaluación Aplicado al Candidato',
             '   Evidencias complementarias (Las que solicite el IEC)', '3. Cierre de la Evaluación',
             '   Cédula de Evaluación del Candidato', '   Encuesta de satisfacción del candidato'];
-        var y = H - 130;
+        var y = H - 195;
         items.forEach(function (t) {
             var sub = t.indexOf('   ') === 0;
-            texto(p, rec, sub ? t.trim() : t, sub ? 80 + rec.normal.widthOfTextAtSize('   ', 11) : 80, y, 11, sub ? rec.normal : rec.negrita);
-            y -= 20;
+            if (sub) paloma(p, rec, 104, y + 1);
+            texto(p, rec, sub ? t.trim() : t, sub ? 120 : 90, y, 11, sub ? rec.normal : rec.negrita);
+            y -= 22;
         });
         if (avisos.length) {
             y -= 20;
@@ -219,8 +261,11 @@
         }
     }
 
-    function dibujarSeparador(rec, titulo) {
-        centrado(pagina(rec), rec, titulo, H / 2, 22, rec.negrita);
+    function dibujarSeparador(rec, titulo, nombre) {
+        var p = pagina(rec);
+        bloqueGris(p, rec, 60, H - 120);
+        centrado(p, rec, titulo, H / 2 + 10, 20, rec.negrita);
+        if (nombre) centrado(p, rec, nombre.toUpperCase(), H / 2 - 20, 12, rec.negrita);
     }
 
     function dibujarVideo(rec, link) {
@@ -773,7 +818,7 @@
                     if (sig && sig.slot === 'iec') dibujarMarca(rec, item.texto);   /* ver bandaMarca */
                     else marcaPendiente = item.texto;
                 }
-                else if (SEP[item.pagina]) dibujarSeparador(rec, SEP[item.pagina]);
+                else if (SEP[item.pagina]) dibujarSeparador(rec, SEP[item.pagina], plan.nombre);
                 else if (item.pagina === 'triptico') dibujarTriptico(rec);
                 else if (item.pagina === 'video') dibujarVideo(rec, plan.videoLink);
                 else if (item.pagina === 'cedula') await dibujarCedula(rec, { cedula: ced || {}, firmaCandidato: ced ? ev.firma_candidato : null, nombre: plan.nombre });
