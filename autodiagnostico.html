@@ -517,11 +517,20 @@
     /* =========================================================
        PERSISTENCE
     ========================================================= */
+    /* La CURP no lleva espacios nunca: se quitan todos, no solo los de las
+       orillas (un espacio a media cadena también cuenta contra el límite). */
+    function limpiarCurp(v) { return String(v === null || v === undefined ? '' : v).replace(/\s+/g, '').toUpperCase(); }
+
     function loadProgress() {
         try {
             const saved = JSON.parse(localStorage.getItem('autodiagnosticoData') || 'null');
             if (saved) {
                 personalData = Object.assign(personalData, saved.personalData || {});
+                /* Una CURP guardada con espacios (los hubo antes de que se
+                   limpiara al escribir) llena el maxlength de 18 con un
+                   carácter invisible: el campo se ve con 17 y ya no deja
+                   teclear el último. Se normaliza al cargar. */
+                personalData.curp = limpiarCurp(personalData.curp);
                 certificados = saved.certificados || [];
                 sinCertificadosPrevios = saved.sinCertificadosPrevios || false;
                 fotoCandidato = Object.assign(fotoCandidato, saved.fotoCandidato || {}, { uploading: false });
@@ -846,7 +855,7 @@
                             ${isCurpComplete ? '✓ Completado' : '○ Pendiente'}
                         </span>
                     </label>
-                    <input type="text" id="f_curp" value="${escapeHtml(personalData.curp)}" maxlength="18" style="text-transform:uppercase; border-color: ${isCurpComplete ? 'var(--success)' : 'var(--danger)'}; border-width: 2px;" placeholder="GOPM850101MDFNRR01">
+                    <input type="text" id="f_curp" value="${escapeHtml(limpiarCurp(personalData.curp))}" maxlength="18" style="text-transform:uppercase; border-color: ${isCurpComplete ? 'var(--success)' : 'var(--danger)'}; border-width: 2px;" placeholder="GOPM850101MDFNRR01">
                     <p id="curpAviso" style="font-size:0.8rem;color:var(--danger);margin-top:6px;" ${curpLargo && !isCurpComplete ? '' : 'hidden'}>Revisa tu CURP: debe tener 18 caracteres exactamente como aparece en tu documento (la que escribiste tiene ${curpLargo}).</p>
                 </div>
                 <div class="field-group">
@@ -936,7 +945,20 @@
             const el = document.getElementById('f_' + field);
             if (el) {
                 el.addEventListener('input', () => {
-                    personalData[field] = field === 'curp' ? el.value.trim().toUpperCase() : el.value;
+                    if (field === 'curp') {
+                        /* Se limpia el VALOR DEL CAMPO, no solo lo que se
+                           guarda: si el espacio se queda en el input, ocupa
+                           uno de los 18 y bloquea el último carácter. Solo se
+                           reescribe cuando de verdad sobra algo, para no
+                           moverle el cursor a quien corrige a media cadena. */
+                        const sinEspacios = el.value.replace(/\s+/g, '');
+                        if (sinEspacios !== el.value) {
+                            const alFinal = el.selectionStart === el.value.length;
+                            el.value = sinEspacios;
+                            if (alFinal) el.setSelectionRange(sinEspacios.length, sinEspacios.length);
+                        }
+                    }
+                    personalData[field] = field === 'curp' ? limpiarCurp(el.value) : el.value;
                     if (field === 'curp') {
                         const ok = curpValida(personalData.curp), largo = personalData.curp.length;
                         el.style.borderColor = ok ? 'var(--success)' : 'var(--danger)';
@@ -1112,6 +1134,12 @@
                     </div>
                 </div>
                 <p style="font-size:0.75rem;color:var(--text);margin-top:10px;margin-bottom:0;">¿No tienes el tiempo o las condiciones para tomarla? <a href="https://wa.me/528115026729?text=${waFoto}" target="_blank" rel="noopener" style="color:var(--primary);font-weight:600;">Pide apoyo por WhatsApp</a> para tramitar tus fotografías instantáneas.</p>
+                <!-- La lámina oficial del CONOCER con ejemplos: se ve más rápido que
+                     leer la lista, y es la referencia contra la que califican. -->
+                <figure style="margin:12px 0 0;">
+                    <img src="assets/images/foto-renap-ejemplos.jpg" alt="Ejemplos oficiales del CONOCER: tres fotografías correctas de 25 × 30 mm, y cinco incorrectas — sobreexpuesta, subexpuesta, demasiado cerca, demasiado lejos y con adornos en la cabeza." loading="lazy" style="width:100%;max-width:520px;border-radius:10px;border:1px solid var(--border);background:#fff;display:block;">
+                    <figcaption style="font-size:0.72rem;color:var(--text);margin-top:6px;">Ejemplos oficiales del CONOCER. Compara tu foto contra estas antes de subirla.</figcaption>
+                </figure>
             </div>
             <div class="cert-row">
                 <input type="file" accept="image/jpeg,image/png,image/bmp" onchange="handleFotoCandidatoChange(this)">
