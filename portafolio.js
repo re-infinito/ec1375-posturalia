@@ -237,11 +237,21 @@
     var PIE_CE = 'CENTRO EVALUADOR CE1399-OC063-18 - COLEGIO ILUSTRE DE CIENCIAS FORENSES DE MÉXICO A.C. - BRASIL 306-2 COL. 27 DE SEPTIEMBRE, POZA RICA, VER. - 7821138710 - cicfm.ce@gmail.com';
     function pie(p, rec, t) { centrado(p, rec, t || PIE_CE, 32, 6.2); }
 
-    /* Página marcadora: solo el rótulo, como en el machote (el documento
-       escaneado va enseguida). */
+    /* Página marcadora en hoja aparte, como el machote. Solo la usa el IEC:
+       sus 83 páginas se estampan en coordenadas fijas, así que esa plantilla
+       no se puede recorrer ni escalar. */
     function dibujarMarca(rec, titulo) {
         var p = pagina(rec);
         texto(p, rec, titulo, 60, H - 150, 20, rec.negrita);
+    }
+
+    /* El rótulo como banda arriba del propio documento, para no gastar una
+       hoja casi vacía (decisión de Diego, 23 sep). Devuelve la y del tope
+       que queda libre para el documento. */
+    function bandaMarca(p, rec, titulo) {
+        texto(p, rec, titulo, 60, H - 56, 16, rec.negrita);
+        p.drawLine({ start: { x: 60, y: H - 66 }, end: { x: W - 60, y: H - 66 }, thickness: 0.8, color: rec.negro });
+        return H - 78;
     }
 
     /* Rejilla de etiqueta/valor con recuadro. Devuelve la y de abajo. */
@@ -752,12 +762,17 @@
         var datosPag = { nombre: plan.nombre, evaluador: sellos.evaluador, fecha: sellos.fechaPortada, lote: sellos.lote,
             ceNombre: sellos.ceNombre, email: ctx.email || '', firmaCandidato: sellos.firmaCandidato,
             cierre: sellos.cierre, cierreCandidato: sellos.cierreCandidato, firmaCierre: sellos.firmaCierre };
+        var marcaPendiente = null;
         for (var n = 0; n < plan.items.length; n++) {
             var item = plan.items[n];
             if (item.tipo === 'generado') {
                 if (item.pagina === 'portada') dibujarPortada(rec, datosPag);
                 else if (item.pagina === 'indice') dibujarIndice(rec, avisos);
-                else if (item.pagina === 'marca') dibujarMarca(rec, item.texto);
+                else if (item.pagina === 'marca') {
+                    var sig = plan.items[n + 1];
+                    if (sig && sig.slot === 'iec') dibujarMarca(rec, item.texto);   /* ver bandaMarca */
+                    else marcaPendiente = item.texto;
+                }
                 else if (SEP[item.pagina]) dibujarSeparador(rec, SEP[item.pagina]);
                 else if (item.pagina === 'triptico') dibujarTriptico(rec);
                 else if (item.pagina === 'video') dibujarVideo(rec, plan.videoLink);
@@ -772,7 +787,16 @@
             var c = cargados[item.ruta];
             if (!c) continue;
             if (c.pdf) {
-                var paginas = await doc.copyPages(c.pdf, c.pdf.getPageIndices());
+                var indices = c.pdf.getPageIndices();
+                if (marcaPendiente) {
+                    var emb = (await doc.embedPdf(c.pdf, [0]))[0];
+                    var pg0 = doc.addPage([W, H]), tope = bandaMarca(pg0, rec, marcaPendiente), alto = tope - 30;
+                    var e0 = Math.min((W - 24) / emb.width, alto / emb.height, 1);
+                    pg0.drawPage(emb, { x: (W - emb.width * e0) / 2, y: 30 + (alto - emb.height * e0) / 2, xScale: e0, yScale: e0 });
+                    marcaPendiente = null;
+                    indices = indices.slice(1);
+                }
+                var paginas = await doc.copyPages(c.pdf, indices);
                 paginas.forEach(function (pg) { doc.addPage(pg); });
                 /* Datos del evaluador que el candidato no podía conocer al generar. */
                 if (item.slot === 'iec') await sellarIec(paginas, rec, sellos, avisos);
@@ -787,8 +811,10 @@
             } else {
                 try {
                     var img = c.png ? await doc.embedPng(c.img) : await doc.embedJpg(c.img);
-                    var pg = doc.addPage([W, H]), esc = Math.min((W - 72) / img.width, (H - 72) / img.height, 1.5);
-                    pg.drawImage(img, { x: (W - img.width * esc) / 2, y: (H - img.height * esc) / 2, width: img.width * esc, height: img.height * esc });
+                    var pg = doc.addPage([W, H]), tope = H - 36;
+                    if (marcaPendiente) { tope = bandaMarca(pg, rec, marcaPendiente); marcaPendiente = null; }
+                    var alto = tope - 36, esc = Math.min((W - 72) / img.width, alto / img.height, 1.5);
+                    pg.drawImage(img, { x: (W - img.width * esc) / 2, y: 36 + (alto - img.height * esc) / 2, width: img.width * esc, height: img.height * esc });
                 } catch (e) { avisos.push("'" + item.etiqueta + "': la imagen no se pudo insertar (" + (e.message || e) + ')'); }
             }
         }
