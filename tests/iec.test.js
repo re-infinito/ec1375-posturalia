@@ -184,3 +184,18 @@ test('el cuestionario trae la respuesta del ANEXO 2 y se propone con el examen h
     // sin examen presentado no se propone nada del cuestionario
     assert.deepEqual(I.sugerencias({}).cuestionario, {});
 });
+
+test('un Sí con observación se señala: en el instrumento la observación es la razón de un No', () => {
+    const iec = { respuestas: { 1: 'si', 2: 'si', 3: 'no' }, observaciones: { 1: 'no se sabía el nombre completo', 3: 'faltó el archivero' } };
+    assert.deepEqual(I.contradicciones(iec), [1]);          // el 3 está en No: ahí la observación es correcta
+    assert.deepEqual(I.contradicciones({ respuestas: { 1: 'si' }, observaciones: { 1: '   ' } }), []); // en blanco no cuenta
+    assert.deepEqual(I.contradicciones({}), []);
+    assert.ok(I.validar(iec).some(f => /marcado Sí que trae observación: 1/.test(f)));
+});
+
+test('sin contradicciones, validar no inventa el aviso', () => {
+    const todos = {}; R.REACTIVOS.forEach(r => { todos[r.n] = 'si'; });
+    const cuest = {}; R.CUESTIONARIO.forEach(q => { cuest[q.n] = q.correcta; });
+    const faltan = I.validar({ respuestas: todos, cuestionario: cuest, fecha: '2026-09-20', observaciones: {} });
+    assert.deepEqual(faltan, []);
+});

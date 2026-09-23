@@ -86,6 +86,20 @@
     }
 
     /* Qué falta para poder aplicar el IEC (misma forma que validarCedula). */
+    /* Reactivos marcados Sí que además traen observación. En el instrumento
+       la observación es la razón de un No, así que una junto a un Sí se
+       imprime contradiciéndose sola — y eso es justo lo que revisa el Grupo
+       de Dictamen. No se decide por el evaluador (ni se borra su texto ni se
+       le cambia la marca): se le señala para que él resuelva cuál de las dos
+       quiso poner. */
+    function contradicciones(iec) {
+        var d = mapa(iec), resp = mapa(d.respuestas), obs = mapa(d.observaciones), out = [];
+        (R.REACTIVOS || []).forEach(function (r) {
+            if (resp[r.n] === 'si' && texto(obs[r.n])) out.push(r.n);
+        });
+        return out;
+    }
+
     function validar(iec) {
         var d = mapa(iec), faltan = [];
         var c = calificar(d.respuestas);
@@ -93,6 +107,8 @@
         var q = faltanCuestionario(d.cuestionario);
         if (q.length) faltan.push('Anotar la respuesta del candidato en ' + q.length + ' pregunta' + (q.length > 1 ? 's' : '') + ' del cuestionario');
         if (!texto(d.fecha)) faltan.push('Fecha de aplicación');
+        var k = contradicciones(d);
+        if (k.length) faltan.push('Revisar ' + k.length + ' reactivo' + (k.length > 1 ? 's' : '') + ' marcado' + (k.length > 1 ? 's' : '') + ' Sí que trae' + (k.length > 1 ? 'n' : '') + ' observación: ' + k.join(', '));
         return faltan;
     }
 
@@ -198,7 +214,7 @@
         return out.sort(function (a, b) { return a.elem - b.elem; });
     }
 
-    var api = { VERSION: VERSION, SI: SI, NO: NO, calificar: calificar, validar: validar,
+    var api = { VERSION: VERSION, SI: SI, NO: NO, calificar: calificar, validar: validar, contradicciones: contradicciones,
         sugerencias: sugerencias, guardar: guardar, secciones: secciones, criterios: criterios,
         faltanCuestionario: faltanCuestionario, cuestionario: R.CUESTIONARIO,
         estadoCandidato: estadoCandidato, ESTADOS: ESTADOS,

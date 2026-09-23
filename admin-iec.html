@@ -36,6 +36,10 @@
         .msg { font-size: 0.88rem; margin-top: 12px; }
         .msg.error { color: var(--danger); }
         .msg.ok { color: var(--success); }
+        .msg.aviso { color: var(--accent); }
+        /* Sí + observación: en el instrumento la observación es la razón de un No */
+        .react.choca { border-left: 3px solid var(--danger); background: color-mix(in srgb, var(--danger) 7%, transparent); }
+        .react .choca-av { margin: 0 0 6px; font-size: 0.78rem; color: var(--danger); }
         a { color: var(--primary); }
 
         .btn { padding: 11px 18px; border-radius: 8px; font-weight: 700; font-size: 0.9rem; border: none; cursor: pointer;
@@ -355,7 +359,8 @@
                     </header>
                     ${rs.map(r => {
                         const v = respuestas[r.n], obs = observaciones[r.n] || '';
-                        return `<div class="react ${v ? '' : 'pend'}" id="r${r.n}">
+                        const choca = v === 'si' && obs.trim();
+                        return `<div class="react ${v ? '' : 'pend'}${choca ? ' choca' : ''}" id="r${r.n}">
                             <div class="txt">
                                 <code>${esc(r.cod)} · ${r.tipo === 'AHV' ? 'resta ' : ''}${r.peso.toFixed(2)} pts</code>
                                 ${esc(r.texto)}
@@ -365,7 +370,7 @@
                                 <button class="si" data-si="${r.n}" aria-pressed="${v === 'si'}">Sí</button>
                                 <button class="no" data-no="${r.n}" aria-pressed="${v === 'no'}">No</button>
                             </div>
-                            ${v === 'no' || obs ? `<div class="obs"><textarea data-obs="${r.n}" placeholder="Observaciones (se imprimen en el IEC)">${esc(obs)}</textarea></div>` : ''}
+                            ${v === 'no' || obs ? `<div class="obs">${choca ? `<p class="choca-av">Está en <strong>Sí</strong> y trae observación. En el instrumento la observación es la razón de un <strong>No</strong>, así que se imprimiría contradiciéndose. Cambia la marca o borra el texto.</p>` : ''}<textarea data-obs="${r.n}" placeholder="Observaciones (se imprimen en el IEC)">${esc(obs)}</textarea></div>` : ''}
                         </div>`;
                     }).join('')}
                 </div>`;
@@ -380,9 +385,18 @@
         cont.querySelectorAll('[data-obs]').forEach(t => t.oninput = () => { observaciones[t.dataset.obs] = t.value; sucio = true; });
         cont.querySelectorAll('[data-todo]').forEach(b => b.onclick = () => {
             const [elem, tipo, titulo] = b.dataset.grupo.split('|');
-            RX.REACTIVOS.filter(r => String(r.elem) === elem && r.tipo === tipo && r.grupo === titulo)
-                .forEach(r => { respuestas[r.n] = 'si'; delete observaciones[r.n]; });
-            sucio = true; mensaje = null; render();
+            /* Respeta los No ya marcados: son una decisión del evaluador y
+               borrarlos en silencio (con su observación) cambia el juicio sin
+               que nadie se entere. Para volver uno a Sí, se toca su botón. */
+            const grupo = RX.REACTIVOS.filter(r => String(r.elem) === elem && r.tipo === tipo && r.grupo === titulo);
+            const respetados = grupo.filter(r => respuestas[r.n] === 'no');
+            grupo.filter(r => respuestas[r.n] !== 'no')
+                .forEach(r => { respuestas[r.n] = 'si'; delete observaciones[r.n]; delete fuentes[r.n]; });
+            sucio = true;
+            mensaje = respetados.length
+                ? { tipo: 'aviso', texto: 'Se marcaron en Sí los demás. Quedan en No ' + respetados.length + ' reactivo' + (respetados.length > 1 ? 's' : '') + ' que ya habías marcado: ' + respetados.map(r => r.cod).join(', ') + '.' }
+                : null;
+            render();
         });
     }
 

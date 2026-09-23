@@ -655,6 +655,12 @@
         if (!s.iec || !s.iec.respuestas) return;
         if (!R || !I) { avisos.push('El IEC quedó sin marcar: la página no cargó iec-reactivos.js / iec.js'); return; }
         var resp = s.iec.respuestas, obs = s.iec.observaciones || {}, marcados = 0;
+        /* Una observación junto a un Sí se imprime contradiciéndose (en el
+           instrumento la observación es la razón de un No). No se borra el
+           texto del evaluador ni se le cambia la marca: se avisa en el Índice
+           para que lo resuelva antes de entregar. */
+        var choca = I.contradicciones ? I.contradicciones(s.iec) : [];
+        if (choca.length) avisos.push('El IEC trae ' + choca.length + ' reactivo' + (choca.length > 1 ? 's' : '') + ' marcado' + (choca.length > 1 ? 's' : '') + ' Sí con observación (' + choca.join(', ') + '): revisar en "Calificar el IEC" antes de entregar.');
         R.REACTIVOS.forEach(function (r) {
             var v = resp[r.n];
             if (v !== 'si' && v !== 'no') return;
