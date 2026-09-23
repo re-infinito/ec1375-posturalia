@@ -116,6 +116,12 @@ test('agruparPorDia: por fecha de México, en orden', () => {
     assert.equal(g[0].fecha, '2026-09-25');
 });
 
+test('esEnlaceDeInicio: el /s/ es el de anfitrión y no sirve para el candidato', () => {
+    assert.equal(S.esEnlaceDeInicio('https://us06web.zoom.us/s/82757263451?pwd=x'), true);
+    assert.equal(S.esEnlaceDeInicio('https://us06web.zoom.us/j/82757263451?pwd=x'), false);
+    assert.equal(S.esEnlaceDeInicio(''), false);
+});
+
 test('esUrlZoom: solo enlaces https de zoom.us', () => {
     assert.equal(S.esUrlZoom('https://us06web.zoom.us/j/82757263451?pwd=abc.1'), true);
     assert.equal(S.esUrlZoom('https://evil.com/zoom.us/j/1'), false);
@@ -162,10 +168,58 @@ test('grabacionHtml: pendiente o guardada en el expediente', () => {
     assert.match(S.grabacionHtml({ grabacion: { en_expediente: true, fecha: '2026-09-26T18:00:00Z' } }), /Guardada en tu expediente/);
 });
 
-test('selectorHtml: días y horarios como botones; sin horarios avisa', () => {
-    const dias = S.agruparPorDia([{ id: 'h1', inicio: '2026-09-25T16:00:00Z', fin: '2026-09-25T17:30:00Z' }]);
-    const h = S.selectorHtml(dias, null);
-    assert.match(h, /data-sala-dia="2026-09-25"/);
-    assert.match(h, /data-sala-horario="h1"[^>]*>10:00 a 11:30 h/);
-    assert.match(S.selectorHtml([], null), /No hay horarios disponibles/);
+test('selectorHtml: calendario del mes; las horas salen al elegir el día', () => {
+    const dias = S.agruparPorDia([
+        { id: 'h1', inicio: '2026-09-25T16:00:00Z', fin: '2026-09-25T17:30:00Z' },
+        { id: 'h2', inicio: '2026-09-25T18:00:00Z', fin: '2026-09-25T19:30:00Z' },
+        { id: 'h3', inicio: '2026-10-02T16:00:00Z', fin: '2026-10-02T17:30:00Z' }
+    ]);
+    const sinDia = S.selectorHtml(dias, null, null);
+    assert.match(sinDia, /data-sala-dia="2026-09-25"/);
+    assert.match(sinDia, /Toca un día con horarios/);
+    assert.ok(!/data-sala-horario/.test(sinDia), 'sin día elegido no se pintan horas');
+    const conDia = S.selectorHtml(dias, '2026-09-25', '2026-09');
+    assert.match(conDia, /data-sala-horario="h1"[^>]*>10:00 a 11:30 h/);
+    assert.match(conDia, /data-sala-horario="h2"/);
+    assert.ok(!/data-sala-horario="h3"/.test(conDia), 'solo las horas de ese día');
+    assert.match(S.selectorHtml([], null, null), /No hay horarios disponibles/);
+});
+
+test('calendario: rejilla del mes con la semana en lunes y los huecos', () => {
+    const celdas = S.gridMes('2026-09'); // 1 sep 2026 = martes
+    assert.equal(celdas[0], null);
+    assert.equal(celdas[1], '2026-09-01');
+    assert.equal(celdas[30], '2026-09-30');
+    assert.equal(celdas.length % 7, 0);
+    assert.equal(S.gridMes('2026-02').filter(Boolean).length, 28);
+    assert.equal(S.gridMes('2028-02').filter(Boolean).length, 29); // bisiesto
+});
+
+test('calendario: solo los días con horarios son botones, con su conteo', () => {
+    const dias = S.agruparPorDia([
+        { id: 'a', inicio: '2026-09-25T16:00:00Z', fin: '2026-09-25T17:30:00Z' },
+        { id: 'b', inicio: '2026-09-25T18:00:00Z', fin: '2026-09-25T19:30:00Z' }
+    ]);
+    const h = S.calendarioHtml(dias, '2026-09', '2026-09-25');
+    assert.match(h, /class="sala-cal-dia on" data-sala-dia="2026-09-25"[^>]*>25<span class="sala-cal-pts">2</);
+    assert.match(h, /<span class="sala-cal-no">24<\/span>/);
+    assert.ok(!/data-sala-dia="2026-09-24"/.test(h));
+    assert.match(h, /septiembre de 2026/);
+});
+
+test('calendario: navegación solo entre meses que tienen horarios', () => {
+    const dias = S.agruparPorDia([
+        { id: 'a', inicio: '2026-09-25T16:00:00Z', fin: '2026-09-25T17:30:00Z' },
+        { id: 'b', inicio: '2026-11-03T16:00:00Z', fin: '2026-11-03T17:30:00Z' }
+    ]);
+    assert.deepEqual(S.mesesConHorarios(dias), ['2026-09', '2026-11']);
+    const sep = S.calendarioHtml(dias, '2026-09', null);
+    assert.match(sep, /data-sala-mes="" disabled aria-label="Mes anterior"/);
+    assert.match(sep, /data-sala-mes="2026-11"[^>]*aria-label="Mes siguiente"/);
+    const nov = S.calendarioHtml(dias, '2026-11', null);
+    assert.match(nov, /data-sala-mes="2026-09"[^>]*aria-label="Mes anterior"/);
+    assert.match(nov, /data-sala-mes="" disabled aria-label="Mes siguiente"/);
+    /* Un mes que no existe en la lista cae al primero con horarios. */
+    assert.match(S.calendarioHtml(dias, '2026-10', null), /septiembre de 2026/);
+    assert.equal(S.calendarioHtml([], null, null), '');
 });

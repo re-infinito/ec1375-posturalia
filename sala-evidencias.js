@@ -54,6 +54,10 @@
         return { clave: dias < 0 ? 'vencido' : dias <= 7 ? 'pronto' : 'ok', dias: dias, limite: limite };
     }
     function esUrlZoom(u) { return typeof u === 'string' && /^https:\/\/([a-z0-9-]+\.)*zoom\.us\/[^\s"'<>]*$/i.test(u); }
+    /* El enlace /s/ es el de INICIAR como anfitrión: a un candidato Zoom le
+       pediría entrar con la cuenta de Paideia (Diego lo pegó así el 22 sep).
+       El de invitación es /j/. */
+    function esEnlaceDeInicio(u) { return typeof u === 'string' && /^https:\/\/([a-z0-9-]+\.)*zoom\.us\/s\//i.test(u); }
 
     function cuentaRegresiva(ms) {
         if (!(ms > 0)) return 'ya';
@@ -118,12 +122,66 @@
         (horarios || []).slice().sort(function (a, b) { return Date.parse(a.inicio) - Date.parse(b.inicio); }).forEach(function (h) {
             var f = fechaISO(Date.parse(h.inicio));
             if (!dias[f]) {
-                dias[f] = { fecha: f, etiqueta: new Date(aMs(f)).toLocaleDateString('es-MX', { timeZone: TZ, weekday: 'short', day: 'numeric', month: 'short' }), horarios: [] };
+                dias[f] = {
+                    fecha: f,
+                    etiqueta: new Date(aMs(f)).toLocaleDateString('es-MX', { timeZone: TZ, weekday: 'short', day: 'numeric', month: 'short' }),
+                    etiquetaLarga: fechaLarga(f),
+                    horarios: []
+                };
                 orden.push(f);
             }
             dias[f].horarios.push({ id: h.id, inicio: h.inicio, fin: h.fin, texto: horarioTexto(h.inicio, h.fin) });
         });
         return orden.map(function (f) { return dias[f]; });
+    }
+
+    /* ---------- calendario del mes (puro) ----------
+       Con 200 horarios la lista de días era una pared de botones (Diego,
+       23 sep). Ahora: rejilla del mes → se toca un día → salen sus horas. */
+    var NOMBRE_MES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+    var DIAS_CORTOS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
+    function mesDe(fecha) { return String(fecha || '').slice(0, 7); }
+    function nombreMes(mes) { return NOMBRE_MES[Number(mes.slice(5, 7)) - 1] + ' de ' + mes.slice(0, 4); }
+    /* Celdas de la rejilla, con la semana empezando en lunes; null = hueco. */
+    function gridMes(mes) {
+        var y = Number(mes.slice(0, 4)), m = Number(mes.slice(5, 7));
+        var total = new Date(Date.UTC(y, m, 0)).getUTCDate();
+        var offset = (new Date(mes + '-01T00:00:00Z').getUTCDay() + 6) % 7;
+        var celdas = [];
+        for (var i = 0; i < offset; i++) celdas.push(null);
+        for (var d = 1; d <= total; d++) celdas.push(mes + '-' + ('0' + d).slice(-2));
+        while (celdas.length % 7) celdas.push(null);
+        return celdas;
+    }
+    function mesesConHorarios(dias) {
+        var vistos = {}, salida = [];
+        (dias || []).forEach(function (x) { var m = mesDe(x.fecha); if (!vistos[m]) { vistos[m] = true; salida.push(m); } });
+        return salida.sort();
+    }
+    function calendarioHtml(dias, mesSel, diaSel) {
+        var meses = mesesConHorarios(dias);
+        if (!meses.length) return '';
+        var mes = meses.indexOf(mesSel) >= 0 ? mesSel : (meses.indexOf(mesDe(diaSel)) >= 0 ? mesDe(diaSel) : meses[0]);
+        var i = meses.indexOf(mes);
+        var porFecha = {};
+        (dias || []).forEach(function (x) { porFecha[x.fecha] = x; });
+        return '<div class="sala-cal"><div class="sala-cal-nav">' +
+            '<button type="button" class="sala-cal-mov" data-sala-mes="' + esc(meses[i - 1] || '') + '"' + (i > 0 ? '' : ' disabled') + ' aria-label="Mes anterior">‹</button>' +
+            '<strong>' + esc(nombreMes(mes)) + '</strong>' +
+            '<button type="button" class="sala-cal-mov" data-sala-mes="' + esc(meses[i + 1] || '') + '"' + (i < meses.length - 1 ? '' : ' disabled') + ' aria-label="Mes siguiente">›</button>' +
+            '</div><div class="sala-cal-grid">' +
+            DIAS_CORTOS.map(function (d) { return '<span class="sala-cal-dow" aria-hidden="true">' + d + '</span>'; }).join('') +
+            gridMes(mes).map(function (f) {
+                if (!f) return '<span class="sala-cal-vacio"></span>';
+                var n = String(Number(f.slice(8)));
+                var dia = porFecha[f];
+                if (!dia) return '<span class="sala-cal-no">' + n + '</span>';
+                var on = f === diaSel;
+                var cuantos = dia.horarios.length;
+                return '<button type="button" class="sala-cal-dia' + (on ? ' on' : '') + '" data-sala-dia="' + f + '" aria-pressed="' + on + '" ' +
+                    'aria-label="' + esc(dia.etiquetaLarga || dia.etiqueta) + ', ' + cuantos + (cuantos === 1 ? ' horario' : ' horarios') + '">' +
+                    n + '<span class="sala-cal-pts">' + cuantos + '</span></button>';
+            }).join('') + '</div></div>';
     }
 
     /* ---------- HTML (puro) ---------- */
@@ -188,13 +246,16 @@
         if (g && g.en_expediente) return '<span class="sala-chip sala-chip-ok">✅ Guardada en tu expediente' + (g.fecha ? ' (' + esc(fechaCorta(g.fecha)) + ')' : '') + '</span>';
         return '<span class="sala-chip">⏳ Pendiente — el equipo la guardará en tu expediente</span>';
     }
-    function selectorHtml(dias, diaSel) {
+    function selectorHtml(dias, diaSel, mesSel) {
         if (!dias || !dias.length) return '<p class="sala-nota">No hay horarios disponibles por ahora.</p>';
-        var sel = dias.filter(function (x) { return x.fecha === diaSel; })[0] || dias[0];
-        return '<p class="sala-nota">1. Elige el día · 2. Elige la hora</p><div class="sala-dias" role="group" aria-label="Días disponibles">' +
-            dias.map(function (x) { var on = x.fecha === sel.fecha; return '<button type="button" class="sala-dia' + (on ? ' on' : '') + '" data-sala-dia="' + x.fecha + '" aria-pressed="' + on + '">' + esc(x.etiqueta) + '</button>'; }).join('') +
-            '</div><div class="sala-horas" role="group" aria-label="Horarios">' +
-            sel.horarios.map(function (h) { return '<button type="button" class="sala-hora" data-sala-horario="' + esc(h.id) + '">' + esc(h.texto) + '</button>'; }).join('') + '</div>';
+        var sel = dias.filter(function (x) { return x.fecha === diaSel; })[0] || null;
+        return '<p class="sala-nota">1. Elige el día · 2. Elige la hora</p>' +
+            calendarioHtml(dias, mesSel, sel ? sel.fecha : null) +
+            (sel
+                ? '<p class="sala-cal-sel">Horarios del <strong>' + esc(sel.etiquetaLarga || sel.etiqueta) + '</strong></p>' +
+                  '<div class="sala-horas" role="group" aria-label="Horarios">' +
+                  sel.horarios.map(function (h) { return '<button type="button" class="sala-hora" data-sala-horario="' + esc(h.id) + '">' + esc(h.texto) + '</button>'; }).join('') + '</div>'
+                : '<p class="sala-nota">Toca un día con horarios (el número chico es cuántos hay) para ver las horas.</p>');
     }
     function reservaHtml(d, ahoraMs) {
         var r = d.reserva, cambia = puedeCambiar(r, d.horas_cambio, ahoraMs);
@@ -215,6 +276,16 @@
         '.sala-reglas{margin-top:8px}.sala-reglas summary{cursor:pointer;font-weight:600;color:var(--text-bright)}.sala-reglas ol{margin:8px 0 0 20px;color:var(--text);font-size:.86rem}.sala-reglas li{margin-bottom:4px}' +
         '.sala-aviso{border-radius:10px;padding:12px 14px;margin:0 0 16px;font-size:.9rem;border:1px solid}.sala-aviso-info{border-color:var(--primary,#0088FF);color:var(--text-bright)}' +
         '.sala-aviso-warn{border-color:#d4a017;background:rgba(212,160,23,.12);color:var(--text-bright)}.sala-aviso-bad{border-color:var(--danger,#FF3333);background:rgba(255,51,51,.1);color:var(--text-bright)}.sala-aviso-ok{border-color:var(--success,#00a86b);color:var(--text-bright)}' +
+        '.sala-cal{margin:0 0 12px}.sala-cal-nav{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 8px;color:var(--text-bright)}' +
+        '.sala-cal-mov{min-width:44px;min-height:44px;border-radius:10px;border:1px solid var(--border,rgba(127,127,127,.4));background:transparent;color:var(--text-bright);font-size:1.2rem;cursor:pointer}' +
+        '.sala-cal-mov[disabled]{opacity:.35;cursor:not-allowed}' +
+        '.sala-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center}' +
+        '.sala-cal-dow{font-size:.75rem;color:var(--text);padding:2px 0}' +
+        '.sala-cal-vacio{min-height:44px}.sala-cal-no{min-height:44px;display:flex;align-items:center;justify-content:center;color:var(--text);opacity:.35;font-size:.9rem}' +
+        '.sala-cal-dia{position:relative;min-height:44px;border-radius:10px;border:1px solid var(--border,rgba(127,127,127,.4));background:transparent;color:var(--text-bright);font-weight:700;cursor:pointer}' +
+        '.sala-cal-dia:hover{border-color:var(--primary,#0088FF)}.sala-cal-dia.on{background:var(--primary,#0088FF);color:#fff;border-color:transparent}' +
+        '.sala-cal-pts{display:block;font-size:.64rem;font-weight:600;opacity:.8}' +
+        '.sala-cal-sel{margin:0 0 8px;color:var(--text-bright)}' +
         '.sala-dias,.sala-horas{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px}.sala-dia,.sala-hora{min-height:44px;padding:8px 14px;border-radius:10px;border:1px solid var(--border,rgba(127,127,127,.4));background:transparent;color:var(--text-bright);cursor:pointer;font-weight:600}' +
         '.sala-dia.on{background:var(--primary,#0088FF);color:#fff;border-color:transparent}.sala-hora:hover,.sala-dia:hover{border-color:var(--primary,#0088FF)}' +
         '.sala-chip{display:inline-block;padding:4px 10px;border-radius:999px;background:var(--surface-2,rgba(127,127,127,.12));font-size:.82rem;color:var(--text)}.sala-chip-ok{color:var(--success,#00a86b)}' +
@@ -352,7 +423,7 @@
         inyectarEstilos();
         var d = await cargar();
         if (!d) { el.innerHTML = ''; return { activa: false, reserva: null }; }
-        var lista = [], diaSel = null, mensaje = '', modoCambio = false;
+        var lista = [], diaSel = null, mesSel = null, mensaje = '', modoCambio = false;
         function vigente() { var r = d.reserva; return !!(r && r.estado === 'reservada' && Date.parse(r.fin) > Date.now()); }
         function resumen() { var r = d.reserva; return r && r.estado !== 'cancelada' ? { fecha: fechaISO(Date.parse(r.inicio)), horario: horarioTexto(r.inicio, r.fin), inicio: r.inicio, fin: r.fin } : null; }
         async function refrescar() { try { lista = agruparPorDia(await disponibles()); } catch (e) { lista = []; mensaje = 'No pudimos cargar los horarios: ' + mensajeError(e); } }
@@ -363,10 +434,15 @@
                 var r = d.reserva;
                 if (r && !vigente() && r.estado !== 'cancelada') html += '<p class="sala-nota">Tu sesión anterior fue el ' + esc(fechaLarga(r.inicio)) + '. Si necesitas grabar de nuevo, elige otro horario.</p>';
                 if (modoCambio) html += '<p class="sala-nota">Elige tu nuevo horario; el anterior se libera al confirmar. <button type="button" class="sala-link" data-sala-volver>Conservar mi horario</button></p>';
-                html += selectorHtml(lista, diaSel);
+                html += selectorHtml(lista, diaSel, mesSel);
             }
             el.innerHTML = html;
-            el.querySelectorAll('[data-sala-dia]').forEach(function (b) { b.addEventListener('click', function () { diaSel = b.getAttribute('data-sala-dia'); mensaje = ''; pintar(); }); });
+            el.querySelectorAll('[data-sala-dia]').forEach(function (b) {
+                b.addEventListener('click', function () { diaSel = b.getAttribute('data-sala-dia'); mesSel = mesDe(diaSel); mensaje = ''; pintar(); });
+            });
+            el.querySelectorAll('[data-sala-mes]').forEach(function (b) {
+                b.addEventListener('click', function () { var m = b.getAttribute('data-sala-mes'); if (!m) return; mesSel = m; diaSel = null; mensaje = ''; pintar(); });
+            });
             el.querySelectorAll('[data-sala-horario]').forEach(function (b) { b.addEventListener('click', function () { elegir(b.getAttribute('data-sala-horario')); }); });
             var c = el.querySelector('[data-sala-cambiar]'); if (c) c.addEventListener('click', async function () { modoCambio = true; mensaje = ''; await refrescar(); pintar(); });
             var v = el.querySelector('[data-sala-volver]'); if (v) v.addEventListener('click', function () { modoCambio = false; pintar(); });
@@ -401,9 +477,10 @@
     var api = {
         TZ: TZ, LUGAR_SALA: LUGAR_SALA, WHATSAPP: WHATSAPP, _esc: esc,
         fechaISO: fechaISO, fechaLarga: fechaLarga, fechaCorta: fechaCorta, hora: hora, horarioTexto: horarioTexto,
-        mxAIso: mxAIso, sumarDias: sumarDias, limiteDesde: limiteDesde, limiteInfo: limiteInfo, esUrlZoom: esUrlZoom,
+        mxAIso: mxAIso, sumarDias: sumarDias, limiteDesde: limiteDesde, limiteInfo: limiteInfo, esUrlZoom: esUrlZoom, esEnlaceDeInicio: esEnlaceDeInicio,
         cuentaRegresiva: cuentaRegresiva, estado: estado, puedeCambiar: puedeCambiar,
         generarHorarios: generarHorarios, agruparPorDia: agruparPorDia,
+        mesDe: mesDe, nombreMes: nombreMes, gridMes: gridMes, mesesConHorarios: mesesConHorarios, calendarioHtml: calendarioHtml,
         tarjetaHtml: tarjetaHtml, avisoHtml: avisoHtml, grabacionHtml: grabacionHtml, selectorHtml: selectorHtml, reservaHtml: reservaHtml,
         cargar: cargar, disponibles: disponibles, reservar: reservar, cancelar: cancelar,
         tarjeta: tarjeta, avisoLimite: avisoLimite, montar: montar, montarDespuesDelHero: montarDespuesDelHero, agenda: agenda

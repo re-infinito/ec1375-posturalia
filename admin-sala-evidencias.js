@@ -63,6 +63,11 @@
             return '<tr><td>' + esc(S.fechaCorta(x.inicio)) + '</td><td>' + esc(S.horarioTexto(x.inicio, x.fin)) + '</td><td>' + quien + '</td><td>' + acc + '</td></tr>';
         }
         var tabla = function (l, pasado) { return l.length ? '<div class="table-wrap" style="overflow-x:auto;"><table style="width:100%;"><thead><tr><th>Fecha</th><th>Horario</th><th>Candidato</th><th></th></tr></thead><tbody>' + l.map(function (x) { return fila(x, pasado); }).join('') + '</tbody></table></div>' : '<p style="opacity:.7">Ninguno.</p>'; };
+        h += '<h2 style="margin:28px 0 12px;">Borrar horarios libres</h2>' +
+            '<p style="font-size:.84rem;">Borra de golpe los horarios LIBRES de un rango. Los que ya tienen candidato nunca se tocan.</p>' +
+            '<div class="grid-2"><div class="form-group"><label>Desde</label><input type="date" id="saBorrarDesde" value="' + manana() + '"></div>' +
+            '<div class="form-group"><label>Hasta</label><input type="date" id="saBorrarHasta" value="' + S.sumarDias(manana(), 27) + '"></div></div>' +
+            '<button type="button" class="btn" style="background:transparent;border:1px solid var(--danger);color:var(--danger);" id="saBorrarRango">Borrar los libres de ese rango</button>';
         h += '<h2 style="margin:28px 0 12px;">Próximos horarios</h2>' + tabla(futuros, false) + '<h2 style="margin:28px 0 12px;">Últimos 14 días</h2>' + tabla(pasados, true);
         return h;
     }
@@ -72,6 +77,7 @@
         var q = function (s) { return st.el.querySelector(s); };
         q('#saGuardar').addEventListener('click', async function () {
             var url = q('#saUrl').value.trim();
+            if (S.esEnlaceDeInicio(url)) { aviso('Ese es el enlace para INICIAR la reunión como anfitrión (/s/). Usa el de invitación, que lleva /j/ — en Zoom: "Enlace de invitación".'); return; }
             if (!S.esUrlZoom(url)) { aviso('El enlace debe ser de zoom.us (https://…zoom.us/j/…).'); return; }
             var cambios = { zoom_url: url, zoom_id: q('#saId').value.trim(), zoom_clave: q('#saClave').value.trim(), dias_limite: Number(q('#saDias').value) || 30,
                 minutos_antes: Math.max(0, Number(q('#saAntes').value) || 0), horas_cambio: Math.max(0, Number(q('#saCambio').value) || 0), updated_at: new Date().toISOString(), updated_by: st.yo };
@@ -92,12 +98,33 @@
             if (r.error) { aviso(r.error.code === '23P01' ? 'Algún horario se traslapa con otro creado mientras tanto. Vuelve a generar la vista previa.' : 'No se pudo crear: ' + (r.error.message || r.error)); return; }
             st.vista = null; await cargar(); aviso(filas.length + ' horarios creados.');
         });
+        q('#saBorrarRango').addEventListener('click', async function () {
+            var desde = q('#saBorrarDesde').value, hasta = q('#saBorrarHasta').value;
+            if (!desde || !hasta || hasta < desde) { aviso('Revisa el rango de fechas.'); return; }
+            var libres = st.horarios.filter(function (x) {
+                var f = S.fechaISO(Date.parse(x.inicio));
+                return f >= desde && f <= hasta && !reservaDe(x.id);
+            });
+            var ocupados = st.horarios.filter(function (x) {
+                var f = S.fechaISO(Date.parse(x.inicio));
+                return f >= desde && f <= hasta && reservaDe(x.id);
+            }).length;
+            if (!libres.length) { aviso('No hay horarios libres en ese rango.'); return; }
+            if (!confirm('¿Borrar ' + libres.length + ' horarios libres del ' + S.fechaCorta(desde) + ' al ' + S.fechaCorta(hasta) + '?' +
+                (ocupados ? '\n\n' + (ocupados === 1 ? '1 horario con candidato NO se toca.' : ocupados + ' horarios con candidato NO se tocan.') : '') + '\n\nEsto no se puede deshacer.')) return;
+            var r = await sb().from('horarios_evidencia').delete().in('id', libres.map(function (x) { return x.id; })).select('id');
+            if (r.error) { aviso('No se pudieron borrar: ' + (r.error.message || r.error)); return; }
+            /* Con RLS, un delete que no alcanza filas no da error: se cuentan las devueltas. */
+            var borrados = (r.data || []).length;
+            await cargar();
+            aviso(borrados ? borrados + ' horarios borrados.' : 'No se borró ninguno (revisa que tu cuenta sea admin).');
+        });
         st.el.querySelectorAll('[data-sa-borrar]').forEach(function (b) {
             b.addEventListener('click', async function () {
                 if (!confirm('¿Borrar este horario libre?')) return;
-                var r = await sb().from('horarios_evidencia').delete().eq('id', b.getAttribute('data-sa-borrar'));
+                var r = await sb().from('horarios_evidencia').delete().eq('id', b.getAttribute('data-sa-borrar')).select('id');
                 if (r.error) { aviso('No se pudo borrar: ' + (r.error.message || r.error)); return; }
-                await cargar(); aviso('Horario borrado.');
+                await cargar(); aviso((r.data || []).length ? 'Horario borrado.' : 'No se borró (revisa que tu cuenta sea admin).');
             });
         });
         st.el.querySelectorAll('[data-sa-marcar]').forEach(function (b) {
