@@ -1,15 +1,20 @@
-/* cierre.js — los tres formatos de cierre del portafolio que el Centro
-   Evaluador llena por candidato (22 sep 2026).
+/* cierre.js — los tres formatos de cierre del portafolio (22 sep 2026).
 
-   Son las páginas 40, 41 y 42 del machote `FORMATO PORTAFOLIO-1375-2026`:
-   la Cédula de Evaluación del Servicio a usuarios, la Verificación Interna
-   del Proceso de Evaluación y el Formato de Atención a Usuarios. Hasta ahora
-   salían con los datos de identificación llenos y las casillas en blanco;
-   decisión de Diego: Humberto evalúa a todos los candidatos, así que los
-   captura él en `admin-cierre.html` y el portafolio los imprime llenos.
+   Son las páginas 40, 41 y 42 del machote `FORMATO PORTAFOLIO-1375-2026` y
+   NO las llena la misma persona. Regla de Diego: lo que le toca al candidato
+   lo contesta el candidato, sin mezclar.
 
-   Este módulo es la fuente única de qué pregunta cada formato: lo usan la
-   pantalla del evaluador y `portafolio.js`. Sin DOM ni red. */
+   · Cédula de Evaluación del Servicio a usuarios (p. 40) → el CANDIDATO,
+     en `encuesta-satisfaccion.html`. Es su opinión del servicio.
+   · Formato de Atención a Usuarios (p. 42) → el CANDIDATO, ahí mismo. Es
+     cómo lo atendieron cuando llegó.
+   · Verificación Interna del Proceso (p. 41) → el CENTRO EVALUADOR, en
+     `admin-verificacion.html`. Es la revisión del portafolio antes de
+     entregarlo, y la firma quien verifica.
+
+   Lo del candidato se guarda en `encuesta_data`; lo del Centro, en
+   `evaluaciones.cierre`. Este módulo es la fuente única de qué pregunta cada
+   formato: lo usan las dos pantallas y `portafolio.js`. Sin DOM ni red. */
 (function (root) {
     'use strict';
 
@@ -75,14 +80,17 @@
     function mapa(o) { return o && typeof o === 'object' ? o : {}; }
     function texto(v) { return typeof v === 'string' ? v.trim() : ''; }
 
-    /* Lo que ya sabemos del candidato, para no teclearlo de nuevo. */
-    function prellenar(row, evaluador) {
+    /* ── Lo que contesta el CANDIDATO (páginas 40 y 42) ─────────────── */
+
+    /* Arranque de las dos hojas del candidato: sus datos de contacto ya los
+       dio en el Autodiagnóstico, así que no se los volvemos a pedir. Sus
+       OPINIONES nunca vienen precargadas. */
+    function prellenarCandidato(row) {
         row = mapa(row);
         var pd = mapa(mapa(row.autodiagnostico_data).personalData);
         var plan = mapa(mapa(row.plan_evaluacion_data).planData);
         return {
             servicio: { medio: '', otroMedio: '', aspectos: {}, comentarios: '' },
-            verificacion: { items: {}, observaciones: '', verificador: texto(evaluador) },
             atencion: {
                 folio: '', lugar: texto(plan.lugarEvaluacion) || 'Zoom', medio: '', otroMedio: '',
                 domicilio: texto(pd.domicilio), colonia: '', cp: '', municipio: '', estado: '', ciudad: '',
@@ -92,41 +100,55 @@
         };
     }
 
-    /* Qué falta por capturar, en la misma forma que validarCedula. */
-    function validar(cierre) {
-        var d = mapa(cierre), faltan = [];
-        var s = mapa(d.servicio), v = mapa(d.verificacion), a = mapa(d.atencion);
-        var asp = mapa(s.aspectos), items = mapa(v.items), resp = mapa(a.respuestas);
+    function validarCandidato(datos) {
+        var d = mapa(datos), faltan = [];
+        var s = mapa(d.servicio), a = mapa(d.atencion);
+        var asp = mapa(s.aspectos), resp = mapa(a.respuestas);
         var faltaAsp = ASPECTOS_SERVICIO.filter(function (_, i) { return ESCALA_SERVICIO.indexOf(asp[i]) < 0; }).length;
-        if (faltaAsp) faltan.push('Calificar ' + faltaAsp + ' aspecto' + (faltaAsp > 1 ? 's' : '') + ' de la Cédula del Servicio a usuarios');
-        if (!texto(s.medio)) faltan.push('El medio por el que el candidato contactó al Centro');
-        var faltaVer = VERIFICACION.filter(function (x) { return items[x.n] !== 'si' && items[x.n] !== 'no'; }).length;
-        if (faltaVer) faltan.push('Contestar ' + faltaVer + ' punto' + (faltaVer > 1 ? 's' : '') + ' de la Verificación Interna');
-        if (!texto(v.verificador)) faltan.push('Nombre de quien verifica el proceso');
+        if (faltaAsp) faltan.push('Calificar ' + faltaAsp + ' aspecto' + (faltaAsp > 1 ? 's' : '') + ' del servicio que recibiste');
+        if (!texto(s.medio)) faltan.push('Cómo conociste al Centro de Evaluación');
         var faltaAt = ATENCION_PREGUNTAS.filter(function (_, i) { return ESCALA_SERVICIO.indexOf(resp[i]) < 0; }).length;
-        if (faltaAt) faltan.push('Calificar ' + faltaAt + ' pregunta' + (faltaAt > 1 ? 's' : '') + ' del Formato de Atención a Usuarios');
-        if (!texto(a.medio)) faltan.push('El medio de contacto del Formato de Atención a Usuarios');
+        if (faltaAt) faltan.push('Calificar ' + faltaAt + ' pregunta' + (faltaAt > 1 ? 's' : '') + ' sobre la atención que te dieron');
+        if (!texto(a.medio)) faltan.push('Por qué medio te atendieron la primera vez');
         return faltan;
     }
 
-    /* Cuántas casillas de las 29 llevan respuesta (para la barra de avance). */
-    function avance(cierre) {
-        var d = mapa(cierre);
-        var asp = mapa(mapa(d.servicio).aspectos), items = mapa(mapa(d.verificacion).items), resp = mapa(mapa(d.atencion).respuestas);
+    function avanceCandidato(datos) {
+        var d = mapa(datos);
+        var asp = mapa(mapa(d.servicio).aspectos), resp = mapa(mapa(d.atencion).respuestas);
         var hechas = ASPECTOS_SERVICIO.filter(function (_, i) { return ESCALA_SERVICIO.indexOf(asp[i]) >= 0; }).length
-            + VERIFICACION.filter(function (x) { return items[x.n] === 'si' || items[x.n] === 'no'; }).length
             + ATENCION_PREGUNTAS.filter(function (_, i) { return ESCALA_SERVICIO.indexOf(resp[i]) >= 0; }).length;
-        var total = ASPECTOS_SERVICIO.length + VERIFICACION.length + ATENCION_PREGUNTAS.length;
+        var total = ASPECTOS_SERVICIO.length + ATENCION_PREGUNTAS.length;
         return { hechas: hechas, total: total, completo: hechas === total };
     }
 
-    function guardar(cierre, datos, o) {
+    /* ── Lo que contesta el CENTRO EVALUADOR (página 41) ─────────────── */
+
+    function prellenarVerificacion(evaluador) {
+        return { items: {}, observaciones: '', verificador: texto(evaluador) };
+    }
+
+    function validarVerificacion(datos) {
+        var v = mapa(datos), items = mapa(v.items), faltan = [];
+        var falta = VERIFICACION.filter(function (x) { return items[x.n] !== 'si' && items[x.n] !== 'no'; }).length;
+        if (falta) faltan.push('Contestar ' + falta + ' punto' + (falta > 1 ? 's' : '') + ' de la Verificación Interna');
+        if (!texto(v.verificador)) faltan.push('Nombre de quien verifica el proceso');
+        return faltan;
+    }
+
+    function avanceVerificacion(datos) {
+        var items = mapa(mapa(datos).items);
+        var hechas = VERIFICACION.filter(function (x) { return items[x.n] === 'si' || items[x.n] === 'no'; }).length;
+        return { hechas: hechas, total: VERIFICACION.length, completo: hechas === VERIFICACION.length };
+    }
+
+    function guardarVerificacion(cierre, datos, o) {
         o = o || {};
         var prev = mapa(cierre), d = mapa(datos);
         return Object.assign({}, prev, {
             version: VERSION,
-            servicio: mapa(d.servicio), verificacion: mapa(d.verificacion), atencion: mapa(d.atencion),
-            completo: !validar(d).length,
+            verificacion: mapa(d),
+            completo: !validarVerificacion(d).length,
             por: o.por || prev.por || '',
             actualizado_at: o.ahora || new Date().toISOString()
         });
@@ -135,7 +157,9 @@
     var api = { VERSION: VERSION, ESCALA_SERVICIO: ESCALA_SERVICIO, ASPECTOS_SERVICIO: ASPECTOS_SERVICIO,
         MEDIOS_EVALUACION: MEDIOS_EVALUACION, VERIFICACION: VERIFICACION, MEDIOS_ATENCION: MEDIOS_ATENCION,
         ATENCION_PREGUNTAS: ATENCION_PREGUNTAS, CAMPOS_ATENCION: CAMPOS_ATENCION,
-        prellenar: prellenar, validar: validar, avance: avance, guardar: guardar };
+        prellenarCandidato: prellenarCandidato, validarCandidato: validarCandidato, avanceCandidato: avanceCandidato,
+        prellenarVerificacion: prellenarVerificacion, validarVerificacion: validarVerificacion,
+        avanceVerificacion: avanceVerificacion, guardarVerificacion: guardarVerificacion };
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
     else root.Cierre = api;
 })(typeof window !== 'undefined' ? window : globalThis);

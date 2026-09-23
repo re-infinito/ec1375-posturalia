@@ -7,7 +7,7 @@
     <link rel="icon" href="favicon-32x32.png" type="image/png" sizes="32x32">
     <link rel="icon" href="favicon-16x16.png" type="image/png" sizes="16x16">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
-    <title>Formatos de cierre - EC1375 Paideia Tech</title>
+    <title>Verificación Interna - EC1375 Paideia Tech</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="auth.js"></script>
     <script src="flow-status.js"></script>
@@ -89,7 +89,7 @@
     </style>
 </head>
 <body>
-    <div class="top-bar"><div class="top-bar-inner">Formatos de cierre</div></div>
+    <div class="top-bar"><div class="top-bar-inner">Verificación Interna</div></div>
     <div class="container" id="app"></div>
 
     <script>
@@ -99,7 +99,7 @@
 
     let sesion = null, yo = '', rol = null;
     let row = null, cand = null, ev = null, faltaSql = null, faltaColumna = null;
-    let d = null;                       /* { servicio, verificacion, atencion } */
+    let d = null;                       /* { items, observaciones, verificador } */
     let sucio = false, guardando = false, mensaje = null;
 
     function renderGateShell() {
@@ -114,7 +114,7 @@
     async function boot(session) {
         sesion = session; yo = session.user.email.toLowerCase();
         rol = await Auth.rolEquipo(yo);
-        CrmShell.mount({ mode: 'admin', currentPageId: 'admin-evaluacion', title: 'Formatos de cierre', rol });
+        CrmShell.mount({ mode: 'admin', currentPageId: 'admin-evaluacion', title: 'Verificación Interna', rol });
         const app = document.getElementById('app');
         if (!email) { app.innerHTML = `<p class="msg error">Falta el candidato. Ábrelo desde <a href="admin-candidatos.html">Candidatos</a>.</p>`; return; }
         app.innerHTML = CrmShell.skeleton('cards');
@@ -135,117 +135,58 @@
 
         const ced = E.cedulaPublicada(ev);
         const evaluador = (ced && ced.evaluadora) || E.EVALUADOR_PREDETERMINADO;
-        const base = C.prellenar(row || {}, evaluador);
-        const g = (ev && ev.cierre) || {};
-        /* Lo guardado manda; lo que falte se precarga del expediente. */
-        d = {
-            servicio: Object.assign({}, base.servicio, g.servicio || {}),
-            verificacion: Object.assign({}, base.verificacion, g.verificacion || {}),
-            atencion: Object.assign({}, base.atencion, g.atencion || {})
-        };
-        d.servicio.aspectos = Object.assign({}, (g.servicio || {}).aspectos || {});
-        d.verificacion.items = Object.assign({}, (g.verificacion || {}).items || {});
-        d.atencion.respuestas = Object.assign({}, (g.atencion || {}).respuestas || {});
+        const g = ((ev && ev.cierre) || {}).verificacion || {};
+        d = Object.assign(C.prellenarVerificacion(evaluador), g);
+        d.items = Object.assign({}, g.items || {});
     }
 
     function nombreCand() { return (cand && cand.nombre) || (row && row.nombre) || email; }
     function toca() { sucio = true; mensaje = null; }
 
-    /* Fila de opciones Bueno/Regular/Malo o Sí/No. */
-    function opciones(texto, valor, opts, attr, extra) {
-        return `<div class="react ${valor ? '' : 'pend'}">
-            <div class="txt">${extra ? `<code>${esc(extra)}</code>` : ''}${esc(texto)}</div>
-            <div class="sn">${opts.map(o => `<button type="button" ${attr}="${esc(o.v)}" aria-pressed="${valor === o.v}" class="${o.clase}">${esc(o.t)}</button>`).join('')}</div>
-        </div>`;
-    }
-    const BRM = [{ v: 'Bueno', t: 'Bueno', clase: 'si' }, { v: 'Regular', t: 'Regular', clase: '' }, { v: 'Malo', t: 'Malo', clase: 'no' }];
-    const SINO = [{ v: 'si', t: 'Sí', clase: 'si' }, { v: 'no', t: 'No', clase: 'no' }];
-
-    function campo(label, valor, attr, ancho) {
-        return `<label style="display:block;flex:1 1 ${ancho || 200}px;min-width:0;">
-            <span style="display:block;font-size:0.78rem;font-weight:700;margin-bottom:4px;">${esc(label)}</span>
-            <input type="text" ${attr} value="${esc(valor || '')}" maxlength="160"
-                style="width:100%;min-height:40px;padding:9px 11px;border-radius:8px;border:1px solid var(--border);background:var(--dark);color:var(--text-bright);font-family:inherit;font-size:0.88rem;">
-        </label>`;
-    }
-
     function render() {
-        const av = C.avance(d), falta = C.validar(d);
+        const av = C.avanceVerificacion(d), falta = C.validarVerificacion(d);
+        const grupos = [...new Set(C.VERIFICACION.map(v => v.grupo))];
         document.getElementById('app').innerHTML = `
             <div class="card iec-head">
                 <p style="font-size:0.8rem;"><a href="admin-evaluacion.html?email=${encodeURIComponent(email)}">← Volver a la evaluación</a></p>
-                <h1>Formatos de cierre · ${esc(nombreCand())}</h1>
-                <p>Las tres hojas del cierre del portafolio: la Cédula del Servicio a usuarios, la Verificación Interna y el Formato de Atención a Usuarios. Se imprimen llenas al generar el portafolio.</p>
+                <h1>Verificación Interna · ${esc(nombreCand())}</h1>
+                <p>La revisión del portafolio antes de entregarlo a la SEP. Es la hoja del Centro Evaluador: las dos de opinión sobre el servicio las contesta el candidato en su Encuesta de Satisfacción.</p>
                 <div class="iec-cifras">
-                    <div class="cifra ${av.completo ? 'ok' : ''}"><span>Casillas</span><strong>${av.hechas} / ${av.total}</strong></div>
+                    <div class="cifra ${av.completo ? 'ok' : ''}"><span>Puntos</span><strong>${av.hechas} / ${av.total}</strong></div>
                     <div class="cifra ${falta.length ? 'mal' : 'ok'}"><span>Estado</span><strong style="font-size:0.95rem;">${falta.length ? 'Incompleto' : 'Listo'}</strong></div>
                 </div>
             </div>
             ${faltaSql ? `<div class="aviso rojo"><strong>Falta correr el SQL del Centro Evaluador.</strong> ${esc(faltaSql)}</div>` : ''}
             ${!faltaSql && faltaColumna ? `<div class="aviso rojo"><strong>Falta correr <code>2026-09-22-iec-evaluador.sql</code></strong> (agrega las columnas <code>iec</code> y <code>cierre</code>). Se puede llenar, pero no guardar.<br><span style="font-size:0.78rem;">${esc(faltaColumna)}</span></div>` : ''}
-
             <div class="elem">
-                <h2>1. Cédula de Evaluación del Servicio a usuarios</h2>
-                <p class="sub">Cómo calificó el candidato el servicio que recibió. Su nombre y su firma se imprimen solos.</p>
-                <div class="grupo">
-                    <header><div class="t"><strong>Medio por el que contactó al Centro</strong><span>Una sola opción</span></div></header>
-                    <div class="react ${d.servicio.medio ? '' : 'pend'}">
-                        <div class="sn" style="flex-wrap:wrap;">${C.MEDIOS_EVALUACION.map(m => `<button type="button" data-medioev="${esc(m)}" aria-pressed="${d.servicio.medio === m}" class="${d.servicio.medio === m ? 'si' : ''}" style="min-width:auto;padding:0 12px;">${esc(m)}</button>`).join('')}</div>
-                        ${d.servicio.medio === 'Otro' ? `<div class="obs">${campo('¿Cuál?', d.servicio.otroMedio, 'data-otroev', 300)}</div>` : ''}
-                    </div>
-                </div>
-                <div class="grupo">
-                    <header><div class="t"><strong>Aspectos a calificar</strong><span>${C.ASPECTOS_SERVICIO.length} aspectos</span></div>
-                        <button class="btn btn-chip" data-todo="servicio">Todo Bueno</button></header>
-                    ${C.ASPECTOS_SERVICIO.map((a, i) => opciones(a, d.servicio.aspectos[i], BRM, `data-asp="${i}" data-v`)).join('')}
-                    <div class="react"><div class="obs" style="flex:1 1 100%;">
-                        <span style="display:block;font-size:0.78rem;font-weight:700;margin-bottom:4px;">Comentarios y/o sugerencias</span>
-                        <textarea data-comentarios rows="2">${esc(d.servicio.comentarios || '')}</textarea>
-                    </div></div>
-                </div>
-            </div>
-
-            <div class="elem">
-                <h2>2. Verificación Interna del Proceso de Evaluación</h2>
-                <p class="sub">La revisión del portafolio antes de entregarlo.</p>
-                ${['Integración del portafolio de evidencias', 'Verificación del Instrumento de evaluación', 'Productos y entrega'].map(g => `
+                ${grupos.map(g => `
                     <div class="grupo">
                         <header><div class="t"><strong>${esc(g)}</strong><span>${C.VERIFICACION.filter(v => v.grupo === g).length} puntos</span></div>
-                            <button class="btn btn-chip" data-todo="ver:${esc(g)}">Todo Sí</button></header>
-                        ${C.VERIFICACION.filter(v => v.grupo === g).map(v => opciones(v.texto, d.verificacion.items[v.n], SINO, `data-ver="${v.n}" data-v`, String(v.n))).join('')}
+                            <button class="btn btn-chip" data-todo="${esc(g)}">Todo Sí</button></header>
+                        ${C.VERIFICACION.filter(v => v.grupo === g).map(v => `
+                            <div class="react ${d.items[v.n] ? '' : 'pend'}">
+                                <div class="txt"><code>Punto ${v.n}</code>${esc(v.texto)}</div>
+                                <div class="sn">
+                                    <button type="button" class="si" data-ver="${v.n}" data-v="si" aria-pressed="${d.items[v.n] === 'si'}">Sí</button>
+                                    <button type="button" class="no" data-ver="${v.n}" data-v="no" aria-pressed="${d.items[v.n] === 'no'}">No</button>
+                                </div>
+                            </div>`).join('')}
                     </div>`).join('')}
                 <div class="grupo"><div class="react">
                     <div class="obs" style="flex:1 1 100%;">
                         <span style="display:block;font-size:0.78rem;font-weight:700;margin-bottom:4px;">Observaciones</span>
-                        <textarea data-verobs rows="2">${esc(d.verificacion.observaciones || '')}</textarea>
+                        <textarea data-verobs rows="2">${esc(d.observaciones || '')}</textarea>
                     </div>
-                    <div class="obs" style="flex:1 1 100%;display:flex;gap:12px;flex-wrap:wrap;">${campo('Nombre de quien verifica el proceso', d.verificacion.verificador, 'data-verificador', 300)}</div>
+                    <div class="obs" style="flex:1 1 100%;">
+                        <span style="display:block;font-size:0.78rem;font-weight:700;margin-bottom:4px;">Nombre de quien verifica el proceso</span>
+                        <input type="text" data-verificador value="${esc(d.verificador || '')}" maxlength="160"
+                            style="width:100%;min-height:40px;padding:9px 11px;border-radius:8px;border:1px solid var(--border);background:var(--dark);color:var(--text-bright);font-family:inherit;font-size:0.88rem;">
+                    </div>
                 </div></div>
             </div>
-
-            <div class="elem">
-                <h2>3. Formato de Atención a Usuarios</h2>
-                <p class="sub">Cómo se atendió al candidato cuando llegó. Lo que ya está en su expediente viene precargado.</p>
-                <div class="grupo">
-                    <header><div class="t"><strong>Medio de contacto</strong><span>Una sola opción</span></div></header>
-                    <div class="react ${d.atencion.medio ? '' : 'pend'}">
-                        <div class="sn" style="flex-wrap:wrap;">${C.MEDIOS_ATENCION.map(m => `<button type="button" data-medioat="${esc(m)}" aria-pressed="${d.atencion.medio === m}" class="${d.atencion.medio === m ? 'si' : ''}" style="min-width:auto;padding:0 12px;">${esc(m)}</button>`).join('')}</div>
-                        ${d.atencion.medio === 'Otro' ? `<div class="obs">${campo('¿Cuál?', d.atencion.otroMedio, 'data-otroat', 300)}</div>` : ''}
-                    </div>
-                    <div class="react"><div class="obs" style="flex:1 1 100%;display:flex;gap:12px;flex-wrap:wrap;">
-                        ${C.CAMPOS_ATENCION.map(c => campo(c.label, d.atencion[c.id], `data-at="${c.id}"`)).join('')}
-                    </div></div>
-                </div>
-                <div class="grupo">
-                    <header><div class="t"><strong>Cómo califica la atención</strong><span>${C.ATENCION_PREGUNTAS.length} preguntas</span></div>
-                        <button class="btn btn-chip" data-todo="atencion">Todo Bueno</button></header>
-                    ${C.ATENCION_PREGUNTAS.map((q, i) => opciones(q, d.atencion.respuestas[i], BRM, `data-at2="${i}" data-v`)).join('')}
-                </div>
-            </div>
-
             <div class="barra">
                 <div class="info">
-                    <strong>${av.hechas} de ${av.total}</strong> casillas${falta.length ? ' · falta: ' + esc(falta[0]) : ' · listo'}
+                    <strong>${av.hechas} de ${av.total}</strong> puntos${falta.length ? ' · falta: ' + esc(falta[0]) : ' · listo'}
                     <div class="prog"><i style="width:${Math.round(av.hechas / av.total * 100)}%"></i></div>
                 </div>
                 <button class="btn btn-primary" id="guardar" ${guardando ? 'disabled' : ''}>${guardando ? 'Guardando…' : (sucio ? 'Guardar cambios' : 'Guardar')}</button>
@@ -256,25 +197,15 @@
 
     function enlazar() {
         const q = s => Array.from(document.querySelectorAll(s));
-        q('[data-asp]').forEach(b => b.onclick = () => { d.servicio.aspectos[b.dataset.asp] = b.dataset.v; toca(); render(); });
-        q('[data-ver]').forEach(b => b.onclick = () => { d.verificacion.items[b.dataset.ver] = b.dataset.v; toca(); render(); });
-        q('[data-at2]').forEach(b => b.onclick = () => { d.atencion.respuestas[b.dataset.at2] = b.dataset.v; toca(); render(); });
-        q('[data-medioev]').forEach(b => b.onclick = () => { d.servicio.medio = b.dataset.medioev; toca(); render(); });
-        q('[data-medioat]').forEach(b => b.onclick = () => { d.atencion.medio = b.dataset.medioat; toca(); render(); });
-        q('[data-at]').forEach(i => i.oninput = () => { d.atencion[i.dataset.at] = i.value; toca(); });
-        const liga = (sel, set) => { const e = document.querySelector(sel); if (e) e.oninput = () => { set(e.value); toca(); }; };
-        liga('[data-comentarios]', v => { d.servicio.comentarios = v; });
-        liga('[data-verobs]', v => { d.verificacion.observaciones = v; });
-        liga('[data-verificador]', v => { d.verificacion.verificador = v; });
-        liga('[data-otroev]', v => { d.servicio.otroMedio = v; });
-        liga('[data-otroat]', v => { d.atencion.otroMedio = v; });
+        q('[data-ver]').forEach(b => b.onclick = () => { d.items[b.dataset.ver] = b.dataset.v; toca(); render(); });
         q('[data-todo]').forEach(b => b.onclick = () => {
-            const t = b.dataset.todo;
-            if (t === 'servicio') C.ASPECTOS_SERVICIO.forEach((_, i) => { d.servicio.aspectos[i] = 'Bueno'; });
-            else if (t === 'atencion') C.ATENCION_PREGUNTAS.forEach((_, i) => { d.atencion.respuestas[i] = 'Bueno'; });
-            else C.VERIFICACION.filter(v => v.grupo === t.slice(4)).forEach(v => { d.verificacion.items[v.n] = 'si'; });
+            C.VERIFICACION.filter(v => v.grupo === b.dataset.todo).forEach(v => { d.items[v.n] = 'si'; });
             toca(); render();
         });
+        const o = document.querySelector('[data-verobs]');
+        if (o) o.oninput = () => { d.observaciones = o.value; toca(); };
+        const v = document.querySelector('[data-verificador]');
+        if (v) v.oninput = () => { d.verificador = v.value; toca(); };
         const g = document.getElementById('guardar');
         if (g) g.onclick = guardar;
     }
@@ -282,14 +213,14 @@
     async function guardar() {
         if (faltaSql || faltaColumna) { mensaje = { tipo: 'error', texto: 'Falta correr el SQL antes de poder guardar.' }; render(); return; }
         guardando = true; mensaje = null; render();
-        const cierre = C.guardar(ev && ev.cierre, d, { por: yo });
+        const cierre = C.guardarVerificacion(ev && ev.cierre, d, { por: yo });
         const { error } = await supabaseClient.from('evaluaciones').upsert({ email, cierre }, { onConflict: 'email' });
         guardando = false;
         if (error) { mensaje = { tipo: 'error', texto: 'No se pudo guardar: ' + (error.message || error) }; render(); return; }
         ev = Object.assign({}, ev, { cierre });
         sucio = false;
-        const falta = C.validar(d);
-        mensaje = { tipo: falta.length ? 'error' : 'ok', texto: falta.length ? 'Guardado. Todavía falta: ' + falta.join('; ') : 'Guardado. Las tres hojas entran llenas al portafolio.' };
+        const falta = C.validarVerificacion(d);
+        mensaje = { tipo: falta.length ? 'error' : 'ok', texto: falta.length ? 'Guardado. Todavía falta: ' + falta.join('; ') : 'Guardado. La hoja entra llena al portafolio.' };
         render();
     }
 

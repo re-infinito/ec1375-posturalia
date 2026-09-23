@@ -214,12 +214,14 @@ test('sellosPortafolio: evaluador de la Cédula, Centro, fecha del Plan y firmas
     assert.equal(s.fechaPortada, '2026-09-17');
     assert.equal(s.lote, '2');
     assert.ok(s.avisos.some(a => /\(IEC\) va en blanco/.test(a)));
-    assert.ok(s.avisos.some(a => /formatos de cierre van en blanco/.test(a)));
-    assert.ok(s.avisos.some(a => /firmas del evaluador en los formatos de cierre/.test(a)));
-    // con el IEC, el cierre y las tres firmas ya no queda ningún aviso
+    assert.ok(s.avisos.some(a => /hojas de opinión del candidato van en blanco/.test(a)));
+    assert.ok(s.avisos.some(a => /Verificación Interna va en blanco/.test(a)));
+    assert.ok(s.avisos.some(a => /firma del evaluador en la Verificación Interna/.test(a)));
+    // con el IEC, las dos hojas del candidato, la Verificación y las firmas no queda aviso
+    f.encuesta_data.cierreCandidato = { servicio: { medio: 'Promoción directa' }, atencion: {} };
     const completo = Object.assign({}, ev, {
         iec: { respuestas: { 1: 'si' }, completo: true },
-        cierre: { completo: true },
+        cierre: { verificacion: { items: {} }, completo: true },
         firmas_evaluador: Object.assign({}, ev.firmas_evaluador, { cierre: firmaDibujada })
     });
     const conTodo = E.sellosPortafolio(f, completo, { lote: 2 });
@@ -227,9 +229,9 @@ test('sellosPortafolio: evaluador de la Cédula, Centro, fecha del Plan y firmas
     assert.equal(conTodo.iec.completo, true);
     assert.equal(conTodo.firmaCierre, firmaDibujada);
     // lo que va a medias se avisa aparte
-    const medio = E.sellosPortafolio(f, Object.assign({}, ev, { iec: { respuestas: { 1: 'si' }, completo: false }, cierre: { completo: false } }), { lote: 2 });
+    const medio = E.sellosPortafolio(f, Object.assign({}, ev, { iec: { respuestas: { 1: 'si' }, completo: false }, cierre: { verificacion: { items: {} }, completo: false } }), { lote: 2 });
     assert.ok(medio.avisos.some(a => /IEC está incompleto/.test(a)));
-    assert.ok(medio.avisos.some(a => /formatos de cierre están incompletos/.test(a)));
+    assert.ok(medio.avisos.some(a => /Verificación Interna está incompleta/.test(a)));
 });
 
 test('sellosPortafolio: sin Cédula usa el evaluador predeterminado y avisa lo que falta firmar', () => {

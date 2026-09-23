@@ -230,17 +230,22 @@
             firmaCierre: firmaValida(firmas.cierre) ? firmas.cierre : null,
             firmaCandidato: ced && firmaValida(ev.firma_candidato) ? ev.firma_candidato : null,
             iec: iec,
+            /* Las dos hojas de opinión las contesta el candidato en su
+               Encuesta; la Verificación Interna, el Centro Evaluador. */
+            cierreCandidato: row.encuesta_data && typeof row.encuesta_data === 'object' && row.encuesta_data.cierreCandidato
+                ? row.encuesta_data.cierreCandidato : null,
             cierre: ev.cierre && typeof ev.cierre === 'object' ? ev.cierre : null,
             avisos: []
         };
         if (!iec || !iec.respuestas) s.avisos.push('El Instrumento de Evaluación (IEC) va en blanco: llénalo en Centro Evaluador → Instrumento de Evaluación');
         else if (!iec.completo) s.avisos.push('El IEC está incompleto: hay reactivos sin contestar y el instrumento no admite dejarlos en blanco');
         if (!s.lote) s.avisos.push('La portada va sin lote: captúralo en Precios y pagos');
-        if (!s.cierre) s.avisos.push('Los tres formatos de cierre van en blanco: llénalos en Centro Evaluador → Formatos de cierre');
-        else if (!s.cierre.completo) s.avisos.push('Los formatos de cierre están incompletos: hay casillas sin contestar');
+        if (!s.cierreCandidato) s.avisos.push('Las dos hojas de opinión del candidato van en blanco: las contesta él en su Encuesta de Satisfacción');
+        if (!s.cierre || !s.cierre.verificacion) s.avisos.push('La Verificación Interna va en blanco: llénala en Centro Evaluador → Verificación Interna');
+        else if (!s.cierre.completo) s.avisos.push('La Verificación Interna está incompleta: hay puntos sin contestar');
         if (!s.firmaPlan) s.avisos.push('Falta la firma del evaluador en el Plan de Evaluación (Centro Evaluador → Firmas del evaluador)');
         if (!s.firmaIec) s.avisos.push('Falta la rúbrica del evaluador en el IEC (Centro Evaluador → Firmas del evaluador)');
-        if (!s.firmaCierre) s.avisos.push('Faltan las firmas del evaluador en los formatos de cierre (Centro Evaluador → Firmas del evaluador)');
+        if (!s.firmaCierre) s.avisos.push('Falta la firma del evaluador en la Verificación Interna (Centro Evaluador → Firmas del evaluador)');
         if (!fechaAplicacion) s.avisos.push('El IEC va sin Fecha de Aplicación: falta la fecha de evaluación en el Plan');
         return s;
     }

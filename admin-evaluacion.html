@@ -116,7 +116,7 @@
     const DOCS_FIRMA = [
         { clave: 'plan', titulo: 'Plan de Evaluación', desc: 'Va en "Nombre y firma de la Evaluadora", junto a la firma del candidato.' },
         { clave: 'iec', titulo: 'Instrumento de Evaluación (IEC)', desc: 'Va como rúbrica al pie de sus 83 páginas, junto a la del candidato.' },
-        { clave: 'cierre', titulo: 'Formatos de cierre', desc: 'Va en la Verificación Interna y en el Formato de Atención a Usuarios.' }
+        { clave: 'cierre', titulo: 'Verificación Interna', desc: 'Va al pie de la hoja de Verificación Interna del proceso.' }
     ];
     let firmasDoc = {}, faltaSqlFirmas = null;
 
@@ -239,19 +239,23 @@
             <div class="ev-acciones" style="margin-top:10px;"><a class="crm-btn crm-btn-primary crm-btn-sm" href="${liga}">${ok ? 'Revisar el instrumento' : 'Terminar de calificar'}</a></div>`;
     }
 
-    /* Las tres hojas del cierre (22 sep): las llena el Centro Evaluador en
-       admin-cierre.html y el portafolio las imprime llenas. */
+    /* Verificación Interna (22 sep): la hoja del Centro Evaluador. Las otras
+       dos del cierre son opinión del candidato y las contesta él en su
+       Encuesta de Satisfacción. */
     function cierreHtml() {
-        const c = (ev && ev.cierre) || null;
-        const liga = `admin-cierre.html?email=${encodeURIComponent(email)}`;
-        const av = c ? Cierre.avance(c) : null;
-        if (!c) {
-            return `<p class="crm-muted" style="font-size:0.84rem;">Sin llenar. La Cédula del Servicio a usuarios, la Verificación Interna y el Formato de Atención a Usuarios entrarían al portafolio con las casillas en blanco.</p>
-                <div class="ev-acciones" style="margin-top:10px;"><a class="crm-btn crm-btn-primary crm-btn-sm" href="${liga}">Llenar los formatos</a></div>`;
+        const v = ((ev && ev.cierre) || {}).verificacion || null;
+        const liga = `admin-verificacion.html?email=${encodeURIComponent(email)}`;
+        const opinion = row && row.encuesta_data && row.encuesta_data.cierreCandidato
+            ? Cierre.avanceCandidato(row.encuesta_data.cierreCandidato) : null;
+        const nota = `<p class="crm-muted" style="font-size:0.82rem;margin-top:8px;">Las dos hojas de opinión (Cédula del Servicio a usuarios y Formato de Atención a Usuarios) las contesta el candidato en su Encuesta de Satisfacción: ${opinion ? (opinion.completo ? '<strong>ya están</strong>' : `van ${opinion.hechas} de ${opinion.total}`) : '<strong>todavía no las contesta</strong>'}.</p>`;
+        if (!v) {
+            return `<p class="crm-muted" style="font-size:0.84rem;">Sin llenar. La hoja entraría al portafolio con las casillas en blanco.</p>${nota}
+                <div class="ev-acciones" style="margin-top:10px;"><a class="crm-btn crm-btn-primary crm-btn-sm" href="${liga}">Llenar la verificación</a></div>`;
         }
-        return `<div class="ev-estado ${c.completo ? 'ok' : ''}">${av.hechas} de ${av.total} casillas${c.completo ? '' : ' · falta terminarlos'}</div>
-            <p class="crm-muted" style="font-size:0.84rem;margin-top:6px;">Cédula del Servicio a usuarios · Verificación Interna · Formato de Atención a Usuarios${c.actualizado_at ? ' · actualizado el ' + esc(fechaCorta(c.actualizado_at)) : ''}</p>
-            <div class="ev-acciones" style="margin-top:10px;"><a class="crm-btn crm-btn-primary crm-btn-sm" href="${liga}">${c.completo ? 'Revisar los formatos' : 'Terminar de llenarlos'}</a></div>`;
+        const av = Cierre.avanceVerificacion(v);
+        const ok = (ev.cierre || {}).completo;
+        return `<div class="ev-estado ${ok ? 'ok' : ''}">${av.hechas} de ${av.total} puntos${ok ? '' : ' · falta terminarla'}</div>${nota}
+            <div class="ev-acciones" style="margin-top:10px;"><a class="crm-btn crm-btn-primary crm-btn-sm" href="${liga}">${ok ? 'Revisar la verificación' : 'Terminar de llenarla'}</a></div>`;
     }
 
     function firmasDocHtml() {
@@ -345,7 +349,7 @@
             <section class="crm-card" style="margin-bottom:16px;"><div class="crm-card-h"><span class="crm-stat-ico">${ic('map', 18)}</span>Etapas del Centro Evaluador<span class="crm-count">${t.dictamen ? (t.dictamen === 'competente' ? 'Competente' : 'No competente') : 'Sin dictamen'}</span></div>${etapasHtml()}</section>
             <section class="crm-card" style="margin-bottom:16px;"><div class="crm-card-h"><span class="crm-stat-ico">${ic('file', 18)}</span>Cédula de Evaluación</div>${cedulaHtml()}</section>
             <section class="crm-card" style="margin-bottom:16px;"><div class="crm-card-h"><span class="crm-stat-ico">${ic('check-square', 18)}</span>Instrumento de Evaluación (IEC)</div>${iecHtml()}</section>
-            <section class="crm-card" style="margin-bottom:16px;"><div class="crm-card-h"><span class="crm-stat-ico">${ic('clipboard', 18)}</span>Formatos de cierre</div>${cierreHtml()}</section>
+            <section class="crm-card" style="margin-bottom:16px;"><div class="crm-card-h"><span class="crm-stat-ico">${ic('clipboard', 18)}</span>Verificación Interna</div>${cierreHtml()}</section>
             <section class="crm-card" style="margin-bottom:16px;"><div class="crm-card-h"><span class="crm-stat-ico">${ic('file', 18)}</span>Firmas del evaluador</div>${firmasDocHtml()}</section>
             <section class="crm-card" style="margin-bottom:16px;"><div class="crm-card-h"><span class="crm-stat-ico">${ic('video', 18)}</span>Grabación de la sesión</div><div id="grabacionZoom"></div></section>
             <section class="crm-card"><div class="crm-card-h"><span class="crm-stat-ico">${ic('folder', 18)}</span>Portafolio de Evidencias</div>${portafolioHtml()}</section>`;

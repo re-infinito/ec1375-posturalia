@@ -341,7 +341,7 @@
     function C() { return root.Cierre || {}; }
     function marcaDe(valor, opciones) { var i = opciones.indexOf(valor); return i < 0 ? -1 : i; }
     async function dibujarCedulaServicio(rec, d) {
-        var c = C(), datos = (d.cierre && d.cierre.servicio) || {}, asp = datos.aspectos || {};
+        var c = C(), datos = (d.cierreCandidato && d.cierreCandidato.servicio) || {}, asp = datos.aspectos || {};
         var aspectos = c.ASPECTOS_SERVICIO || [], escala = c.ESCALA_SERVICIO || ['Bueno', 'Regular', 'Malo'];
         var p = pagina(rec), y = H - 88;
         centrado(p, rec, 'Sistema Nacional de Competencia en la operación de la Evaluación y Certificación', y, 8, rec.negrita); y -= 13;
@@ -413,7 +413,7 @@
     }
 
     async function dibujarAtencion(rec, d) {
-        var c = C(), datos = (d.cierre && d.cierre.atencion) || {}, resp = datos.respuestas || {};
+        var c = C(), datos = (d.cierreCandidato && d.cierreCandidato.atencion) || {}, resp = datos.respuestas || {};
         var preguntas = c.ATENCION_PREGUNTAS || [], escala = c.ESCALA_SERVICIO || ['Bueno', 'Regular', 'Malo'];
         var p = pagina(rec), y = H - 88;
         centrado(p, rec, 'Sistema Nacional de Competencia en la operación de la Evaluación y Certificación', y, 8, rec.negrita); y -= 13;
@@ -745,7 +745,7 @@
         var SEP = { sep1: '1. Datos del Candidato/a', sep2: '2. Recopilación de Evidencias', sep3: '3. Cierre de Evaluación', sep4: '4. ANEXOS' };
         var datosPag = { nombre: plan.nombre, evaluador: sellos.evaluador, fecha: sellos.fechaPortada, lote: sellos.lote,
             ceNombre: sellos.ceNombre, email: ctx.email || '', firmaCandidato: sellos.firmaCandidato,
-            cierre: sellos.cierre, firmaCierre: sellos.firmaCierre };
+            cierre: sellos.cierre, cierreCandidato: sellos.cierreCandidato, firmaCierre: sellos.firmaCierre };
         for (var n = 0; n < plan.items.length; n++) {
             var item = plan.items[n];
             if (item.tipo === 'generado') {

@@ -15,6 +15,7 @@
     <script src="protect.js"></script>
     <script src="flow-status.js"></script>
     <script src="firma-candidato.js"></script>
+    <script src="cierre.js"></script>
     <script src="documentos-nas.js"></script>
     <script src="crm-shell.js" data-crm-page="encuesta"></script>
     <style>
@@ -137,6 +138,10 @@
     let hasSignature = false;
     let isDrawing = false, lastX = 0, lastY = 0;
     let generated = false;
+    /* Las dos hojas del portafolio que son OPINIÓN DEL CANDIDATO (páginas 40 y
+       42 del machote 2026). Antes las llenaba el evaluador; desde el 22 sep las
+       contesta quien le corresponde. Ver cierre.js. */
+    let cierreCand = null;
     let documentosNextcloud = {};
     let documentosDescargados = {};
     let generatedDocEncuesta = null;
@@ -164,12 +169,25 @@
                 documentosNextcloud = saved.documentosNextcloud || {};
                 documentosDescargados = saved.documentosDescargados || {};
                 documentosHuella = saved.documentosHuella || {};
+                cierreCand = saved.cierreCandidato || null;
             }
         } catch (e) {}
+        if (!cierreCand) cierreCand = Cierre.prellenarCandidato(filaParaPrellenar());
+        else {
+            const base = Cierre.prellenarCandidato(filaParaPrellenar());
+            cierreCand.servicio = Object.assign({}, base.servicio, cierreCand.servicio || {});
+            cierreCand.atencion = Object.assign({}, base.atencion, cierreCand.atencion || {});
+        }
+    }
+
+    /* Lo que ya capturó en otras pantallas, para no volver a pedírselo. */
+    function filaParaPrellenar() {
+        const leer = k => { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { return null; } };
+        return { autodiagnostico_data: leer('autodiagnosticoData'), plan_evaluacion_data: leer('planEvaluacionData') };
     }
 
     function saveProgress() {
-        const data = { respuestas, versionPreguntas: VERSION_PREGUNTAS, comentarios, signatureDataUrl, signatureTypedName, signatureMode, documentosNextcloud, documentosDescargados, documentosHuella };
+        const data = { respuestas, versionPreguntas: VERSION_PREGUNTAS, comentarios, cierreCandidato: cierreCand, signatureDataUrl, signatureTypedName, signatureMode, documentosNextcloud, documentosDescargados, documentosHuella };
         localStorage.setItem('encuestaSatisfaccionData', JSON.stringify(data));
         const result = loadAutodiagnosticoResult();
         if (result) Auth.syncToSupabase('encuesta_data', data, result.personalData.curp, result.personalData.nombre);
@@ -204,11 +222,11 @@
 
     function estadoDocsEncuesta() { return { documentosNextcloud, documentosDescargados, documentosHuella }; }
     function huellaEncuesta() {
-        return DocumentosNas.huella({ v: VERSION_DOC_ENCUESTA, vp: VERSION_PREGUNTAS, respuestas, comentarios, signatureDataUrl, signatureTypedName, signatureMode, candidato: loadAutodiagnosticoResult() });
+        return DocumentosNas.huella({ v: VERSION_DOC_ENCUESTA, vp: VERSION_PREGUNTAS, respuestas, cierreCand, comentarios, signatureDataUrl, signatureTypedName, signatureMode, candidato: loadAutodiagnosticoResult() });
     }
     function encuestaCompleta() {
         const hasSig = signatureMode === 'draw' ? hasSignature : (signatureTypedName && signatureTypedName.trim().length > 3);
-        return PREGUNTAS.every((_, idx) => respuestas[idx]) && !!hasSig;
+        return PREGUNTAS.every((_, idx) => respuestas[idx]) && !Cierre.validarCandidato(cierreCand).length && !!hasSig;
     }
     function docEncuestaActual(huella) {
         if (!generatedDocEncuesta || generatedDocEncuesta._huella !== huella) {
@@ -406,6 +424,9 @@
                 </div>
             </div>
 
+            ${cardServicio()}
+            ${cardAtencion()}
+
             <div class="card">
                 <h2>✍️ Firma <span style="color:var(--danger);">*</span></h2>
                 <label style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
@@ -437,10 +458,89 @@
 
         const comentariosEl = document.getElementById('f_comentarios');
         if (comentariosEl) comentariosEl.addEventListener('input', () => { comentarios = comentariosEl.value; saveProgress(); });
+        enlazarCierre();
 
         if (signatureMode === 'draw') setTimeout(initSignatureCanvas, 50);
         FirmaCandidato.ofrecer(document.getElementById('usarFirmaAuto'), { onUsar: usarFirmaAutodiagnostico });
         updateGenerateButton();
+    }
+
+    /* ── Las dos hojas del portafolio que contesta el candidato ──────────
+       Página 40 del machote: cómo califica el servicio que recibió.
+       Página 42: cómo lo atendieron la primera vez que preguntó. */
+    function filaOpcion(texto, valor, attr, i) {
+        const ok = !!valor;
+        return `
+            <div class="likert-item" style="border-left: 4px solid ${ok ? 'var(--success)' : 'var(--danger)'}; padding-left: 12px;">
+                <div class="likert-question" style="color: ${ok ? 'var(--success)' : 'var(--danger)'};">${ok ? '✓' : '○'} ${escapeHtml(texto)}</div>
+                <div class="likert-options">
+                    ${Cierre.ESCALA_SERVICIO.map(e => `<button class="likert-btn ${valor === e ? (e === 'Bueno' ? 'active-pos' : e === 'Regular' ? 'active-mid' : 'active-neg') : ''}" data-${attr}="${i}" data-val="${e}">${e}</button>`).join('')}
+                </div>
+            </div>`;
+    }
+    function chips(opciones, valor, attr) {
+        return `<div class="likert-options" style="flex-wrap:wrap;">
+            ${opciones.map(o => `<button class="likert-btn ${valor === o ? 'active-pos' : ''}" data-${attr}="${escapeHtml(o)}">${escapeHtml(o)}</button>`).join('')}
+        </div>`;
+    }
+    function cardServicio() {
+        const d = cierreCand.servicio, falta = Cierre.ASPECTOS_SERVICIO.filter((_, i) => !d.aspectos[i]).length;
+        return `
+            <div class="card">
+                <h2>⭐ El servicio que recibiste <span style="color:var(--danger);">*</span></h2>
+                <p style="font-size:0.85rem;color:var(--text);margin-bottom:12px;">Esta hoja va en tu Portafolio de Evidencias. Califica cada punto con lo que de verdad viviste.</p>
+                <div class="field-group">
+                    <label>¿Cómo conociste al Centro de Evaluación?</label>
+                    ${chips(Cierre.MEDIOS_EVALUACION, d.medio, 'medioev')}
+                    ${d.medio === 'Otro' ? `<input type="text" id="f_otroev" value="${escapeHtml(d.otroMedio || '')}" placeholder="¿Cuál?" style="margin-top:8px;">` : ''}
+                </div>
+                <p style="font-size:0.85rem;margin:14px 0 6px;">
+                    <span style="color:${falta ? 'var(--danger)' : 'var(--success)'};font-weight:600;">${falta ? falta + ' sin calificar' : '✓ Todos calificados'}</span>
+                </p>
+                ${Cierre.ASPECTOS_SERVICIO.map((a, i) => filaOpcion(a, d.aspectos[i], 'asp', i)).join('')}
+                <div class="field-group" style="margin-top:14px;">
+                    <label>Comentarios y/o sugerencias (opcional)</label>
+                    <textarea id="f_servcom" rows="2" placeholder="Opcional">${escapeHtml(d.comentarios || '')}</textarea>
+                </div>
+            </div>`;
+    }
+    function cardAtencion() {
+        const d = cierreCand.atencion, falta = Cierre.ATENCION_PREGUNTAS.filter((_, i) => !d.respuestas[i]).length;
+        const campos = [['domicilio', 'Domicilio'], ['colonia', 'Colonia'], ['cp', 'Código Postal'],
+            ['municipio', 'Delegación o Municipio'], ['estado', 'Estado'], ['ciudad', 'Ciudad'],
+            ['telefono', 'Teléfono(s)'], ['email', 'Correo electrónico']];
+        return `
+            <div class="card">
+                <h2>📞 Cómo te atendieron <span style="color:var(--danger);">*</span></h2>
+                <p style="font-size:0.85rem;color:var(--text);margin-bottom:12px;">La primera vez que preguntaste por la certificación. También va en tu Portafolio.</p>
+                <div class="field-group">
+                    <label>¿Por qué medio te atendieron?</label>
+                    ${chips(Cierre.MEDIOS_ATENCION, d.medio, 'medioat')}
+                    ${d.medio === 'Otro' ? `<input type="text" id="f_otroat" value="${escapeHtml(d.otroMedio || '')}" placeholder="¿Cuál?" style="margin-top:8px;">` : ''}
+                </div>
+                <div class="field-group">
+                    <label>Tus datos de contacto</label>
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;">
+                        ${campos.map(([id, lbl]) => `<label style="font-size:0.8rem;">${lbl}<input type="text" data-at="${id}" value="${escapeHtml(d[id] || '')}" style="margin-top:4px;"></label>`).join('')}
+                    </div>
+                </div>
+                <p style="font-size:0.85rem;margin:14px 0 6px;">
+                    <span style="color:${falta ? 'var(--danger)' : 'var(--success)'};font-weight:600;">${falta ? falta + ' sin calificar' : '✓ Todas calificadas'}</span>
+                </p>
+                ${Cierre.ATENCION_PREGUNTAS.map((q, i) => filaOpcion(q, d.respuestas[i], 'at2', i)).join('')}
+            </div>`;
+    }
+    function enlazarCierre() {
+        const q = sel => Array.from(document.querySelectorAll(sel));
+        q('[data-asp]').forEach(b => b.onclick = () => { cierreCand.servicio.aspectos[b.dataset.asp] = b.dataset.val; saveProgress(); render(); });
+        q('[data-at2]').forEach(b => b.onclick = () => { cierreCand.atencion.respuestas[b.dataset.at2] = b.dataset.val; saveProgress(); render(); });
+        q('[data-medioev]').forEach(b => b.onclick = () => { cierreCand.servicio.medio = b.dataset.medioev; saveProgress(); render(); });
+        q('[data-medioat]').forEach(b => b.onclick = () => { cierreCand.atencion.medio = b.dataset.medioat; saveProgress(); render(); });
+        q('[data-at]').forEach(i => i.oninput = () => { cierreCand.atencion[i.dataset.at] = i.value; saveProgress(); });
+        const liga = (id, set) => { const e = document.getElementById(id); if (e) e.oninput = () => { set(e.value); saveProgress(); }; };
+        liga('f_servcom', v => { cierreCand.servicio.comentarios = v; });
+        liga('f_otroev', v => { cierreCand.servicio.otroMedio = v; });
+        liga('f_otroat', v => { cierreCand.atencion.otroMedio = v; });
     }
 
     function setRespuesta(idx, valor, btnEl) {
@@ -469,7 +569,8 @@
 
         const hasSig = signatureMode === 'draw' ? hasSignature : (signatureTypedName && signatureTypedName.trim().length > 3);
         const allAnswered = PREGUNTAS.every((_, idx) => respuestas[idx]);
-        const isValid = allAnswered && hasSig;
+        const faltaCierre = Cierre.validarCandidato(cierreCand);
+        const isValid = allAnswered && !faltaCierre.length && hasSig;
 
         btn.disabled = !isValid;
 
@@ -482,6 +583,7 @@
                     const unanswered = PREGUNTAS.filter((_, idx) => !respuestas[idx]).length;
                     missing.push(`Responder ${unanswered} pregunta${unanswered !== 1 ? 's' : ''} más`);
                 }
+                faltaCierre.forEach(f => missing.push(f));
                 if (!hasSig) missing.push('Proporcionar una firma (dibujada o escrita)');
 
                 statusBox.innerHTML = `

@@ -1133,6 +1133,15 @@ const Auth = {
                 versionPreguntas: '2026-09-22',
                 respuestas: { 0: 'Muy de acuerdo', 1: 'Muy de acuerdo', 2: 'Muy de acuerdo', 3: 'Totalmente en desacuerdo', 4: 'De acuerdo', 5: 'Muy de acuerdo', 6: 'Muy de acuerdo', 7: 'Muy de acuerdo' },
                 comentarios: 'Excelente acompañamiento durante todo el proceso.',
+                /* Las dos hojas del portafolio que contesta el candidato (22 sep). */
+                cierreCandidato: {
+                    servicio: { medio: 'Promoción directa', otroMedio: '', comentarios: 'Todo muy claro.',
+                        aspectos: { 0: 'Bueno', 1: 'Bueno', 2: 'Bueno', 3: 'Bueno', 4: 'Bueno', 5: 'Bueno', 6: 'Bueno', 7: 'Bueno', 8: 'Bueno', 9: 'Bueno' } },
+                    atencion: { folio: '', lugar: 'Zoom', medio: 'E-Mail', otroMedio: '', domicilio: 'Av. Ejemplo 123',
+                        colonia: 'Centro', cp: '64000', municipio: 'Monterrey', estado: 'Nuevo León', ciudad: 'Monterrey',
+                        telefono: '81 1234 5678', email: 'ana.demo@ejemplo.com',
+                        respuestas: { 0: 'Bueno', 1: 'Bueno', 2: 'Bueno', 3: 'Bueno', 4: 'Bueno' } }
+                },
                 signatureDataUrl: null, signatureTypedName: nombre, signatureMode: 'type',
                 documentosNextcloud: {}, documentosDescargados: { encuesta: true }
             },
