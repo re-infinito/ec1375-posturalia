@@ -11,7 +11,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="auth.js"></script>
     <script src="flow-status.js"></script>
-    <script src="crm-shell.js" data-crm-mode="admin" data-crm-page="admin-evaluacion"></script>
+    <script src="crm-shell.js" data-crm-mode="admin" data-crm-page="admin-evaluacion" data-crm-tutorial="evaluador-iec"></script>
     <script src="admin-data.js"></script>
     <script src="evaluacion.js"></script>
     <script src="iec-reactivos.js"></script>
@@ -115,7 +115,7 @@
     async function boot(session) {
         sesion = session; yo = session.user.email.toLowerCase();
         rol = await Auth.rolEquipo(yo);
-        CrmShell.mount({ mode: 'admin', currentPageId: 'admin-evaluacion', title: 'Instrumento de Evaluación', rol });
+        CrmShell.mount({ mode: 'admin', currentPageId: 'admin-evaluacion', title: 'Instrumento de Evaluación', rol, tutorial: 'evaluador-iec' });
         const app = document.getElementById('app');
         if (!email) { app.innerHTML = `<p class="msg error">Falta el candidato. Ábrelo desde <a href="admin-candidatos.html">Candidatos</a>.</p>`; return; }
         app.innerHTML = CrmShell.skeleton('cards');

@@ -222,6 +222,11 @@
             </form>`;
     }
 
+    /* "Ver cómo se hace" del equipo: abre el tutorial mudo de esa tarea. */
+    function btnTutorial(id) {
+        return `<button type="button" class="crm-btn crm-btn-sm crm-btn-ghost" data-tut="${id}" style="border-color:var(--border);color:var(--text);background:transparent;">${ic('play', 14)} Ver cómo se hace</button>`;
+    }
+
     /* Tarjeta del IEC (22 sep): el evaluador califica los 142 reactivos en
        admin-iec.html viendo la grabación, y el portafolio los estampa sobre
        la plantilla oficial de 83 páginas. */
@@ -230,13 +235,13 @@
         const liga = `admin-iec.html?email=${encodeURIComponent(email)}`;
         if (!iec || !iec.respuestas) {
             return `<p class="crm-muted" style="font-size:0.84rem;">Sin llenar. Mientras no se califique, el IEC entra al portafolio en blanco.</p>
-                <div class="ev-acciones" style="margin-top:10px;"><a class="crm-btn crm-btn-primary crm-btn-sm" href="${liga}">Calificar el instrumento</a></div>`;
+                <div class="ev-acciones" style="margin-top:10px;"><a class="crm-btn crm-btn-primary crm-btn-sm" href="${liga}">Calificar el instrumento</a>${btnTutorial('evaluador-iec')}</div>`;
         }
         const n = Object.keys(iec.respuestas).filter(k => iec.respuestas[k] === 'si' || iec.respuestas[k] === 'no').length;
         const ok = iec.completo;
         return `<div class="ev-estado ${ok ? 'ok' : ''}">${n} de 142 reactivos calificados${ok ? '' : ' · falta terminarlo'}</div>
             <p class="crm-muted" style="font-size:0.84rem;margin-top:6px;">Puntaje ${Number(iec.total || 0).toFixed(2)} de 100.08 (mínimo 97.64) · Juicio del instrumento: <strong>${esc(iec.juicio || '')}</strong>${iec.actualizado_at ? ' · actualizado el ' + esc(fechaCorta(iec.actualizado_at)) : ''}</p>
-            <div class="ev-acciones" style="margin-top:10px;"><a class="crm-btn crm-btn-primary crm-btn-sm" href="${liga}">${ok ? 'Revisar el instrumento' : 'Terminar de calificar'}</a></div>`;
+            <div class="ev-acciones" style="margin-top:10px;"><a class="crm-btn crm-btn-primary crm-btn-sm" href="${liga}">${ok ? 'Revisar el instrumento' : 'Terminar de calificar'}</a>${btnTutorial('evaluador-iec')}</div>`;
     }
 
     /* Verificación Interna (22 sep): la hoja del Centro Evaluador. Las otras
@@ -250,12 +255,12 @@
         const nota = `<p class="crm-muted" style="font-size:0.82rem;margin-top:8px;">Las dos hojas de opinión (Cédula del Servicio a usuarios y Formato de Atención a Usuarios) las contesta el candidato en su Encuesta de Satisfacción: ${opinion ? (opinion.completo ? '<strong>ya están</strong>' : `van ${opinion.hechas} de ${opinion.total}`) : '<strong>todavía no las contesta</strong>'}.</p>`;
         if (!v) {
             return `<p class="crm-muted" style="font-size:0.84rem;">Sin llenar. La hoja entraría al portafolio con las casillas en blanco.</p>${nota}
-                <div class="ev-acciones" style="margin-top:10px;"><a class="crm-btn crm-btn-primary crm-btn-sm" href="${liga}">Llenar la verificación</a></div>`;
+                <div class="ev-acciones" style="margin-top:10px;"><a class="crm-btn crm-btn-primary crm-btn-sm" href="${liga}">Llenar la verificación</a>${btnTutorial('evaluador-verificacion')}</div>`;
         }
         const av = Cierre.avanceVerificacion(v);
         const ok = (ev.cierre || {}).completo;
         return `<div class="ev-estado ${ok ? 'ok' : ''}">${av.hechas} de ${av.total} puntos${ok ? '' : ' · falta terminarla'}</div>${nota}
-            <div class="ev-acciones" style="margin-top:10px;"><a class="crm-btn crm-btn-primary crm-btn-sm" href="${liga}">${ok ? 'Revisar la verificación' : 'Terminar de llenarla'}</a></div>`;
+            <div class="ev-acciones" style="margin-top:10px;"><a class="crm-btn crm-btn-primary crm-btn-sm" href="${liga}">${ok ? 'Revisar la verificación' : 'Terminar de llenarla'}</a>${btnTutorial('evaluador-verificacion')}</div>`;
     }
 
     function firmasDocHtml() {
@@ -463,6 +468,7 @@
     }
 
     function conectar() {
+        document.querySelectorAll('[data-tut]').forEach(b => b.addEventListener('click', () => CrmShell.abrirTutorial(b.dataset.tut, b)));
         document.querySelectorAll('[data-marcar]').forEach(b => b.addEventListener('click', () => marcarEtapa(b.dataset.marcar, true)));
         document.querySelectorAll('[data-desmarcar]').forEach(b => b.addEventListener('click', () => marcarEtapa(b.dataset.desmarcar, false)));
         document.querySelectorAll('.ev-firma-tabs button').forEach(b => b.addEventListener('click', () => {

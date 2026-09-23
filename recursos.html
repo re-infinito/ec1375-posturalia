@@ -213,7 +213,8 @@
     /* Tutoriales: la lista vive en crm-shell.js (también la usa el botón
        «Ver cómo se hace» de cada paso). Disponibles siempre. */
     function tutorialesHtml() {
-        const lista = (typeof CrmShell !== 'undefined' && CrmShell.TUTORIALES) || [];
+        /* Los tutoriales marcados `equipo` son del Centro Evaluador, no del candidato. */
+        const lista = ((typeof CrmShell !== 'undefined' && CrmShell.TUTORIALES) || []).filter(t => !t.equipo);
         if (!lista.length) return '';
         const dur = t => CrmShell._helpers.duracionTexto(t.dur);
         return `

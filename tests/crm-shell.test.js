@@ -3,6 +3,8 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const CrmShell = require('../crm-shell.js');
 const H = CrmShell._helpers;
+const fs = require('node:fs');
+const path = require('node:path');
 
 test('estadoDocumento distingue subido / descargado / formulario / pendiente', () => {
     assert.equal(H.estadoDocumento(null, 'x'), 'pendiente');
@@ -141,4 +143,17 @@ test('modoInstalacion: iPhone/iPad reciben instrucciones; instalada o escritorio
     assert.equal(H.modoInstalacion(android, 5, false, true), 'prompt');
     assert.equal(H.modoInstalacion(android, 5, false, false), null);
     assert.equal(H.modoInstalacion(android, 5, true, true), null);
+});
+
+test('los tutoriales del equipo no se mezclan con los del candidato', () => {
+    const equipo = CrmShell.TUTORIALES.filter(t => t.equipo);
+    assert.equal(equipo.length, 2);
+    assert.deepEqual(equipo.map(t => t.id), ['evaluador-iec', 'evaluador-verificacion']);
+    // no cuelgan de ningún paso del flujo: se abren desde su propia página
+    assert.ok(equipo.every(t => t.paginas.length === 0 && t.dur > 0));
+    for (const p of ['panel', 'encuesta', 'evidencias', 'admin-evaluacion'])
+        assert.ok(!(H.tutorialDePagina(p) || {}).equipo, 'se coló uno del equipo en ' + p);
+    // y recursos.html, que es del candidato, los filtra
+    const recursos = fs.readFileSync(path.join(__dirname, '..', 'recursos.html'), 'utf8');
+    assert.match(recursos, /TUTORIALES\)\s*\|\|\s*\[\]\)\.filter\(t => !t\.equipo\)/);
 });

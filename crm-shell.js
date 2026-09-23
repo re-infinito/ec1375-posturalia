@@ -175,6 +175,7 @@
        no se inyectan tokens (ruta-estudio/ruta-alineacion tienen los suyos). */
     var SCRIPT_MODE = 'full';
     var SCRIPT_PAGE = '';
+    var SCRIPT_TUT = null;
     if (typeof document !== 'undefined') {
         var cs = document.currentScript;
         if (cs && cs.dataset && cs.dataset.crmMode === 'rail') SCRIPT_MODE = 'rail';
@@ -186,6 +187,12 @@
            idempotente, así que las llamadas explícitas siguen siendo
            inofensivas. */
         if (cs && cs.dataset && cs.dataset.crmPage) SCRIPT_PAGE = cs.dataset.crmPage;
+        /* Las páginas del equipo tienen su propio tutorial, que no cuelga de
+           ningún paso del flujo: <script … data-crm-tutorial="evaluador-iec">.
+           Va en la etiqueta y no en la llamada a mount() porque el
+           auto-montaje corre en `load` y suele ganarle a la página; mount()
+           es idempotente, así que la segunda llamada ya no lo agregaría. */
+        if (cs && cs.dataset && cs.dataset.crmTutorial) SCRIPT_TUT = cs.dataset.crmTutorial;
         if (SCRIPT_PAGE) window.addEventListener('load', function () { autoMount(SCRIPT_PAGE, SCRIPT_MODE); });
         if (SCRIPT_MODE !== 'rail') {
             var st = document.createElement('style');
@@ -542,10 +549,10 @@
         Auth.getSession().then(function (session) {
             if (!session) return null;
             return FlowStatus.getSteps().then(function (steps) {
-                mount({ currentPageId: pageId, steps: steps, mode: mode });
+                mount({ currentPageId: pageId, steps: steps, mode: mode, tutorial: SCRIPT_TUT });
             }).catch(function (e) {
                 console.warn('CRM shell: no se pudo calcular el progreso —', e);
-                mount({ currentPageId: pageId, steps: [], degraded: true, mode: mode });
+                mount({ currentPageId: pageId, steps: [], degraded: true, mode: mode, tutorial: SCRIPT_TUT });
             });
         }).catch(function () { /* sin sesión: la página muestra su gate */ });
     }
@@ -589,7 +596,10 @@
             main.appendChild(header);
             /* «Ver cómo se hace»: el tutorial del paso (el Guion Maestro comparte
                id con el Plan de Evaluación, pero no es esa página). */
-            var tut = location.pathname.indexOf('guion-maestro') < 0 ? tutorialDePagina(currentPageId) : null;
+            var idTut = opts.tutorial || SCRIPT_TUT;
+            var tut = idTut
+                ? (TUTORIALES.filter(function (t) { return t.id === idTut; })[0] || null)
+                : (location.pathname.indexOf('guion-maestro') < 0 ? tutorialDePagina(currentPageId) : null);
             if (tut) {
                 var btnTut = document.createElement('button');
                 btnTut.type = 'button';
@@ -941,10 +951,18 @@
         { id: 'examen', titulo: 'Examen de Conocimientos', desc: 'Una pregunta a la vez, con repaso cuando fallas.', paginas: ['examen'], dur: 47 },
         { id: 'encuesta', titulo: 'Encuesta de Satisfacción', desc: 'Las 7 preguntas de caritas, tu firma y el envío.', paginas: ['encuesta'], dur: 42 },
         { id: 'evidencias', titulo: 'Evidencias', desc: 'Subir tus archivos y confirmar tu entrega (tu grabación la guarda el equipo).', paginas: ['evidencias'], dur: 48 },
-        { id: 'entrega', titulo: 'Entrega de certificado', desc: 'Qué pasa después de tu evaluación y cómo pagar la Entrega.', paginas: ['entrega'], dur: 35 }
+        { id: 'entrega', titulo: 'Entrega de certificado', desc: 'Qué pasa después de tu evaluación y cómo pagar la Entrega.', paginas: ['entrega'], dur: 35 },
+        /* Del EQUIPO, no del candidato: no salen en recursos.html ni en los
+           pasos del flujo. Se abren con el botón de su propia página
+           (CrmShell.mount({ tutorial: '…' })). */
+        { id: 'evaluador-iec', titulo: 'Calificar el Instrumento de Evaluación (IEC)', equipo: true,
+            desc: 'Marcar los 142 reactivos y las 37 respuestas del cuestionario viendo la grabación del candidato.', paginas: [], dur: 115 },
+        { id: 'evaluador-verificacion', titulo: 'Verificación Interna del Proceso', equipo: true,
+            desc: 'Los 14 puntos que revisa el Centro Evaluador antes de entregar el portafolio.', paginas: [], dur: 75 }
+
     ];
     function tutorialDePagina(pageId) {
-        return TUTORIALES.filter(function (t) { return t.paginas.indexOf(pageId) >= 0; })[0] || null;
+        return TUTORIALES.filter(function (t) { return !t.equipo && t.paginas.indexOf(pageId) >= 0; })[0] || null;
     }
     function duracionTexto(seg) {
         seg = Math.max(0, Math.round(Number(seg) || 0));
