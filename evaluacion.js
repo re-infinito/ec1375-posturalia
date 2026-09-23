@@ -28,6 +28,7 @@
         { id: 'mejoresPracticas', label: 'Mejores prácticas' },
         { id: 'areasOportunidad', label: 'Áreas de oportunidad' },
         { id: 'criteriosNoCubiertos', label: 'Criterios de Evaluación que no se cubrieron' },
+        { id: 'incidencias', label: 'Incidencias' },
         { id: 'recomendaciones', label: 'Recomendaciones' }
     ];
     var TEXTO_ACUERDO = 'Estoy de acuerdo con el juicio de evaluación y satisfecho con los comentarios emitidos.';
@@ -107,7 +108,16 @@
         return { cedula: Object.assign({}, datos, { borrador: true, por: o.por }), firma_candidato: ev.firma_candidato || null };
     }
 
-    /* ── Portafolio: puerto 1:1 del orden de assemble_expediente.py ── */
+    /* ── Portafolio: el formato oficial 2026 del Centro Evaluador ──
+       Orden y contenido tomados de `FORMATO PORTAFOLIO-1375-2026 copia.pdf`
+       (45 páginas, el machote en blanco que manda el CE), que desde el 22 sep
+       sustituye al expediente de Humberto como fuente de verdad: el suyo es
+       una entrega real de 2025 a la que le faltan piezas que el machote sí
+       pide — el tríptico dentro de la sección 1, las páginas marcadoras
+       (FICHA REGISTRO SNC / CURP / INE / IEC / PRODUCTOS), la fecha y el lote
+       en la portada, la autorización de firma electrónica y la contraportada.
+       Los acuses del tríptico y del Plan se conservan en Anexos, como en el
+       expediente que la SEP ya aceptó. */
     var FORM_FALLBACK_MARK = 'MANUAL_FORM_FALLBACK';
     var SLOTS = {
         ficha_registro_candidato: ['autodiagnostico_data', 'fichaRegistro', 'Ficha de Registro RENAP (candidato)'],
@@ -171,15 +181,19 @@
             return lista.map(function (ruta) { return { tipo: 'nas', ruta: ruta, etiqueta: s[2], slot: nombre }; });
         }
         var g = function (p) { return { tipo: 'generado', pagina: p }; };
+        var m = function (t) { return { tipo: 'generado', pagina: 'marca', texto: t }; };
         var videoLink = ligaVideo(evaluacion, row);
         var ficha = slot('ficha_registro_candidato'), curp = slot('curp'), ine = slot('ine'), auto = slot('pdf_autodiagnostico'),
             plan = slot('pdf_plan_evaluacion'), fp = slot('ficha_registro_paciente'), carta = slot('carta_consentimiento'),
             ps = slot('plan_sesion'), seg = slot('plan_seguimiento'), enc = slot('pdf_encuesta'),
             at = slot('acuse_triptico'), ap = slot('acuse_plan_evaluacion');
         if (!videoLink) avisos.push('Falta ligar la grabación de Zoom (Centro Evaluador → Grabación de la sesión)');
-        var items = [g('portada'), g('indice'), g('sep1')].concat(ficha, curp, ine, auto, [g('sep2')], plan,
-            [{ tipo: 'plantilla', ruta: IEC_RUTA, etiqueta: 'Instrumento de Evaluación (IEC) en blanco', slot: 'iec' }],
-            fp, carta, ps, seg, [g('video'), g('sep3'), g('cedula')], enc, [g('sep4')], at, ap);
+        var items = [g('portada'), g('indice'), g('sep1'), m('FICHA REGISTRO SNC')].concat(
+            ficha, [m('CURP')], curp, [m('INE')], ine, auto, [g('triptico'), g('sep2')], plan,
+            [m('IEC'), { tipo: 'plantilla', ruta: IEC_RUTA, etiqueta: 'Instrumento de Evaluación (IEC)', slot: 'iec' }, m('PRODUCTOS')],
+            fp, carta, ps, seg, [g('video'), g('sep3'), g('cedula')], enc,
+            [g('cedula_servicio'), g('verificacion'), g('atencion_usuarios'), g('sep4'), g('autorizacion_firma')],
+            at, ap, [g('contraportada')]);
         return { items: items, avisos: avisos, videoLink: videoLink, nombre: row.nombre || '' };
     }
 
@@ -189,21 +203,29 @@
        fecha de aplicación y rúbricas. El evaluador firma cada documento por
        separado (evaluaciones.firmas_evaluador.plan / .iec); la rúbrica del
        candidato es la firma de su Cédula. */
-    function sellosPortafolio(row, ev) {
-        row = row || {}; ev = ev || {};
+    function sellosPortafolio(row, ev, extra) {
+        row = row || {}; ev = ev || {}; extra = extra || {};
         var ced = cedulaPublicada(ev);
         var firmas = ev.firmas_evaluador && typeof ev.firmas_evaluador === 'object' ? ev.firmas_evaluador : {};
         var evaluador = (ced && texto(ced.evaluadora)) || EVALUADOR_PREDETERMINADO;
         var planData = row.plan_evaluacion_data && row.plan_evaluacion_data.planData ? row.plan_evaluacion_data.planData : {};
         var fechaAplicacion = fechaLarga(planData.fechaEvaluacion) || fechaLarga(ced && ced.fecha);
+        var iec = ev.iec && typeof ev.iec === 'object' ? ev.iec : null;
         var s = {
             evaluador: evaluador, evaluadorMayus: mayus(evaluador), candidatoMayus: mayus(row.nombre),
             ceClave: CENTRO_EVALUACION.clave, ceNombre: CENTRO_EVALUACION.nombre, fechaAplicacion: fechaAplicacion,
+            /* Portada del formato 2026: fecha de la evaluación y lote. */
+            fechaPortada: texto(planData.fechaEvaluacion) || texto(ced && ced.fecha),
+            lote: extra.lote === 0 || extra.lote ? String(extra.lote) : '',
             firmaPlan: firmaValida(firmas.plan) ? firmas.plan : null,
             firmaIec: firmaValida(firmas.iec) ? firmas.iec : null,
             firmaCandidato: ced && firmaValida(ev.firma_candidato) ? ev.firma_candidato : null,
+            iec: iec,
             avisos: []
         };
+        if (!iec || !iec.respuestas) s.avisos.push('El Instrumento de Evaluación (IEC) va en blanco: llénalo en Centro Evaluador → Instrumento de Evaluación');
+        else if (!iec.completo) s.avisos.push('El IEC está incompleto: hay reactivos sin contestar y el instrumento no admite dejarlos en blanco');
+        if (!s.lote) s.avisos.push('La portada va sin lote: captúralo en Precios y pagos');
         if (!s.firmaPlan) s.avisos.push('Falta la firma del evaluador en el Plan de Evaluación (Centro Evaluador → Firmas del evaluador)');
         if (!s.firmaIec) s.avisos.push('Falta la rúbrica del evaluador en el IEC (Centro Evaluador → Firmas del evaluador)');
         if (!fechaAplicacion) s.avisos.push('El IEC va sin Fecha de Aplicación: falta la fecha de evaluación en el Plan');

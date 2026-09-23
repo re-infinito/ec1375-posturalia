@@ -97,19 +97,30 @@
     <div class="container" id="app"></div>
 
     <script>
-    /* Preguntas y escala verbatim contra el formato oficial "Encuesta de
-       Satisfacción del Proceso de Evaluación- Certificación de Competencia"
-       (RED CONOCER / ICEMéxico) — mismo orden, mismo texto, misma escala de
-       4 caritas de izquierda a derecha. Antes tenía 8 preguntas parafraseadas
-       y el orden de la escala invertido; el formato oficial solo trae 7. */
+    /* Preguntas y escala verbatim del formato oficial "Encuesta de
+       Satisfacción del Proceso de Evaluación de Competencia" (RED CONOCER /
+       ICEMéxico), mismo orden, mismo texto y misma escala de 4 caritas de
+       izquierda a derecha.
+
+       22 sep: pasa de 7 a las 8 del machote vigente del Centro Evaluador
+       (`FORMATO PORTAFOLIO-1375-2026`, página 39). La redacción de 2025 que
+       se había copiado del expediente de Humberto decía lo mismo con otras
+       palabras EXCEPTO en la pregunta 4, donde la polaridad está invertida:
+       antes preguntaba si la evaluación se hizo SIN condicionar un curso
+       (estar de acuerdo era bueno) y ahora pregunta si SÍ se condicionó
+       (estar de acuerdo es malo). Por eso las respuestas guardadas con la
+       redacción anterior se descartan en vez de arrastrarse: reinterpretarlas
+       le cambiaría el sentido a lo que el candidato ya contestó. */
+    const VERSION_PREGUNTAS = '2026-09-22';
     const PREGUNTAS = [
-        '¿La presentación del Estándar de Competencia y la aplicación del diagnóstico, lo realizaron sin costo para usted?',
-        '¿Le proporcionaron la información suficiente y necesaria para iniciar su proceso de evaluación?',
-        '¿Durante el proceso de evaluación le dieron trato digno y respetuoso?',
-        '¿Le realizaron la evaluación sin que la ECE/OC/CE/EI lo condicionarán a tomar un curso de capacitación?',
-        '¿Le presentaron y acordaron con usted el Plan de Evaluación?',
-        '¿Recibió retroalimentación de los resultados de su evaluación?',
-        '¿El evaluador atendió todas sus dudas?'
+        '¿La presentación del Estándar de Competencia y la aplicación del diagnóstico, fue realizada sin costo para usted?',
+        '¿La información proporcionada fue suficiente para iniciar sin dudas su proceso de evaluación?',
+        '¿Recibió un trato digno y respetuoso durante las etapas del proceso de evaluación?',
+        '¿Fue condicionada a tomar un curso de capacitación previo a la evaluación?',
+        '¿Le presentaron, explicaron y acordaron el Plan de Evaluación previo a la evaluación?',
+        '¿Recibió retroalimentación detallada de las etapas y resultados de su evaluación?',
+        '¿El evaluador atendió todas sus dudas?',
+        '¿En caso de haber resultado competente, le informaron los tiempos de entrega del certificado?'
     ];
     const ESCALA = [
         { valor: 'Muy de acuerdo', clase: 'active-pos', mouthDepth: 1.6 },
@@ -144,7 +155,7 @@
         try {
             const saved = JSON.parse(localStorage.getItem('encuestaSatisfaccionData') || 'null');
             if (saved) {
-                respuestas = saved.respuestas || {};
+                respuestas = saved.versionPreguntas === VERSION_PREGUNTAS ? (saved.respuestas || {}) : {};
                 comentarios = saved.comentarios || '';
                 signatureDataUrl = saved.signatureDataUrl || null;
                 signatureTypedName = saved.signatureTypedName || '';
@@ -158,7 +169,7 @@
     }
 
     function saveProgress() {
-        const data = { respuestas, comentarios, signatureDataUrl, signatureTypedName, signatureMode, documentosNextcloud, documentosDescargados, documentosHuella };
+        const data = { respuestas, versionPreguntas: VERSION_PREGUNTAS, comentarios, signatureDataUrl, signatureTypedName, signatureMode, documentosNextcloud, documentosDescargados, documentosHuella };
         localStorage.setItem('encuestaSatisfaccionData', JSON.stringify(data));
         const result = loadAutodiagnosticoResult();
         if (result) Auth.syncToSupabase('encuesta_data', data, result.personalData.curp, result.personalData.nombre);
@@ -188,12 +199,12 @@
        La huella cubre respuestas, comentarios, firma y el nombre del
        candidato, más la versión de plantilla: una corrección la resube.
     ========================================================= */
-    const VERSION_DOC_ENCUESTA = '2026-09-17';
+    const VERSION_DOC_ENCUESTA = '2026-09-22';
     const DOCS_ENCUESTA = ['encuesta'];
 
     function estadoDocsEncuesta() { return { documentosNextcloud, documentosDescargados, documentosHuella }; }
     function huellaEncuesta() {
-        return DocumentosNas.huella({ v: VERSION_DOC_ENCUESTA, respuestas, comentarios, signatureDataUrl, signatureTypedName, signatureMode, candidato: loadAutodiagnosticoResult() });
+        return DocumentosNas.huella({ v: VERSION_DOC_ENCUESTA, vp: VERSION_PREGUNTAS, respuestas, comentarios, signatureDataUrl, signatureTypedName, signatureMode, candidato: loadAutodiagnosticoResult() });
     }
     function encuestaCompleta() {
         const hasSig = signatureMode === 'draw' ? hasSignature : (signatureTypedName && signatureTypedName.trim().length > 3);

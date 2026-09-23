@@ -14,6 +14,8 @@
     <script src="crm-shell.js" data-crm-mode="admin" data-crm-page="admin-evaluacion"></script>
     <script src="admin-data.js"></script>
     <script src="evaluacion.js"></script>
+    <script src="iec-reactivos.js"></script>
+    <script src="iec.js"></script>
     <script src="portafolio.js"></script>
     <script src="sala-evidencias.js"></script>
     <script src="grabacion-zoom.js"></script>
@@ -218,6 +220,23 @@
             </form>`;
     }
 
+    /* Tarjeta del IEC (22 sep): el evaluador califica los 142 reactivos en
+       admin-iec.html viendo la grabación, y el portafolio los estampa sobre
+       la plantilla oficial de 83 páginas. */
+    function iecHtml() {
+        const iec = (ev && ev.iec) || null;
+        const liga = `admin-iec.html?email=${encodeURIComponent(email)}`;
+        if (!iec || !iec.respuestas) {
+            return `<p class="crm-muted" style="font-size:0.84rem;">Sin llenar. Mientras no se califique, el IEC entra al portafolio en blanco.</p>
+                <div class="ev-acciones" style="margin-top:10px;"><a class="crm-btn crm-btn-primary crm-btn-sm" href="${liga}">Calificar el instrumento</a></div>`;
+        }
+        const n = Object.keys(iec.respuestas).filter(k => iec.respuestas[k] === 'si' || iec.respuestas[k] === 'no').length;
+        const ok = iec.completo;
+        return `<div class="ev-estado ${ok ? 'ok' : ''}">${n} de 142 reactivos calificados${ok ? '' : ' · falta terminarlo'}</div>
+            <p class="crm-muted" style="font-size:0.84rem;margin-top:6px;">Puntaje ${Number(iec.total || 0).toFixed(2)} de 100.08 (mínimo 97.64) · Juicio del instrumento: <strong>${esc(iec.juicio || '')}</strong>${iec.actualizado_at ? ' · actualizado el ' + esc(fechaCorta(iec.actualizado_at)) : ''}</p>
+            <div class="ev-acciones" style="margin-top:10px;"><a class="crm-btn crm-btn-primary crm-btn-sm" href="${liga}">${ok ? 'Revisar el instrumento' : 'Terminar de calificar'}</a></div>`;
+    }
+
     function firmasDocHtml() {
         const sinSql = faltaSql || faltaSqlFirmas;
         return `
@@ -308,6 +327,7 @@
             ${decl.some(d => !d.fecha) ? `<div class="crm-note">${ic('alert', 14)} Declaraciones pendientes: ${decl.filter(d => !d.fecha).map(d => esc(d.label)).join(' · ')}.</div>` : ''}
             <section class="crm-card" style="margin-bottom:16px;"><div class="crm-card-h"><span class="crm-stat-ico">${ic('map', 18)}</span>Etapas del Centro Evaluador<span class="crm-count">${t.dictamen ? (t.dictamen === 'competente' ? 'Competente' : 'No competente') : 'Sin dictamen'}</span></div>${etapasHtml()}</section>
             <section class="crm-card" style="margin-bottom:16px;"><div class="crm-card-h"><span class="crm-stat-ico">${ic('file', 18)}</span>Cédula de Evaluación</div>${cedulaHtml()}</section>
+            <section class="crm-card" style="margin-bottom:16px;"><div class="crm-card-h"><span class="crm-stat-ico">${ic('check-square', 18)}</span>Instrumento de Evaluación (IEC)</div>${iecHtml()}</section>
             <section class="crm-card" style="margin-bottom:16px;"><div class="crm-card-h"><span class="crm-stat-ico">${ic('file', 18)}</span>Firmas del evaluador</div>${firmasDocHtml()}</section>
             <section class="crm-card" style="margin-bottom:16px;"><div class="crm-card-h"><span class="crm-stat-ico">${ic('video', 18)}</span>Grabación de la sesión</div><div id="grabacionZoom"></div></section>
             <section class="crm-card"><div class="crm-card-h"><span class="crm-stat-ico">${ic('folder', 18)}</span>Portafolio de Evidencias</div>${portafolioHtml()}</section>`;
@@ -399,7 +419,7 @@
         btn.disabled = true; lista.innerHTML = '';
         try {
             const s = await Auth.getSession();
-            const r = await Portafolio.generar({ row, evaluacion: ev, token: s.access_token, onProgreso: t => { prog.textContent = t; } });
+            const r = await Portafolio.generar({ row, evaluacion: ev, token: s.access_token, lote: cand && cand.lote, email, onProgreso: t => { prog.textContent = t; } });
             descargarBytes(r.bytes, r.nombreArchivo);
             prog.textContent = 'Guardando en el almacenamiento del equipo…';
             const ruta = rutaBucket(r.nombreArchivo);

@@ -1128,7 +1128,10 @@ const Auth = {
             },
             encuestaSatisfaccionData: {
                 _demo: true,
-                respuestas: { 0: 'Muy de acuerdo', 1: 'Muy de acuerdo', 2: 'Muy de acuerdo', 3: 'Muy de acuerdo', 4: 'De acuerdo', 5: 'Muy de acuerdo', 6: 'Muy de acuerdo' },
+                /* Las 8 del formato 2026. La 4 pregunta si la condicionaron a
+                   tomar un curso, así que la respuesta "buena" es el desacuerdo. */
+                versionPreguntas: '2026-09-22',
+                respuestas: { 0: 'Muy de acuerdo', 1: 'Muy de acuerdo', 2: 'Muy de acuerdo', 3: 'Totalmente en desacuerdo', 4: 'De acuerdo', 5: 'Muy de acuerdo', 6: 'Muy de acuerdo', 7: 'Muy de acuerdo' },
                 comentarios: 'Excelente acompañamiento durante todo el proceso.',
                 signatureDataUrl: null, signatureTypedName: nombre, signatureMode: 'type',
                 documentosNextcloud: {}, documentosDescargados: { encuesta: true }

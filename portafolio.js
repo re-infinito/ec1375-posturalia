@@ -172,15 +172,16 @@
         'condiciones físicas y socioemocionales de las personas.'
     ];
 
-    function dibujarPortada(rec, nombre, evaluadora) {
+    function dibujarPortada(rec, d) {
         var L = root.PDFLib, p = pagina(rec);
-        p.drawRectangle({ x: 60, y: H - 280, width: W - 120, height: 200, color: L.rgb(0.9, 0.9, 0.9) });
+        p.drawRectangle({ x: 60, y: H - 320, width: W - 120, height: 240, color: L.rgb(0.9, 0.9, 0.9) });
         texto(p, rec, 'Portafolio de Evidencias', 70, H - 100, 20, rec.negrita);
         /* El nombre del estándar se envuelve dentro del recuadro gris (antes
            el segundo renglón se salía por la derecha). */
         var est = envolver(ESTANDAR.join(' '), rec.normal, 10, W - 60 - 280 - 12);
-        var filas = [['Candidata/o:', nombre]].concat(est.map(function (l, i) { return [i ? '' : 'Clave y nombre del estándar:', l]; }),
-            [['Clave del CE:', '1399-OC063-18'], ['Evaluadora:', evaluadora || '']]);
+        var filas = [['Candidato/a:', d.nombre || '']].concat(est.map(function (l, i) { return [i ? '' : 'Clave y nombre del estándar:', l]; }),
+            [['Clave del CE:', '1399-OC063-18'], ['Evaluador:', d.evaluador || ''],
+             ['Fecha:', fechaDMY(d.fecha)], ['Lote:', d.lote || '']]);
         var y = H - 130;
         filas.forEach(function (f) {
             if (f[0]) texto(p, rec, f[0], 80, y, 10, rec.negrita);
@@ -192,11 +193,11 @@
     function dibujarIndice(rec, avisos) {
         var L = root.PDFLib, p = pagina(rec);
         texto(p, rec, 'Índice', 70, H - 90, 16, rec.negrita);
-        var items = ['1. Datos del candidato', '   Ficha de registro del candidato', '   Documentos personales (CURP, INE)',
-            '   Diagnóstico del candidato (Autodiagnóstico, 142 reactivos)', '2. Recopilación de Evidencias',
-            '   Plan de Evaluación Acordado con el Candidato', '   Instrumento de Evaluación Aplicado al Candidato (IEC)',
-            '   Evidencias complementarias (sesión práctica)', '3. Cierre de la Evaluación', '   Cédula de Evaluación del Candidato',
-            '   Encuesta de satisfacción del candidato', '4. Anexos', '   Acuse de recibido de cédula de competencia, del plan de', '   evaluación y tríptico'];
+        var items = ['1. Datos del candidato', '   Ficha de registro del candidato', '   Diagnóstico del candidato',
+            '   Tríptico de Derechos y Obligaciones', '2. Recopilación de Evidencias',
+            '   Plan de Evaluación Acordado con el Candidato', '   Instrumento de Evaluación Aplicado al Candidato',
+            '   Evidencias complementarias (Las que solicite el IEC)', '3. Cierre de la Evaluación',
+            '   Cédula de Evaluación del Candidato', '   Encuesta de satisfacción del candidato'];
         var y = H - 130;
         items.forEach(function (t) {
             var sub = t.indexOf('   ') === 0;
@@ -227,6 +228,239 @@
         centrado(p, rec, 'Referencia al Video de la Sesión', H - 100, 14, rec.negrita);
         var lineas = envolver(link || 'NO PROPORCIONADA — solicitar al candidato', rec.normal, 10, W - 120);
         lineas.forEach(function (l, i) { centrado(p, rec, l, H - 140 - i * 14, 10); });
+    }
+
+    /* ── Páginas del formato 2026 ──────────────────────────────────────
+       Las marcadoras, el tríptico, los tres formatos de cierre, la
+       autorización de firma y la contraportada: todas vienen del machote
+       `FORMATO PORTAFOLIO-1375-2026 copia.pdf` del Centro Evaluador. */
+    var PIE_CE = 'CENTRO EVALUADOR CE1399-OC063-18 - COLEGIO ILUSTRE DE CIENCIAS FORENSES DE MÉXICO A.C. - BRASIL 306-2 COL. 27 DE SEPTIEMBRE, POZA RICA, VER. - 7821138710 - cicfm.ce@gmail.com';
+    function pie(p, rec, t) { centrado(p, rec, t || PIE_CE, 32, 6.2); }
+
+    /* Página marcadora: solo el rótulo, como en el machote (el documento
+       escaneado va enseguida). */
+    function dibujarMarca(rec, titulo) {
+        var p = pagina(rec);
+        texto(p, rec, titulo, 60, H - 150, 20, rec.negrita);
+    }
+
+    /* Rejilla de etiqueta/valor con recuadro. Devuelve la y de abajo. */
+    function rejilla(p, rec, x, y, anchoEtq, anchoVal, filas, size) {
+        size = size || 8;
+        filas.forEach(function (f) {
+            /* La etiqueta también se envuelve: varias de este formato son
+               largas ("Nombre completo del lugar o persona que realizó su
+               evaluación") y en una sola línea se montaban sobre el valor. */
+            var etq = envolver(f[0] || '', rec.negrita, size, anchoEtq - 8);
+            var valor = envolver(f[1] || '', rec.normal, size, anchoVal - 8);
+            var alto = Math.max(f[2] || 16, etq.length * (size + 2.5) + 6, valor.length * (size + 2.5) + 6);
+            p.drawRectangle({ x: x, y: y - alto, width: anchoEtq, height: alto, borderColor: rec.negro, borderWidth: 0.7 });
+            p.drawRectangle({ x: x + anchoEtq, y: y - alto, width: anchoVal, height: alto, borderColor: rec.negro, borderWidth: 0.7 });
+            etq.forEach(function (l, i) { texto(p, rec, l, x + 4, y - 12 - i * (size + 2.5), size, rec.negrita); });
+            valor.forEach(function (l, i) { texto(p, rec, l, x + anchoEtq + 4, y - 12 - i * (size + 2.5), size); });
+            y -= alto;
+        });
+        return y;
+    }
+    /* Tabla de opciones (Bueno/Regular/Malo, SÍ/NO): una fila por concepto. */
+    function tablaOpciones(p, rec, x, y, ancho, encabezados, filas, anchoOpc) {
+        anchoOpc = anchoOpc || 52;
+        var anchoTxt = ancho - anchoOpc * encabezados.length, alto = 15;
+        p.drawRectangle({ x: x, y: y - alto, width: anchoTxt, height: alto, borderColor: rec.negro, borderWidth: 0.7 });
+        texto(p, rec, 'Aspecto a calificar', x + 4, y - 11, 7.5, rec.negrita);
+        encabezados.forEach(function (h, i) {
+            p.drawRectangle({ x: x + anchoTxt + i * anchoOpc, y: y - alto, width: anchoOpc, height: alto, borderColor: rec.negro, borderWidth: 0.7 });
+            centrado2(p, rec, h, x + anchoTxt + i * anchoOpc, anchoOpc, y - 11, 7.5, rec.negrita);
+        });
+        y -= alto;
+        filas.forEach(function (f) {
+            var lineas = envolver(f, rec.normal, 7, anchoTxt - 8), h = Math.max(15, lineas.length * 9 + 6);
+            p.drawRectangle({ x: x, y: y - h, width: anchoTxt, height: h, borderColor: rec.negro, borderWidth: 0.7 });
+            lineas.forEach(function (l, i) { texto(p, rec, l, x + 4, y - 11 - i * 9, 7); });
+            encabezados.forEach(function (_, i) {
+                p.drawRectangle({ x: x + anchoTxt + i * anchoOpc, y: y - h, width: anchoOpc, height: h, borderColor: rec.negro, borderWidth: 0.7 });
+            });
+            y -= h;
+        });
+        return y;
+    }
+    function centrado2(p, rec, t, x, ancho, y, size, font) {
+        t = limpiar(t); font = font || rec.normal;
+        texto(p, rec, t, x + (ancho - font.widthOfTextAtSize(t, size)) / 2, y, size, font);
+    }
+
+    var TRIPTICO = {
+        intro: 'Este tríptico tiene la finalidad de asegurar a los usuarios del Sistema Nacional de Competencias la transparencia en la información y el libre acceso en los procesos de evaluación - certificación, así como brindar certeza de que la operación de la Red CONOCER de Prestadores de Servicios se rige bajo estándares de calidad y excelencia, sea como empleadores, trabajadores y personas en general de los sectores social, productivo, educativo y de gobierno de nuestro país.',
+        principios: 'Libre Acceso · Excelencia · Transparencia · Imparcialidad · Objetividad',
+        derechos: [
+            'Consultar en línea de manera gratuita los Estándares de Competencia inscritos en el Registro Nacional de Estándares de Competencia (RENEC), en www.conocer.gob.mx',
+            'Disponer del Estándar de Competencia con base en el cual pretendan evaluarse con fines de certificación.',
+            'Realizar su autodiagnóstico libre de costo con base al Estándar de Competencia de su interés.',
+            'Contratar servicios de evaluación con la Entidad de Certificación y Evaluación, Organismo de Certificación, Centro de Evaluación que seleccione y acordar planes de evaluación.',
+            'Realizar el proceso de evaluación de competencia sin obligación o condición de recibir un curso previo.',
+            'Recibir retroalimentación verbal y documental de Entidad de Certificación y Evaluación de Competencias, Centro de Evaluación o Evaluador Independiente respecto al resultado de su evaluación de competencia.',
+            'Contratar servicios de certificación con la Entidad de Certificación y Evaluación de Competencias u Organismo Certificador que seleccione.'
+        ],
+        obligaciones: [
+            'Tratar con respeto al personal de CONOCER, de la Red de Prestadores de Servicios y a otros Usuarios.',
+            'Respetar las fechas y horarios acordados para las diferentes etapas de atención a usuarios, proceso de evaluación y emisión de certificado, debiendo avisar con antelación si existe la imposibilidad de mantener la fecha y horario previstos.',
+            'Entregar, bajo protesta de decir verdad, la información necesaria y veraz para proceder a la evaluación de sus competencias.',
+            'Entregar oportunamente la documentación solicitada por el Prestador de Servicios.',
+            'Colaborar y ser asertivo durante el acuerdo del plan de evaluación.',
+            'Cumplir con las actividades y entrega de productos acordados en el plan de evaluación.',
+            'Atender los lineamientos de seguridad, manejo de maquinaria, equipo y suministros establecido dentro de las instalaciones del Prestador de Servicios.',
+            'Ejercer sus derechos libremente comunicando por medios formales las quejas y sugerencias, en caso de que sea necesario.'
+        ]
+    };
+    function dibujarTriptico(rec) {
+        var p = pagina(rec), y = H - 95;
+        texto(p, rec, 'DERECHOS Y OBLIGACIONES', 50, y, 14, rec.negrita);
+        y -= 18;
+        envolver(TRIPTICO.intro, rec.normal, 8, W - 100).forEach(function (l) { texto(p, rec, l, 50, y, 8); y -= 10; });
+        y -= 10;
+        texto(p, rec, 'Principios de la Certificación:', 50, y, 9, rec.negrita); y -= 12;
+        texto(p, rec, TRIPTICO.principios, 50, y, 8); y -= 18;
+        [['Derechos de los usuarios:', TRIPTICO.derechos], ['Obligaciones:', TRIPTICO.obligaciones]].forEach(function (bloque) {
+            if (y < 90) { p = pagina(rec); y = H - 95; }
+            texto(p, rec, bloque[0], 50, y, 9, rec.negrita); y -= 13;
+            bloque[1].forEach(function (t) {
+                envolver(t, rec.normal, 7.5, W - 116).forEach(function (l, i) {
+                    if (y < 60) { p = pagina(rec); y = H - 95; }
+                    texto(p, rec, (i === 0 ? '• ' : '   ') + l, 56, y, 7.5); y -= 9.5;
+                });
+                y -= 2;
+            });
+            y -= 8;
+        });
+    }
+
+    var ASPECTOS_SERVICIO = ['Trato general del personal que le atendió', 'Explicación del proceso evaluación - certificación',
+        'Claridad en el uso del lenguaje', 'Transparencia en información sobre costos', 'Aclaración de dudas',
+        'Estado de las Instalaciones en las que se evaluó', 'Estado del equipo con el que se evaluó',
+        'Proceso de Evaluación de la competencia', 'Comunicación general para dar seguimiento a su proceso',
+        'Entrega del certificado (oportunidad)'];
+    function dibujarCedulaServicio(rec, d) {
+        var p = pagina(rec), y = H - 88;
+        centrado(p, rec, 'Sistema Nacional de Competencia en la operación de la Evaluación y Certificación', y, 8, rec.negrita); y -= 13;
+        centrado(p, rec, 'Cédula de Evaluación del Servicio a usuarios en el Proceso de Evaluación - Certificación', y, 8.5, rec.negrita); y -= 20;
+        texto(p, rec, 'DATOS GENERALES DEL USUARIO', 50, y, 8, rec.negrita); y -= 8;
+        y = rejilla(p, rec, 50, y, 175, W - 225, [
+            ['Nombre y firma del usuario', d.nombre || '', 26],
+            ['Nombre completo del lugar o persona que realizó su evaluación', d.evaluador || '', 26],
+            ['Medio por el cual contactó a la organización o persona que le realizó la evaluación',
+                'Promoción directa ( ) · Por su patrón o su empleador ( ) · Trípticos, folletos o carteles ( ) · Canalizado por ECE u OC ( ) · Otro ( )', 26]
+        ]);
+        y -= 14;
+        envolver('Marque con una X la opción que usted considere adecuada de acuerdo a su opinión. Si alguno de los aspectos a evaluar no aplica escriba NA en la columna "Bueno".', rec.normal, 7.5, W - 100)
+            .forEach(function (l) { texto(p, rec, l, 50, y, 7.5); y -= 10; });
+        y -= 4;
+        y = tablaOpciones(p, rec, 50, y, W - 100, ['Bueno', 'Regular', 'Malo'], ASPECTOS_SERVICIO);
+        y -= 14;
+        texto(p, rec, 'Comentarios y/o sugerencias:', 50, y, 8, rec.negrita);
+        p.drawRectangle({ x: 50, y: y - 46, width: W - 100, height: 40, borderColor: rec.negro, borderWidth: 0.7 });
+        y -= 60;
+        envolver('Gracias por su tiempo de llenado de este formato, su opinión es valiosa para mejorar nuestro servicio. Si requiere ampliar la información escriba a contacto@conocer.gob.mx, con gusto le atenderemos.', rec.normal, 6.5, W - 100)
+            .forEach(function (l) { centrado(p, rec, l, y, 6.5); y -= 8; });
+        pie(p, rec);
+    }
+
+    var VERIFICACION = [
+        'El índice corresponde al enviado por el CONOCER - Febrero 2018',
+        'Revisión correcta de logotipos e información del CE o EI',
+        'El diagnóstico, Plan de Evaluación, Instrumento de Evaluación, Cédula de Evaluación se encuentran firmados en su totalidad por candidato y evaluador.',
+        'Diagnóstico calificado con tinta negra, sin lápiz, ni espacios en blanco.',
+        'Plan de evaluación calificado con tinta negra, sin lápiz, ni espacios en blanco.',
+        'Verifica las fechas del acuerdo del Plan de Evaluación, desarrollo de la evaluación, evaluación de conocimientos y entrega de resultados corresponden a la notificación enviada y presentada en el SII.',
+        'Verifica SÍ es el caso el cumplimiento de la aplicación del Instrumento de Evaluación de la Competencia, del ejercicio práctico.',
+        'Verifica la suficiencia de las evidencias recopiladas durante el proceso de la evaluación.',
+        'Verifica la suficiencia de la competencia del candidato en cada uno de los elementos del EC.',
+        'Revisa que el portafolio de evidencias presente todos los registros y la documentación que sustenta el juicio de competencia el cual debe estar ordenado, limpio, sin tachaduras, lápiz o corrector.',
+        'Verifica el cumplimiento de productos conforme al EC',
+        'Asegura el cumplimiento de las verificaciones y revisiones realizadas',
+        'Entrega el "Portafolio de Evidencias" al ECE o al CE conforme a sus lineamientos y en un plazo no mayor a cinco días naturales.',
+        '¿Contiene la firma del EI o Director del CE?'
+    ];
+    function dibujarVerificacion(rec, d) {
+        var p = pagina(rec), y = H - 92;
+        centrado(p, rec, 'Verificación Interna del Proceso de Evaluación', y, 12, rec.negrita); y -= 20;
+        y = rejilla(p, rec, 50, y, 110, 220, [['Candidato/a:', d.nombre || ''], ['Centro Evaluador:', 'CE1399-OC063-18'], ['Fecha:', fechaDMY(d.fecha)]]);
+        y -= 16;
+        texto(p, rec, 'Verifique el proceso de evaluación marcando los criterios descritos:', 50, y, 8); y -= 14;
+        var secciones = [[0, 6, 'Integración del portafolio de evidencias:'], [6, 10, 'Verificación del Instrumento de evaluación'], [10, 14, 'Productos y entrega']];
+        secciones.forEach(function (sec) {
+            texto(p, rec, sec[2], 50, y, 7.5, rec.negrita); y -= 12;
+            for (var i = sec[0]; i < sec[1]; i++) {
+                var anchoTxt = W - 100 - 24 - 60;
+                var lineas = envolver(VERIFICACION[i], rec.normal, 7, anchoTxt - 10), alto = Math.max(15, lineas.length * 9 + 6);
+                p.drawRectangle({ x: 50, y: y - alto, width: 24, height: alto, borderColor: rec.negro, borderWidth: 0.7 });
+                p.drawRectangle({ x: 74, y: y - alto, width: anchoTxt, height: alto, borderColor: rec.negro, borderWidth: 0.7 });
+                p.drawRectangle({ x: W - 110, y: y - alto, width: 60, height: alto, borderColor: rec.negro, borderWidth: 0.7 });
+                texto(p, rec, String(i + 1), 58, y - 11, 7.5);
+                lineas.forEach(function (l, j) { texto(p, rec, l, 78, y - 11 - j * 9, 7); });
+                texto(p, rec, 'SÍ        NO', W - 104, y - 11, 7.5);
+                y -= alto;
+            }
+            y -= 8;
+        });
+        texto(p, rec, 'Observaciones:', 50, y, 8, rec.negrita);
+        p.drawRectangle({ x: 50, y: y - 40, width: W - 100, height: 34, borderColor: rec.negro, borderWidth: 0.7 });
+        y -= 66;
+        p.drawLine({ start: { x: 190, y: y }, end: { x: W - 190, y: y }, thickness: 0.8, color: rec.negro });
+        centrado(p, rec, 'Nombre y firma Verificador/a del proceso', y - 11, 7.5);
+        pie(p, rec);
+    }
+
+    var ATENCION_PREGUNTAS = [
+        '¿Cómo califica la atención que se le ha dado? (tiempo en que fue atendido y utilidad de la información que se le proporcionó)',
+        'Considera que el tiempo de atención fue el adecuado (Tiempo que duró la explicación y aclaración de dudas)',
+        '¿Considera que se le dio un trato amable? (La persona le saludó, le trató con respeto y cordialidad)',
+        'La persona que le brindó la atención ¿Le dio la confianza necesaria para satisfacer todas sus dudas respecto al proceso de evaluación-certificación?',
+        '¿Para dirigirse a usted la persona que lo atendió utilizó palabras y términos que le facilitaron comprender lo que estaba explicando?'
+    ];
+    function dibujarAtencion(rec, d) {
+        var p = pagina(rec), y = H - 88;
+        centrado(p, rec, 'Sistema Nacional de Competencia en la operación de la Evaluación y Certificación', y, 8, rec.negrita); y -= 13;
+        centrado(p, rec, 'Formato de Atención a Usuarios', y, 9.5, rec.negrita); y -= 20;
+        y = rejilla(p, rec, 50, y, 110, 180, [['Folio:', ''], ['Fecha:', fechaDMY(d.fecha)],
+            ['Medio de Contacto:', 'Presencial ( )   Telefónico ( )   E-Mail ( )   Otro ( )'], ['Lugar:', d.lugar || '']]);
+        y -= 14;
+        envolver('Estimado usuario, le agradeceremos que conteste el siguiente cuestionario para mejorar nuestro servicio.', rec.normal, 7.5, W - 100)
+            .forEach(function (l) { texto(p, rec, l, 50, y, 7.5); y -= 10; });
+        y -= 6;
+        texto(p, rec, 'DATOS GENERALES DEL USUARIO', 50, y, 8, rec.negrita); y -= 8;
+        y = rejilla(p, rec, 50, y, 110, W - 210, [['Nombre:', d.nombre || ''], ['Domicilio:', ''], ['Colonia / Código Postal:', ''],
+            ['Delegación o Municipio / Estado:', ''], ['Ciudad:', ''], ['Teléfono(s):', ''], ['E-Mail:', d.email || ''],
+            ['EC o área de interés:', 'EC1375']]);
+        y -= 24;
+        p.drawLine({ start: { x: 55, y: y }, end: { x: 265, y: y }, thickness: 0.8, color: rec.negro });
+        p.drawLine({ start: { x: W - 265, y: y }, end: { x: W - 55, y: y }, thickness: 0.8, color: rec.negro });
+        texto(p, rec, 'Nombre y firma del usuario', 55, y - 10, 7);
+        texto(p, rec, 'Nombre y firma de quien atendió al usuario', W - 265, y - 10, 7);
+        y -= 28;
+        y = tablaOpciones(p, rec, 50, y, W - 100, ['Bueno', 'Regular', 'Malo'], ATENCION_PREGUNTAS);
+        pie(p, rec, 'BRASIL 306-2 COL. 27 DE SEPTIEMBRE, POZA RICA, VER. - 7821138710 - centrodeinclusioncicata@gmail.com');
+    }
+
+    async function dibujarAutorizacionFirma(rec, d) {
+        var p = pagina(rec), y = H - 100;
+        centrado(p, rec, 'AUTORIZACIÓN FIRMA ELECTRÓNICA', y, 14, rec.negrita); y -= 28;
+        y = rejilla(p, rec, 70, y, 130, W - 270, [['Centro de Evaluación:', d.ceNombre || ''], ['Evaluador/a:', d.evaluador || ''],
+            ['Estándar de Competencia:', ESTANDAR.join(' ')], ['Candidato/a:', d.nombre || ''], ['Fecha:', fechaDMY(d.fecha)]]);
+        y -= 34;
+        envolver('CONFIRMO QUE HE LEÍDO EL AVISO DE PRIVACIDAD DE COLEGIO ILUSTRE DE CIENCIAS FORENSES Y ESTOY DE ACUERDO EN TODO LO ESTIPULADO EN EL DOCUMENTO. ASÍ MISMO AUTORIZO Y PRESTO MI FIRMA DIGITAL PARA SER PLASMADA EXCLUSIVAMENTE EN TODAS LAS FOJAS DEL INSTRUMENTO DE EVALUACIÓN DE COMPETENCIAS DEL EC1375.', rec.normal, 9, W - 160)
+            .forEach(function (l) { texto(p, rec, l, 80, y, 9); y -= 13; });
+        y -= 60;
+        if (d.firmaCandidato) await firmaEnCaja(p, rec, d.firmaCandidato, (W - 160) / 2, y + 4, 160, 56);
+        p.drawLine({ start: { x: 170, y: y }, end: { x: W - 170, y: y }, thickness: 0.9, color: rec.negro });
+        centrado(p, rec, d.nombre || '', y - 12, 9, rec.negrita);
+        centrado(p, rec, 'Firma de la o el candidato/a', y - 24, 8);
+        pie(p, rec);
+    }
+
+    function dibujarContraportada(rec) {
+        var p = pagina(rec);
+        centrado(p, rec, 'www.conocer.gob.mx', H / 2, 16, rec.negrita);
+        centrado(p, rec, '01 800 288 26 66', H / 2 - 24, 13);
     }
 
     async function imagenFirma(rec, firma) {
@@ -269,8 +503,9 @@
         y -= 20;
         texto(p, rec, 'RESULTADO DE LA EVALUACIÓN', 50, y, 11, rec.negrita);
         y -= 20;
-        var campos = [['mejoresPracticas', 'Mejores prácticas:'], ['areasOportunidad', 'Áreas de oportunidad:'],
-            ['criteriosNoCubiertos', 'Criterios de Evaluación que no se cubrieron:'], ['recomendaciones', 'Recomendaciones:']];
+        var campos = (root.Evaluacion ? root.Evaluacion.CAMPOS_CEDULA : []).map(function (k) { return [k.id, k.label + ':']; });
+        if (!campos.length) campos = [['mejoresPracticas', 'Mejores prácticas:'], ['areasOportunidad', 'Áreas de oportunidad:'],
+            ['criteriosNoCubiertos', 'Criterios de Evaluación que no se cubrieron:'], ['incidencias', 'Incidencias:'], ['recomendaciones', 'Recomendaciones:']];
         campos.forEach(function (c) {
             var lineas = envolver(ced[c[0]] || '', rec.normal, 8.5, W - 112);
             var alto = Math.max(30, lineas.length * 10.5 + 8);
@@ -318,8 +553,15 @@
         var altoObs = Math.max(22, obs.length * 10 + 6);
         p.drawRectangle({ x: 50, y: y - 8 - altoObs, width: W - 100, height: altoObs, borderColor: rec.negro, borderWidth: 1 });
         obs.forEach(function (l, i) { texto(p, rec, l, 56, y - 18 - i * 10, 8); });
-        y -= altoObs + 23;
-        texto(p, rec, 'Al pie de página: Datos del CE o EI (Dirección, Teléfono, Página de Internet y Correo Electrónico, etc.)', 50, Math.max(y, 30), 6);
+        y -= altoObs + 26;
+        /* Acuse de la Cédula, dentro de la propia Cédula (formato 2026). */
+        if (y < 90) { p = pagina(rec); y = H - 110; }
+        p.drawRectangle({ x: 50, y: y - 46, width: W - 100, height: 46, borderColor: rec.negro, borderWidth: 0.7 });
+        texto(p, rec, 'RECIBÍ COPIA DE LA CÉDULA DE EVALUACIÓN (ACUSE)', 56, y - 14, 8, rec.negrita);
+        texto(p, rec, 'Sí ____   No ____', 56, y - 32, 8);
+        p.drawLine({ start: { x: 300, y: y - 26 }, end: { x: W - 60, y: y - 26 }, thickness: 0.8, color: rec.negro });
+        texto(p, rec, 'NOMBRE Y FIRMA DEL USUARIO', 300, y - 38, 7.5);
+        pie(p, rec, 'Brasil # 306-2 Col. 27 de septiembre, Poza Rica, Ver. - 7821138710 - cicfm.ce@gmail.com');
         return L;
     }
 
@@ -370,7 +612,7 @@
     /* IEC: posiciones de la plantilla (las mismas del expediente de Humberto,
        medidas con pdftotext -bbox): nombres y fecha en la página 1 y rúbricas
        con nombre en las 83 páginas. */
-    async function sellarIec(paginas, rec, s) {
+    async function sellarIec(paginas, rec, s, avisos) {
         var p1 = paginas[0];
         if (p1) {
             textoAjustado(p1, rec, s.evaluadorMayus, 208, 619.3, 10, 230);
@@ -384,6 +626,59 @@
             if (s.firmaIec) await firmaEnCaja(p, rec, s.firmaIec, 106, 56, 120, 38);
             if (s.firmaCandidato) await firmaEnCaja(p, rec, s.firmaCandidato, 392, 56, 120, 38);
         }
+        marcarReactivos(paginas, rec, s, avisos || []);
+    }
+
+    /* Las 142 marcas del IEC que capturó el evaluador en admin-iec.html, las
+       37 respuestas del cuestionario, y la hoja de cuantificación con el
+       juicio (página 74).
+
+       La plantilla se reconstruyó el 22 sep desde el expediente de Humberto
+       (`_internal_no_publicar/01-scripts/construir_plantilla_iec.py`) y ahora
+       sí está en blanco: antes traía sus palomas, sus respuestas y su juicio,
+       y además venía dañada — las tablas salían con el texto cortado. */
+    /* Coordenadas medidas en la plantilla: los tres renglones de la
+       cuantificación y el centro de cada casilla del juicio. */
+    var IEC_P74 = {
+        puntos: { x: 507, y: 649.72 }, penalizacion: { x: 507, y: 612.72 }, total: { x: 507, y: 572.72 },
+        competente: { x: 132.5, y: 187.72 }, noCompetente: { x: 340.5, y: 187.72 }
+    };
+    function marcarReactivos(paginas, rec, s, avisos) {
+        var R = root.IecReactivos, I = root.Iec;
+        if (!s.iec || !s.iec.respuestas) return;
+        if (!R || !I) { avisos.push('El IEC quedó sin marcar: la página no cargó iec-reactivos.js / iec.js'); return; }
+        var resp = s.iec.respuestas, obs = s.iec.observaciones || {}, marcados = 0;
+        R.REACTIVOS.forEach(function (r) {
+            var v = resp[r.n];
+            if (v !== 'si' && v !== 'no') return;
+            var p = paginas[r.pag - 1];
+            if (!p) { avisos.push('El IEC no trae la página ' + r.pag + ': el reactivo ' + r.cod + ' quedó sin marcar'); return; }
+            var col = R.columnas(r.pag), x = v === 'si' ? col.si : col.no;
+            texto(p, rec, 'X', x - rec.negrita.widthOfTextAtSize('X', 11) / 2, r.y, 11, rec.negrita);
+            marcados++;
+            var t = obs[r.n];
+            if (t) envolver(t, rec.normal, 6, col.obsAncho).slice(0, 5)
+                .forEach(function (l, i) { texto(p, rec, l, col.obs, r.y + 4 - i * 7, 6); });
+        });
+        /* "Respuesta Elejida": la opción que eligió el candidato en cada una
+           de las 37 preguntas del cuestionario del instrumento. */
+        var cuest = s.iec.cuestionario || {};
+        (R.CUESTIONARIO || []).forEach(function (q) {
+            var v = String(cuest[q.n] === undefined || cuest[q.n] === null ? '' : cuest[q.n]).trim();
+            if (!v) return;
+            var p = paginas[q.pag - 1];
+            if (!p) { avisos.push('El IEC no trae la página ' + q.pag + ': la respuesta de la pregunta ' + q.n + ' quedó sin escribir'); return; }
+            textoAjustado(p, rec, v, q.x, q.y, 10, 190);
+        });
+        if (!marcados) return;
+        var c = I.calificar(resp), p74 = paginas[R.PAGINA_JUICIO - 1];
+        if (!p74) { avisos.push('El IEC no trae la página ' + R.PAGINA_JUICIO + ': el juicio quedó sin escribir'); return; }
+        [['puntos', c.puntos], ['penalizacion', c.penalizacion], ['total', c.total]].forEach(function (f) {
+            var pos = IEC_P74[f[0]];
+            texto(p74, rec, f[1].toFixed(2), pos.x, pos.y, 10);
+        });
+        var m = c.juicio === 'COMPETENTE' ? IEC_P74.competente : IEC_P74.noCompetente;
+        texto(p74, rec, 'X', m.x - rec.negrita.widthOfTextAtSize('X', 11) / 2, m.y, 11, rec.negrita);
     }
 
     async function asegurarLib() { if (!root.PDFLib) await cargarScript(URL_PDF_LIB); }
@@ -410,7 +705,7 @@
         var ced = E.cedulaPublicada(ev);
         if (!ced) avisos.push('La Cédula de Evaluación no está publicada: se incluye en blanco');
         else if (!ev.firma_candidato) avisos.push('La Cédula de Evaluación todavía no tiene la firma del candidato (también es su rúbrica en el IEC)');
-        var sellos = E.sellosPortafolio(ctx.row, ev);
+        var sellos = E.sellosPortafolio(ctx.row, ev, { lote: ctx.lote });
         avisos = avisos.concat(sellos.avisos);
         var SELLAR = { pdf_plan_evaluacion: 'el Plan de Evaluación', acuse_triptico: 'el Acuse del Tríptico', acuse_plan_evaluacion: 'el Acuse del Plan de Evaluación' };
 
@@ -441,14 +736,23 @@
         doc.setTitle(limpiar('Portafolio de Evidencias EC1375 - ' + plan.nombre));
         var rec = await preparar(doc);
         var SEP = { sep1: '1. Datos del Candidato/a', sep2: '2. Recopilación de Evidencias', sep3: '3. Cierre de Evaluación', sep4: '4. ANEXOS' };
+        var datosPag = { nombre: plan.nombre, evaluador: sellos.evaluador, fecha: sellos.fechaPortada, lote: sellos.lote,
+            ceNombre: sellos.ceNombre, email: ctx.email || '', firmaCandidato: sellos.firmaCandidato };
         for (var n = 0; n < plan.items.length; n++) {
             var item = plan.items[n];
             if (item.tipo === 'generado') {
-                if (item.pagina === 'portada') dibujarPortada(rec, plan.nombre, sellos.evaluador);
+                if (item.pagina === 'portada') dibujarPortada(rec, datosPag);
                 else if (item.pagina === 'indice') dibujarIndice(rec, avisos);
+                else if (item.pagina === 'marca') dibujarMarca(rec, item.texto);
                 else if (SEP[item.pagina]) dibujarSeparador(rec, SEP[item.pagina]);
+                else if (item.pagina === 'triptico') dibujarTriptico(rec);
                 else if (item.pagina === 'video') dibujarVideo(rec, plan.videoLink);
                 else if (item.pagina === 'cedula') await dibujarCedula(rec, { cedula: ced || {}, firmaCandidato: ced ? ev.firma_candidato : null, nombre: plan.nombre });
+                else if (item.pagina === 'cedula_servicio') dibujarCedulaServicio(rec, datosPag);
+                else if (item.pagina === 'verificacion') dibujarVerificacion(rec, datosPag);
+                else if (item.pagina === 'atencion_usuarios') dibujarAtencion(rec, datosPag);
+                else if (item.pagina === 'autorizacion_firma') await dibujarAutorizacionFirma(rec, datosPag);
+                else if (item.pagina === 'contraportada') dibujarContraportada(rec);
                 continue;
             }
             var c = cargados[item.ruta];
@@ -457,7 +761,7 @@
                 var paginas = await doc.copyPages(c.pdf, c.pdf.getPageIndices());
                 paginas.forEach(function (pg) { doc.addPage(pg); });
                 /* Datos del evaluador que el candidato no podía conocer al generar. */
-                if (item.slot === 'iec') await sellarIec(paginas, rec, sellos);
+                if (item.slot === 'iec') await sellarIec(paginas, rec, sellos, avisos);
                 else if (SELLAR[item.slot] && c.lineas) {
                     var esPlan = item.slot === 'pdf_plan_evaluacion';
                     sellarCampos(paginas[0], rec, c.lineas[0], [

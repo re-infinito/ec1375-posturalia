@@ -98,14 +98,26 @@ const fila = () => ({
     evidencias_data: { planData: { videoLink: 'https://youtu.be/x' }, documentosNextcloud: { curp: [RUTA('04-Entrega', 'curp.pdf')], ine: [RUTA('04-Entrega', 'ine1.jpg'), RUTA('04-Entrega', 'ine2.jpg')] } }
 });
 
-test('planPortafolio: mismo orden que assemble_expediente.py, sin avisos si todo está', () => {
+test('planPortafolio: el orden del formato oficial 2026, sin avisos si todo está', () => {
     const p = E.planPortafolio(fila());
-    const id = p.items.map(i => i.tipo === 'nas' ? i.ruta.split('/').pop() : i.tipo === 'plantilla' ? 'IEC' : i.pagina);
-    assert.deepEqual(id, ['portada', 'indice', 'sep1', 'Ficha.pdf', 'curp.pdf', 'ine1.jpg', 'ine2.jpg', 'Auto.pdf', 'sep2', 'Plan.pdf', 'IEC',
-        'F.pdf', 'C.pdf', 'PS.pdf', 'PSe.pdf', 'video', 'sep3', 'cedula', 'E.pdf', 'sep4', 'AcuseT.pdf', 'AcuseP.pdf']);
+    const id = p.items.map(i => i.tipo === 'nas' ? i.ruta.split('/').pop()
+        : i.tipo === 'plantilla' ? 'IEC' : i.pagina === 'marca' ? '[' + i.texto + ']' : i.pagina);
+    assert.deepEqual(id, ['portada', 'indice', 'sep1',
+        '[FICHA REGISTRO SNC]', 'Ficha.pdf', '[CURP]', 'curp.pdf', '[INE]', 'ine1.jpg', 'ine2.jpg', 'Auto.pdf', 'triptico',
+        'sep2', 'Plan.pdf', '[IEC]', 'IEC', '[PRODUCTOS]', 'F.pdf', 'C.pdf', 'PS.pdf', 'PSe.pdf', 'video',
+        'sep3', 'cedula', 'E.pdf', 'cedula_servicio', 'verificacion', 'atencion_usuarios',
+        'sep4', 'autorizacion_firma', 'AcuseT.pdf', 'AcuseP.pdf', 'contraportada']);
     assert.deepEqual(p.avisos, []);
     assert.equal(p.videoLink, 'https://youtu.be/x');
     assert.equal(p.nombre, 'Ana Demo');
+});
+
+test('planPortafolio: las páginas marcadoras van pegadas al documento que anuncian', () => {
+    const p = E.planPortafolio(fila());
+    const id = p.items.map(i => i.pagina === 'marca' ? '[' + i.texto + ']' : (i.slot || i.pagina || i.tipo));
+    [['[FICHA REGISTRO SNC]', 'ficha_registro_candidato'], ['[CURP]', 'curp'], ['[INE]', 'ine'], ['[IEC]', 'iec']]
+        .forEach(([marca, slot]) => assert.equal(id[id.indexOf(marca) + 1], slot, marca));
+    assert.equal(id[id.indexOf('[PRODUCTOS]') + 1], 'ficha_registro_paciente');
 });
 
 test('planPortafolio: distingue "no lo subió" del formulario alterno y avisa sin video', () => {
@@ -175,7 +187,7 @@ test('sellosPortafolio: evaluador de la Cédula, Centro, fecha del Plan y firmas
     f.plan_evaluacion_data.planData = { fechaEvaluacion: '2026-09-17' };
     const ev = { cedula: publicada('COMPETENTE', { evaluadora: 'Humberto Lot Navarro Navarro' }), firma_candidato: firmaDibujada,
         firmas_evaluador: { plan: firmaDibujada, iec: { mode: 'type', typedName: 'H. Lot' } } };
-    const s = E.sellosPortafolio(f, ev);
+    const s = E.sellosPortafolio(f, ev, { lote: 2 });
     assert.equal(s.evaluador, 'Humberto Lot Navarro Navarro');
     assert.equal(s.evaluadorMayus, 'HUMBERTO LOT NAVARRO NAVARRO');
     assert.equal(s.candidatoMayus, 'ANA DEMO');
@@ -185,7 +197,16 @@ test('sellosPortafolio: evaluador de la Cédula, Centro, fecha del Plan y firmas
     assert.equal(s.firmaPlan, firmaDibujada);
     assert.equal(s.firmaIec.typedName, 'H. Lot');
     assert.equal(s.firmaCandidato, firmaDibujada);
-    assert.deepEqual(s.avisos, []);
+    assert.equal(s.fechaPortada, '2026-09-17');
+    assert.equal(s.lote, '2');
+    assert.deepEqual(s.avisos, ['El Instrumento de Evaluación (IEC) va en blanco: llénalo en Centro Evaluador → Instrumento de Evaluación']);
+    // con el IEC llenado y completo ya no queda ningún aviso
+    const conIec = E.sellosPortafolio(f, Object.assign({}, ev, { iec: { respuestas: { 1: 'si' }, completo: true } }), { lote: 2 });
+    assert.deepEqual(conIec.avisos, []);
+    assert.equal(conIec.iec.completo, true);
+    // un IEC a medias se avisa aparte
+    const medio = E.sellosPortafolio(f, Object.assign({}, ev, { iec: { respuestas: { 1: 'si' }, completo: false } }), { lote: 2 });
+    assert.ok(medio.avisos.some(a => /IEC está incompleto/.test(a)));
 });
 
 test('sellosPortafolio: sin Cédula usa el evaluador predeterminado y avisa lo que falta firmar', () => {
@@ -196,4 +217,12 @@ test('sellosPortafolio: sin Cédula usa el evaluador predeterminado y avisa lo q
     assert.ok(s.avisos.some(a => /firma del evaluador en el Plan/.test(a)));
     assert.ok(s.avisos.some(a => /rúbrica del evaluador en el IEC/.test(a)));
     assert.ok(s.avisos.some(a => /Fecha de Aplicación/.test(a)));
+    assert.ok(s.avisos.some(a => /sin lote/.test(a)));
+    assert.equal(s.lote, '');
+    assert.equal(s.iec, null);
+});
+
+test('CAMPOS_CEDULA: el formato 2026 agrega Incidencias, antes de Recomendaciones', () => {
+    assert.deepEqual(E.CAMPOS_CEDULA.map(c => c.id),
+        ['mejoresPracticas', 'areasOportunidad', 'criteriosNoCubiertos', 'incidencias', 'recomendaciones']);
 });

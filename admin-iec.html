@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="favicon.ico" sizes="any">
+    <link rel="icon" href="favicon-32x32.png" type="image/png" sizes="32x32">
+    <link rel="icon" href="favicon-16x16.png" type="image/png" sizes="16x16">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <title>Instrumento de Evaluación (IEC) - EC1375 Paideia Tech</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="auth.js"></script>
+    <script src="flow-status.js"></script>
+    <script src="crm-shell.js" data-crm-mode="admin" data-crm-page="admin-evaluacion"></script>
+    <script src="admin-data.js"></script>
+    <script src="evaluacion.js"></script>
+    <script src="iec-reactivos.js"></script>
+    <script src="iec.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --dark: #050a1a; --dark-light: #0f1428; --primary: #0088FF; --primary-light: #00CCFF;
+            --accent: #FFD700; --text: #D0D0D0; --text-bright: #FFFFFF; --danger: #FF3333; --success: #00FF88;
+            --border: rgba(255,255,255,0.12); --surface-2: rgba(255,255,255,0.05);
+        }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--dark); color: var(--text); line-height: 1.6; min-height: 100vh; padding-bottom: 96px; }
+        .container { max-width: 980px; margin: 0 auto; padding: 20px; }
+        .container.narrow { max-width: 560px; }
+        .top-bar { position: sticky; top: 0; background: var(--dark); border-bottom: 1px solid var(--dark-light); padding: 16px 20px; z-index: 100; }
+        .top-bar-inner { font-size: 0.95rem; color: var(--text-bright); font-weight: 700; }
+        body.crm-active .top-bar { display: none; }
+        .hero { text-align: center; padding: 30px 0; }
+        .hero-icon { font-size: 3rem; margin-bottom: 14px; }
+        .hero-title { font-size: 1.6rem; font-weight: 700; color: var(--text-bright); margin-bottom: 10px; }
+        .card { background: var(--dark-light); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 18px; }
+        .msg { font-size: 0.88rem; margin-top: 12px; }
+        .msg.error { color: var(--danger); }
+        .msg.ok { color: var(--success); }
+        a { color: var(--primary); }
+
+        .btn { padding: 11px 18px; border-radius: 8px; font-weight: 700; font-size: 0.9rem; border: none; cursor: pointer;
+               text-align: center; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-family: inherit; min-height: 42px; }
+        .btn-primary { background: var(--primary); color: #fff; }
+        .btn-sec { background: transparent; border: 2px solid var(--primary); color: var(--primary); }
+        .btn-chip { padding: 5px 11px; min-height: 32px; font-size: 0.78rem; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border); color: var(--text); }
+        .btn-chip:hover { border-color: var(--primary); color: var(--text-bright); }
+        .btn:disabled { opacity: .5; cursor: not-allowed; }
+
+        .iec-head h1 { font-size: 1.3rem; color: var(--text-bright); }
+        .iec-head p { font-size: 0.88rem; }
+        .iec-cifras { display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); gap: 10px; margin-top: 14px; }
+        .cifra { background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+        .cifra span { display: block; font-size: 0.72rem; text-transform: uppercase; letter-spacing: .04em; }
+        .cifra strong { font-size: 1.25rem; color: var(--text-bright); }
+        .cifra.ok strong { color: var(--success); }
+        .cifra.mal strong { color: var(--danger); }
+
+        .elem { margin-bottom: 26px; }
+        .elem > h2 { font-size: 1.05rem; color: var(--text-bright); margin-bottom: 4px; }
+        .elem > p.sub { font-size: 0.82rem; margin-bottom: 12px; }
+        .grupo { border: 1px solid var(--border); border-radius: 12px; margin-bottom: 12px; overflow: hidden; background: var(--dark-light); }
+        .grupo > header { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; justify-content: space-between; padding: 12px 14px; background: var(--surface-2); }
+        .grupo > header .t { flex: 1 1 260px; min-width: 0; }
+        .grupo > header .t strong { display: block; color: var(--text-bright); font-size: 0.9rem; }
+        .grupo > header .t span { font-size: 0.75rem; }
+        .react { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: flex-start; padding: 12px 14px; border-top: 1px solid var(--border); }
+        .react .txt { flex: 1 1 300px; min-width: 0; font-size: 0.88rem; }
+        .react .txt code { font-size: 0.72rem; color: var(--accent); display: block; }
+        .react .txt .fuente { font-size: 0.74rem; color: var(--success); }
+        .react .sn { display: flex; gap: 6px; flex: 0 0 auto; }
+        .sn button { min-width: 54px; min-height: 40px; border-radius: 8px; border: 1px solid var(--border); background: var(--dark); color: var(--text); font-weight: 700; font-size: 0.82rem; cursor: pointer; font-family: inherit; }
+        .sn button[aria-pressed="true"].si { background: var(--success); border-color: var(--success); color: #04220f; }
+        .sn button[aria-pressed="true"].no { background: var(--danger); border-color: var(--danger); color: #fff; }
+        .react .obs { flex: 1 1 100%; }
+        .react .obs textarea { width: 100%; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--dark); color: var(--text-bright); font-family: inherit; font-size: 0.82rem; resize: vertical; min-height: 38px; }
+        .react.pend { border-left: 3px solid var(--accent); }
+        .peso { font-size: 0.72rem; opacity: .75; }
+
+        .barra { position: fixed; left: 0; right: 0; bottom: 0; background: var(--dark-light); border-top: 1px solid var(--border);
+                 padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px)); display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; justify-content: space-between; z-index: 120; }
+        body.crm-active .barra { left: 0; }
+        @media (min-width: 1024px) { body.crm-active .barra { left: 260px; } }
+        .barra .info { flex: 1 1 200px; min-width: 0; font-size: 0.82rem; }
+        .barra .info strong { color: var(--text-bright); }
+        .prog { height: 6px; border-radius: 999px; background: var(--surface-2); overflow: hidden; margin-top: 5px; }
+        .prog i { display: block; height: 100%; background: var(--primary); }
+        .filtros { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+        .aviso { border: 1px solid var(--accent); background: rgba(255,215,0,0.08); border-radius: 10px; padding: 12px 14px; font-size: 0.85rem; margin-bottom: 14px; }
+        .aviso.rojo { border-color: var(--danger); background: rgba(255,51,51,0.08); }
+    </style>
+</head>
+<body>
+    <div class="top-bar"><div class="top-bar-inner">Instrumento de Evaluación</div></div>
+    <div class="container" id="app"></div>
+
+    <script>
+    const esc = s => CrmShell._helpers.escapeHtml(s);
+    const E = Evaluacion, I = Iec, RX = IecReactivos;
+    const email = (new URLSearchParams(location.search).get('email') || '').trim().toLowerCase();
+
+    let sesion = null, yo = '', rol = null;
+    let row = null, cand = null, ev = null, faltaSql = null, faltaColumna = null;
+    let respuestas = {}, observaciones = {}, cuestionario = {}, fecha = '', fuentes = {};
+    let filtro = 'todos', sucio = false, guardando = false, mensaje = null;
+
+    function renderGateShell() {
+        document.getElementById('app').innerHTML = `
+            <div class="container narrow" style="padding:0;">
+                <div class="hero"><div class="hero-icon">🔐</div><h1 class="hero-title">Acceso del equipo</h1></div>
+                <div class="card" id="adminGateContainer"></div>
+            </div>`;
+        Auth.renderAdminGate(document.getElementById('adminGateContainer'), { onVerified: boot, permitirEvaluador: true });
+    }
+
+    async function boot(session) {
+        sesion = session; yo = session.user.email.toLowerCase();
+        rol = await Auth.rolEquipo(yo);
+        CrmShell.mount({ mode: 'admin', currentPageId: 'admin-evaluacion', title: 'Instrumento de Evaluación', rol });
+        const app = document.getElementById('app');
+        if (!email) { app.innerHTML = `<p class="msg error">Falta el candidato. Ábrelo desde <a href="admin-candidatos.html">Candidatos</a>.</p>`; return; }
+        app.innerHTML = CrmShell.skeleton('cards');
+        await cargar();
+        render();
+        window.addEventListener('beforeunload', e => { if (sucio) { e.preventDefault(); e.returnValue = ''; } });
+    }
+
+    async function cargar() {
+        const datos = await AdminData.cargar();
+        cand = AdminData.candidatos(datos).find(c => c.email.toLowerCase() === email) || null;
+        row = cand ? cand.row : null;
+        const r = await supabaseClient.from('evaluaciones').select('*').eq('email', email).maybeSingle();
+        faltaSql = r.error ? (r.error.message || String(r.error)) : null;
+        ev = r.data || { email };
+        const probe = faltaSql ? null : await supabaseClient.from('evaluaciones').select('iec').limit(1);
+        faltaColumna = probe && probe.error ? (probe.error.message || String(probe.error)) : null;
+
+        const iec = (ev && ev.iec) || {};
+        respuestas = Object.assign({}, iec.respuestas || {});
+        observaciones = Object.assign({}, iec.observaciones || {});
+        cuestionario = Object.assign({}, iec.cuestionario || {});
+        const plan = (row && row.plan_evaluacion_data && row.plan_evaluacion_data.planData) || {};
+        fecha = iec.fecha || plan.fechaEvaluacion || '';
+        /* Lo que el expediente ya respalda se propone, pero nunca se guarda
+           solo: queda marcado como sugerencia hasta que el evaluador la
+           confirme o la cambie. */
+        const s = I.sugerencias(row || {});
+        fuentes = s.fuentes;
+        Object.keys(s.respuestas).forEach(n => { if (!respuestas[n]) respuestas[n] = s.respuestas[n]; });
+    }
+
+    function nombreCand() { return (cand && cand.nombre) || (row && row.nombre) || email; }
+    function ligaVideo() { return E.ligaVideo(ev, row); }
+
+    function render() {
+        const c = I.calificar(respuestas);
+        const faltaQ = I.faltanCuestionario(cuestionario).length;
+        const app = document.getElementById('app');
+        const video = ligaVideo();
+        app.innerHTML = `
+            <div class="card iec-head">
+                <p style="font-size:0.8rem;"><a href="admin-evaluacion.html?email=${encodeURIComponent(email)}">← Volver a la evaluación</a></p>
+                <h1>Instrumento de Evaluación · ${esc(nombreCand())}</h1>
+                <p>Marca cada reactivo viendo la grabación de la sesión. Son ${RX.REACTIVOS.length} reactivos y el instrumento no admite "No aplica": todos se contestan.</p>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">
+                    ${video ? `<a class="btn btn-sec" href="${esc(video.split('  ·  ')[0].split(' (clave')[0])}" target="_blank" rel="noopener">▶ Abrir la grabación</a>` : ''}
+                    <label class="btn btn-chip" style="cursor:default;">Fecha de aplicación
+                        <input type="date" id="fechaIec" value="${esc(fecha)}" style="margin-left:8px;background:var(--dark);color:var(--text-bright);border:1px solid var(--border);border-radius:6px;padding:4px 6px;font-family:inherit;">
+                    </label>
+                </div>
+                <div class="iec-cifras">
+                    <div class="cifra"><span>Contestados</span><strong>${c.contestados} / ${c.reactivos}</strong></div>
+                    <div class="cifra ${c.alcanzaPuntaje ? 'ok' : 'mal'}"><span>Puntaje</span><strong>${c.total.toFixed(2)}</strong></div>
+                    <div class="cifra"><span>Mínimo</span><strong>${c.umbral}</strong></div>
+                    <div class="cifra ${faltaQ ? 'mal' : 'ok'}"><span>Cuestionario</span><strong>${RX.CUESTIONARIO.length - faltaQ} / ${RX.CUESTIONARIO.length}</strong></div>
+                    <div class="cifra ${c.juicio === 'COMPETENTE' ? 'ok' : 'mal'}"><span>Juicio</span><strong style="font-size:0.95rem;">${c.juicio}</strong></div>
+                </div>
+                ${c.penalizacion ? `<p class="msg">Se restan ${c.penalizacion.toFixed(2)} puntos por actitudes/hábitos/valores que no se presentaron.</p>` : ''}
+                ${c.criteriosSinCumplir.length ? `<p class="msg error">Criterios sin ningún reactivo cumplido: ${c.criteriosSinCumplir.join(', ')}. Con esto el juicio no puede ser COMPETENTE.</p>` : ''}
+            </div>
+            ${faltaSql ? `<div class="aviso rojo"><strong>Falta correr el SQL del Centro Evaluador.</strong> ${esc(faltaSql)}</div>` : ''}
+            ${!faltaSql && faltaColumna ? `<div class="aviso rojo"><strong>Falta correr <code>2026-09-22-iec-evaluador.sql</code></strong> (agrega la columna <code>iec</code>). Mientras tanto se puede llenar, pero no guardar. <br><span style="font-size:0.78rem;">${esc(faltaColumna)}</span></div>` : ''}
+            ${Object.keys(fuentes).length ? `<div class="aviso">Los reactivos con <span style="color:var(--success);">✓ respaldo en el expediente</span> vienen propuestos como Sí (examen presentado y documentos entregados). Revísalos y cámbialos si no corresponde: nada se guarda hasta que oprimas Guardar.</div>` : ''}
+            <div class="filtros">
+                ${[['todos', 'Todos'], ['pendientes', 'Sin contestar'], ['no', 'Marcados No'], ['D', 'Desempeños'], ['P', 'Productos'], ['C', 'Conocimientos'], ['AHV', 'Actitudes'], ['cuestionario', 'Cuestionario']]
+                    .map(([k, t]) => `<button class="btn btn-chip" data-filtro="${k}" ${filtro === k ? 'style="border-color:var(--primary);color:var(--text-bright);"' : ''}>${t}</button>`).join('')}
+            </div>
+            <div id="lista"></div>
+            <div class="barra">
+                <div class="info">
+                    <strong>${c.contestados} de ${c.reactivos}</strong> contestados${faltaQ ? ' · faltan ' + faltaQ + ' del cuestionario' : ' · cuestionario completo'} · ${c.total.toFixed(2)} pts · ${c.juicio}
+                    <div class="prog"><i style="width:${Math.round(c.contestados / c.reactivos * 100)}%"></i></div>
+                </div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                    ${c.sinContestar.length ? `<button class="btn btn-chip" id="irPend">Ir al primero sin contestar</button>` : ''}
+                    <button class="btn btn-primary" id="guardar" ${guardando ? 'disabled' : ''}>${guardando ? 'Guardando…' : (sucio ? 'Guardar cambios' : 'Guardar')}</button>
+                </div>
+            </div>
+            ${mensaje ? `<p class="msg ${mensaje.tipo}" style="text-align:center;">${esc(mensaje.texto)}</p>` : ''}`;
+        renderLista();
+        app.querySelectorAll('[data-filtro]').forEach(b => b.onclick = () => { filtro = b.dataset.filtro; render(); });
+        const f = document.getElementById('fechaIec');
+        if (f) f.onchange = () => { fecha = f.value; sucio = true; };
+        const g = document.getElementById('guardar');
+        if (g) g.onclick = guardar;
+        const ip = document.getElementById('irPend');
+        if (ip) ip.onclick = () => {
+            const n = I.calificar(respuestas).sinContestar[0];
+            const el = document.getElementById('r' + n);
+            if (el) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            else { filtro = 'pendientes'; render(); }
+        };
+    }
+
+    function visible(r) {
+        if (filtro === 'cuestionario') return false;
+        if (filtro === 'todos') return true;
+        if (filtro === 'pendientes') return respuestas[r.n] !== 'si' && respuestas[r.n] !== 'no';
+        if (filtro === 'no') return respuestas[r.n] === 'no';
+        return r.tipo === filtro;
+    }
+
+    /* Las 37 preguntas del cuestionario del propio instrumento: aquí se
+       anota la opción que eligió el candidato ("Respuesta Elejida"). */
+    function cuestionarioHtml() {
+        if (filtro !== 'todos' && filtro !== 'cuestionario' && filtro !== 'pendientes') return '';
+        const items = RX.CUESTIONARIO.filter(q => filtro !== 'pendientes' || !cuestionario[q.n]);
+        if (!items.length) return '';
+        return `<div class="elem"><h2>Cuestionario de conocimientos</h2>
+            <p class="sub">La opción que eligió el candidato en cada pregunta del instrumento. Se imprime en el renglón "Respuesta Elejida" de su página.</p>
+            <div class="grupo">
+                <header><div class="t"><strong>Respuestas del candidato</strong><span>${RX.CUESTIONARIO.length} preguntas · páginas 29 a 73 del instrumento</span></div></header>
+                ${items.map(q => `<div class="react ${cuestionario[q.n] ? '' : 'pend'}" id="q${q.n}">
+                    <div class="txt">
+                        <code>Pregunta ${q.n} · página ${q.pag}${q.relacionar ? ' · relacionar columnas' : ''}</code>
+                        ${esc(q.pregunta)}
+                        ${q.opciones.length ? `<div class="peso">${q.opciones.map(o => esc(o)).join(' · ')}</div>` : ''}
+                    </div>
+                    <div class="sn" style="flex:0 0 auto;">
+                        <input type="text" data-q="${q.n}" value="${esc(cuestionario[q.n] || '')}"
+                            placeholder="${q.relacionar ? 'p. ej. e),c),b)' : 'p. ej. c)'}" maxlength="40"
+                            style="width:130px;min-height:40px;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--dark);color:var(--text-bright);font-family:inherit;font-size:0.85rem;">
+                    </div>
+                </div>`).join('')}
+            </div></div>`;
+    }
+
+    function renderLista() {
+        const cont = document.getElementById('lista');
+        const html = I.secciones().map(e => {
+            const grupos = e.grupos.map(g => {
+                const rs = g.reactivos.filter(visible);
+                if (!rs.length) return '';
+                return `<div class="grupo">
+                    <header>
+                        <div class="t"><strong>${esc(g.titulo)}</strong><span>${esc(g.tipoNombre)} · ${g.reactivos.length} reactivo${g.reactivos.length > 1 ? 's' : ''}</span></div>
+                        <div style="display:flex;gap:6px;"><button class="btn btn-chip" data-todo="si" data-grupo="${esc(e.elem + '|' + g.tipo + '|' + g.titulo)}">Todo Sí</button></div>
+                    </header>
+                    ${rs.map(r => {
+                        const v = respuestas[r.n], obs = observaciones[r.n] || '';
+                        return `<div class="react ${v ? '' : 'pend'}" id="r${r.n}">
+                            <div class="txt">
+                                <code>${esc(r.cod)} · ${r.tipo === 'AHV' ? 'resta ' : ''}${r.peso.toFixed(2)} pts</code>
+                                ${esc(r.texto)}
+                                ${fuentes[r.n] ? `<div class="fuente">✓ ${esc(fuentes[r.n])}</div>` : ''}
+                            </div>
+                            <div class="sn">
+                                <button class="si" data-si="${r.n}" aria-pressed="${v === 'si'}">Sí</button>
+                                <button class="no" data-no="${r.n}" aria-pressed="${v === 'no'}">No</button>
+                            </div>
+                            ${v === 'no' || obs ? `<div class="obs"><textarea data-obs="${r.n}" placeholder="Observaciones (se imprimen en el IEC)">${esc(obs)}</textarea></div>` : ''}
+                        </div>`;
+                    }).join('')}
+                </div>`;
+            }).join('');
+            if (!grupos) return '';
+            return `<div class="elem"><h2>Elemento ${e.elem} de 4 · ${esc(e.titulo)}</h2><p class="sub">${esc(RX.ELEMENTOS[e.elem])} en la contribución tradicional y complementaria.</p>${grupos}</div>`;
+        }).join('');
+        cont.innerHTML = (html + cuestionarioHtml()) || `<div class="card"><p>No hay reactivos con este filtro.</p></div>`;
+        cont.querySelectorAll('[data-q]').forEach(i => i.oninput = () => { cuestionario[i.dataset.q] = i.value; sucio = true; });
+        cont.querySelectorAll('[data-si]').forEach(b => b.onclick = () => marcar(+b.dataset.si, 'si'));
+        cont.querySelectorAll('[data-no]').forEach(b => b.onclick = () => marcar(+b.dataset.no, 'no'));
+        cont.querySelectorAll('[data-obs]').forEach(t => t.oninput = () => { observaciones[t.dataset.obs] = t.value; sucio = true; });
+        cont.querySelectorAll('[data-todo]').forEach(b => b.onclick = () => {
+            const [elem, tipo, titulo] = b.dataset.grupo.split('|');
+            RX.REACTIVOS.filter(r => String(r.elem) === elem && r.tipo === tipo && r.grupo === titulo)
+                .forEach(r => { respuestas[r.n] = 'si'; delete observaciones[r.n]; });
+            sucio = true; mensaje = null; render();
+        });
+    }
+
+    function marcar(n, v) {
+        respuestas[n] = respuestas[n] === v ? undefined : v;
+        if (respuestas[n] === undefined) delete respuestas[n];
+        if (respuestas[n] !== 'no' && !observaciones[n]) delete observaciones[n];
+        delete fuentes[n];
+        sucio = true; mensaje = null;
+        render();
+        const el = document.getElementById('r' + n);
+        if (el && filtro !== 'pendientes') el.scrollIntoView({ block: 'nearest' });
+    }
+
+    async function guardar() {
+        if (faltaSql || faltaColumna) { mensaje = { tipo: 'error', texto: 'Falta correr el SQL antes de poder guardar.' }; render(); return; }
+        guardando = true; mensaje = null; render();
+        const iec = I.guardar(ev && ev.iec, { respuestas, observaciones, cuestionario, fecha }, { por: yo });
+        const { error } = await supabaseClient.from('evaluaciones')
+            .upsert(Object.assign({ email }, { iec }), { onConflict: 'email' });
+        guardando = false;
+        if (error) { mensaje = { tipo: 'error', texto: 'No se pudo guardar: ' + (error.message || error) }; render(); return; }
+        ev = Object.assign({}, ev, { iec });
+        sucio = false;
+        const falta = I.validar(iec);
+        mensaje = { tipo: falta.length ? 'error' : 'ok', texto: falta.length ? 'Guardado. Todavía falta: ' + falta.join('; ') : 'Guardado. El IEC está completo y ya entra al portafolio.' };
+        render();
+    }
+
+    window.addEventListener('load', () => {
+        if (!window.supabaseClient) { document.getElementById('app').innerHTML = '<p class="msg error">No se pudo conectar.</p>'; return; }
+        renderGateShell();
+    });
+    </script>
+</body>
+</html>
