@@ -53,6 +53,16 @@
         var dias = diasEntre(hoy, limite);
         return { clave: dias < 0 ? 'vencido' : dias <= 7 ? 'pronto' : 'ok', dias: dias, limite: limite };
     }
+    /* "09:00, 11:00" → ['09:00','11:00'] (hora de México). Lo usan la plantilla
+       semanal y el borrado por hora del admin, para que la misma escritura
+       valga en los dos lados. */
+    function horasDeTexto(txt) {
+        return String(txt || '').split(',').map(function (t) {
+            var m = /^\s*(\d{1,2}):(\d{2})\s*$/.exec(t);
+            return m && Number(m[1]) < 24 && Number(m[2]) < 60 ? ('0' + m[1]).slice(-2) + ':' + m[2] : null;
+        }).filter(Boolean);
+    }
+
     function esUrlZoom(u) { return typeof u === 'string' && /^https:\/\/([a-z0-9-]+\.)*zoom\.us\/[^\s"'<>]*$/i.test(u); }
     /* El enlace /s/ es el de INICIAR como anfitrión: a un candidato Zoom le
        pediría entrar con la cuenta de Paideia (Diego lo pegó así el 22 sep).
@@ -477,7 +487,7 @@
     var api = {
         TZ: TZ, LUGAR_SALA: LUGAR_SALA, WHATSAPP: WHATSAPP, _esc: esc,
         fechaISO: fechaISO, fechaLarga: fechaLarga, fechaCorta: fechaCorta, hora: hora, horarioTexto: horarioTexto,
-        mxAIso: mxAIso, sumarDias: sumarDias, limiteDesde: limiteDesde, limiteInfo: limiteInfo, esUrlZoom: esUrlZoom, esEnlaceDeInicio: esEnlaceDeInicio,
+        mxAIso: mxAIso, sumarDias: sumarDias, limiteDesde: limiteDesde, limiteInfo: limiteInfo, esUrlZoom: esUrlZoom, esEnlaceDeInicio: esEnlaceDeInicio, horasDeTexto: horasDeTexto,
         cuentaRegresiva: cuentaRegresiva, estado: estado, puedeCambiar: puedeCambiar,
         generarHorarios: generarHorarios, agruparPorDia: agruparPorDia,
         mesDe: mesDe, nombreMes: nombreMes, gridMes: gridMes, mesesConHorarios: mesesConHorarios, calendarioHtml: calendarioHtml,

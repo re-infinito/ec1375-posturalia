@@ -116,6 +116,13 @@ test('agruparPorDia: por fecha de México, en orden', () => {
     assert.equal(g[0].fecha, '2026-09-25');
 });
 
+test('horasDeTexto: acepta 9:00 y 09:00, ignora basura y horas imposibles', () => {
+    assert.deepEqual(S.horasDeTexto('9:00, 11:00 , 16:30'), ['09:00', '11:00', '16:30']);
+    assert.deepEqual(S.horasDeTexto(''), []);
+    assert.deepEqual(S.horasDeTexto('mañana, 25:00, 10:70, 08:00'), ['08:00']);
+    assert.deepEqual(S.horasDeTexto(null), []);
+});
+
 test('esEnlaceDeInicio: el /s/ es el de anfitrión y no sirve para el candidato', () => {
     assert.equal(S.esEnlaceDeInicio('https://us06web.zoom.us/s/82757263451?pwd=x'), true);
     assert.equal(S.esEnlaceDeInicio('https://us06web.zoom.us/j/82757263451?pwd=x'), false);

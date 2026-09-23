@@ -9,7 +9,7 @@
     var S = root.SalaEvidencias, esc = S._esc;
     var ESTADOS = { reservada: 'Reservada', asistio: 'Asistió', no_asistio: 'No asistió' };
     var DIAS = [[1, 'Lun'], [2, 'Mar'], [3, 'Mié'], [4, 'Jue'], [5, 'Vie'], [6, 'Sáb'], [0, 'Dom']];
-    var st = { el: null, yo: '', cfg: {}, horarios: [], reservas: [], nombres: {}, error: '', vista: null, msg: '' };
+    var st = { el: null, yo: '', cfg: {}, horarios: [], reservas: [], nombres: {}, error: '', vista: null, msg: '', form: {} };
     function sb() { return root.supabaseClient; }
 
     async function cargar() {
@@ -25,6 +25,20 @@
         st.cfg = r[0].data || {}; st.horarios = r[1].data || []; st.reservas = r[2].data || [];
         st.nombres = {}; (r[3].data || []).forEach(function (x) { if (x && x.email) st.nombres[x.email.toLowerCase()] = x.nombre; });
     }
+    /* Lo tecleado sobrevive al repintado: cualquier aviso vuelve a pintar la
+       sección, y antes eso regresaba el rango de fechas y las horas a sus
+       valores por omisión (visto al probar el borrado por hora, 23 sep). */
+    function recordarForm() {
+        if (!st.el) return;
+        ['saUrl', 'saId', 'saClave', 'saDias', 'saAntes', 'saCambio', 'saHoras', 'saDur', 'saCol', 'saDesde', 'saHasta', 'saBorrarDesde', 'saBorrarHasta', 'saBorrarHoras'].forEach(function (id) {
+            var e = st.el.querySelector('#' + id);
+            if (e) st.form[id] = e.value;
+        });
+        var dias = st.el.querySelectorAll('[data-sa-dia]');
+        if (dias.length) st.form.dias = [].slice.call(dias).filter(function (c) { return c.checked; }).map(function (c) { return c.getAttribute('data-sa-dia'); });
+    }
+    function val(id, def) { return st.form[id] !== undefined ? st.form[id] : def; }
+
     function reservaDe(hid) { return st.reservas.filter(function (x) { return x.horario_id === hid; })[0] || null; }
     function manana() { return S.sumarDias(S.fechaISO(Date.now()), 1); }
 
@@ -36,17 +50,17 @@
             '<div class="grid-2"><div class="form-group"><label>Enlace de invitación de Zoom *</label><input type="url" id="saUrl" value="' + esc(c.zoom_url || '') + '" placeholder="https://us06web.zoom.us/j/…"></div>' +
             '<div class="form-group"><label>ID de reunión</label><input type="text" id="saId" value="' + esc(c.zoom_id || '') + '" placeholder="827 5726 3451"></div></div>' +
             '<div class="grid-2"><div class="form-group"><label>Clave de acceso</label><input type="text" id="saClave" value="' + esc(c.zoom_clave || '') + '"></div>' +
-            '<div class="form-group"><label>Días para entregar la evidencia (desde el pago de Alineación)</label><input type="number" id="saDias" min="1" max="365" value="' + esc(c.dias_limite || 30) + '"></div></div>' +
-            '<div class="grid-2"><div class="form-group"><label>Minutos antes en que se abre la sala</label><input type="number" id="saAntes" min="0" max="60" value="' + esc(c.minutos_antes === undefined ? 10 : c.minutos_antes) + '"></div>' +
-            '<div class="form-group"><label>Horas mínimas para cambiar o cancelar</label><input type="number" id="saCambio" min="0" max="168" value="' + esc(c.horas_cambio === undefined ? 24 : c.horas_cambio) + '"></div></div>' +
+            '<div class="form-group"><label>Días para entregar la evidencia (desde el pago de Alineación)</label><input type="number" id="saDias" min="1" max="365" value="' + esc(val('saDias', c.dias_limite || 30)) + '"></div></div>' +
+            '<div class="grid-2"><div class="form-group"><label>Minutos antes en que se abre la sala</label><input type="number" id="saAntes" min="0" max="60" value="' + esc(val('saAntes', c.minutos_antes === undefined ? 10 : c.minutos_antes)) + '"></div>' +
+            '<div class="form-group"><label>Horas mínimas para cambiar o cancelar</label><input type="number" id="saCambio" min="0" max="168" value="' + esc(val('saCambio', c.horas_cambio === undefined ? 24 : c.horas_cambio)) + '"></div></div>' +
             '<button type="button" class="btn btn-primary" id="saGuardar">Guardar configuración</button>';
         h += '<h2 style="margin:28px 0 12px;">Crear horarios con plantilla semanal</h2>' +
-            '<div class="form-group"><label>Días</label><div style="display:flex;flex-wrap:wrap;gap:10px;">' + DIAS.map(function (d) { return '<label style="display:flex;gap:4px;align-items:center;"><input type="checkbox" data-sa-dia="' + d[0] + '"> ' + d[1] + '</label>'; }).join('') + '</div></div>' +
-            '<div class="form-group"><label>Horas de inicio (hora de México, separadas por coma)</label><input type="text" id="saHoras" placeholder="09:00, 11:00, 16:00"></div>' +
-            '<div class="grid-2"><div class="form-group"><label>Duración (min)</label><input type="number" id="saDur" value="90" min="15" max="300"></div>' +
-            '<div class="form-group"><label>Colchón entre sesiones (min)</label><input type="number" id="saCol" value="15" min="0" max="120"></div></div>' +
-            '<div class="grid-2"><div class="form-group"><label>Desde</label><input type="date" id="saDesde" value="' + manana() + '"></div>' +
-            '<div class="form-group"><label>Hasta</label><input type="date" id="saHasta" value="' + S.sumarDias(manana(), 27) + '"></div></div>' +
+            '<div class="form-group"><label>Días</label><div style="display:flex;flex-wrap:wrap;gap:10px;">' + DIAS.map(function (d) { return '<label style="display:flex;gap:4px;align-items:center;"><input type="checkbox" data-sa-dia="' + d[0] + '"' + ((st.form.dias || []).indexOf(String(d[0])) >= 0 ? ' checked' : '') + '> ' + d[1] + '</label>'; }).join('') + '</div></div>' +
+            '<div class="form-group"><label>Horas de inicio (hora de México, separadas por coma)</label><input type="text" id="saHoras" value="' + esc(val('saHoras', '')) + '" placeholder="09:00, 11:00, 16:00"></div>' +
+            '<div class="grid-2"><div class="form-group"><label>Duración (min)</label><input type="number" id="saDur" value="' + esc(val('saDur', 90)) + '" min="15" max="300"></div>' +
+            '<div class="form-group"><label>Colchón entre sesiones (min)</label><input type="number" id="saCol" value="' + esc(val('saCol', 15)) + '" min="0" max="120"></div></div>' +
+            '<div class="grid-2"><div class="form-group"><label>Desde</label><input type="date" id="saDesde" value="' + esc(val('saDesde', manana())) + '"></div>' +
+            '<div class="form-group"><label>Hasta</label><input type="date" id="saHasta" value="' + esc(val('saHasta', S.sumarDias(manana(), 27))) + '"></div></div>' +
             '<button type="button" class="btn btn-primary" id="saVista">Vista previa</button>';
         if (v) {
             h += v.error ? '<p style="margin-top:12px;color:var(--danger);">' + esc(v.error) + '</p>'
@@ -65,13 +79,15 @@
         var tabla = function (l, pasado) { return l.length ? '<div class="table-wrap" style="overflow-x:auto;"><table style="width:100%;"><thead><tr><th>Fecha</th><th>Horario</th><th>Candidato</th><th></th></tr></thead><tbody>' + l.map(function (x) { return fila(x, pasado); }).join('') + '</tbody></table></div>' : '<p style="opacity:.7">Ninguno.</p>'; };
         h += '<h2 style="margin:28px 0 12px;">Borrar horarios libres</h2>' +
             '<p style="font-size:.84rem;">Borra de golpe los horarios LIBRES de un rango. Los que ya tienen candidato nunca se tocan.</p>' +
-            '<div class="grid-2"><div class="form-group"><label>Desde</label><input type="date" id="saBorrarDesde" value="' + manana() + '"></div>' +
-            '<div class="form-group"><label>Hasta</label><input type="date" id="saBorrarHasta" value="' + S.sumarDias(manana(), 27) + '"></div></div>' +
+            '<div class="grid-2"><div class="form-group"><label>Desde</label><input type="date" id="saBorrarDesde" value="' + esc(val('saBorrarDesde', manana())) + '"></div>' +
+            '<div class="form-group"><label>Hasta</label><input type="date" id="saBorrarHasta" value="' + esc(val('saBorrarHasta', S.sumarDias(manana(), 27))) + '"></div></div>' +
+            '<div class="form-group"><label>Solo estas horas de inicio (opcional, separadas por coma)</label>' +
+            '<input type="text" id="saBorrarHoras" value="' + esc(val('saBorrarHoras', '')) + '" placeholder="19:00, 21:00"><p style="font-size:.8rem;margin-top:4px;">Vacío = todos los horarios libres del rango.</p></div>' +
             '<button type="button" class="btn" style="background:transparent;border:1px solid var(--danger);color:var(--danger);" id="saBorrarRango">Borrar los libres de ese rango</button>';
         h += '<h2 style="margin:28px 0 12px;">Próximos horarios</h2>' + tabla(futuros, false) + '<h2 style="margin:28px 0 12px;">Últimos 14 días</h2>' + tabla(pasados, true);
         return h;
     }
-    function pintar() { st.el.innerHTML = html(); conectar(); }
+    function pintar() { recordarForm(); st.el.innerHTML = html(); conectar(); }
     function aviso(m) { st.msg = m; pintar(); }
     function conectar() {
         var q = function (s) { return st.el.querySelector(s); };
@@ -87,7 +103,7 @@
         });
         q('#saVista').addEventListener('click', function () {
             var dias = [].slice.call(st.el.querySelectorAll('[data-sa-dia]:checked')).map(function (c) { return Number(c.getAttribute('data-sa-dia')); });
-            var horas = q('#saHoras').value.split(',').map(function (s) { var m = /^\s*(\d{1,2}):(\d{2})\s*$/.exec(s); return m ? ('0' + m[1]).slice(-2) + ':' + m[2] : null; }).filter(Boolean);
+            var horas = S.horasDeTexto(q('#saHoras').value);
             if (!dias.length || !horas.length) { st.vista = { error: 'Elige al menos un día y una hora (formato 09:00).', nuevos: [], omitidos: [] }; pintar(); return; }
             st.vista = S.generarHorarios({ dias: dias, horas: horas, duracion: Number(q('#saDur').value), colchon: Number(q('#saCol').value), desde: q('#saDesde').value, hasta: q('#saHasta').value }, st.horarios, Date.now());
             st.msg = ''; pintar();
@@ -101,16 +117,18 @@
         q('#saBorrarRango').addEventListener('click', async function () {
             var desde = q('#saBorrarDesde').value, hasta = q('#saBorrarHasta').value;
             if (!desde || !hasta || hasta < desde) { aviso('Revisa el rango de fechas.'); return; }
-            var libres = st.horarios.filter(function (x) {
+            var horas = S.horasDeTexto(q('#saBorrarHoras').value);
+            var textoHoras = q('#saBorrarHoras').value.trim();
+            if (textoHoras && !horas.length) { aviso('Las horas se escriben así: 19:00, 21:00.'); return; }
+            var enRango = function (x) {
                 var f = S.fechaISO(Date.parse(x.inicio));
-                return f >= desde && f <= hasta && !reservaDe(x.id);
-            });
-            var ocupados = st.horarios.filter(function (x) {
-                var f = S.fechaISO(Date.parse(x.inicio));
-                return f >= desde && f <= hasta && reservaDe(x.id);
-            }).length;
-            if (!libres.length) { aviso('No hay horarios libres en ese rango.'); return; }
-            if (!confirm('¿Borrar ' + libres.length + ' horarios libres del ' + S.fechaCorta(desde) + ' al ' + S.fechaCorta(hasta) + '?' +
+                return f >= desde && f <= hasta && (!horas.length || horas.indexOf(S.hora(x.inicio)) >= 0);
+            };
+            var libres = st.horarios.filter(function (x) { return enRango(x) && !reservaDe(x.id); });
+            var ocupados = st.horarios.filter(function (x) { return enRango(x) && reservaDe(x.id); }).length;
+            if (!libres.length) { aviso(horas.length ? 'No hay horarios libres a esas horas en ese rango.' : 'No hay horarios libres en ese rango.'); return; }
+            if (!confirm('¿Borrar ' + libres.length + ' horarios libres del ' + S.fechaCorta(desde) + ' al ' + S.fechaCorta(hasta) +
+                (horas.length ? ', solo a las ' + horas.join(', ') : '') + '?' +
                 (ocupados ? '\n\n' + (ocupados === 1 ? '1 horario con candidato NO se toca.' : ocupados + ' horarios con candidato NO se tocan.') : '') + '\n\nEsto no se puede deshacer.')) return;
             var r = await sb().from('horarios_evidencia').delete().in('id', libres.map(function (x) { return x.id; })).select('id');
             if (r.error) { aviso('No se pudieron borrar: ' + (r.error.message || r.error)); return; }
