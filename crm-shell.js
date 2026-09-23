@@ -121,6 +121,7 @@
     var ADMIN_NAV = [
         { id: 'admin-panel', label: 'Panel del equipo', href: 'admin-crm.html', ico: 'layout' },
         { id: 'admin-candidatos', label: 'Candidatos', href: 'admin-candidatos.html', ico: 'users', evaluador: true },
+        { id: 'admin-iec', label: 'Calificar el IEC', href: 'admin-iec.html', ico: 'check-square', evaluador: true },
         { id: 'admin-precios', label: 'Precios y pagos', href: 'admin-precios.html', ico: 'dollar' },
         { id: 'admin-sesiones', label: 'Sesiones de Alineación', href: 'admin-sesiones.html', ico: 'video' },
         { id: 'admin-kpis', label: 'KPIs', href: 'admin-kpis.html', ico: 'chart' },

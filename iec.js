@@ -101,7 +101,13 @@
        conocimientos (el Examen de Conocimientos presentado) y los productos
        cuyo documento está en el expediente. Los desempeños y las
        actitudes salen del video, así que ahí no se sugiere nada: los marca
-       el evaluador. */
+       el evaluador.
+
+       Con el examen presentado también se proponen las 37 respuestas del
+       cuestionario, ya contestadas con la clave del ANEXO 2: el Examen de
+       Conocimientos del sitio no deja avanzar hasta acertar, así que quien
+       lo terminó contestó todo bien. Siguen siendo una propuesta — el
+       evaluador las ve marcadas y puede cambiar cualquiera. */
     var PRODUCTO_DOC = {
         P1E2: ['documentos_sesion_data', 'ficha'],
         P1E3: ['documentos_sesion_data', 'consentimiento'],
@@ -110,11 +116,16 @@
     };
     function sugerencias(row) {
         row = mapa(row);
-        var out = {}, fuentes = {};
+        var out = {}, fuentes = {}, cuest = {}, fuentesCuest = {};
         var ex = mapa(row.examen_conocimientos_data);
-        if (ex.submitted) R.REACTIVOS.forEach(function (r) {
-            if (r.tipo === 'C') { out[r.n] = SI; fuentes[r.n] = 'Examen de Conocimientos presentado'; }
-        });
+        if (ex.submitted) {
+            R.REACTIVOS.forEach(function (r) {
+                if (r.tipo === 'C') { out[r.n] = SI; fuentes[r.n] = 'Examen de Conocimientos presentado'; }
+            });
+            (R.CUESTIONARIO || []).forEach(function (q) {
+                if (texto(q.correcta)) { cuest[q.n] = q.correcta; fuentesCuest[q.n] = 'El Examen no deja avanzar sin acertar'; }
+            });
+        }
         R.REACTIVOS.forEach(function (r) {
             var d = PRODUCTO_DOC[r.crit];
             if (!d) return;
@@ -124,7 +135,7 @@
                 out[r.n] = SI; fuentes[r.n] = 'El documento está en el expediente';
             }
         });
-        return { respuestas: out, fuentes: fuentes };
+        return { respuestas: out, fuentes: fuentes, cuestionario: cuest, fuentesCuestionario: fuentesCuest };
     }
 
     /* Lo que se guarda en evaluaciones.iec. Conserva quién y cuándo. */
@@ -147,6 +158,32 @@
         });
     }
 
+    /* En qué va cada candidato para la lista de "Calificar el IEC".
+       El VIDEO es el candado: sin la grabación no hay nada que calificar,
+       porque los 81 desempeños y las 5 actitudes se ven ahí. `orden` deja
+       arriba lo que el evaluador puede trabajar hoy. */
+    var ESTADOS = {
+        listo: { etiqueta: 'Listo para calificar', orden: 0 },
+        empezado: { etiqueta: 'A medias', orden: 1 },
+        calificado: { etiqueta: 'Calificado', orden: 2 },
+        sin_video: { etiqueta: 'Falta su grabación', orden: 3 }
+    };
+    function estadoCandidato(d) {
+        d = mapa(d);
+        var iec = mapa(d.iec), hayVideo = !!texto(d.video);
+        var c = calificar(iec.respuestas);
+        var contestados = c.contestados, faltaQ = faltanCuestionario(iec.cuestionario).length;
+        var completo = c.completo && !faltaQ;
+        var clave = completo ? 'calificado' : !hayVideo ? 'sin_video' : contestados ? 'empezado' : 'listo';
+        return {
+            clave: clave, etiqueta: ESTADOS[clave].etiqueta, orden: ESTADOS[clave].orden,
+            puedeCalificar: hayVideo, hayVideo: hayVideo,
+            contestados: contestados, reactivos: c.reactivos,
+            cuestionarioHechas: (R.CUESTIONARIO || []).length - faltaQ, cuestionario: (R.CUESTIONARIO || []).length,
+            total: c.total, juicio: completo ? c.juicio : null
+        };
+    }
+
     /* Agrupa los reactivos para la pantalla: por elemento y, dentro, por el
        encabezado del grupo tal como aparece impreso en el instrumento. */
     function secciones() {
@@ -164,6 +201,7 @@
     var api = { VERSION: VERSION, SI: SI, NO: NO, calificar: calificar, validar: validar,
         sugerencias: sugerencias, guardar: guardar, secciones: secciones, criterios: criterios,
         faltanCuestionario: faltanCuestionario, cuestionario: R.CUESTIONARIO,
+        estadoCandidato: estadoCandidato, ESTADOS: ESTADOS,
         redondear: redondear, reactivos: R.REACTIVOS };
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
     else root.Iec = api;

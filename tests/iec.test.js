@@ -145,3 +145,42 @@ test('secciones: los 4 elementos, con todos los reactivos y sin repetir', () => 
     assert.equal(new Set(n).size, 142);
     assert.ok(s.every(e => e.titulo && e.grupos.every(g => g.titulo && g.tipoNombre)));
 });
+
+test('estadoCandidato: la grabación es el candado para calificar', () => {
+    const todos = (v) => { const o = {}; R.REACTIVOS.forEach(r => { o[r.n] = v; }); return o; };
+    const sin = I.estadoCandidato({});
+    assert.equal(sin.clave, 'sin_video');
+    assert.equal(sin.puedeCalificar, false);
+    assert.equal(I.estadoCandidato({ video: '' }).clave, 'sin_video');
+    assert.equal(I.estadoCandidato({ video: '   ' }).clave, 'sin_video', 'espacios no son una grabación');
+    // con grabación y sin empezar
+    const listo = I.estadoCandidato({ video: 'https://zoom.us/rec/x' });
+    assert.equal(listo.clave, 'listo');
+    assert.equal(listo.puedeCalificar, true);
+    assert.equal(listo.juicio, null);
+    // empezado
+    assert.equal(I.estadoCandidato({ video: 'z', iec: { respuestas: { 1: 'si' } } }).clave, 'empezado');
+    // terminado exige los 142 Y las 37 del cuestionario
+    const q = {}; R.CUESTIONARIO.forEach(x => { q[x.n] = x.correcta; });
+    assert.equal(I.estadoCandidato({ video: 'z', iec: { respuestas: todos('si') } }).clave, 'empezado', 'sin el cuestionario no está calificado');
+    const fin = I.estadoCandidato({ video: 'z', iec: { respuestas: todos('si'), cuestionario: q } });
+    assert.equal(fin.clave, 'calificado');
+    assert.equal(fin.juicio, 'COMPETENTE');
+    assert.equal(fin.total, 100.08);
+    // el orden deja arriba lo que se puede trabajar hoy
+    assert.deepEqual(['listo', 'empezado', 'calificado', 'sin_video'].map(k => I.ESTADOS[k].orden), [0, 1, 2, 3]);
+});
+
+test('el cuestionario trae la respuesta del ANEXO 2 y se propone con el examen hecho', () => {
+    assert.ok(R.CUESTIONARIO.every(q => /^[a-i]\)(,[a-i]\))*$/.test(q.correcta)), 'toda respuesta son letras a) … i)');
+    assert.ok(R.CUESTIONARIO.every(q => q.relacionar === (q.correcta.split(',').length > 1)));
+    assert.equal(R.CUESTIONARIO.filter(q => q.relacionar).length, 4);
+    // ninguna pregunta se quedó con el texto del instructivo
+    assert.ok(!R.CUESTIONARIO.some(q => /registre las respuestas|deberá entregar al candidato|Marque con una/i.test(q.pregunta)));
+    const s = I.sugerencias({ examen_conocimientos_data: { submitted: true } });
+    assert.equal(Object.keys(s.cuestionario).length, 37);
+    assert.equal(s.cuestionario[1], R.CUESTIONARIO[0].correcta);
+    assert.ok(Object.keys(s.fuentesCuestionario).length === 37);
+    // sin examen presentado no se propone nada del cuestionario
+    assert.deepEqual(I.sugerencias({}).cuestionario, {});
+});

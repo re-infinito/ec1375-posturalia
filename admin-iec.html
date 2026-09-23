@@ -11,7 +11,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="auth.js"></script>
     <script src="flow-status.js"></script>
-    <script src="crm-shell.js" data-crm-mode="admin" data-crm-page="admin-evaluacion" data-crm-tutorial="evaluador-iec"></script>
+    <script src="crm-shell.js" data-crm-mode="admin" data-crm-page="admin-iec" data-crm-tutorial="evaluador-iec"></script>
     <script src="admin-data.js"></script>
     <script src="evaluacion.js"></script>
     <script src="iec-reactivos.js"></script>
@@ -85,6 +85,22 @@
         .prog { height: 6px; border-radius: 999px; background: var(--surface-2); overflow: hidden; margin-top: 5px; }
         .prog i { display: block; height: 100%; background: var(--primary); }
         .filtros { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+        .lista { display: grid; gap: 10px; }
+        .cand { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; justify-content: space-between;
+                background: var(--dark-light); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
+        .cand .quien { flex: 1 1 240px; min-width: 0; }
+        .cand .quien strong { display: block; color: var(--text-bright); font-size: 0.95rem; }
+        .cand .quien span { font-size: 0.8rem; word-break: break-word; }
+        .cand .dato { font-size: 0.8rem; }
+        .cand .dato b { color: var(--text-bright); }
+        .etq { font-size: 0.72rem; font-weight: 700; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--border); white-space: nowrap; }
+        .etq.listo { color: var(--success); border-color: var(--success); }
+        .etq.empezado { color: var(--accent); border-color: var(--accent); }
+        .etq.calificado { color: var(--primary); border-color: var(--primary); }
+        .etq.sin_video { color: var(--text); }
+        .grupo-t { margin: 22px 0 10px; }
+        .grupo-t h2 { font-size: 1rem; color: var(--text-bright); }
+        .grupo-t p { font-size: 0.82rem; }
         .aviso { border: 1px solid var(--accent); background: rgba(255,215,0,0.08); border-radius: 10px; padding: 12px 14px; font-size: 0.85rem; margin-bottom: 14px; }
         .aviso.rojo { border-color: var(--danger); background: rgba(255,51,51,0.08); }
     </style>
@@ -100,7 +116,7 @@
 
     let sesion = null, yo = '', rol = null;
     let row = null, cand = null, ev = null, faltaSql = null, faltaColumna = null;
-    let respuestas = {}, observaciones = {}, cuestionario = {}, fecha = '', fuentes = {};
+    let respuestas = {}, observaciones = {}, cuestionario = {}, fecha = '', fuentes = {}, fuentesQ = {};
     let filtro = 'todos', sucio = false, guardando = false, mensaje = null;
 
     function renderGateShell() {
@@ -115,13 +131,76 @@
     async function boot(session) {
         sesion = session; yo = session.user.email.toLowerCase();
         rol = await Auth.rolEquipo(yo);
-        CrmShell.mount({ mode: 'admin', currentPageId: 'admin-evaluacion', title: 'Instrumento de Evaluación', rol, tutorial: 'evaluador-iec' });
+        CrmShell.mount({ mode: 'admin', currentPageId: 'admin-iec', title: 'Instrumento de Evaluación', rol, tutorial: 'evaluador-iec' });
         const app = document.getElementById('app');
-        if (!email) { app.innerHTML = `<p class="msg error">Falta el candidato. Ábrelo desde <a href="admin-candidatos.html">Candidatos</a>.</p>`; return; }
         app.innerHTML = CrmShell.skeleton('cards');
+        if (!email) { await cargarLista(); renderCandidatos(); return; }
         await cargar();
         render();
         window.addEventListener('beforeunload', e => { if (sucio) { e.preventDefault(); e.returnValue = ''; } });
+    }
+
+    /* ── Sin ?email=: la lista de a quién se le puede calificar el IEC ──
+       El candado es la grabación: sin video no hay con qué calificar los 81
+       desempeños ni las 5 actitudes, así que esos candidatos salen aparte y
+       sin botón. */
+    let candidatos = [], errorLista = null;
+
+    async function cargarLista() {
+        const datos = await AdminData.cargar();
+        const cands = AdminData.candidatos(datos).filter(c => c.estado === 'activo' || c.estado === 'administrador');
+        const r = await supabaseClient.from('evaluaciones').select('email, video, iec');
+        errorLista = r.error ? (r.error.message || String(r.error)) : null;
+        const porCorreo = {};
+        (r.data || []).forEach(e => { porCorreo[String(e.email || '').toLowerCase()] = e; });
+        candidatos = cands.map(c => {
+            const ev = porCorreo[c.email.toLowerCase()] || {};
+            const est = I.estadoCandidato({ iec: ev.iec, video: E.ligaVideo(ev, c.row) });
+            return { email: c.email, nombre: c.nombre || c.email, est };
+        }).sort((a, b) => a.est.orden - b.est.orden || a.nombre.localeCompare(b.nombre, 'es'));
+    }
+
+    function filaCandidato(c) {
+        const e = c.est;
+        const detalle = e.clave === 'calificado'
+            ? `<span class="dato"><b>${e.total.toFixed(2)}</b> pts · ${esc(e.juicio)}</span>`
+            : e.clave === 'empezado'
+                ? `<span class="dato"><b>${e.contestados}</b> de ${e.reactivos} reactivos · ${e.cuestionarioHechas} de ${e.cuestionario} del cuestionario</span>`
+                : e.clave === 'sin_video'
+                    ? `<span class="dato">Ligá su grabación en <a href="admin-evaluacion.html?email=${encodeURIComponent(c.email)}">su evaluación</a></span>`
+                    : `<span class="dato">142 reactivos y 37 respuestas</span>`;
+        return `<div class="cand">
+            <div class="quien"><strong>${esc(c.nombre)}</strong><span>${esc(c.email)}</span></div>
+            ${detalle}
+            <span class="etq ${e.clave}">${esc(e.etiqueta)}</span>
+            ${e.puedeCalificar
+                ? `<a class="btn btn-primary" href="admin-iec.html?email=${encodeURIComponent(c.email)}">${e.clave === 'calificado' ? 'Revisar' : e.clave === 'empezado' ? 'Continuar' : 'Calificar'}</a>`
+                : `<button class="btn btn-sec" disabled title="Sin la grabación no hay nada que calificar">Calificar</button>`}
+        </div>`;
+    }
+
+    function renderCandidatos() {
+        // el orden lo manda Iec.ESTADOS, para que la lista y el resto del equipo
+        // no acaben con dos ideas distintas de qué va primero
+        const grupos = [
+            ['listo', 'Listos para calificar', 'Ya tienen su grabación ligada.'],
+            ['empezado', 'A medias', 'Empezaste a calificarlos y falta terminar.'],
+            ['calificado', 'Ya calificados', 'Su instrumento está completo y entra al portafolio.'],
+            ['sin_video', 'Esperando su grabación', 'No se puede calificar el instrumento hasta que su video esté en el expediente.']
+        ].sort((a, b) => Iec.ESTADOS[a[0]].orden - Iec.ESTADOS[b[0]].orden);
+        const hay = candidatos.length;
+        document.getElementById('app').innerHTML = `
+            <div class="card iec-head">
+                <h1>Calificar el Instrumento de Evaluación</h1>
+                <p>La tabla de aplicación del IEC se llena viendo la grabación del candidato, así que solo aparece habilitado quien ya la tiene en su expediente.</p>
+            </div>
+            ${errorLista ? `<div class="aviso rojo"><strong>No se pudieron leer las evaluaciones.</strong> ${esc(errorLista)}</div>` : ''}
+            ${!hay ? `<div class="card"><p>Todavía no hay candidatos activos.</p></div>` : grupos.map(([clave, titulo, sub]) => {
+                const cs = candidatos.filter(c => c.est.clave === clave);
+                if (!cs.length) return '';
+                return `<div class="grupo-t"><h2>${esc(titulo)} <span class="etq ${clave}">${cs.length}</span></h2><p>${esc(sub)}</p></div>
+                    <div class="lista">${cs.map(filaCandidato).join('')}</div>`;
+            }).join('')}`;
     }
 
     async function cargar() {
@@ -144,14 +223,32 @@
            solo: queda marcado como sugerencia hasta que el evaluador la
            confirme o la cambie. */
         const s = I.sugerencias(row || {});
-        fuentes = s.fuentes;
+        fuentes = s.fuentes; fuentesQ = s.fuentesCuestionario || {};
         Object.keys(s.respuestas).forEach(n => { if (!respuestas[n]) respuestas[n] = s.respuestas[n]; });
+        Object.keys(s.cuestionario).forEach(n => { if (!cuestionario[n]) cuestionario[n] = s.cuestionario[n]; });
     }
 
     function nombreCand() { return (cand && cand.nombre) || (row && row.nombre) || email; }
     function ligaVideo() { return E.ligaVideo(ev, row); }
 
+    /* Sin grabación no se abre el instrumento: los 81 desempeños y las 5
+       actitudes se califican viéndola, y marcarlos "de memoria" sería
+       inventar la evaluación. */
+    function renderSinVideo() {
+        document.getElementById('app').innerHTML = `
+            <div class="card iec-head">
+                <p style="font-size:0.8rem;"><a href="admin-iec.html">← Todos los candidatos</a></p>
+                <h1>${esc(nombreCand())} todavía no tiene su grabación</h1>
+                <p>El instrumento se califica viendo la sesión del candidato: 81 de sus reactivos son desempeños y 5 son actitudes, y los dos salen del video. Hasta que su grabación esté en el expediente no se abre esta pantalla.</p>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;">
+                    <a class="btn btn-primary" href="admin-evaluacion.html?email=${encodeURIComponent(email)}">Ir a su evaluación y ligar la grabación</a>
+                    <a class="btn btn-sec" href="admin-iec.html">Ver a quién sí puedo calificar</a>
+                </div>
+            </div>`;
+    }
+
     function render() {
+        if (!ligaVideo()) { renderSinVideo(); return; }
         const c = I.calificar(respuestas);
         const faltaQ = I.faltanCuestionario(cuestionario).length;
         const app = document.getElementById('app');
@@ -179,7 +276,7 @@
             </div>
             ${faltaSql ? `<div class="aviso rojo"><strong>Falta correr el SQL del Centro Evaluador.</strong> ${esc(faltaSql)}</div>` : ''}
             ${!faltaSql && faltaColumna ? `<div class="aviso rojo"><strong>Falta correr <code>2026-09-22-iec-evaluador.sql</code></strong> (agrega la columna <code>iec</code>). Mientras tanto se puede llenar, pero no guardar. <br><span style="font-size:0.78rem;">${esc(faltaColumna)}</span></div>` : ''}
-            ${Object.keys(fuentes).length ? `<div class="aviso">Los reactivos con <span style="color:var(--success);">✓ respaldo en el expediente</span> vienen propuestos como Sí (examen presentado y documentos entregados). Revísalos y cámbialos si no corresponde: nada se guarda hasta que oprimas Guardar.</div>` : ''}
+            ${Object.keys(fuentes).length || Object.keys(fuentesQ).length ? `<div class="aviso">Lo que trae <span style="color:var(--success);">✓ respaldo en el expediente</span> viene propuesto: los reactivos de conocimiento y producto como Sí, y las 37 respuestas del cuestionario ya contestadas — el Examen de Conocimientos del sitio no deja avanzar hasta acertar, así que quien lo terminó contestó todo bien. Revísalo y cámbialo si no corresponde: nada se guarda hasta que oprimas Guardar.</div>` : ''}
             <div class="filtros">
                 ${[['todos', 'Todos'], ['pendientes', 'Sin contestar'], ['no', 'Marcados No'], ['D', 'Desempeños'], ['P', 'Productos'], ['C', 'Conocimientos'], ['AHV', 'Actitudes'], ['cuestionario', 'Cuestionario']]
                     .map(([k, t]) => `<button class="btn btn-chip" data-filtro="${k}" ${filtro === k ? 'style="border-color:var(--primary);color:var(--text-bright);"' : ''}>${t}</button>`).join('')}
@@ -234,6 +331,7 @@
                         <code>Pregunta ${q.n} · página ${q.pag}${q.relacionar ? ' · relacionar columnas' : ''}</code>
                         ${esc(q.pregunta)}
                         ${q.opciones.length ? `<div class="peso">${q.opciones.map(o => esc(o)).join(' · ')}</div>` : ''}
+                        ${fuentesQ[q.n] ? `<div class="fuente">✓ ${esc(fuentesQ[q.n])}</div>` : ''}
                     </div>
                     <div class="sn" style="flex:0 0 auto;">
                         <input type="text" data-q="${q.n}" value="${esc(cuestionario[q.n] || '')}"
@@ -276,7 +374,7 @@
             return `<div class="elem"><h2>Elemento ${e.elem} de 4 · ${esc(e.titulo)}</h2><p class="sub">${esc(RX.ELEMENTOS[e.elem])} en la contribución tradicional y complementaria.</p>${grupos}</div>`;
         }).join('');
         cont.innerHTML = (html + cuestionarioHtml()) || `<div class="card"><p>No hay reactivos con este filtro.</p></div>`;
-        cont.querySelectorAll('[data-q]').forEach(i => i.oninput = () => { cuestionario[i.dataset.q] = i.value; sucio = true; });
+        cont.querySelectorAll('[data-q]').forEach(i => i.oninput = () => { cuestionario[i.dataset.q] = i.value; delete fuentesQ[i.dataset.q]; sucio = true; });
         cont.querySelectorAll('[data-si]').forEach(b => b.onclick = () => marcar(+b.dataset.si, 'si'));
         cont.querySelectorAll('[data-no]').forEach(b => b.onclick = () => marcar(+b.dataset.no, 'no'));
         cont.querySelectorAll('[data-obs]').forEach(t => t.oninput = () => { observaciones[t.dataset.obs] = t.value; sucio = true; });

@@ -34,3 +34,6 @@ token.json
 
 # Credencial de cuenta de servicio de Google Cloud (nunca subir)
 ec1375-paideaia-98657cbdc812.json
+
+# Videos de lanzamiento generados por /brag (salida local, no publicar)
+brag-output/
