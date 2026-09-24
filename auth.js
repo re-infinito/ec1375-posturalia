@@ -1133,7 +1133,8 @@ const Auth = {
                     { numero: '4', frecuencia: 'Semanal', duracion: '60 min' }
                 ],
                 signatures: { usuarioFicha: firmaTyped(paciente), usuarioConsentimiento: firmaTyped(paciente), usuarioSeguimiento: firmaTyped(paciente) },
-                documentosNextcloud: {}, documentosDescargados: { ficha: true, consentimiento: true, plan_sesion: true, plan_seguimiento: true }
+                documentosNextcloud: {}, documentosDescargados: { ficha: true, consentimiento: true, plan_sesion: true, plan_seguimiento: true },
+                declaracionesSesion: { version: '2026-09-24', pacienteReal: new Date().toISOString(), mayorEdad: new Date().toISOString(), consentimientoPaciente: new Date().toISOString(), espacioAutorizado: new Date().toISOString(), espacioDireccion: 'Consultorio de ejemplo, Col. Centro, Monterrey, N.L.', espacioTipo: 'propio' }
             },
             encuestaSatisfaccionData: {
                 _demo: true,
@@ -1156,7 +1157,7 @@ const Auth = {
             },
             evidenciasData: {
                 _demo: true,
-                planData: { evidenciasConfirmadas: true, notas: 'Video grabado en Zoom, 58 minutos, con el paciente de ejemplo.', videoLink: 'https://drive.google.com/file/d/DEMO-VIDEO-EC1375/view', declaracionAutenticidad: { version: '2026-09-17', fecha: new Date().toISOString() } },
+                planData: { evidenciasConfirmadas: true, notas: 'Video grabado en Zoom, 58 minutos, con el paciente de ejemplo.', videoLink: 'https://drive.google.com/file/d/DEMO-VIDEO-EC1375/view', declaracionAutenticidad: { version: '2026-09-24', fecha: new Date().toISOString() } },
                 signatureDataUrl: null, signatureTypedName: nombre, signatureMode: 'type',
                 documentosNextcloud: { zoom: ['demo/zoom-captura-1.png', 'demo/zoom-captura-2.png'], ine: 'demo/ine.pdf', curp: 'demo/curp.pdf', fotoDiploma: 'demo/foto-diploma.jpg' }
             },

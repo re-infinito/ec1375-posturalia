@@ -260,3 +260,14 @@ test('una Cédula publicada con el texto viejo sigue contando como publicada', (
     assert.deepEqual(E.validarCedula(publicada('NO COMPETENTE')), []);
     assert.equal(E.JUICIOS.indexOf('NO COMPETENTE'), -1);   // ya no se ofrece
 });
+
+test('videoEsExterno: solo la liga pegada por el candidato, sin grabación de la sala, cuenta como externa (24 sep)', () => {
+    const conLiga = { evidencias_data: { planData: { videoLink: 'https://youtu.be/x' } } };
+    const sala = { video: { partes: [{ zoom: { share_url: 'https://zoom.us/rec/share/abc' } }] } };
+    assert.equal(E.videoEsExterno(null, conLiga), true);
+    assert.equal(E.videoEsExterno(sala, conLiga), false, 'la sala manda aunque haya liga');
+    assert.equal(E.videoEsExterno(sala, {}), false);
+    assert.equal(E.videoEsExterno(null, {}), false, 'sin video no es "externo": ya lo avisa planPortafolio');
+    assert.equal(E.planPortafolio(conLiga, null).videoExterno, true);
+    assert.ok(!E.planPortafolio(conLiga, null).avisos.some(a => /externa|sala de Paideia/.test(a)), 'no entra a los avisos: esos se imprimen en el Índice');
+});

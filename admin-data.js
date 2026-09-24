@@ -569,19 +569,40 @@
     }
 
     /* Declaraciones del candidato (17 sep): qué aceptó y cuándo. Viven en el
-       JSONB de Plan de Evaluación y de Evidencias (admin_lista_candidatos()
-       ya los regresa, sin firmas). fecha = ISO de cuando la marcó, o null. */
+       JSONB de Plan de Evaluación, Documentos de Sesión y Evidencias
+       (admin_lista_candidatos() ya los regresa, sin firmas). fecha = ISO de
+       cuando la marcó, o null. `version`: si se da, una aceptación de otra
+       versión del texto cuenta como pendiente (24 sep: la de autenticidad
+       sumó verificación y consecuencias, y hay que volver a aceptarla). */
+    var DS = ['declaracionesSesion'];
     var DECLARACIONES = [
         { id: 'requisitos', label: 'Cumple los requisitos del EC1375', col: 'plan_evaluacion_data', ruta: ['planData', 'declaraciones', 'requisitos'] },
         { id: 'material', label: 'Dispone del material y equipo para su evaluación', col: 'plan_evaluacion_data', ruta: ['planData', 'declaraciones', 'material'] },
         { id: 'sinReembolsos', label: 'Acepta que no aplican reembolsos', col: 'plan_evaluacion_data', ruta: ['planData', 'declaraciones', 'sinReembolsos'] },
-        { id: 'autenticidad', label: 'Declara auténticas sus evidencias', col: 'evidencias_data', ruta: ['planData', 'declaracionAutenticidad', 'fecha'] }
+        { id: 'pacienteReal', label: 'Paciente real, mismo del video, con sus datos verdaderos', col: 'documentos_sesion_data', ruta: DS.concat('pacienteReal'), version: [DS.concat('version'), '2026-09-24'] },
+        { id: 'mayorEdad', label: 'El paciente es mayor de edad', col: 'documentos_sesion_data', ruta: DS.concat('mayorEdad'), version: [DS.concat('version'), '2026-09-24'] },
+        { id: 'consentimientoPaciente', label: 'El paciente consintió la grabación y la entrega de sus datos', col: 'documentos_sesion_data', ruta: DS.concat('consentimientoPaciente'), version: [DS.concat('version'), '2026-09-24'] },
+        { id: 'espacioAutorizado', label: 'Espacio propio o con autorización del titular', col: 'documentos_sesion_data', ruta: DS.concat('espacioAutorizado'), version: [DS.concat('version'), '2026-09-24'], detalle: 'espacio' },
+        { id: 'autenticidad', label: 'Declara auténticas sus evidencias y acepta su verificación', col: 'evidencias_data', ruta: ['planData', 'declaracionAutenticidad', 'fecha'], version: [['planData', 'declaracionAutenticidad', 'version'], '2026-09-24'] }
     ];
+    var TIPO_ESPACIO = { propio: 'Propio', rentado: 'Rentado', prestado: 'Prestado con permiso' };
+    function leer(obj, ruta) {
+        var v = obj;
+        ruta.forEach(function (k) { v = v && typeof v === 'object' ? v[k] : null; });
+        return v;
+    }
     function declaraciones(row) {
         return DECLARACIONES.map(function (d) {
-            var v = row ? row[d.col] : null;
-            d.ruta.forEach(function (k) { v = v && typeof v === 'object' ? v[k] : null; });
-            return { id: d.id, label: d.label, fecha: typeof v === 'string' && v && !isNaN(Date.parse(v)) ? v : null };
+            var col = row ? row[d.col] : null;
+            var v = leer(col, d.ruta);
+            var fecha = typeof v === 'string' && v && !isNaN(Date.parse(v)) ? v : null;
+            if (fecha && d.version && leer(col, d.version[0]) !== d.version[1]) fecha = null;
+            var out = { id: d.id, label: d.label, fecha: fecha };
+            if (d.detalle === 'espacio') {
+                var dir = leer(col, DS.concat('espacioDireccion')), tipo = leer(col, DS.concat('espacioTipo'));
+                if (typeof dir === 'string' && dir.trim()) out.detalle = (TIPO_ESPACIO[tipo] ? TIPO_ESPACIO[tipo] + ' · ' : '') + dir.trim();
+            }
+            return out;
         });
     }
 

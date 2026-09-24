@@ -217,7 +217,7 @@
         const fasesHtml = AdminData.FASES.map(f => `<li><span class="crm-st ${c.fases[f] ? 'crm-ok' : ''}">${ic(c.fases[f] ? 'check' : 'clock', 16)}</span><span>${FASE_LABEL[f]}<div class="crm-muted">${c.fases[f] ? (c.origenPagos[f] === 'mercadopago' ? 'Mercado Pago' : 'Liberada a mano') : 'Pendiente'}</div></span>
             <span class="crm-right"><button type="button" class="crm-btn crm-btn-sm ${c.fases[f] ? 'crm-btn-danger' : 'crm-btn-primary'}" data-fase="${f}">${c.fases[f] ? 'Revocar' : 'Liberar'}</button></span></li>`).join('');
         const declHtml = '<ul class="crm-list">' + AdminData.declaraciones(c.row).map(d =>
-            `<li><span class="crm-st ${d.fecha ? 'crm-ok' : ''}">${ic(d.fecha ? 'check' : 'clock', 16)}</span><span>${esc(d.label)}<div class="crm-muted">${d.fecha ? 'Aceptada el ' + esc(fechaCorta(d.fecha)) : 'Pendiente'}</div></span></li>`
+            `<li><span class="crm-st ${d.fecha ? 'crm-ok' : ''}">${ic(d.fecha ? 'check' : 'clock', 16)}</span><span>${esc(d.label)}<div class="crm-muted">${d.fecha ? 'Aceptada el ' + esc(fechaCorta(d.fecha)) : 'Pendiente'}</div>${d.detalle ? `<div class="crm-muted">${esc(d.detalle)}</div>` : ''}</span></li>`
         ).join('') + '</ul>';
         const pr = datosGlobal.precio.find(x => x.email === c.email) || {};
         const nota = c.notaInterna !== undefined ? c.notaInterna : (pr.nota_interna || '');

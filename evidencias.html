@@ -453,7 +453,8 @@
                     const estadoId = e.key ? 'estado' + e.key.charAt(0).toUpperCase() + e.key.slice(1) : '';
                     const control = e.isGrabacion
                         ? `<div data-sala-grabacion style="margin-top:10px;"></div>
-                           <details style="margin-top:10px;"${planData.videoLink ? ' open' : ''}><summary style="cursor:pointer;font-size:0.82rem;color:var(--text);">¿Grabaste fuera de la sala de Paideia? Pega aquí tu liga</summary>
+                           <details style="margin-top:10px;"${planData.videoLink ? ' open' : ''}><summary style="cursor:pointer;font-size:0.82rem;color:var(--text);">¿Grabaste fuera de la sala de Paideia? Solo con autorización de tu evaluador</summary>
+                           <p style="font-size:0.8rem;color:var(--text);margin-top:8px;line-height:1.5;">Un video grabado fuera de la sala no se puede verificar, así que solo cuenta si tu evaluador lo autorizó antes. Si no lo autoriza, tendrás que repetir tu sesión en la sala de Paideia.</p>
                            <input type="text" id="f_videoLink" value="${escapeHtml(planData.videoLink)}" placeholder="https://youtube.com/..." oninput="updateVideoLink(this.value)" style="width:100%;margin-top:10px;padding:10px 12px;background:var(--dark);border:1px solid var(--border);border-radius:6px;color:var(--text-bright);font-size:0.85rem;"></details>`
                         : `<input type="file" id="f_${e.key}" accept="${e.accept}"${e.multiple ? ' multiple' : ''} aria-label="${escapeHtml(e.titulo)}" onchange="handleFileUpload('${e.key}', this.files, ${e.multiple ? 'true' : 'false'})" style="display:block;margin-top:10px;max-width:100%;">
                            <div id="${estadoId}">${renderEstadoArchivo(e.key)}</div>`;
@@ -478,7 +479,7 @@
                     <label for="confirmCheck">Confirmo que subí todas mis evidencias obligatorias</label>
                 </div>
                 <div class="checkbox-row">
-                    <input type="checkbox" id="autenticidadCheck" ${planData.declaracionAutenticidad ? 'checked' : ''} onchange="toggleAutenticidad(this)">
+                    <input type="checkbox" id="autenticidadCheck" ${autenticidadVigente() ? 'checked' : ''} onchange="toggleAutenticidad(this)">
                     <label for="autenticidadCheck"><strong>Declaración de autenticidad.</strong> ${escapeHtml(TEXTO_DECLARACION_AUTENTICIDAD)}</label>
                 </div>
                 <div class="field-group">
@@ -517,10 +518,20 @@
     }
 
     /* Declaración de autenticidad (17 sep, pedido de Diego): deslinda al
-       Centro Evaluador de evidencias falsificadas. Texto modelo: validar con
-       el evaluador. Se guarda la fecha; desmarcar la borra. */
-    const VERSION_DECLARACION_AUTENTICIDAD = '2026-09-17';
-    const TEXTO_DECLARACION_AUTENTICIDAD = 'Declaro bajo protesta de decir verdad que las evidencias que entrego —video, capturas, documentos e identificaciones— son auténticas, corresponden a una atención real realizada por mí y no fueron alteradas. Cualquier falsificación o alteración es mi exclusiva responsabilidad, y libero al Centro Evaluador y a Paideia Tech de toda responsabilidad derivada de ella.';
+       Centro Evaluador de evidencias falsificadas. 24 sep (auditoría legal):
+       suma que quien aparece en el video es el candidato, la verificación
+       y las consecuencias; y ya no "libera de toda responsabilidad" (en
+       México no se renuncia de antemano a la responsabilidad por dolo, y en
+       contratos de adhesión puede leerse como cláusula abusiva): atribuye al
+       candidato la de SU falsedad. Texto modelo: validar con el evaluador y el
+       abogado. Una aceptación de la versión anterior ya no cuenta: hay que
+       volver a marcarla. Se guarda la fecha; desmarcar la borra. */
+    const VERSION_DECLARACION_AUTENTICIDAD = '2026-09-24';
+    const TEXTO_DECLARACION_AUTENTICIDAD = 'Declaro bajo protesta de decir verdad que las evidencias que entrego —video, capturas, documentos e identificaciones— son auténticas, corresponden a una atención real realizada por mí, no fueron alteradas, y que la persona que realiza la atención en el video soy yo. Acepto que Paideia Tech (operador de la plataforma) y el Centro Evaluador verifiquen mi identidad, mis evidencias y el espacio de la sesión por los medios que consideren necesarios, como una videollamada, la revisión de documentos originales o la repetición de la sesión. Si se comprueba que alguna información o evidencia es falsa o fue alterada, mi proceso se cancela sin reembolso, se informa al Centro Evaluador, y la responsabilidad que derive de esa falsedad es exclusivamente mía.';
+    function autenticidadVigente() {
+        const d = planData.declaracionAutenticidad;
+        return !!(d && d.version === VERSION_DECLARACION_AUTENTICIDAD && d.fecha);
+    }
     function toggleAutenticidad(el) {
         planData.declaracionAutenticidad = el.checked ? { version: VERSION_DECLARACION_AUTENTICIDAD, fecha: new Date().toISOString() } : null;
         saveProgress(); updateGenerateButton();
@@ -548,7 +559,7 @@
         if (!documentosNextcloud.curp) missing.push('subir tu comprobante CURP');
         if (!documentosNextcloud.fotoDiploma) missing.push('subir tu foto para el diploma');
         if (!planData.evidenciasConfirmadas) missing.push('marcar la casilla de confirmación');
-        if (!planData.declaracionAutenticidad) missing.push('aceptar la declaración de autenticidad de tus evidencias');
+        if (!autenticidadVigente()) missing.push('aceptar la declaración de autenticidad de tus evidencias');
         if (!hasSig) missing.push('proporcionar tu firma');
 
         btn.disabled = missing.length > 0;
@@ -705,7 +716,7 @@
         );
         doc.text(acuerdoText, 14, y);
         y += acuerdoText.length * 4 + 4;
-        if (planData.declaracionAutenticidad) {
+        if (autenticidadVigente()) {
             if (y > 240) { doc.addPage(); y = 20; }   /* notas largas: que la declaración no se salga de la hoja */
             const decl = doc.splitTextToSize('Declaración de autenticidad (aceptada el ' + new Date(planData.declaracionAutenticidad.fecha).toLocaleDateString('es-MX') + '): ' + TEXTO_DECLARACION_AUTENTICIDAD, 180);
             doc.text(decl, 14, y);

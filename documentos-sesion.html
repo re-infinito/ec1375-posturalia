@@ -70,6 +70,9 @@
         .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
         @media (max-width: 600px) { .field-row { grid-template-columns: 1fr; } }
 
+        .checkbox-row { display: flex; align-items: flex-start; gap: 10px; padding: 14px; border-radius: 8px; margin-bottom: 12px; }
+        .checkbox-row input[type="checkbox"] { width: 20px; height: 20px; flex-shrink: 0; margin-top: 2px; }
+        .checkbox-row label { font-size: 0.85rem; color: var(--text); }
         .section-label { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--primary-light); font-weight: 700; margin: 20px 0 10px; }
         .section-label:first-child { margin-top: 0; }
 
@@ -102,6 +105,7 @@
         .btn-whatsapp:hover { background: #20ba5a; transform: translateY(-2px); }
         .btn-full { width: 100%; margin-bottom: 12px; }
 
+        .error-box { background: rgba(255,51,51,0.08); border: 1px solid var(--danger); border-radius: 8px; padding: 12px 14px; font-size: 0.88rem; color: var(--text); }
         .success-box { background: rgba(0,255,136,0.08); border: 1px solid var(--success); border-radius: 12px; padding: 24px; text-align: center; }
         .doc-download-item { display: flex; justify-content: space-between; align-items: center; padding: 14px; background: var(--dark); border-radius: 8px; margin-bottom: 10px; }
         .doc-download-item span { font-size: 0.88rem; color: var(--text-bright); font-weight: 600; }
@@ -377,6 +381,9 @@
     let documentosNextcloud = {};
     let documentosDescargados = {};
     let documentosHuella = {};
+    /* Declaraciones de la sesión (24 sep, auditoría legal): no van en los PDF,
+       igual que las del Plan de Evaluación. */
+    let declaracionesSesion = {};
 
     function todayISOSession() { return new Date().toISOString().split('T')[0]; }
 
@@ -406,12 +413,13 @@
                 documentosNextcloud = saved.documentosNextcloud || {};
                 documentosDescargados = saved.documentosDescargados || {};
                 documentosHuella = saved.documentosHuella || {};
+                declaracionesSesion = saved.declaracionesSesion || {};
             }
         } catch (e) {}
     }
 
     function saveProgress() {
-        const data = { sessionData, sesionesSeguimiento, signatures, documentosNextcloud, documentosDescargados, documentosHuella };
+        const data = { sessionData, sesionesSeguimiento, signatures, documentosNextcloud, documentosDescargados, documentosHuella, declaracionesSesion };
         localStorage.setItem('documentosSesionData', JSON.stringify(data));
         const result = loadAutodiagnosticoResult();
         if (result) Auth.syncToSupabase('documentos_sesion_data', data, result.personalData.curp, result.personalData.nombre);
@@ -492,7 +500,7 @@
     }
     /* Guarda el estado de subida sin volver a programar otra resubida. */
     function persistirSinReprogramar() {
-        const data = { sessionData, sesionesSeguimiento, signatures, documentosNextcloud, documentosDescargados, documentosHuella };
+        const data = { sessionData, sesionesSeguimiento, signatures, documentosNextcloud, documentosDescargados, documentosHuella, declaracionesSesion };
         localStorage.setItem('documentosSesionData', JSON.stringify(data));
         const result = loadAutodiagnosticoResult();
         if (result) Auth.syncToSupabase('documentos_sesion_data', data, result.personalData.curp, result.personalData.nombre);
@@ -1227,7 +1235,99 @@
                 <div class="section-label">Firma del usuario — cierra tu Plan de Seguimiento</div>
                 ${renderSignaturePad('usuarioSeguimiento')}
             </div>
+            ${declaracionesSesionHtml()}
         `;
+    }
+
+    /* =========================================================
+       DECLARACIONES DE LA SESIÓN (24 sep, auditoría legal). Textos modelo:
+       validar con el evaluador y con el abogado. Cada una guarda la fecha en
+       que se marcó; desmarcar la borra. Las ve el equipo en el panel
+       (AdminData.declaraciones). Cambiar un texto = subir la versión.
+    ========================================================= */
+    const VERSION_DECLARACIONES_SESION = '2026-09-24';
+    const DECLARACIONES_SESION = [
+        { id: 'pacienteReal', texto: 'Declaro bajo protesta de decir verdad que la persona que atendí existe, es la misma que aparece en el video y en estos documentos, recibió de mí la atención que aquí se registra, y los datos que capturé son los que ella me dio, no inventados. Si es mi familiar o conocido, lo informé al Centro Evaluador.' },
+        { id: 'mayorEdad', texto: 'La persona que atendí es mayor de edad.' },
+        { id: 'consentimientoPaciente', texto: 'La persona que atendí me dio su consentimiento para grabar la sesión y para que sus datos y la grabación se entreguen a Paideia Tech (operador de la plataforma), al Centro Evaluador y al CONOCER, únicamente para mi evaluación.' },
+        { id: 'espacioAutorizado', texto: 'El espacio donde realicé la sesión es el que indico abajo; es mío o tengo autorización de su titular para usarlo y para grabar ahí.' }
+    ];
+    const TIPOS_ESPACIO = [['propio', 'Propio'], ['rentado', 'Rentado'], ['prestado', 'Prestado con permiso del titular']];
+
+    function declaracionesSesionCompletas() {
+        const d = declaracionesSesion || {};
+        return d.version === VERSION_DECLARACIONES_SESION
+            && DECLARACIONES_SESION.every(x => typeof d[x.id] === 'string' && d[x.id])
+            && !!(d.espacioDireccion || '').trim()
+            && TIPOS_ESPACIO.some(t => t[0] === d.espacioTipo);
+    }
+    function declaracionesSesionHtml() {
+        const d = declaracionesSesion || {};
+        const vigente = d.version === VERSION_DECLARACIONES_SESION;
+        const filas = DECLARACIONES_SESION.map(x => {
+            const ok = vigente && !!d[x.id];
+            return `<div class="checkbox-row" style="background:${ok ? 'rgba(0,255,136,0.08)' : 'rgba(255,51,51,0.08)'};border:1px solid ${ok ? 'var(--success)' : 'var(--danger)'};">
+                <input type="checkbox" id="declSesion_${x.id}" ${ok ? 'checked' : ''} onchange="toggleDeclaracionSesion('${x.id}', this)">
+                <label for="declSesion_${x.id}" style="color:${ok ? 'var(--success)' : 'var(--text)'};">${ok ? '✓ ' : '○ '}${escapeHtml(x.texto)}</label>
+            </div>`;
+        }).join('');
+        return `
+            <div class="card" id="declaracionesSesionCard">
+                <h2>📝 Declaraciones de la sesión</h2>
+                <p class="desc">Forman parte de tu expediente. Si alguna no es cierta, no la marques y avisa a tu evaluador antes de continuar: una declaración falsa cancela tu proceso.</p>
+                ${filas}
+                <div class="field-group">
+                    <label for="declSesion_espacioDireccion">Domicilio del espacio donde realizaste la sesión <span style="color:var(--danger);">*</span></label>
+                    <input type="text" id="declSesion_espacioDireccion" value="${escapeHtml(d.espacioDireccion || '')}" placeholder="Calle, número, colonia, ciudad" oninput="updateEspacioSesion('espacioDireccion', this.value)">
+                </div>
+                <div class="field-group">
+                    <label for="declSesion_espacioTipo">El espacio es… <span style="color:var(--danger);">*</span></label>
+                    <select id="declSesion_espacioTipo" onchange="updateEspacioSesion('espacioTipo', this.value)">
+                        <option value="">Elige una opción</option>
+                        ${TIPOS_ESPACIO.map(t => `<option value="${t[0]}"${d.espacioTipo === t[0] ? ' selected' : ''}>${t[1]}</option>`).join('')}
+                    </select>
+                </div>
+            </div>`;
+    }
+    /* Una versión vieja no cuenta: se empieza de nuevo con los textos vigentes
+       (conservando el domicilio y el tipo, que no cambian de sentido). */
+    function declaracionesSesionVigentes() {
+        const d = declaracionesSesion || {};
+        if (d.version === VERSION_DECLARACIONES_SESION) return Object.assign({}, d);
+        return { version: VERSION_DECLARACIONES_SESION, espacioDireccion: d.espacioDireccion || '', espacioTipo: d.espacioTipo || '' };
+    }
+    function toggleDeclaracionSesion(id, el) {
+        const d = declaracionesSesionVigentes();
+        if (el.checked) d[id] = new Date().toISOString(); else delete d[id];
+        declaracionesSesion = d;
+        saveProgress();
+        /* Solo el renglón, como en el Plan: repintar reiniciaría la firma. */
+        const renglon = el.closest('.checkbox-row'), label = renglon && renglon.querySelector('label');
+        const x = DECLARACIONES_SESION.find(y => y.id === id);
+        if (renglon) {
+            renglon.style.background = el.checked ? 'rgba(0,255,136,0.08)' : 'rgba(255,51,51,0.08)';
+            renglon.style.borderColor = el.checked ? 'var(--success)' : 'var(--danger)';
+        }
+        if (label && x) {
+            label.style.color = el.checked ? 'var(--success)' : 'var(--text)';
+            label.textContent = (el.checked ? '✓ ' : '○ ') + x.texto;
+        }
+        pintarAvisoDeclaracionesSesion();
+    }
+    function updateEspacioSesion(campo, valor) {
+        const d = declaracionesSesionVigentes();
+        d[campo] = valor;
+        declaracionesSesion = d;
+        saveProgress();
+        pintarAvisoDeclaracionesSesion();
+    }
+    /* En la pantalla final: quien generó sus documentos antes del 24 sep ve
+       aquí que le faltan las declaraciones. */
+    function pintarAvisoDeclaracionesSesion() {
+        const el = document.getElementById('avisoDeclaracionesSesion');
+        if (el) el.innerHTML = declaracionesSesionCompletas()
+            ? '<p style="color:var(--success);font-size:0.85rem;margin:0 0 4px;">✓ Declaraciones de la sesión completas</p>'
+            : '<div class="error-box" style="margin-bottom:12px;">Faltan tus <strong>Declaraciones de la sesión</strong>. Tu evaluador no puede revisar tu evidencia sin ellas.</div>';
     }
 
     function renderSesionesRows() {
@@ -1520,6 +1620,13 @@
         if (currentStepIndex > 0) { currentStepIndex--; renderStep(); window.scrollTo(0, 0); }
     }
     function goGenerate() {
+        if (!declaracionesSesionCompletas()) {
+            const st = document.getElementById('validationStatus');
+            if (st) st.innerHTML = '<div class="error-box" style="margin-top:12px;">Antes de generar tus documentos, completa las <strong>Declaraciones de la sesión</strong> de arriba.</div>';
+            const card = document.getElementById('declaracionesSesionCard');
+            if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            return;
+        }
         currentStepIndex = STEPS.indexOf('resultado');
         generated = true;
         renderStep();
@@ -1850,6 +1957,8 @@ const LOGO_CONOCER_BASE64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAA
                 <p style="color:var(--text);margin-bottom:20px;">Se suben automáticamente a tu portafolio. Si después corriges algo, se vuelven a subir solos con la versión actualizada.</p>
                 <div id="estadoDocsSesion"></div>
             </div>
+            <div id="avisoDeclaracionesSesion" style="margin-top:20px;"></div>
+            ${declaracionesSesionHtml()}
             <div class="card" style="margin-top:20px;">
                 <h2>↩️ Regresar a un paso</h2>
                 <p class="desc" style="margin-bottom:0;">Toca cualquier paso para revisarlo o corregirlo. Si cambias algo, tus documentos se vuelven a subir solos con la versión actualizada.</p>
@@ -1862,6 +1971,7 @@ const LOGO_CONOCER_BASE64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAA
             <div id="flowNextStepCta"></div>
         `;
         pintarEstadoDocsSesion();
+        pintarAvisoDeclaracionesSesion();
         sincronizarDocsSesion({ soloSiYaGenerados: false }).catch(e => {
             console.error('Subida de documentos de sesión:', e);
             pintarEstadoDocsSesion();

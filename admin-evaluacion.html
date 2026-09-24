@@ -323,12 +323,19 @@
         }
     }
 
+    /* Domicilio y tipo del espacio que declaró el candidato (Documentos de Sesión, 24 sep). */
+    function espacioDeclarado() {
+        const d = AdminData.declaraciones(row).find(x => x.id === 'espacioAutorizado');
+        return d && d.detalle ? d.detalle : '';
+    }
+
     function portafolioHtml() {
         const plan = E.planPortafolio(row || {}, ev);
         const p = ev.portafolio;
         const items = plan.items.filter(i => i.tipo !== 'generado');
         return `
             <p class="crm-muted" style="font-size:0.84rem;margin-bottom:10px;">Se arma aquí mismo con los archivos del NAS, en el orden del expediente aprobado, y se guarda en el almacenamiento privado del equipo. El candidato nunca lo ve.</p>
+            ${plan.videoExterno ? `<div class="crm-note">${ic('alert', 14)} El video es una liga que pegó el candidato, <strong>no una grabación de la sala de Paideia</strong>: no se puede verificar que sea suyo ni que no esté editado. Solo vale si el evaluador lo autorizó; si no, pídele repetir la sesión en la sala.</div>` : ''}
             ${plan.avisos.length ? `<ul class="ev-avisos">${plan.avisos.map(a => `<li>${esc(a)}</li>`).join('')}</ul>` : '<p class="ev-estado ok">Están todos los documentos del candidato.</p>'}
             <details style="margin-top:10px;"><summary class="crm-muted" style="cursor:pointer;font-size:0.84rem;">${items.length} archivos del NAS</summary>
                 <ul class="ev-items">${items.map(i => `<li>${ic('file', 14)}<span><strong>${esc(i.etiqueta)}</strong><br><span class="crm-muted" style="word-break:break-all;">${esc(i.ruta)}</span></span></li>`).join('')}</ul></details>
@@ -357,7 +364,7 @@
             <section class="crm-card" style="margin-bottom:16px;"><div class="crm-card-h"><span class="crm-stat-ico">${ic('check-square', 18)}</span>Instrumento de Evaluación (IEC)</div>${iecHtml()}</section>
             <section class="crm-card" style="margin-bottom:16px;"><div class="crm-card-h"><span class="crm-stat-ico">${ic('clipboard', 18)}</span>Verificación Interna</div>${cierreHtml()}</section>
             <section class="crm-card" style="margin-bottom:16px;"><div class="crm-card-h"><span class="crm-stat-ico">${ic('file', 18)}</span>Firmas del evaluador</div>${firmasDocHtml()}</section>
-            <section class="crm-card" style="margin-bottom:16px;"><div class="crm-card-h"><span class="crm-stat-ico">${ic('video', 18)}</span>Grabación de la sesión</div><div id="grabacionZoom"></div></section>
+            <section class="crm-card" style="margin-bottom:16px;"><div class="crm-card-h"><span class="crm-stat-ico">${ic('video', 18)}</span>Grabación de la sesión</div><p class="crm-muted" style="font-size:0.84rem;margin-bottom:10px;">Al revisarla, confirma la apertura del Guion: INE a cámara y nombre, fecha y domicilio del espacio (debe coincidir con el declarado${espacioDeclarado() ? ': <strong>' + esc(espacioDeclarado()) + '</strong>' : ''}), recorrido del lugar y el consentimiento de la persona atendida, sin cortes.</p><div id="grabacionZoom"></div></section>
             <section class="crm-card"><div class="crm-card-h"><span class="crm-stat-ico">${ic('folder', 18)}</span>Portafolio de Evidencias</div>${portafolioHtml()}</section>`;
         conectar();
         GrabacionZoom.montarTarjeta(document.getElementById('grabacionZoom'), {

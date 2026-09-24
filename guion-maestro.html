@@ -255,6 +255,18 @@
         'Medio de contacto', 'Datos del Centro de Atención', 'Confirmación de dudas resueltas', 'Agradecimiento y despedida'
     ];
 
+    /* Protocolo de apertura de la grabación (24 sep, auditoría legal): 60
+       segundos al inicio del video que hacen casi imposible presentar el video
+       de otra persona o de otro lugar como propio. Textos modelo: validar con
+       el evaluador. Se guardan en el mismo estado del checklist (apertura-N). */
+    const PROTOCOLO_APERTURA = [
+        'Con la grabación ya corriendo, muestro mi INE a la cámara (frente, a buena distancia y enfocada) y digo mi nombre completo.',
+        'Digo la fecha de hoy y el domicilio del espacio donde estoy (el mismo que declaro en Documentos de Sesión).',
+        'Hago un recorrido lento con la cámara por el espacio: entrada, camilla o área de trabajo y material.',
+        'La persona que voy a atender dice a la cámara su nombre y que acepta que la sesión se grabe para mi evaluación.',
+        'No corto ni pauso la grabación desde aquí hasta la despedida.'
+    ];
+
     function loadAutodiagnosticoResult() {
         try {
             const saved = JSON.parse(localStorage.getItem('autodiagnosticoData') || 'null');
@@ -346,6 +358,12 @@
                 <summary>📑 Índice — ir directo a una sección</summary>
                 <div class="toc-list">${toc}</div>
             </details>
+
+            <div class="card" id="protocolo-apertura">
+                <h2>🎬 Antes de empezar: protocolo de apertura (60 segundos)</h2>
+                <p class="desc" style="margin-bottom:12px;">Es lo primero que debe verse en tu video. Le demuestra al Centro Evaluador que la sesión es tuya, en el lugar que declaraste y con una persona que aceptó ser grabada. <strong>Un video sin esta apertura puede no ser aceptado.</strong></p>
+                <div class="mini-checklist">${PROTOCOLO_APERTURA.map((label, i) => checkboxRow(`apertura-${i}`, label)).join('')}</div>
+            </div>
 
             ${secciones}
 

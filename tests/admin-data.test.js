@@ -282,26 +282,38 @@ test('ultimosPagos ordena por fecha y atencion detecta sin iniciar, inactivos y 
     assert.ok(at.some(i => i.tipo === 'sesion'));
 });
 
-test('declaraciones: fecha de cada una o null, desde Plan y Evidencias', () => {
+test('declaraciones: fecha de cada una o null, desde Plan, Documentos de Sesión y Evidencias', () => {
     const row = {
         plan_evaluacion_data: { planData: { declaraciones: { version: '2026-09-17', requisitos: '2026-09-17T15:00:00Z', material: '2026-09-17T15:01:00Z' } } },
+        documentos_sesion_data: { declaracionesSesion: { version: '2026-09-24', pacienteReal: '2026-09-24T10:00:00Z', mayorEdad: '2026-09-24T10:01:00Z', espacioAutorizado: '2026-09-24T10:02:00Z', espacioDireccion: ' Av. Juárez 10, Centro ', espacioTipo: 'prestado' } },
+        evidencias_data: { planData: { declaracionAutenticidad: { version: '2026-09-24', fecha: '2026-09-25T10:00:00Z' } } }
+    };
+    const d = AdminData.declaraciones(row);
+    assert.deepEqual(d.map(x => x.id), ['requisitos', 'material', 'sinReembolsos', 'pacienteReal', 'mayorEdad', 'consentimientoPaciente', 'espacioAutorizado', 'autenticidad']);
+    assert.deepEqual(d.map(x => x.fecha), ['2026-09-17T15:00:00Z', '2026-09-17T15:01:00Z', null, '2026-09-24T10:00:00Z', '2026-09-24T10:01:00Z', null, '2026-09-24T10:02:00Z', '2026-09-25T10:00:00Z']);
+    assert.equal(d.find(x => x.id === 'espacioAutorizado').detalle, 'Prestado con permiso · Av. Juárez 10, Centro');
+    assert.ok(d.every(x => typeof x.label === 'string' && x.label.length > 5));
+});
+
+test('declaraciones: una aceptación de un texto anterior cuenta como pendiente', () => {
+    const row = {
+        documentos_sesion_data: { declaracionesSesion: { version: '2026-01-01', pacienteReal: '2026-09-24T10:00:00Z' } },
         evidencias_data: { planData: { declaracionAutenticidad: { version: '2026-09-17', fecha: '2026-09-18T10:00:00Z' } } }
     };
     const d = AdminData.declaraciones(row);
-    assert.deepEqual(d.map(x => x.id), ['requisitos', 'material', 'sinReembolsos', 'autenticidad']);
-    assert.deepEqual(d.map(x => x.fecha), ['2026-09-17T15:00:00Z', '2026-09-17T15:01:00Z', null, '2026-09-18T10:00:00Z']);
-    assert.ok(d.every(x => typeof x.label === 'string' && x.label.length > 5));
+    assert.equal(d.find(x => x.id === 'pacienteReal').fecha, null);
+    assert.equal(d.find(x => x.id === 'autenticidad').fecha, null);
 });
 
 test('declaraciones: sin fila, sin datos o con valores raros → todas pendientes', () => {
     for (const row of [null, {}, { plan_evaluacion_data: null }, { plan_evaluacion_data: { planData: { declaraciones: { requisitos: true } } } }]) {
-        assert.deepEqual(AdminData.declaraciones(row).map(x => x.fecha), [null, null, null, null]);
+        assert.ok(AdminData.declaraciones(row).every(x => x.fecha === null));
     }
 });
 
 test('declaraciones: una "fecha" que no es fecha válida cuenta como pendiente (no llega HTML al panel)', () => {
     const row = { plan_evaluacion_data: { planData: { declaraciones: { requisitos: '<textarea>', material: 'mañana', sinReembolsos: '2026-09-17T15:02:00Z' } } } };
-    assert.deepEqual(AdminData.declaraciones(row).map(x => x.fecha), [null, null, '2026-09-17T15:02:00Z', null]);
+    assert.deepEqual(AdminData.declaraciones(row).slice(0, 3).map(x => x.fecha), [null, null, '2026-09-17T15:02:00Z']);
 });
 
 test('candidatos: un evaluador (sin precios ni pagos) ve la lista de las filas, con las fases del RPC', () => {

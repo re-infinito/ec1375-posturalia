@@ -170,8 +170,21 @@
             return (partes.length > 1 ? 'Parte ' + (i + 1) + ': ' : '') + texto(z.share_url) + (texto(z.clave) ? ' (clave: ' + texto(z.clave) + ')' : '');
         }).filter(Boolean);
         if (ligas.length) return ligas.join('  ·  ');
+        return ligaExterna(row);
+    }
+    function ligaExterna(row) {
         var ev = row && row.evidencias_data && typeof row.evidencias_data === 'object' ? row.evidencias_data : {};
         return texto(ev.planData && ev.planData.videoLink) || null;
+    }
+    /* ¿El video del portafolio es la liga que pegó el candidato y no una
+       grabación de la sala de Paideia? (24 sep, auditoría legal: un video
+       grabado fuera de la sala no se puede verificar y solo vale si el
+       evaluador lo autoriza.) NO va en `avisos`: esos se imprimen en el
+       Índice del portafolio que se entrega. */
+    function videoEsExterno(evaluacion, row) {
+        var partes = evaluacion && evaluacion.video && Array.isArray(evaluacion.video.partes) ? evaluacion.video.partes : [];
+        var deSala = partes.some(function (p) { return p && p.zoom && texto(p.zoom.share_url); });
+        return !deSala && !!ligaExterna(row);
     }
 
     function planPortafolio(row, evaluacion) {
@@ -205,7 +218,7 @@
             fp, carta, ps, seg, [g('video'), g('sep3'), g('cedula')], enc,
             [g('cedula_servicio'), g('verificacion'), g('atencion_usuarios'), g('sep4'), g('autorizacion_firma')],
             at, ap, foto.length || certs.length ? [m('FOTO Y CERTIFICADOS')] : [], foto, certs, [g('contraportada')]);
-        return { items: items, avisos: avisos, videoLink: videoLink, nombre: row.nombre || '' };
+        return { items: items, avisos: avisos, videoLink: videoLink, videoExterno: videoEsExterno(evaluacion, row), nombre: row.nombre || '' };
     }
 
     /* Lo que el portafolio estampa sobre los documentos que el candidato
@@ -291,7 +304,7 @@
         ETAPAS: ETAPAS, JUICIOS: JUICIOS, JUICIOS_ACEPTADOS: JUICIOS_ACEPTADOS, CAMPOS_CEDULA: CAMPOS_CEDULA, TEXTO_ACUERDO: TEXTO_ACUERDO, IEC_RUTA: IEC_RUTA,
         lineaDeTiempo: lineaDeTiempo, dictamenDe: dictamenDe, cedulaPublicada: cedulaPublicada, firmaValida: firmaValida,
         validarCedula: validarCedula, publicarCedula: publicarCedula, guardarBorrador: guardarBorrador,
-        planPortafolio: planPortafolio, ligaVideo: ligaVideo, rutaNasPermitida: rutaNasPermitida,
+        planPortafolio: planPortafolio, ligaVideo: ligaVideo, videoEsExterno: videoEsExterno, rutaNasPermitida: rutaNasPermitida,
         CENTRO_EVALUACION: CENTRO_EVALUACION, EVALUADOR_PREDETERMINADO: EVALUADOR_PREDETERMINADO,
         fechaLarga: fechaLarga, sellosPortafolio: sellosPortafolio,
         mensajeWhatsApp: mensajeWhatsApp, telefonoWhatsApp: telefonoWhatsApp

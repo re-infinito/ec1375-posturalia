@@ -151,3 +151,15 @@
 1. **Aplicado en esta rama (tipo A):** hallazgos 1, 2 (mitigación), 5–11.
 2. **Requiere tu decisión (tipo B):** 2 (límite real / sacar del login público), borrar `api/kpi-data.js`, 13, 14, 17, 18.
 3. **Con un profesional (tipo C):** 3 (aprobar y publicar el aviso), 4, 15, 16, 19.
+
+---
+
+## Adenda 24 sep — protección contra evidencias falsas (hecho)
+
+Pedido de Diego: cubrirse de videos falsos, consultorios ajenos o información falsa. Se aplicó (textos modelo, validar con evaluador y abogado):
+NDA con Paideia como "operador de la plataforma"; declaraciones de la sesión (persona real, mayor de edad, consentimiento, espacio con autorización);
+protocolo de apertura de la grabación en el Guion y recordatorio al evaluador; autenticidad con verificación y consecuencias (re-aceptación obligatoria);
+video fuera de la sala marcado para autorización del evaluador. Detalle técnico en `Claude.md` → "Cambios recientes (24 de septiembre)".
+
+**Preguntas para el evaluador:** ¿la atención evaluada puede ser a un voluntario o familiar? (el Guion dice "atención simulada"); ¿el EC1375 exige
+que el espacio sea propio?; ¿acepta videos grabados fuera de la sala de Paideia y en qué casos?
