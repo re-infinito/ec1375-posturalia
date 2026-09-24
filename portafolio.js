@@ -287,16 +287,19 @@
 
     function dibujarVideo(rec, link) {
         var p = pagina(rec);
-        centrado(p, rec, 'Referencia al Video de la Sesión', H - 100, 14, rec.negrita);
+        centrado(p, rec, 'Referencia al Video de la Sesión', H - TOPE_PAG, 14, rec.negrita);
         var lineas = envolver(link || 'NO PROPORCIONADA — solicitar al candidato', rec.normal, 10, W - 120);
-        lineas.forEach(function (l, i) { centrado(p, rec, l, H - 140 - i * 14, 10); });
+        lineas.forEach(function (l, i) { centrado(p, rec, l, H - TOPE_PAG - 40 - i * 14, 10); });
     }
 
     /* ── Páginas del formato 2026 ──────────────────────────────────────
        Las marcadoras, el tríptico, los tres formatos de cierre, la
        autorización de firma y la contraportada: todas vienen del machote
        `FORMATO PORTAFOLIO-1375-2026 copia.pdf` del Centro Evaluador. */
-    var PIE_CE = 'CENTRO EVALUADOR CE1399-OC063-18 - COLEGIO ILUSTRE DE CIENCIAS FORENSES DE MÉXICO A.C. - BRASIL 306-2 COL. 27 DE SEPTIEMBRE, POZA RICA, VER. - 7821138710 - cicfm.ce@gmail.com';
+    /* Los tres logos del encabezado llegan a ~86 pt del borde superior, así
+       que el contenido de las páginas generadas arranca debajo. */
+    var TOPE_PAG = 108;
+    var PIE_CE = (root.FormatoOficial && root.FormatoOficial.PIE) || 'CENTRO EVALUADOR CE1399-OC063-18 - COLEGIO ILUSTRE DE CIENCIAS FORENSES DE MÉXICO A.C. - BRASIL 306-2 COL. 27 DE SEPTIEMBRE, POZA RICA, VER. - 7821138710 - cicfm.ce@gmail.com';
     function pie(p, rec, t) { centrado(p, rec, t || PIE_CE, 32, 6.2); }
 
     /* Página marcadora en hoja aparte, como el machote. Solo la usa el IEC:
@@ -317,8 +320,8 @@
     }
 
     /* Rejilla de etiqueta/valor con recuadro. Devuelve la y de abajo. */
-    function rejilla(p, rec, x, y, anchoEtq, anchoVal, filas, size) {
-        size = size || 8;
+    function rejilla(p, rec, x, y, anchoEtq, anchoVal, filas, size, o) {
+        size = size || 8; o = o || {};
         filas.forEach(function (f) {
             /* La etiqueta también se envuelve: varias de este formato son
                largas ("Nombre completo del lugar o persona que realizó su
@@ -326,14 +329,36 @@
             var etq = envolver(f[0] || '', rec.negrita, size, anchoEtq - 8);
             var valor = envolver(f[1] || '', rec.normal, size, anchoVal - 8);
             var alto = Math.max(f[2] || 16, etq.length * (size + 2.5) + 6, valor.length * (size + 2.5) + 6);
-            p.drawRectangle({ x: x, y: y - alto, width: anchoEtq, height: alto, borderColor: rec.negro, borderWidth: 0.7 });
+            var caja = { x: x, y: y - alto, width: anchoEtq, height: alto, borderColor: rec.negro, borderWidth: 0.7 };
+            if (o.gris) caja.color = root.PDFLib.rgb(0.816, 0.816, 0.816);   /* etiquetas grises, como el machote */
+            p.drawRectangle(caja);
             p.drawRectangle({ x: x + anchoEtq, y: y - alto, width: anchoVal, height: alto, borderColor: rec.negro, borderWidth: 0.7 });
-            etq.forEach(function (l, i) { texto(p, rec, l, x + 4, y - 12 - i * (size + 2.5), size, rec.negrita); });
+            etq.forEach(function (l, i) {
+                var tx = o.derecha ? x + anchoEtq - 4 - rec.negrita.widthOfTextAtSize(l, size) : x + 4;
+                texto(p, rec, l, tx, y - 12 - i * (size + 2.5), size, rec.negrita);
+            });
             valor.forEach(function (l, i) { texto(p, rec, l, x + anchoEtq + 4, y - 12 - i * (size + 2.5), size); });
             y -= alto;
         });
         return y;
     }
+    /* Cuánto mide una fila de rejilla, sin dibujarla. Misma cuenta que
+       rejilla(): si se calcula de otra forma, los altos dejan de cuadrar. */
+    function altoFila(rec, anchoEtq, anchoVal, f, size) {
+        size = size || 8;
+        var etq = envolver(f[0] || '', rec.negrita, size, anchoEtq - 8);
+        var valor = envolver(f[1] || '', rec.normal, size, anchoVal - 8);
+        return Math.max(f[2] || 16, etq.length * (size + 2.5) + 6, valor.length * (size + 2.5) + 6);
+    }
+
+    /* Banda gris de sección, a todo el ancho de la tabla. */
+    function bandaSeccion(p, rec, x, ancho, y, t, size) {
+        var alto = 14;
+        p.drawRectangle({ x: x, y: y - alto, width: ancho, height: alto, color: root.PDFLib.rgb(0.816, 0.816, 0.816), borderColor: rec.negro, borderWidth: 0.7 });
+        centrado2(p, rec, t, x, ancho, y - 10, size || 8.5, rec.negrita);
+        return y - alto;
+    }
+
     /* Tabla de opciones (Bueno/Regular/Malo, SÍ/NO): una fila por concepto. */
     function tablaOpciones(p, rec, x, y, ancho, encabezados, filas, anchoOpc, marcas) {
         anchoOpc = anchoOpc || 52; marcas = marcas || [];
@@ -387,7 +412,7 @@
         ]
     };
     function dibujarTriptico(rec) {
-        var p = pagina(rec), y = H - 95;
+        var p = pagina(rec), y = H - TOPE_PAG;
         texto(p, rec, 'DERECHOS Y OBLIGACIONES', 50, y, 14, rec.negrita);
         y -= 18;
         envolver(TRIPTICO.intro, rec.normal, 8, W - 100).forEach(function (l) { texto(p, rec, l, 50, y, 8); y -= 10; });
@@ -395,11 +420,11 @@
         texto(p, rec, 'Principios de la Certificación:', 50, y, 9, rec.negrita); y -= 12;
         texto(p, rec, TRIPTICO.principios, 50, y, 8); y -= 18;
         [['Derechos de los usuarios:', TRIPTICO.derechos], ['Obligaciones:', TRIPTICO.obligaciones]].forEach(function (bloque) {
-            if (y < 90) { p = pagina(rec); y = H - 95; }
+            if (y < 90) { p = pagina(rec); y = H - TOPE_PAG; }
             texto(p, rec, bloque[0], 50, y, 9, rec.negrita); y -= 13;
             bloque[1].forEach(function (t) {
                 envolver(t, rec.normal, 7.5, W - 116).forEach(function (l, i) {
-                    if (y < 60) { p = pagina(rec); y = H - 95; }
+                    if (y < 60) { p = pagina(rec); y = H - TOPE_PAG; }
                     texto(p, rec, (i === 0 ? '• ' : '   ') + l, 56, y, 7.5); y -= 9.5;
                 });
                 y -= 2;
@@ -415,7 +440,7 @@
     async function dibujarCedulaServicio(rec, d) {
         var c = C(), datos = (d.cierreCandidato && d.cierreCandidato.servicio) || {}, asp = datos.aspectos || {};
         var aspectos = c.ASPECTOS_SERVICIO || [], escala = c.ESCALA_SERVICIO || ['Bueno', 'Regular', 'Malo'];
-        var p = pagina(rec), y = H - 88;
+        var p = pagina(rec), y = H - TOPE_PAG;
         centrado(p, rec, 'Sistema Nacional de Competencia en la operación de la Evaluación y Certificación', y, 8, rec.negrita); y -= 13;
         centrado(p, rec, 'Cédula de Evaluación del Servicio a usuarios en el Proceso de Evaluación - Certificación', y, 8.5, rec.negrita); y -= 20;
         texto(p, rec, 'DATOS GENERALES DEL USUARIO', 50, y, 8, rec.negrita); y -= 8;
@@ -449,7 +474,7 @@
     async function dibujarVerificacion(rec, d) {
         var c = C(), datos = (d.cierre && d.cierre.verificacion) || {}, items = datos.items || {};
         var lista = c.VERIFICACION || [];
-        var p = pagina(rec), y = H - 92;
+        var p = pagina(rec), y = H - TOPE_PAG;
         centrado(p, rec, 'Verificación Interna del Proceso de Evaluación', y, 12, rec.negrita); y -= 20;
         y = rejilla(p, rec, 50, y, 110, 220, [['Candidato/a:', d.nombre || ''], ['Centro Evaluador:', 'CE1399-OC063-18'], ['Fecha:', fechaDMY(d.fecha)]]);
         y -= 16;
@@ -487,24 +512,52 @@
     async function dibujarAtencion(rec, d) {
         var c = C(), datos = (d.cierreCandidato && d.cierreCandidato.atencion) || {}, resp = datos.respuestas || {};
         var preguntas = c.ATENCION_PREGUNTAS || [], escala = c.ESCALA_SERVICIO || ['Bueno', 'Regular', 'Malo'];
-        var p = pagina(rec), y = H - 88;
+        var p = pagina(rec), y = H - TOPE_PAG;
         centrado(p, rec, 'Sistema Nacional de Competencia en la operación de la Evaluación y Certificación', y, 8, rec.negrita); y -= 13;
         centrado(p, rec, 'Formato de Atención a Usuarios', y, 9.5, rec.negrita); y -= 20;
-        var medios = (c.MEDIOS_ATENCION || []).map(function (m) {
-            return m + ' (' + (datos.medio === m ? 'X' : ' ') + ')' + (datos.medio === m && m === 'Otro' && datos.otroMedio ? ' ' + datos.otroMedio : '');
-        }).join('   ');
-        y = rejilla(p, rec, 50, y, 110, 180, [['Folio:', datos.folio || ''], ['Fecha:', fechaDMY(d.fecha)],
-            ['Medio de Contacto:', medios], ['Lugar:', datos.lugar || '']]);
+        /* Folio y fecha arriba, y "Medio de Contacto" como la rejilla 2x2 del
+           machote: cada medio con su casilla, no un renglón de paréntesis. */
+        var XA = 50, AA = W - 100;
+        y = rejilla(p, rec, XA, y, 90, AA - 90, [['Folio:', datos.folio || ''], ['Fecha:', fechaDMY(d.fecha)]], 8, { gris: true, derecha: true });
+        var medios = c.MEDIOS_ATENCION || [], hM = 16, anchoM = (AA - 90) / 4;
+        p.drawRectangle({ x: XA, y: y - hM * 2, width: 90, height: hM * 2, color: root.PDFLib.rgb(0.816, 0.816, 0.816), borderColor: rec.negro, borderWidth: 0.7 });
+        centrado2(p, rec, 'Medio de Contacto', XA, 90, y - hM - 2, 8, rec.negrita);
+        medios.forEach(function (m, i) {
+            var col = i % 2, fila = Math.floor(i / 2), xm = XA + 90 + col * anchoM * 2, ym = y - (fila + 1) * hM;
+            p.drawRectangle({ x: xm, y: ym, width: anchoM, height: hM, color: root.PDFLib.rgb(0.816, 0.816, 0.816), borderColor: rec.negro, borderWidth: 0.7 });
+            centrado2(p, rec, m, xm, anchoM, ym + 5, 7.5, rec.negrita);
+            p.drawRectangle({ x: xm + anchoM, y: ym, width: anchoM, height: hM, borderColor: rec.negro, borderWidth: 0.7 });
+            var marca = datos.medio === m ? (m === 'Otro' && datos.otroMedio ? datos.otroMedio : 'X') : '';
+            if (marca) centrado2(p, rec, marca, xm + anchoM, anchoM, ym + 5, 7.5, rec.negrita);
+        });
+        y -= hM * Math.ceil(medios.length / 2);
+        y = rejilla(p, rec, XA, y, 90, AA - 90, [['Lugar', datos.lugar || '']], 8, { gris: true, derecha: true });
         y -= 14;
         envolver('Estimado usuario, le agradeceremos que conteste el siguiente cuestionario para mejorar nuestro servicio.', rec.normal, 7.5, W - 100)
             .forEach(function (l) { texto(p, rec, l, 50, y, 7.5); y -= 10; });
         y -= 6;
-        texto(p, rec, 'DATOS GENERALES DEL USUARIO', 50, y, 8, rec.negrita); y -= 8;
-        y = rejilla(p, rec, 50, y, 110, W - 210, [['Nombre:', d.nombre || ''], ['Domicilio:', datos.domicilio || ''],
-            ['Colonia / Código Postal:', [datos.colonia, datos.cp].filter(Boolean).join(' · ')],
-            ['Delegación o Municipio / Estado:', [datos.municipio, datos.estado].filter(Boolean).join(' · ')],
-            ['Ciudad:', datos.ciudad || ''], ['Teléfono(s):', datos.telefono || ''], ['E-Mail:', datos.email || ''],
-            ['EC o área de interés:', 'EC1375']]);
+        y = bandaSeccion(p, rec, XA, AA, y, 'DATOS GENERALES DEL USUARIO', 8);
+        /* Nombre y Domicilio llevan debajo su renglón aclaratorio, como el
+           machote; los demás van en dos parejas por fila. */
+        y = rejilla(p, rec, XA, y, 90, AA - 90, [['NOMBRE', d.nombre || '']], 8, { gris: true, derecha: true });
+        y = rejilla(p, rec, XA + 90, y, 0, AA - 90, [['', 'Apellidos Paterno, Materno y Nombre (s)', 12]], 7, { gris: true });
+        y = rejilla(p, rec, XA, y, 90, AA - 90, [['Domicilio', datos.domicilio || '']], 8, { gris: true, derecha: true });
+        y = rejilla(p, rec, XA + 90, y, 0, AA - 90, [['', '(Calle; numero exterior y en su caso número interior)', 12]], 7, { gris: true });
+        var mitadA = (AA - 90) / 2;
+        [['Colonia', datos.colonia || '', 'Código Postal', datos.cp || ''],
+         ['Delegación o Municipio', datos.municipio || '', 'Estado', datos.estado || ''],
+         ['Ciudad', datos.ciudad || '', 'Fax', ''],
+         ['Teléfonos (s) Incluyendo Clave Lada', datos.telefono || '', 'E-Mail', datos.email || '']
+        ].forEach(function (f) {
+            /* Las dos mitades comparten alto: si cada una calcula el suyo
+               (una etiqueta de dos líneas contra una de una), los recuadros
+               quedan desalineados y el texto se monta sobre el borde. */
+            var alto = Math.max(altoFila(rec, 90, mitadA, [f[0], f[1]], 7.5), altoFila(rec, 45, mitadA - 45, [f[2], f[3]], 7.5));
+            rejilla(p, rec, XA, y, 90, mitadA, [[f[0], f[1], alto]], 7.5, { gris: true, derecha: true });
+            rejilla(p, rec, XA + 90 + mitadA, y, 45, mitadA - 45, [[f[2], f[3], alto]], 7.5, { gris: true, derecha: true });
+            y -= alto;
+        });
+        y = bandaSeccion(p, rec, XA, AA, y, 'EC o área de interés: EC1375', 8);
         y -= 30;
         if (d.firmaCandidato) await firmaEnCaja(p, rec, d.firmaCandidato, 80, y + 4, 140, 34);
         if (d.firmaCierre) await firmaEnCaja(p, rec, d.firmaCierre, W - 240, y + 4, 140, 34);
@@ -517,11 +570,11 @@
         y -= 34;
         y = tablaOpciones(p, rec, 50, y, W - 100, escala, preguntas, null,
             preguntas.map(function (_, i) { return marcaDe(resp[i], escala); }));
-        pie(p, rec, 'BRASIL 306-2 COL. 27 DE SEPTIEMBRE, POZA RICA, VER. - 7821138710 - centrodeinclusioncicata@gmail.com');
+        pie(p, rec);
     }
 
     async function dibujarAutorizacionFirma(rec, d) {
-        var p = pagina(rec), y = H - 100;
+        var p = pagina(rec), y = H - TOPE_PAG;
         centrado(p, rec, 'AUTORIZACIÓN FIRMA ELECTRÓNICA', y, 14, rec.negrita); y -= 28;
         y = rejilla(p, rec, 70, y, 130, W - 270, [['Centro de Evaluación:', d.ceNombre || ''], ['Evaluador/a:', d.evaluador || ''],
             ['Estándar de Competencia:', ESTANDAR.join(' ')], ['Candidato/a:', d.nombre || ''], ['Fecha:', fechaDMY(d.fecha)]]);
@@ -569,35 +622,26 @@
         d = d || {};
         var ced = d.cedula || {}, L = root.PDFLib;
         var p = pagina(rec);
-        centrado(p, rec, 'CÉDULA DE EVALUACIÓN', H - 90, 14, rec.negrita);
-        var y = H - 120;
-        [['Evaluadora:', ced.evaluadora || ''], ['Centro de Evaluación:', 'CE1399-OC063-18'], ['Candidato/a:', d.nombre || ''],
-            ['Estándar de Competencia:', 'EC1375 - Prestación de servicios auxiliares en la contribución'],
-            ['', 'tradicional y complementaria de la recuperación de las condiciones'], ['', 'físicas y socioemocionales de las personas.'],
-            ['Fecha:', fechaDMY(ced.fecha)]].forEach(function (f) {
-            if (f[0]) texto(p, rec, f[0], 50, y, 9, rec.negrita);
-            texto(p, rec, f[1], 200, y, 9);
-            y -= 16;
-        });
-        y -= 20;
-        texto(p, rec, 'RESULTADO DE LA EVALUACIÓN', 50, y, 11, rec.negrita);
-        y -= 20;
+        centrado(p, rec, 'CÉDULA DE EVALUACIÓN', H - TOPE_PAG, 13, rec.negrita);
+        var XC = 50, AC = W - 100, ETQ = 118, y = H - TOPE_PAG - 20;
+        y = rejilla(p, rec, XC, y, ETQ, AC - ETQ, [
+            ['Evaluadora:', ced.evaluadora || ''],
+            ['Centro de Evaluación:', 'CE1399-OC063-18 COLEGIO ILUSTRE DE CIENCIAS FORENSES DE MÉXICO'],
+            ['Candidato/a:', d.nombre || ''],
+            ['Estándar de Competencia:', ESTANDAR.join(' ')],
+            ['Fecha:', fechaDMY(ced.fecha)]
+        ], 8.5, { gris: true, derecha: true });
+        y -= 12;
+        y = bandaSeccion(p, rec, XC, AC, y, 'RESULTADO DE LA EVALUACIÓN');
         var campos = (root.Evaluacion ? root.Evaluacion.CAMPOS_CEDULA : []).map(function (k) { return [k.id, k.label + ':']; });
         if (!campos.length) campos = [['mejoresPracticas', 'Mejores prácticas:'], ['areasOportunidad', 'Áreas de oportunidad:'],
             ['criteriosNoCubiertos', 'Criterios de Evaluación que no se cubrieron:'], ['incidencias', 'Incidencias:'], ['recomendaciones', 'Recomendaciones:']];
-        campos.forEach(function (c) {
-            var lineas = envolver(ced[c[0]] || '', rec.normal, 8.5, W - 112);
-            var alto = Math.max(30, lineas.length * 10.5 + 8);
-            if (y - alto - 30 < 60) { p = pagina(rec); y = H - 110; }
-            texto(p, rec, c[1], 50, y, 9, rec.negrita);
-            p.drawRectangle({ x: 50, y: y - 15 - alto, width: W - 100, height: alto, borderColor: rec.negro, borderWidth: 1 });
-            lineas.forEach(function (l, i) { texto(p, rec, l, 56, y - 26 - i * 10.5, 8.5); });
-            y -= alto + 35;
-        });
-        if (y < 260) { p = pagina(rec); y = H - 110; }
-        y -= 20;
-        texto(p, rec, 'JUICIO DE EVALUACIÓN', 50, y, 11, rec.negrita);
-        y -= 16;
+        y = rejilla(p, rec, XC, y, ETQ, AC - ETQ,
+            campos.map(function (c) { return [c[1], ced[c[0]] || '', 26]; }), 8.5, { gris: true, derecha: true });
+        y -= 12;
+        if (y < 300) { p = pagina(rec); y = H - TOPE_PAG; }
+        y = bandaSeccion(p, rec, XC, AC, y, 'JUICIO DE EVALUACIÓN');
+        y -= 18;
         var juicio = limpiar(ced.juicio || '');
         if (juicio) {
             var jw = rec.negrita.widthOfTextAtSize(juicio, 12), sufijo = '  ( COMPETENTE / NO COMPETENTE )';
@@ -640,7 +684,7 @@
         texto(p, rec, 'Sí ____   No ____', 56, y - 32, 8);
         p.drawLine({ start: { x: 300, y: y - 26 }, end: { x: W - 60, y: y - 26 }, thickness: 0.8, color: rec.negro });
         texto(p, rec, 'NOMBRE Y FIRMA DEL USUARIO', 300, y - 38, 7.5);
-        pie(p, rec, 'Brasil # 306-2 Col. 27 de septiembre, Poza Rica, Ver. - 7821138710 - cicfm.ce@gmail.com');
+        pie(p, rec);
         return L;
     }
 
