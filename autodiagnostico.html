@@ -156,6 +156,7 @@
         .field-hint { font-size: 0.8rem; color: var(--text); margin-top: 4px; }
 
         /* CERTIFICADOS DE FORMACIÓN PREVIA */
+        .dom-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin-top: 10px; }
         .cert-sin-toggle {
             display: flex;
             align-items: flex-start;
@@ -478,7 +479,7 @@
     let currentStepIndex = 0; // 0=intro, 1=personal, 2-5=elementos 1-4, 6=firma, 7=resultado
     const STEPS = ['intro', 'auth', 'personal', 'nda', 'e1', 'e2', 'e3', 'e4', 'firma', 'resultado'];
 
-    let personalData = { nombre: '', curp: '', domicilio: '', escolaridad: '', telefonoCasa: '', telefonoCelular: '', email: '', fecha: todayISO(), renapAutorizado: false };
+    let personalData = { nombre: '', curp: '', domicilio: '', colonia: '', codigoPostal: '', ciudad: '', entidadFederativa: '', escolaridad: '', telefonoCasa: '', telefonoCelular: '', email: '', fecha: todayISO(), renapAutorizado: false };
     let certificados = []; // [{ nombre, path, fileName, size, uploadedAt, uploading, error }]
     let sinCertificadosPrevios = false;
     /* Foto oficial del candidato — la exige la Ficha de Registro (formato
@@ -799,7 +800,7 @@
     function restartDiagnostico() {
         if (!confirm('¿Seguro que quieres empezar de nuevo? Se borrará tu avance guardado.')) return;
         localStorage.removeItem('autodiagnosticoData');
-        personalData = { nombre: '', curp: '', domicilio: '', escolaridad: '', telefonoCasa: '', telefonoCelular: '', email: '', fecha: todayISO() };
+        personalData = { nombre: '', curp: '', domicilio: '', colonia: '', codigoPostal: '', ciudad: '', entidadFederativa: '', escolaridad: '', telefonoCasa: '', telefonoCelular: '', email: '', fecha: todayISO() };
         certificados = [];
         sinCertificadosPrevios = false;
         fotoCandidato = { path: null, fileName: null, previewDataUrl: null, uploading: false, error: null };
@@ -830,6 +831,11 @@
         const isCurpComplete = curpValida(personalData.curp);
         const curpLargo = String(personalData.curp || '').trim().length;
         const isDomicilioComplete = personalData.domicilio?.trim().length > 0;
+        /* La Ficha de Registro imprime el domicilio en celdas separadas
+           (Calle y Número / CP / Colonia / Ciudad / Entidad Federativa), así
+           que se capturan así y no como un párrafo suelto. */
+        const domPartes = ['colonia', 'codigoPostal', 'ciudad', 'entidadFederativa'];
+        const isDomPartesComplete = domPartes.every(k => personalData[k]?.trim().length > 0);
         const isEscolaridadComplete = sinCertificadosPrevios || certificadosCompletos();
         const isFotoComplete = !!fotoCandidato.previewDataUrl;
         const isTelefonoComplete = personalData.telefonoCelular?.trim().length > 0;
@@ -862,12 +868,22 @@
                 <div class="field-group">
                     <label style="display: flex; justify-content: space-between;">
                         <span>Domicilio <span style="color:var(--danger);">*</span></span>
-                        <span style="font-size: 0.75rem; color: ${isDomicilioComplete ? 'var(--success)' : 'var(--text)'};">
-                            ${isDomicilioComplete ? '✓ Completado' : '○ Pendiente'}
+                        <span style="font-size: 0.75rem; color: ${isDomicilioComplete && isDomPartesComplete ? 'var(--success)' : 'var(--text)'};">
+                            ${isDomicilioComplete && isDomPartesComplete ? '✓ Completado' : '○ Pendiente'}
                         </span>
                     </label>
-                    <textarea id="f_domicilio" rows="2" placeholder="Calle, número, colonia, ciudad, estado"
+                    <p class="field-hint" style="margin-top:-2px;margin-bottom:10px;">Va separado porque así lo imprime tu Ficha de Registro oficial.</p>
+                    <textarea id="f_domicilio" rows="2" placeholder="Calle y número. Ej. Av. Insurgentes Sur 1234, interior 5"
                         style="border-color: ${isDomicilioComplete ? 'var(--success)' : 'var(--danger)'}; border-width: 2px;">${escapeHtml(personalData.domicilio)}</textarea>
+                    <div class="dom-grid">
+                        ${[['colonia', 'Colonia', 'Ej. Del Valle'], ['codigoPostal', 'Código postal', 'Ej. 66220'],
+                           ['ciudad', 'Ciudad o municipio', 'Ej. San Pedro Garza García'], ['entidadFederativa', 'Entidad federativa', 'Ej. Nuevo León']
+                        ].map(([k, etq, ph]) => `<div>
+                            <label style="font-size:0.85rem;">${etq} <span style="color:var(--danger);">*</span></label>
+                            <input type="text" id="f_${k}" value="${escapeHtml(personalData[k] || '')}" placeholder="${ph}"
+                                style="border-color: ${personalData[k]?.trim() ? 'var(--success)' : 'var(--danger)'}; border-width: 2px;">
+                        </div>`).join('')}
+                    </div>
                 </div>
                 <div class="field-group">
                     <label style="display: flex; justify-content: space-between;">
@@ -942,7 +958,7 @@
     }
 
     function attachPersonalFormListeners() {
-        ['nombre','curp','domicilio','telefonoCasa','telefonoCelular','email','fecha'].forEach(field => {
+        ['nombre','curp','domicilio','colonia','codigoPostal','ciudad','entidadFederativa','telefonoCasa','telefonoCelular','email','fecha'].forEach(field => {
             const el = document.getElementById('f_' + field);
             if (el) {
                 el.addEventListener('input', () => {
@@ -2033,7 +2049,9 @@
             if (!personalData.nombre?.trim()) missing.push('Nombre completo');
             if (!personalData.curp?.trim()) missing.push('CURP');
             else if (!curpValida(personalData.curp)) missing.push('CURP completa: 18 caracteres, como aparece en tu documento');
-            if (!personalData.domicilio?.trim()) missing.push('Domicilio');
+            if (!personalData.domicilio?.trim()) missing.push('Domicilio: calle y número');
+            [['colonia', 'Colonia'], ['codigoPostal', 'Código postal'], ['ciudad', 'Ciudad o municipio'], ['entidadFederativa', 'Entidad federativa']]
+                .forEach(([k, etq]) => { if (!personalData[k]?.trim()) missing.push('Domicilio: ' + etq.toLowerCase()); });
             const certificadosOk = sinCertificadosPrevios || certificadosCompletos();
             if (!certificadosOk) missing.push('Subir tus certificados de formación previa (o marcar que no tienes ninguno)');
             if (!fotoCandidato.previewDataUrl) missing.push('Subir tu foto para la Ficha de Registro');
@@ -2065,7 +2083,8 @@
         }
         if (step === 'personal') {
             const certificadosOk = sinCertificadosPrevios || certificadosCompletos();
-            return personalData.nombre && curpValida(personalData.curp) && personalData.domicilio &&
+            const domOk = ['domicilio', 'colonia', 'codigoPostal', 'ciudad', 'entidadFederativa'].every(k => personalData[k]?.trim());
+            return personalData.nombre && curpValida(personalData.curp) && domOk &&
                    personalData.escolaridad && personalData.telefonoCelular && personalData.email &&
                    personalData.fecha && certificadosOk && !!fotoCandidato.previewDataUrl;
         }
@@ -2386,7 +2405,7 @@
             body: [
                 ['Nombre Completo', pd.nombre || ''],
                 ['Curp', pd.curp || ''],
-                ['Domicilio', pd.domicilio || ''],
+                ['Domicilio', [pd.domicilio, pd.colonia, pd.codigoPostal, pd.ciudad, pd.entidadFederativa].filter(v => v && v.trim()).join(', ')],
                 ['Último grado de estudios', pd.escolaridad || ''],
                 ['Teléfono de casa', pd.telefonoCasa || ''],
                 ['Teléfono de celular', pd.telefonoCelular || ''],

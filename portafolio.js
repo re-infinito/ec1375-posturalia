@@ -214,19 +214,36 @@
 
     function dibujarPortada(rec, d) {
         var L = root.PDFLib, p = pagina(rec);
-        p.drawRectangle({ x: 60, y: H - 320, width: W - 120, height: 240, color: L.rgb(0.9, 0.9, 0.9) });
-        texto(p, rec, 'Portafolio de Evidencias', 70, H - 100, 20, rec.negrita);
-        /* El nombre del estándar se envuelve dentro del recuadro gris (antes
-           el segundo renglón se salía por la derecha). */
-        var est = envolver(ESTANDAR.join(' '), rec.normal, 10, W - 60 - 280 - 12);
-        var filas = [['Candidato/a:', d.nombre || '']].concat(est.map(function (l, i) { return [i ? '' : 'Clave y nombre del estándar:', l]; }),
-            [['Clave del CE:', '1399-OC063-18'], ['Evaluador:', d.evaluador || ''],
-             ['Fecha:', fechaDMY(d.fecha)], ['Lote:', d.lote || '']]);
-        var y = H - 130;
+        var x0 = 78, x1 = W - 60, ancho = x1 - x0;
+        /* Dos bandas, como el machote: la clara con el título en blanco y la
+           oscura con los datos. */
+        var yBanda = H - 200, hBanda = 86;
+        p.drawRectangle({ x: x0, y: yBanda, width: ancho, height: hBanda, color: L.rgb(0.878, 0.878, 0.878) });
+        texto(p, rec, 'Portafolio de Evidencias', x0 + 14, yBanda + 32, 26, rec.negrita, { color: L.rgb(1, 1, 1) });
+
+        var yDatos = 70, hDatos = yBanda - yDatos - 6;
+        p.drawRectangle({ x: x0, y: yDatos, width: ancho, height: hDatos, color: L.rgb(0.663, 0.663, 0.663) });
+
+        /* El primer renglón del estándar comparte línea con su etiqueta, así
+           que se envuelve con menos ancho que los siguientes: con un solo
+           ancho, esa línea se salía por la derecha del bloque. */
+        var etqEst = 'Clave y nombre del estándar', anchoEtq = rec.negrita.widthOfTextAtSize(etqEst, 11) + 5;
+        var completo = ESTANDAR.join(' '), est = [];
+        var prim = envolver(completo, rec.normal, 11, ancho - 28 - anchoEtq);
+        est.push(prim[0]);
+        var resto = completo.slice(prim[0].length).trim();
+        if (resto) est = est.concat(envolver(resto, rec.normal, 11, ancho - 28));
+        var filas = [['Candidato/a :', d.nombre || '']]
+            .concat(est.map(function (l, i) { return i ? ['', l] : [etqEst, l]; }),
+                [['Clave del CE', '1399-OC063-18'], ['Evaluador :', d.evaluador || ''],
+                 ['Fecha:', fechaDMY(d.fecha)], ['Lote:', d.lote || '']]);
+        /* Los datos van abajo del bloque, como en el machote. */
+        var y = yDatos + hDatos * 0.45;
         filas.forEach(function (f) {
-            if (f[0]) texto(p, rec, f[0], 80, y, 10, rec.negrita);
-            texto(p, rec, f[1], 280, y, 10);
-            y -= 16;
+            var x = x0 + 14;
+            if (f[0]) { texto(p, rec, f[0], x, y, 11, rec.negrita); x += rec.negrita.widthOfTextAtSize(f[0], 11) + 5; }
+            texto(p, rec, f[1], x, y, 11);
+            y -= 17;
         });
     }
 
