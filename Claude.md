@@ -722,6 +722,14 @@ Pruebas: `tests/admin-precios-filtros.test.js` (19) — carga el script de la p�
 
 **⚠️ Riesgo asumido, que conviene no olvidar:** la liga de registro es **pública** y se comparte por WhatsApp — y las ligas de WhatsApp se reenvían. Con este RPC, cualquiera que la tenga puede registrarse y quedar con acceso a los 142 reactivos. El control es **a posteriori**: revisar quién entró por `origen = 'registro-50'` y apagar el badge de quien no pagó. Si eso deja de alcanzar, la salida natural es exigir un código en la liga (`registro.html?c=XXXX`) y validarlo dentro del mismo RPC.
 
+## Cambios recientes (24 de septiembre, 2026) — auditoría legal y de seguridad
+
+- **Auditoría con la guía NodeStudio** (privacidad, cookies, formularios, accesibilidad, claims). Reporte completo, con lo que falta decidir: `docs/legal/2026-09-24-auditoria.md`. Borrador del Aviso de Privacidad del sitio (NO publicado, con `[COMPLETAR]`): `docs/legal/BORRADOR-aviso-de-privacidad.md`.
+- **Los endpoints de `api/` ya exigen sesión (`lib/sesion.js`).** Antes cualquiera con la URL leía el precio negociado o las inscripciones (con liga de Zoom) de otro candidato cambiando el correo, inscribía correos ajenos (invitación de Calendar + correo de Resend) y creaba/borraba eventos del calendario. Ahora: `monto-fase`, `crear-preferencia`, `mis-inscripciones-alineacion` e `inscribir-alineacion` solo responden por el correo **de la sesión** (o a un admin); `crear/eliminar-evento-google` y `kpi-data`, solo a admins; `sesiones-alineacion` sigue pública pero **sin `zoom_link`** salvo para admins (el candidato recibe su liga por `mis-inscripciones`). **Toda llamada nueva a `/api/*` desde el navegador debe usar `headers: await Auth.apiHeaders()`**, o recibirá 401. Pruebas: `tests/sesion-api.test.js`.
+- **`master-login`:** comparación en tiempo constante + 0.8 s de pausa por fallo. Sigue sin límite real de intentos (pendiente de decisión, ver el reporte).
+- **Landing:** se quitó el SDK de Mercado Pago (se cargaba en cada visita para un Wallet Brick con `'YOUR_PREFERENCE_ID'` que siempre fallaba; el pago va por `mpago.la`). FAQ operable con teclado. Sin "Stripe" en el FAQ.
+- **`vercel.json`:** HSTS, `Permissions-Policy` y `Cache-Control: no-store` en `/api/*`.
+
 ## Cambios recientes (23 de septiembre, 2026)
 
 - **Seis hallazgos de Diego sobre su portafolio real (23 sep).** Los revisó página por página y salieron cosas de fondo:
@@ -1007,6 +1015,7 @@ Landing (`index.html`) sigue un arco emocional Vocación→Miedo→Transformaci�
 - `MASTER_LOGIN_PASSWORD` y `SUPABASE_SERVICE_ROLE_KEY` solo se usan server-side (`api/master-login.js`, `api/*-webhook.js`) — nunca en HTML/JS de cliente.
 - El bypass de navegación (`CANDIDATE_FLOW_BYPASS_EMAIL`) se verifica siempre server-side vía RPC; el chequeo local (`isFlowBypassAdmin`) solo decide qué UI mostrar antes de que exista sesión, nunca otorga acceso por sí solo.
 - `kpi-dashboard-live.html` no tiene gate — no compartir ese link; usar `admin-kpis.html` (gateado) en su lugar (backlog #13).
+- Los endpoints de `api/` validan el token de Supabase con `lib/sesion.js` (24 sep); el correo que cuenta es el de la sesión, nunca el del body.
 
 ---
 

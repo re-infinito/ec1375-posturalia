@@ -69,6 +69,8 @@ async function obtenerMontoFase(email, fase) {
     return totalAcordado * PORCENTAJE_FASE[fase];
 }
 
+const { exigirDuenoOAdmin } = require('../lib/sesion');
+
 module.exports = async (req, res) => {
     if (req.method !== 'POST') {
         res.status(405).json({ error: 'Method not allowed' });
@@ -87,6 +89,9 @@ module.exports = async (req, res) => {
             res.status(400).json({ error: 'Fase inválida' });
             return;
         }
+
+        // El precio es negociado por candidato: solo el propio, o el equipo.
+        if (!(await exigirDuenoOAdmin(req, res, emailNormalizado))) return;
 
         const montoBruto = await obtenerMontoFase(emailNormalizado, fase);
         const monto = Math.round(montoBruto * 100) / 100;

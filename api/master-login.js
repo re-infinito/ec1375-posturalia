@@ -19,6 +19,15 @@
 //                                debe aparecer en código cliente.
 
 import { createClient } from '@supabase/supabase-js';
+import { createHash, timingSafeEqual } from 'node:crypto';
+
+/* Se comparan los hashes (mismo largo siempre) para no filtrar ni el largo. */
+function contrasenaCorrecta(recibida, real) {
+    if (typeof recibida !== 'string' || !recibida || !real) return false;
+    const a = createHash('sha256').update(recibida).digest();
+    const b = createHash('sha256').update(String(real)).digest();
+    return timingSafeEqual(a, b);
+}
 
 const SUPABASE_URL = 'https://numsuiuwrvpprhnxovmh.supabase.co';
 
@@ -43,11 +52,15 @@ export default async function handler(req, res) {
         /* Se verifica la contraseña maestra ANTES de tocar el correo, y con
            un mensaje genérico si falla — así alguien probando contraseñas
            al azar no aprende nada sobre qué correos existen o están
-           autorizados. Comparación simple (no constant-time): proporcional
-           al resto de la seguridad de este proyecto (ej. el webhook sí usa
-           HMAC porque valida un tercero externo; esto es una herramienta
-           interna con un secreto rotable). */
-        if (!password || password !== masterPassword) {
+           autorizados. Desde el 24 sep (auditoría): comparación en tiempo
+           constante y una pausa en cada fallo. Auth._handleSignIn() prueba
+           este endpoint después de CADA login fallido de candidato, así que
+           cualquier intento en el login público es también un intento contra
+           la contraseña maestra — la pausa encarece la fuerza bruta. El
+           límite de intentos de verdad necesita guardar estado (tabla en
+           Supabase); queda como pendiente. */
+        if (!contrasenaCorrecta(password, masterPassword)) {
+            await new Promise(r => setTimeout(r, 800));
             res.status(401).json({ error: 'No autorizado' });
             return;
         }

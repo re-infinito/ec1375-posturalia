@@ -5,6 +5,7 @@
  */
 
 const { createClient } = require('@supabase/supabase-js');
+const { usuarioDeSesion, esAdmin } = require('../lib/sesion');
 
 const supabase = createClient(
     process.env.SUPABASE_URL,
@@ -66,8 +67,15 @@ module.exports = async (req, res) => {
         }
 
         // Agregar cupos disponibles
+        // La lista es pública (se ve antes de inscribirse), pero la liga de
+        // Zoom no: el candidato la recibe por mis-inscripciones-alineacion al
+        // inscribirse. Solo el equipo la ve aquí (admin-crm / admin-data).
+        const usuario = await usuarioDeSesion(req);
+        const verZoom = !!usuario && await esAdmin(usuario.email);
+
         const sesionesConCupo = sesiones.map(s => ({
             ...s,
+            zoom_link: verZoom ? s.zoom_link : undefined,
             inscritos: inscritos[s.id] || 0,
             cupos_disponibles: s.capacidad_maxima - (inscritos[s.id] || 0),
             llena: (inscritos[s.id] || 0) >= s.capacidad_maxima
@@ -81,8 +89,7 @@ module.exports = async (req, res) => {
     } catch (error) {
         console.error('Error en /api/sesiones-alineacion:', error);
         res.status(500).json({
-            error: 'Error al cargar sesiones',
-            message: error.message
+            error: 'Error al cargar sesiones'
         });
     }
 };

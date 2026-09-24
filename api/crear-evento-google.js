@@ -11,6 +11,7 @@
  */
 
 const { google } = require('googleapis');
+const { exigirAdmin } = require('../lib/sesion');
 
 // GOOGLE_CALENDAR_KEY_FILE debe contener el JSON completo de la Service
 // Account (no una ruta de archivo) — Vercel no tiene un filesystem
@@ -43,6 +44,9 @@ module.exports = async (req, res) => {
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Method not allowed' });
     }
+
+    // Solo el equipo (admin-sesiones.html) crea/borra eventos del calendario.
+    if (!(await exigirAdmin(req, res))) return;
 
     const { fecha, horaInicio, horaFin, instructor, zoomLink } = req.body;
 

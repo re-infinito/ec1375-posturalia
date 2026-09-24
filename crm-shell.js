@@ -468,7 +468,7 @@
         return '' +
             '<button type="button" class="crm-iconbtn crm-hamburger" data-crm-open aria-label="Abrir menú">' + icon('menu') + '</button>' +
             '<div class="crm-topbar-titles"><div class="crm-topbar-title">' + escapeHtml(title) + '</div><div class="crm-topbar-sub" data-crm-sub hidden></div></div>' +
-            '<button type="button" class="crm-iconbtn" data-crm-theme-btn="icon" title="Cambiar tema">' + icon('moon') + '</button>' +
+            '<button type="button" class="crm-iconbtn" data-crm-theme-btn="icon" title="Cambiar tema" aria-label="Cambiar tema">' + icon('moon') + '</button>' +
             '<div class="crm-userchip"><span class="crm-avatar" data-crm-avatar>?</span><span class="crm-user-short" data-crm-name-short></span></div>';
     }
 

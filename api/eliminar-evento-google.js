@@ -11,6 +11,7 @@
  */
 
 const { google } = require('googleapis');
+const { exigirAdmin } = require('../lib/sesion');
 
 function getCalendarClient() {
     const raw = process.env.GOOGLE_CALENDAR_KEY_FILE;
@@ -36,6 +37,9 @@ module.exports = async (req, res) => {
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Method not allowed' });
     }
+
+    // Solo el equipo (admin-sesiones.html) crea/borra eventos del calendario.
+    if (!(await exigirAdmin(req, res))) return;
 
     const { eventId } = req.body;
 

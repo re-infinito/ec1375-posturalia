@@ -85,7 +85,7 @@
        API falla (en local, sin Vercel, siempre falla — esperado). */
     async function cargarInscripciones(email) {
         try {
-            const resp = await fetch(`/api/mis-inscripciones-alineacion?email=${encodeURIComponent(email)}`);
+            const resp = await fetch(`/api/mis-inscripciones-alineacion?email=${encodeURIComponent(email)}`, { headers: await Auth.apiHeaders() });
             if (!resp.ok) return null;
             const data = await resp.json();
             return Array.isArray(data.inscripciones) ? data.inscripciones : [];

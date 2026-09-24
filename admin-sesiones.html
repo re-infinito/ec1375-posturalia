@@ -435,7 +435,7 @@
         try {
             const resp = await fetch('/api/crear-evento-google', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: await Auth.apiHeaders(),
                 body: JSON.stringify({ fecha, horaInicio, horaFin, instructor, zoomLink })
             });
 
@@ -482,7 +482,7 @@
             try {
                 const resp = await fetch('/api/eliminar-evento-google', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: await Auth.apiHeaders(),
                     body: JSON.stringify({ eventId: sesion.google_event_id })
                 });
                 if (!resp.ok) {

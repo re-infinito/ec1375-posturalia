@@ -6,6 +6,7 @@
  */
 
 const { createClient } = require('@supabase/supabase-js');
+const { exigirDuenoOAdmin } = require('../lib/sesion');
 const { google } = require('googleapis');
 const { enviarConfirmacionInscripcion } = require('../lib/send-email');
 
@@ -48,6 +49,10 @@ module.exports = async (req, res) => {
             error: 'Faltan campos requeridos'
         });
     }
+
+    // Solo te inscribes a ti mismo: el correo recibe invitación de Calendar
+    // y un correo con la liga de Zoom.
+    if (!(await exigirDuenoOAdmin(req, res, usuario_email))) return;
 
     try {
         // 1. Obtener sesión
@@ -214,7 +219,7 @@ async function enviarEmailConfirmacion(inscripcion, sesion, zoomLink) {
             console.error('El email sí se envió, pero falló el insert de auditoría:', auditError);
         }
 
-        console.log('✓ Email de confirmación enviado a:', inscripcion.usuario_email);
+        console.log('✓ Email de confirmación enviado (inscripción', inscripcion.id + ')');
         return resultado;
     } catch (error) {
         console.error('Error enviando email:', error);

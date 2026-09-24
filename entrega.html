@@ -110,7 +110,7 @@
         try {
             const resp = await fetch('/api/monto-fase', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: await Auth.apiHeaders(),
                 body: JSON.stringify({ email, fase })
             });
             if (!resp.ok) return null;
@@ -173,7 +173,7 @@
             const result = loadAutodiagnosticoResult();
             const resp = await fetch('/api/crear-preferencia', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: await Auth.apiHeaders(),
                 body: JSON.stringify({ email, fase: 'entrega', nombre: result ? result.personalData.nombre : '' })
             });
             const data = await resp.json();

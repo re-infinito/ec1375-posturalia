@@ -51,7 +51,7 @@ class SesionesAlineacionComponent {
      */
     async cargarMisInscripciones() {
         try {
-            const resp = await fetch(`/api/mis-inscripciones-alineacion?email=${encodeURIComponent(this.usuarioEmail)}`);
+            const resp = await fetch(`/api/mis-inscripciones-alineacion?email=${encodeURIComponent(this.usuarioEmail)}`, { headers: await Auth.apiHeaders() });
             if (!resp.ok) { this.misInscripciones = []; return; }
             const data = await resp.json();
             this.misInscripciones = (data.inscripciones || []).filter(i => i.estado === 'confirmada' && i.sesion);
@@ -80,7 +80,7 @@ class SesionesAlineacionComponent {
         try {
             const resp = await fetch('/api/inscribir-alineacion', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: await Auth.apiHeaders(),
                 body: JSON.stringify({
                     sesion_id: sesionId,
                     usuario_email: this.usuarioEmail,

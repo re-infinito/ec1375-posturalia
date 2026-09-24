@@ -3,13 +3,30 @@ import { createClient } from '@supabase/supabase-js';
 const SUPABASE_URL = 'https://numsuiuwrvpprhnxovmh.supabase.co';
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
+// Ninguna página lo llama ya (admin-kpis.html lee Supabase directo con RLS),
+// pero seguía respondiendo ingresos y candidatos a cualquiera con la URL
+// (auditoría 24 sep). Ahora exige sesión de admin, igual que admin-kpis.
+async function esSesionAdmin(req, supabase) {
+  const authHeader = req.headers.authorization || '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  if (!token) return false;
+  const { data, error } = await supabase.auth.getUser(token);
+  if (error || !data || !data.user || !data.user.email) return false;
+  const adm = await supabase.rpc('is_admin', { check_email: data.user.email });
+  return !adm.error && adm.data === true;
+}
+
 export default async function handler(req, res) {
+  res.setHeader('Cache-Control', 'no-store, max-age=0');
   if (!SUPABASE_SERVICE_KEY) {
-    return res.status(500).json({ error: 'SUPABASE_SERVICE_ROLE_KEY no configurada' });
+    return res.status(500).json({ error: 'Servicio no configurado' });
   }
 
   try {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+    if (!(await esSesionAdmin(req, supabase))) {
+      return res.status(401).json({ error: 'Solo el equipo puede ver los KPIs' });
+    }
 
     const [precios, pagos] = await Promise.all([
       supabase.from('candidatos_precio').select('*'),
@@ -76,6 +93,6 @@ export default async function handler(req, res) {
     });
   } catch (error) {
     console.error('Error en kpi-data:', error);
-    return res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: 'Error interno' });
   }
 }

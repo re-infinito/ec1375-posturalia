@@ -22,6 +22,8 @@ const COLUMNA_MONTO_FASE = {
     entrega: 'monto_entrega'
 };
 
+const { exigirDuenoOAdmin } = require('../lib/sesion');
+
 module.exports = async (req, res) => {
     if (req.method !== 'POST') {
         res.status(405).json({ error: 'Method not allowed' });
@@ -40,6 +42,9 @@ module.exports = async (req, res) => {
             res.status(400).json({ error: 'Fase inválida' });
             return;
         }
+
+        // El precio es negociado por candidato: solo el propio, o el equipo.
+        if (!(await exigirDuenoOAdmin(req, res, emailNormalizado))) return;
 
         const resp = await fetch(
             `${SUPABASE_URL}/rest/v1/candidatos_precio?email=eq.${encodeURIComponent(emailNormalizado)}&select=total_acordado,monto_registro,monto_alineacion,monto_evaluacion,monto_entrega`,

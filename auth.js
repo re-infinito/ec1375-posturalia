@@ -71,6 +71,15 @@ const Auth = {
         return Auth._session;
     },
 
+    /* Encabezados para llamar a /api/*: los endpoints validan la sesión con
+       este token y solo responden por el correo de la sesión (lib/sesion.js). */
+    async apiHeaders() {
+        const session = await Auth.getSession();
+        const headers = { 'Content-Type': 'application/json' };
+        if (session && session.access_token) headers.Authorization = 'Bearer ' + session.access_token;
+        return headers;
+    },
+
     hasSession() {
         return !!Auth._session;
     },
@@ -555,7 +564,7 @@ const Auth = {
         if (step === 'email') {
             container.innerHTML = `
                 <div class="field-group">
-                    <label>Correo electrónico</label>
+                    <label for="authEmailInput">Correo electrónico</label>
                     <input type="email" id="authEmailInput" placeholder="tu@email.com">
                 </div>
                 ${errorHtml}
@@ -573,7 +582,7 @@ const Auth = {
             container.innerHTML = `
                 <p style="font-size:0.85rem;margin-bottom:14px;">Inicia sesión con <strong>${Auth._pendingEmail}</strong></p>
                 <div class="field-group">
-                    <label>Contraseña</label>
+                    <label for="authPasswordInput">Contraseña</label>
                     <input type="password" id="authPasswordInput" placeholder="Tu contraseña">
                 </div>
                 <label style="display:flex;align-items:center;gap:8px;font-size:0.85rem;margin:-4px 0 14px;cursor:pointer;">
@@ -588,11 +597,11 @@ const Auth = {
             container.innerHTML = `
                 <p style="font-size:0.85rem;margin-bottom:14px;">Crea tu contraseña para <strong>${Auth._pendingEmail}</strong></p>
                 <div class="field-group">
-                    <label>Contraseña (mínimo 6 caracteres)</label>
+                    <label for="authPasswordInput">Contraseña (mínimo 6 caracteres)</label>
                     <input type="password" id="authPasswordInput" placeholder="Crea tu contraseña">
                 </div>
                 <div class="field-group">
-                    <label>Confirma tu contraseña</label>
+                    <label for="authPasswordConfirmInput">Confirma tu contraseña</label>
                     <input type="password" id="authPasswordConfirmInput" placeholder="Repite tu contraseña">
                 </div>
                 <label style="display:flex;align-items:center;gap:8px;font-size:0.85rem;margin:-4px 0 14px;cursor:pointer;">
@@ -799,7 +808,7 @@ const Auth = {
         if (step === 'email') {
             container.innerHTML = `
                 <div class="field-group">
-                    <label>Correo de administrador</label>
+                    <label for="adminEmailInput">Correo de administrador</label>
                     <input type="email" id="adminEmailInput" placeholder="tu@correo.com">
                 </div>
                 ${errorHtml}
@@ -817,7 +826,7 @@ const Auth = {
             container.innerHTML = `
                 <p style="font-size:0.85rem;margin-bottom:14px;">Inicia sesión con <strong>${Auth._pendingAdminEmail}</strong></p>
                 <div class="field-group">
-                    <label>Contraseña</label>
+                    <label for="adminPasswordInput">Contraseña</label>
                     <input type="password" id="adminPasswordInput" placeholder="Tu contraseña">
                 </div>
                 <label style="display:flex;align-items:center;gap:8px;font-size:0.85rem;margin:-4px 0 14px;cursor:pointer;">
@@ -832,11 +841,11 @@ const Auth = {
             container.innerHTML = `
                 <p style="font-size:0.85rem;margin-bottom:14px;">Crea tu contraseña para <strong>${Auth._pendingAdminEmail}</strong></p>
                 <div class="field-group">
-                    <label>Contraseña (mínimo 6 caracteres)</label>
+                    <label for="adminPasswordInput">Contraseña (mínimo 6 caracteres)</label>
                     <input type="password" id="adminPasswordInput" placeholder="Crea tu contraseña">
                 </div>
                 <div class="field-group">
-                    <label>Confirma tu contraseña</label>
+                    <label for="adminPasswordConfirmInput">Confirma tu contraseña</label>
                     <input type="password" id="adminPasswordConfirmInput" placeholder="Repite tu contraseña">
                 </div>
                 <label style="display:flex;align-items:center;gap:8px;font-size:0.85rem;margin:-4px 0 14px;cursor:pointer;">

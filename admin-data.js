@@ -549,7 +549,9 @@
             q(sb.rpc('admin_lista_nombres')),
             q(sb.rpc('admin_lista_candidatos')),
             q(sb.from('evaluaciones').select('email,etapas,cedula,firma_candidato,portafolio')),
-            fetch('/api/sesiones-alineacion').then(function (r) { return r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)); })
+            // Con token: el endpoint solo incluye zoom_link para el equipo.
+            (typeof Auth !== 'undefined' && Auth.apiHeaders ? Auth.apiHeaders() : Promise.resolve({}))
+                .then(function (headers) { return fetch('/api/sesiones-alineacion', { headers: headers }); }).then(function (r) { return r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)); })
                 .then(function (d) { return { data: d.sesiones || [], error: null }; }, function (e) { return { data: null, error: e }; }),
             q(sb.from('sala_evidencias_config').select('dias_limite').eq('id', 1).maybeSingle()),
             q(sb.from('reservas_evidencia').select('email,estado,horarios_evidencia(inicio,fin)').in('estado', ['reservada', 'asistio'])),

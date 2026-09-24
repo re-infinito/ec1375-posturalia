@@ -4,6 +4,7 @@
  */
 
 const { createClient } = require('@supabase/supabase-js');
+const { exigirDuenoOAdmin } = require('../lib/sesion');
 
 const supabase = createClient(
     process.env.SUPABASE_URL,
@@ -23,6 +24,9 @@ module.exports = async (req, res) => {
     if (!email) {
         return res.status(400).json({ error: 'Email requerido' });
     }
+
+    // Solo las inscripciones propias (traen la liga de Zoom), o el equipo.
+    if (!(await exigirDuenoOAdmin(req, res, email))) return;
 
     try {
         // Obtener todas las inscripciones del usuario
