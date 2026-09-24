@@ -62,6 +62,11 @@
         .likert-item:last-child { border-bottom: none; }
         .likert-question { font-size: 0.9rem; color: var(--text-bright); margin-bottom: 12px; font-weight: 600; }
         .likert-options { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+        .btn-rellenar { margin-left: 10px; padding: 5px 12px; border-radius: 999px; border: 1px solid var(--primary);
+            background: transparent; color: var(--primary); font-size: 0.78rem; font-weight: 600; cursor: pointer; font-family: inherit; }
+        .btn-rellenar:hover { background: rgba(0,136,255,0.12); }
+        .btn-rellenar:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+        .aviso-relleno { font-size: 0.8rem; color: var(--accent); margin: -6px 0 12px; }
         .likert-btn {
             padding: 9px 4px; border-radius: 6px; border: 1px solid var(--border);
             background: var(--dark); color: var(--text); font-size: 0.68rem; font-weight: 600;
@@ -132,6 +137,29 @@
     ];
 
     let respuestas = {};
+    /* Aviso del botón de "marcar todas". Va con el nombre de SU bloque, no
+       suelto: si no, el mensaje de un bloque se queda pegado debajo de otro.
+       render() lo limpia al terminar de pintarlo. */
+    let avisoRelleno = null;
+    function avisoDe(bloque) {
+        return avisoRelleno && avisoRelleno.bloque === bloque
+            ? `<p class="aviso-relleno">${escapeHtml(avisoRelleno.texto)}</p>` : '';
+    }
+    /* Botón para llenar de un clic. NO pisa lo ya contestado: la respuesta que
+       el candidato eligió a propósito es suya, y borrarla en silencio es el
+       mismo error que tenía "Todo Sí" del IEC. Dice qué respetó. */
+    function botonRellenar(accion, etiqueta) {
+        return `<button type="button" class="btn-rellenar" data-rellenar="${accion}">Marcar todas «${escapeHtml(etiqueta)}»</button>`;
+    }
+    function rellenar(bloque, total, yaContestadas, poner) {
+        let puestas = 0;
+        for (let i = 0; i < total; i++) if (!yaContestadas(i)) { poner(i); puestas++; }
+        const respetadas = total - puestas;
+        avisoRelleno = { bloque: bloque, texto: puestas
+            ? 'Se marcaron ' + puestas + (respetadas ? '. Se respetaron ' + respetadas + ' que ya habías contestado.' : '.')
+            : 'Ya estaban todas contestadas: no se cambió ninguna.' };
+        saveProgress(); render();
+    }
     let comentarios = '';
     let signatureMode = 'draw';
     let signatureDataUrl = null;
@@ -402,7 +430,9 @@
                     <span style="color: ${allAnswered ? 'var(--success)' : 'var(--danger)'}; font-weight: 600;">
                         ${allAnswered ? '✓ Todas respondidas' : `${unansweredCount} sin responder`}
                     </span>
+                    ${botonRellenar('likert', ESCALA[0].valor)}
                 </p>
+                ${avisoDe('likert')}
                 ${PREGUNTAS.map((p, idx) => {
                     const isAnswered = respuestas[idx];
                     return `
@@ -460,6 +490,7 @@
         const comentariosEl = document.getElementById('f_comentarios');
         if (comentariosEl) comentariosEl.addEventListener('input', () => { comentarios = comentariosEl.value; saveProgress(); });
         enlazarCierre();
+        avisoRelleno = null;   /* ya se pintó: que no se quede pegado en el siguiente render */
 
         if (signatureMode === 'draw') setTimeout(initSignatureCanvas, 50);
         FirmaCandidato.ofrecer(document.getElementById('usarFirmaAuto'), { onUsar: usarFirmaAutodiagnostico });
@@ -497,7 +528,9 @@
                 </div>
                 <p style="font-size:0.85rem;margin:14px 0 6px;">
                     <span style="color:${falta ? 'var(--danger)' : 'var(--success)'};font-weight:600;">${falta ? falta + ' sin calificar' : '✓ Todos calificados'}</span>
+                    ${botonRellenar('asp', Cierre.ESCALA_SERVICIO[0])}
                 </p>
+                ${avisoDe('asp')}
                 ${Cierre.ASPECTOS_SERVICIO.map((a, i) => filaOpcion(a, d.aspectos[i], 'asp', i)).join('')}
                 <div class="field-group" style="margin-top:14px;">
                     <label>Comentarios y/o sugerencias (opcional)</label>
@@ -527,12 +560,21 @@
                 </div>
                 <p style="font-size:0.85rem;margin:14px 0 6px;">
                     <span style="color:${falta ? 'var(--danger)' : 'var(--success)'};font-weight:600;">${falta ? falta + ' sin calificar' : '✓ Todas calificadas'}</span>
+                    ${botonRellenar('at2', Cierre.ESCALA_SERVICIO[0])}
                 </p>
+                ${avisoDe('at2')}
                 ${Cierre.ATENCION_PREGUNTAS.map((q, i) => filaOpcion(q, d.respuestas[i], 'at2', i)).join('')}
             </div>`;
     }
     function enlazarCierre() {
         const q = sel => Array.from(document.querySelectorAll(sel));
+        q('[data-rellenar]').forEach(b => b.onclick = () => {
+            const mejor = Cierre.ESCALA_SERVICIO[0];
+            const k = b.dataset.rellenar;
+            if (k === 'likert') rellenar(k, PREGUNTAS.length, i => !!respuestas[i], i => { respuestas[i] = ESCALA[0].valor; });
+            else if (k === 'asp') rellenar(k, Cierre.ASPECTOS_SERVICIO.length, i => !!cierreCand.servicio.aspectos[i], i => { cierreCand.servicio.aspectos[i] = mejor; });
+            else rellenar(k, Cierre.ATENCION_PREGUNTAS.length, i => !!cierreCand.atencion.respuestas[i], i => { cierreCand.atencion.respuestas[i] = mejor; });
+        });
         q('[data-asp]').forEach(b => b.onclick = () => { cierreCand.servicio.aspectos[b.dataset.asp] = b.dataset.val; saveProgress(); render(); });
         q('[data-at2]').forEach(b => b.onclick = () => { cierreCand.atencion.respuestas[b.dataset.at2] = b.dataset.val; saveProgress(); render(); });
         q('[data-medioev]').forEach(b => b.onclick = () => { cierreCand.servicio.medio = b.dataset.medioev; saveProgress(); render(); });
