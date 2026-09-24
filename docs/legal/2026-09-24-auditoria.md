@@ -71,7 +71,7 @@
 | 9 | Faltan HSTS, `Permissions-Policy` y `no-store` en `/api/*` | `vercel.json` | A | **Arreglado** |
 | 10 | Correos en logs del servidor; `error.message` devuelto al cliente | `api/inscribir-alineacion.js`, `sesiones-alineacion.js`, `kpi-data.js` | A | **Arreglado** |
 | 11 | FAQ dice "(Stripe/Mercado Pago)"; no hay Stripe | `index.html` | A | **Arreglado** (y errata "COMO TÍ") |
-| 12 | **Contador vencido:** fecha fija 21 jul 2026 → la landing en vivo dice "¡LA OFERTA HA CERRADO!" mientras las píldoras siguen diciendo "ÚLTIMO DÍA • CUPO LIMITADO • SEPTIEMBRE" | `index.html` ~991, 1376, 1383 | B | Decidir: quitar la urgencia o ligarla a una fecha real de generación |
+| 12 | **Contador vencido:** fecha fija 21 jul 2026 → la landing en vivo dice "¡LA OFERTA HA CERRADO!" mientras las píldoras siguen diciendo "ÚLTIMO DÍA • CUPO LIMITADO • SEPTIEMBRE" | `index.html` ~991, 1376, 1383 | B | **Arreglado (decisión de Diego):** fuera la píldora y los dos contadores; la barra fija dice "Certificación EC1375 · Pagos en 4 exhibiciones" |
 | 13 | **Testimonios no verificables** (María C., Alberto H., Laura G.: sin apellido, foto ni folio) con claims de ingreso ("Gano 40% más") | `index.html` 1166-1217 | B | ¿Son personas reales con permiso por escrito? Si no, quitar |
 | 14 | **"156+"** en 5 lugares, y en uno dice "YA REGULARIZADOS" y en otro "inscritos" | `index.html` 1010, 1040, 1158, 1161; `success.html` 620 | B | Confirmar la cifra real y usar una sola palabra |
 | 15 | **Promesas legales/regulatorias:** "COFEPRIS lo respeta", "Eres responsable sanitario oficial sin necesidad de cédula", "Esta certificación te faculta" (Art. 79 LGS), "+40% más ganancias", "forma COMPROBADA", "reintentar sin costo adicional" | `index.html` 1082, 1088, 1094, 1263, 1303; `quiz.html` 394 | C | Revisión legal: es lo que más riesgo tiene frente a PROFECO |
@@ -149,5 +149,5 @@
 ## Plan de cambios
 
 1. **Aplicado en esta rama (tipo A):** hallazgos 1, 2 (mitigación), 5–11.
-2. **Requiere tu decisión (tipo B):** 2 (límite real / sacar del login público), borrar `api/kpi-data.js`, 12, 13, 14, 17, 18.
+2. **Requiere tu decisión (tipo B):** 2 (límite real / sacar del login público), borrar `api/kpi-data.js`, 13, 14, 17, 18.
 3. **Con un profesional (tipo C):** 3 (aprobar y publicar el aviso), 4, 15, 16, 19.

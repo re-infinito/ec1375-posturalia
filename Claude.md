@@ -729,6 +729,7 @@ Pruebas: `tests/admin-precios-filtros.test.js` (19) — carga el script de la p�
 - **`master-login`:** comparación en tiempo constante + 0.8 s de pausa por fallo. Sigue sin límite real de intentos (pendiente de decisión, ver el reporte).
 - **Landing:** se quitó el SDK de Mercado Pago (se cargaba en cada visita para un Wallet Brick con `'YOUR_PREFERENCE_ID'` que siempre fallaba; el pago va por `mpago.la`). FAQ operable con teclado. Sin "Stripe" en el FAQ.
 - **`vercel.json`:** HSTS, `Permissions-Policy` y `Cache-Control: no-store` en `/api/*`.
+- **Sin urgencia falsa en la landing** (decisión de Diego): se quitaron la píldora "ÚLTIMO DÍA • CUPO LIMITADO" y los dos contadores (fecha fija 21 jul: en vivo decían "¡LA OFERTA HA CERRADO!" y además escondían la barra fija). La barra fija vuelve a verse con "Certificación EC1375 · Pagos en 4 exhibiciones". Si algún día hay cierre de generación real, que la fecha salga de datos, no del código.
 
 ## Cambios recientes (23 de septiembre, 2026)
 
