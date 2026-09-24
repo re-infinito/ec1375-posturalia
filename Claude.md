@@ -599,7 +599,7 @@ La limpieza del 16 sep había quitado 5 cadenas de texto; **todo lo demás segu�
 - **Lo que llena Humberto viendo el video es el IEC**, que es la evaluación de lo acordado en el Plan de Evaluación: sus 142 reactivos son las 29 filas del Plan desglosadas. La columna "Fecha" de esas 29 filas ya la llena el sitio con la fecha de la evaluación, igual que en el expediente aprobado.
 - Fuera de alcance: correo automático, cobro de la reevaluación, subir el portafolio al portal de la SEP.
 
-## Sala de evidencias en Zoom (18 sep) — ⚠️ falta correr el SQL y crear la app de Zoom
+## Sala de evidencias en Zoom (18 sep) — ✅ SQL aplicado y app de Zoom creada (24 sep); sesiones habilitadas
 
 Spec: `docs/superpowers/specs/2026-09-18-sala-evidencias-zoom-design.md` · Plan: `docs/superpowers/plans/2026-09-18-sala-evidencias-zoom.md` · **Guía para Diego:** `docs/guias/2026-09-18-zoom-sala-evidencias.md`.
 
@@ -736,7 +736,8 @@ Pruebas: `tests/admin-precios-filtros.test.js` (19) — carga el script de la p�
   3. **Protocolo de apertura** en `guion-maestro.html` (INE a cámara, fecha y domicilio, recorrido, consentimiento en cámara, sin cortes) y el recordatorio para el evaluador en la tarjeta "Grabación de la sesión" de `admin-evaluacion.html`, con el domicilio declarado.
   4. **Autenticidad** (`evidencias.html`, versión `2026-09-24`): suma "quien atiende en el video soy yo", la verificación (videollamada, originales, repetir la sesión) y las consecuencias (cancelación sin reembolso, aviso al CE). Ya no dice "libero de toda responsabilidad" sino que la falsedad es responsabilidad del candidato. **La aceptación de la versión anterior ya no cuenta**: hay que volver a marcarla.
   5. **Video fuera de la sala:** la liga externa de Evidencias dice que solo vale con autorización del evaluador; `Evaluacion.videoEsExterno()` / `planPortafolio().videoExterno` lo marcan en el panel. **No va en `avisos`**: esos se imprimen en el Índice del portafolio que se entrega a la SEP.
-  - `AdminData.declaraciones()` ya trae las 8 (con `version` exigida y `detalle` del espacio). Pendiente con el evaluador: el guion dice "atención **simulada**" y el resto del sitio "sesión real con paciente" — la declaración se redactó para ser cierta en ambos casos.
+  - `AdminData.declaraciones()` ya trae las 8 (con `version` exigida y `detalle` del espacio).
+  - **Respuestas de Diego (24 sep):** la persona atendida **puede ser voluntario o familiar** (la declaración lo dice); el EC1375 **no exige espacio propio**; **solo se aceptan grabaciones de la sala de Zoom de Paideia** — Evidencias ya no tiene el campo de liga externa (a quien ya tenía una guardada se le avisa que no se acepta, y el panel la marca con `videoExterno`).
 
 ## Cambios recientes (23 de septiembre, 2026)
 

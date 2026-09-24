@@ -163,3 +163,5 @@ video fuera de la sala marcado para autorización del evaluador. Detalle técnic
 
 **Preguntas para el evaluador:** ¿la atención evaluada puede ser a un voluntario o familiar? (el Guion dice "atención simulada"); ¿el EC1375 exige
 que el espacio sea propio?; ¿acepta videos grabados fuera de la sala de Paideia y en qué casos?
+
+**Respuestas (24 sep):** voluntario o familiar sí; espacio propio no se exige; solo videos de la sala de Paideia (sala activa: SQL aplicado y app de Zoom creada). Aplicado en el código.

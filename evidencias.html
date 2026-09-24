@@ -453,9 +453,7 @@
                     const estadoId = e.key ? 'estado' + e.key.charAt(0).toUpperCase() + e.key.slice(1) : '';
                     const control = e.isGrabacion
                         ? `<div data-sala-grabacion style="margin-top:10px;"></div>
-                           <details style="margin-top:10px;"${planData.videoLink ? ' open' : ''}><summary style="cursor:pointer;font-size:0.82rem;color:var(--text);">¿Grabaste fuera de la sala de Paideia? Solo con autorización de tu evaluador</summary>
-                           <p style="font-size:0.8rem;color:var(--text);margin-top:8px;line-height:1.5;">Un video grabado fuera de la sala no se puede verificar, así que solo cuenta si tu evaluador lo autorizó antes. Si no lo autoriza, tendrás que repetir tu sesión en la sala de Paideia.</p>
-                           <input type="text" id="f_videoLink" value="${escapeHtml(planData.videoLink)}" placeholder="https://youtube.com/..." oninput="updateVideoLink(this.value)" style="width:100%;margin-top:10px;padding:10px 12px;background:var(--dark);border:1px solid var(--border);border-radius:6px;color:var(--text-bright);font-size:0.85rem;"></details>`
+                           ${planData.videoLink ? `<p style="font-size:0.8rem;color:var(--text);margin-top:10px;line-height:1.5;">Tienes guardada una liga de un video grabado fuera de la sala (${escapeHtml(planData.videoLink)}). Solo se aceptan grabaciones de la sala de Zoom de Paideia: tu evaluador te dirá si hay que repetir la sesión.</p>` : ''}`
                         : `<input type="file" id="f_${e.key}" accept="${e.accept}"${e.multiple ? ' multiple' : ''} aria-label="${escapeHtml(e.titulo)}" onchange="handleFileUpload('${e.key}', this.files, ${e.multiple ? 'true' : 'false'})" style="display:block;margin-top:10px;max-width:100%;">
                            <div id="${estadoId}">${renderEstadoArchivo(e.key)}</div>`;
                     return `
@@ -538,7 +536,6 @@
     }
 
     function toggleConfirm(el) { planData.evidenciasConfirmadas = el.checked; saveProgress(); updateGenerateButton(); }
-    function updateVideoLink(value) { planData.videoLink = value; saveProgress(); updateGenerateButton(); }
     function setSignatureMode(mode) { signatureMode = mode; saveProgress(); render(); }
     function usarFirmaAutodiagnostico(f) {
         signatureMode = f.mode;

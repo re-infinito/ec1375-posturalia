@@ -178,8 +178,9 @@
     }
     /* ¿El video del portafolio es la liga que pegó el candidato y no una
        grabación de la sala de Paideia? (24 sep, auditoría legal: un video
-       grabado fuera de la sala no se puede verificar y solo vale si el
-       evaluador lo autoriza.) NO va en `avisos`: esos se imprimen en el
+       grabado fuera de la sala no se puede verificar; desde el 24 sep solo se
+       aceptan grabaciones de la sala y Evidencias ya no pide liga. Esto marca
+       las ligas viejas.) NO va en `avisos`: esos se imprimen en el
        Índice del portafolio que se entrega. */
     function videoEsExterno(evaluacion, row) {
         var partes = evaluacion && evaluacion.video && Array.isArray(evaluacion.video.partes) ? evaluacion.video.partes : [];

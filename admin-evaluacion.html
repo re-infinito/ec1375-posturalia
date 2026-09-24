@@ -335,7 +335,7 @@
         const items = plan.items.filter(i => i.tipo !== 'generado');
         return `
             <p class="crm-muted" style="font-size:0.84rem;margin-bottom:10px;">Se arma aquí mismo con los archivos del NAS, en el orden del expediente aprobado, y se guarda en el almacenamiento privado del equipo. El candidato nunca lo ve.</p>
-            ${plan.videoExterno ? `<div class="crm-note">${ic('alert', 14)} El video es una liga que pegó el candidato, <strong>no una grabación de la sala de Paideia</strong>: no se puede verificar que sea suyo ni que no esté editado. Solo vale si el evaluador lo autorizó; si no, pídele repetir la sesión en la sala.</div>` : ''}
+            ${plan.videoExterno ? `<div class="crm-note">${ic('alert', 14)} El video es una liga que pegó el candidato, <strong>no una grabación de la sala de Paideia</strong>: no se puede verificar que sea suyo ni que no esté editado. Solo se aceptan grabaciones de la sala: pídele repetir la sesión ahí.</div>` : ''}
             ${plan.avisos.length ? `<ul class="ev-avisos">${plan.avisos.map(a => `<li>${esc(a)}</li>`).join('')}</ul>` : '<p class="ev-estado ok">Están todos los documentos del candidato.</p>'}
             <details style="margin-top:10px;"><summary class="crm-muted" style="cursor:pointer;font-size:0.84rem;">${items.length} archivos del NAS</summary>
                 <ul class="ev-items">${items.map(i => `<li>${ic('file', 14)}<span><strong>${esc(i.etiqueta)}</strong><br><span class="crm-muted" style="word-break:break-all;">${esc(i.ruta)}</span></span></li>`).join('')}</ul></details>
