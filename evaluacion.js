@@ -23,7 +23,10 @@
         { clave: 'entregado', label: 'Certificado entregado', manual: true }
     ];
 
-    var JUICIOS = ['COMPETENTE', 'NO COMPETENTE'];
+    /* El instrumento imprime "TODAVÍA NO COMPETENTE"; "NO COMPETENTE" se
+       sigue aceptando para las Cédulas publicadas antes del cambio. */
+    var JUICIOS = ['COMPETENTE', 'TODAVÍA NO COMPETENTE'];
+    var JUICIOS_ACEPTADOS = JUICIOS.concat(['NO COMPETENTE']);
     var CAMPOS_CEDULA = [
         { id: 'mejoresPracticas', label: 'Mejores prácticas' },
         { id: 'areasOportunidad', label: 'Áreas de oportunidad' },
@@ -35,7 +38,7 @@
 
     function cedulaPublicada(ev) {
         var c = ev && ev.cedula;
-        return c && !c.borrador && JUICIOS.indexOf(c.juicio) >= 0 ? c : null;
+        return c && !c.borrador && JUICIOS_ACEPTADOS.indexOf(c.juicio) >= 0 ? c : null;   /* una Cédula vieja sigue publicada */
     }
     function dictamenDe(ev) {
         var c = cedulaPublicada(ev);
@@ -84,7 +87,7 @@
         var falta = [];
         if (!texto(c.evaluadora)) falta.push('Nombre del evaluador(a)');
         if (!/^\d{4}-\d{2}-\d{2}$/.test(texto(c.fecha))) falta.push('Fecha');
-        if (JUICIOS.indexOf(c.juicio) < 0) falta.push('Juicio (COMPETENTE / NO COMPETENTE)');
+        if (JUICIOS_ACEPTADOS.indexOf(c.juicio) < 0) falta.push('Juicio (COMPETENTE / TODAVÍA NO COMPETENTE)');
         if (!CAMPOS_CEDULA.some(function (k) { return texto(c[k.id]); })) falta.push('Al menos un comentario del resultado');
         if (!firmaValida(c.firmaEvaluador)) falta.push('Firma del evaluador(a)');
         return falta;
@@ -285,7 +288,7 @@
     }
 
     var api = {
-        ETAPAS: ETAPAS, JUICIOS: JUICIOS, CAMPOS_CEDULA: CAMPOS_CEDULA, TEXTO_ACUERDO: TEXTO_ACUERDO, IEC_RUTA: IEC_RUTA,
+        ETAPAS: ETAPAS, JUICIOS: JUICIOS, JUICIOS_ACEPTADOS: JUICIOS_ACEPTADOS, CAMPOS_CEDULA: CAMPOS_CEDULA, TEXTO_ACUERDO: TEXTO_ACUERDO, IEC_RUTA: IEC_RUTA,
         lineaDeTiempo: lineaDeTiempo, dictamenDe: dictamenDe, cedulaPublicada: cedulaPublicada, firmaValida: firmaValida,
         validarCedula: validarCedula, publicarCedula: publicarCedula, guardarBorrador: guardarBorrador,
         planPortafolio: planPortafolio, ligaVideo: ligaVideo, rutaNasPermitida: rutaNasPermitida,

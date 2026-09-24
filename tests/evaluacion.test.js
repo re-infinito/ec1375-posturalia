@@ -60,7 +60,7 @@ test('validarCedula: publicar exige evaluador(a), fecha, juicio válido, comenta
     const falta = E.validarCedula({ juicio: 'TAL VEZ' });
     assert.ok(falta.includes('Nombre del evaluador(a)'));
     assert.ok(falta.includes('Fecha'));
-    assert.ok(falta.includes('Juicio (COMPETENTE / NO COMPETENTE)'));
+    assert.ok(falta.includes('Juicio (COMPETENTE / TODAVÍA NO COMPETENTE)'));
     assert.ok(falta.includes('Firma del evaluador(a)'));
     assert.ok(falta.includes('Al menos un comentario del resultado'));
     assert.deepEqual(E.validarCedula(publicada('NO COMPETENTE', { firmaEvaluador: { mode: 'draw', dataUrl: 'javascript:alert(1)' } })), ['Firma del evaluador(a)']);
@@ -250,4 +250,13 @@ test('sellosPortafolio: sin Cédula usa el evaluador predeterminado y avisa lo q
 test('CAMPOS_CEDULA: el formato 2026 agrega Incidencias, antes de Recomendaciones', () => {
     assert.deepEqual(E.CAMPOS_CEDULA.map(c => c.id),
         ['mejoresPracticas', 'areasOportunidad', 'criteriosNoCubiertos', 'incidencias', 'recomendaciones']);
+});
+
+test('una Cédula publicada con el texto viejo sigue contando como publicada', () => {
+    // Antes del 23 sep el juicio se guardaba como 'NO COMPETENTE'; el instrumento
+    // imprime 'TODAVÍA NO COMPETENTE' y es lo que se escribe desde entonces.
+    assert.ok(E.cedulaPublicada({ cedula: publicada('NO COMPETENTE') }));
+    assert.ok(E.cedulaPublicada({ cedula: publicada('TODAVÍA NO COMPETENTE') }));
+    assert.deepEqual(E.validarCedula(publicada('NO COMPETENTE')), []);
+    assert.equal(E.JUICIOS.indexOf('NO COMPETENTE'), -1);   // ya no se ofrece
 });

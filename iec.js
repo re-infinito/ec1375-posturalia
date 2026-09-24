@@ -27,6 +27,10 @@
     var R = typeof require === 'function' && typeof module !== 'undefined'
         ? require('./iec-reactivos.js') : root.IecReactivos;
 
+    /* La SEP no dice "NO COMPETENTE": el propio instrumento imprime
+       "TODAVÍA NO COMPETENTE" en su página 74 y así lo dice el expediente
+       aprobado. Lo guardado antes con el texto viejo se sigue aceptando. */
+    var NO_COMPETENTE = 'TODAVÍA NO COMPETENTE';
     var VERSION = '2026-09-22';
     var SI = 'si', NO = 'no';
 
@@ -75,7 +79,7 @@
             criteriosSinCumplir: sinCumplir, sinContestar: sinContestar,
             contestados: R.REACTIVOS.length - sinContestar.length, reactivos: R.REACTIVOS.length,
             completo: completo,
-            juicio: total >= R.UMBRAL && !sinCumplir.length ? 'COMPETENTE' : 'NO COMPETENTE'
+            juicio: total >= R.UMBRAL && !sinCumplir.length ? 'COMPETENTE' : NO_COMPETENTE
         };
     }
 
@@ -214,7 +218,7 @@
         return out.sort(function (a, b) { return a.elem - b.elem; });
     }
 
-    var api = { VERSION: VERSION, SI: SI, NO: NO, calificar: calificar, validar: validar, contradicciones: contradicciones,
+    var api = { VERSION: VERSION, NO_COMPETENTE: NO_COMPETENTE, SI: SI, NO: NO, calificar: calificar, validar: validar, contradicciones: contradicciones,
         sugerencias: sugerencias, guardar: guardar, secciones: secciones, criterios: criterios,
         faltanCuestionario: faltanCuestionario, cuestionario: R.CUESTIONARIO,
         estadoCandidato: estadoCandidato, ESTADOS: ESTADOS,

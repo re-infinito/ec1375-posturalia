@@ -50,7 +50,7 @@ test('calificar: el segundo criterio solo cuenta producto y desempeño', () => {
     R.REACTIVOS.filter(r => r.crit === 'P2E1').forEach(r => { sinCriterio[r.n] = 'no'; });
     const c = I.calificar(sinCriterio);
     assert.deepEqual(c.criteriosSinCumplir, ['P2E1']);
-    assert.equal(c.juicio, 'NO COMPETENTE');
+    assert.equal(c.juicio, 'TODAVÍA NO COMPETENTE');
     // un conocimiento en NO baja el puntaje pero no cuenta como criterio sin cumplir
     const sinConoc = todos('si');
     const c1 = R.REACTIVOS.find(r => r.tipo === 'C');
@@ -58,7 +58,7 @@ test('calificar: el segundo criterio solo cuenta producto y desempeño', () => {
     assert.deepEqual(I.calificar(sinConoc).criteriosSinCumplir, []);
 });
 
-test('calificar: por debajo del umbral es NO COMPETENTE aunque cubra los criterios', () => {
+test('calificar: por debajo del umbral es TODAVÍA NO COMPETENTE aunque cubra los criterios', () => {
     const casi = todos('si');
     // quitar un reactivo de peso mayor deja 97.14, abajo de 97.64
     const mayor = R.REACTIVOS.find(r => r.peso === 2.94);
@@ -66,7 +66,7 @@ test('calificar: por debajo del umbral es NO COMPETENTE aunque cubra los criteri
     const c = I.calificar(casi);
     assert.equal(c.total, I.redondear(100.08 - 2.94));
     assert.equal(c.alcanzaPuntaje, false);
-    assert.equal(c.juicio, 'NO COMPETENTE');
+    assert.equal(c.juicio, 'TODAVÍA NO COMPETENTE');
     assert.deepEqual(c.criteriosSinCumplir, [], 'su criterio sigue cubierto por los otros reactivos');
 });
 

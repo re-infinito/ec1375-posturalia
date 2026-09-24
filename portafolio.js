@@ -644,12 +644,12 @@
         y -= 18;
         var juicio = limpiar(ced.juicio || '');
         if (juicio) {
-            var jw = rec.negrita.widthOfTextAtSize(juicio, 12), sufijo = '  ( COMPETENTE / NO COMPETENTE )';
+            var jw = rec.negrita.widthOfTextAtSize(juicio, 12), sufijo = '  ( COMPETENTE / TODAVÍA NO COMPETENTE )';
             var tot = jw + rec.normal.widthOfTextAtSize(sufijo, 12), x0 = (W - tot) / 2;
             texto(p, rec, juicio, x0, y, 12, rec.negrita);
             p.drawLine({ start: { x: x0, y: y - 2 }, end: { x: x0 + jw, y: y - 2 }, thickness: 0.8, color: rec.negro });
             texto(p, rec, sufijo, x0 + jw, y, 12);
-        } else centrado(p, rec, '_______________________  ( COMPETENTE / NO COMPETENTE )', y, 12, rec.negrita);
+        } else centrado(p, rec, '_______________________  ( COMPETENTE / TODAVÍA NO COMPETENTE )', y, 12, rec.negrita);
         y -= 22;
         envolver('Estoy de acuerdo con el juicio de evaluación y satisfecho con los comentarios emitidos.', rec.normal, 9, W - 100)
             .forEach(function (l) { texto(p, rec, l, 50, y, 9); y -= 12; });

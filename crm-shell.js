@@ -807,11 +807,11 @@
                 var ico = e.hecha ? icon('check', 16) : t.actual === e.clave ? icon('play', 16) : icon(e.bloqueada ? 'lock' : 'clock', 16);
                 var sub = e.hecha && e.fecha ? new Date(e.fecha).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'America/Mexico_City' })
                     : e.bloqueada ? 'Después de tu nueva evidencia' : t.actual === e.clave ? 'En curso' : '';
-                if (e.clave === 'dictamen' && t.dictamen) sub = (t.dictamen === 'competente' ? 'COMPETENTE' : 'NO COMPETENTE') + (sub ? ' · ' + sub : '');
+                if (e.clave === 'dictamen' && t.dictamen) sub = (t.dictamen === 'competente' ? 'COMPETENTE' : 'TODAVÍA NO COMPETENTE') + (sub ? ' · ' + sub : '');
                 return '<li' + (!e.hecha && t.actual !== e.clave ? ' style="opacity:0.6"' : '') + '><span class="crm-st" style="color:' + color + '">' + ico + '</span><span>' + escapeHtml(e.label) + (sub ? '<div class="crm-muted">' + escapeHtml(sub) + '</div>' : '') + '</span></li>';
             }).join('') + '</ul>';
             evalCard = card('award', 'Tu evaluación', lista + (acciones.length ? '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;">' + acciones.join('') + '</div>' : ''),
-                t.dictamen ? '<span class="crm-count">' + (t.dictamen === 'competente' ? 'Competente' : 'No competente') + '</span>' : '');
+                t.dictamen ? '<span class="crm-count">' + (t.dictamen === 'competente' ? 'Competente' : 'Todavía no competente') + '</span>' : '');
         }
 
         /* hero */
