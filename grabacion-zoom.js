@@ -93,7 +93,7 @@
     async function montarTarjeta(el, ctx) {
         if (!el) return;
         var S = root.SalaEvidencias, esc = S._esc, sb = root.supabaseClient;
-        var st = { reserva: null, limite: null, error: '', resultados: null, prog: '', ocupado: false };
+        var st = { reserva: null, limite: null, error: '', resultados: null, prog: '', ocupado: false, rango: null };
         var pd = (ctx.row && ctx.row.autodiagnostico_data && ctx.row.autodiagnostico_data.personalData) || {};
         var nombre = pd.nombre || (ctx.row && ctx.row.nombre) || '', curp = pd.curp || (ctx.row && ctx.row.curp) || '';
         try {
@@ -113,7 +113,7 @@
             return ctx.guardar({ video: v });
         }
         function html() {
-            var ev = ctx.ev() || {}, ps = partes(), v = ventanaBusqueda(st.reserva);
+            var ev = ctx.ev() || {}, ps = partes(), v = st.rango || ventanaBusqueda(st.reserva);
             var h = st.error ? '<div class="crm-note">' + esc(st.error) + '</div>' : '';
             h += '<p><strong>Horario en la sala:</strong> ' + (st.reserva ? esc(S.fechaLarga(st.reserva.inicio)) + ' · ' + esc(S.horarioTexto(st.reserva.inicio, st.reserva.fin)) + ' <span class="crm-chip">' + esc(ESTADO_RESERVA[st.reserva.estado] || st.reserva.estado) + '</span>' : '<span class="crm-muted">sin horario</span>') + '</p>';
             h += '<p><strong>Fecha límite de evidencia:</strong> ' + (st.limite ? esc(S.fechaLarga(st.limite)) + (ev.limite_evidencia ? ' <span class="crm-chip info">extendida</span>' : '') : '<span class="crm-muted">— (Alineación sin pagar)</span>') + '</p>';
@@ -145,7 +145,9 @@
                     var a = archivoPrincipal(g.archivos);
                     return '<li><label><input type="checkbox" data-gz-sel="' + i + '"> ' + esc(S.fechaCorta(g.inicio)) + ' ' + esc(S.hora(g.inicio)) + ' h · ' + g.duracion + ' min · ' + mb(a.bytes) + ' · ' + esc(a.tipo) + '</label></li>';
                 }).join('') + '</ul><button type="button" class="crm-btn crm-btn-sm crm-btn-primary" id="gzLigar">Ligar seleccionadas</button>'
-                    : '<p class="crm-muted">No hay grabaciones de la sala en ese rango (Zoom tarda unos minutos en procesarlas).</p>';
+                    : '<p class="crm-muted">No hay grabaciones de la sala' + (st.rango ? ' entre el ' + esc(S.fechaCorta(st.rango.desde)) + ' ' + esc(S.hora(st.rango.desde)) + ' y el ' + esc(S.fechaCorta(st.rango.hasta)) + ' ' + esc(S.hora(st.rango.hasta)) + ' h' : ' en ese rango') +
+                      '. Si grabó fuera del horario que tenía apartado, amplía el rango. (Zoom tarda unos minutos en procesar una grabación recién terminada.)</p>' +
+                      '<button type="button" class="crm-btn crm-btn-sm" id="gzUltimos"' + (st.ocupado ? ' disabled' : '') + '>Buscar en los últimos 7 días</button>';
             }
             return h;
         }
@@ -162,13 +164,16 @@
                 if (!confirm('¿Quitar la extensión? Vuelve la fecha calculada desde el pago de Alineación.')) return;
                 if (await ctx.guardar({ limite_evidencia: null })) { var r = await sb.rpc('limite_evidencia_para', { p_email: ctx.email }); st.limite = r.error ? null : r.data; pintar(); }
             });
-            if (q('#gzBuscar')) q('#gzBuscar').addEventListener('click', async function () {
-                var d = deLocalMx(q('#gzDesde').value), h = deLocalMx(q('#gzHasta').value);
+            async function buscarEnZoom(d, h) {
                 if (!d || !h) { prog('Indica desde y hasta.'); return; }
-                st.ocupado = true; pintar(); prog('Buscando en Zoom…');
+                st.ocupado = true; st.rango = { desde: d, hasta: h }; pintar(); prog('Buscando en Zoom…');
                 try { var r = await llamar(await conToken(), { accion: 'zoom-buscar', desde: d, hasta: h }); st.resultados = r.grabaciones || []; prog(''); }
                 catch (e) { prog('No se pudo buscar: ' + e.message); }
                 st.ocupado = false; pintar();
+            }
+            if (q('#gzBuscar')) q('#gzBuscar').addEventListener('click', function () { buscarEnZoom(deLocalMx(q('#gzDesde').value), deLocalMx(q('#gzHasta').value)); });
+            if (q('#gzUltimos')) q('#gzUltimos').addEventListener('click', function () {
+                buscarEnZoom(new Date(Date.now() - 7 * 86400000).toISOString(), new Date().toISOString());
             });
             if (q('#gzLigar')) q('#gzLigar').addEventListener('click', async function () {
                 var sel = [].slice.call(el.querySelectorAll('[data-gz-sel]:checked')).map(function (c) { return st.resultados[Number(c.getAttribute('data-gz-sel'))]; });
