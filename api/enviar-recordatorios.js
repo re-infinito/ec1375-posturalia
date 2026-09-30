@@ -9,7 +9,8 @@
  */
 
 const { createClient } = require('@supabase/supabase-js');
-const { enviarRecordatorio24h, enviarRecordatorio1h } = require('../lib/send-email');
+const { enviarRecordatorio24h, enviarRecordatorio1h, enviarRecordatorioSala } = require('../lib/send-email');
+const Rec = require('../lib/recordatorios');
 
 const supabase = createClient(
     process.env.SUPABASE_URL,
@@ -40,8 +41,21 @@ function horaAhoraEnMexico(date = new Date()) {
 module.exports = async (req, res) => {
     res.setHeader('Content-Type', 'application/json');
 
-    if (req.method !== 'POST') {
+    if (req.method !== 'POST' && req.method !== 'GET') {
         return res.status(405).json({ error: 'Method not allowed' });
+    }
+
+    // Este endpoint MANDA CORREOS, así que no puede quedar abierto a quien
+    // adivine la URL. El disparador (GitHub Actions) manda el secreto en el
+    // header; es el mismo formato que usa el cron nativo de Vercel, por si
+    // algún día se mueve para allá. Sin CRON_SECRET no corre: es preferible
+    // que falle a gritos a que quede expuesto sin que nadie se entere.
+    const secreto = process.env.CRON_SECRET;
+    if (!secreto) {
+        return res.status(500).json({ error: 'Falta CRON_SECRET' });
+    }
+    if ((req.headers.authorization || '') !== `Bearer ${secreto}`) {
+        return res.status(401).json({ error: 'No autorizado' });
     }
 
     try {
@@ -55,10 +69,14 @@ module.exports = async (req, res) => {
         // Recordatorios de 1 hora
         const recordatorios1h = await procesarRecordatorios1h();
 
+        // Recordatorios de la sala de evidencias (24 h / 2 h / 1 h antes)
+        const sala = await procesarRecordatoriosSala();
+
         res.status(200).json({
             success: true,
             recordatorios_24h_enviados: recordatorios24h,
             recordatorios_1h_enviados: recordatorios1h,
+            sala_evidencias: sala,
             timestamp: ahora.toISOString()
         });
 
@@ -269,4 +287,110 @@ async function procesarRecordatorios1h() {
         console.error('Error en procesarRecordatorios1h:', error);
         return 0;
     }
+}
+
+/**
+ * Recordatorios de la SALA DE EVIDENCIAS: 24 h, 2 h y 1 h antes del horario
+ * que el candidato apartó en su Plan de Evaluación.
+ *
+ * A diferencia de las sesiones de Alineación, aquí el horario es un
+ * timestamptz (un instante), así que no hay conversión de zona que pueda
+ * desfasar los avisos: la ventana se decide restando. La zona solo se usa
+ * para escribir la fecha en el correo (lib/recordatorios.js).
+ *
+ * La marca de "ya enviado" vive en reservas_evidencia.recordatorios, junto a
+ * la reserva: si la reserva se cancela o se cambia de horario, la marca se va
+ * con ella y el horario nuevo vuelve a avisar desde cero.
+ */
+const SITIO = 'https://sepconocer.paideiatech.com';
+
+async function procesarRecordatoriosSala() {
+    const resultado = { enviados: 0, fallidos: 0, revisadas: 0 };
+    try {
+        const { data: cfg } = await supabase
+            .from('sala_evidencias_config').select('minutos_antes').eq('id', 1).maybeSingle();
+        const minutosAntes = (cfg && cfg.minutos_antes) || 30;
+
+        // Son pocas (una activa por candidato): se traen todas y se filtran
+        // aquí, en vez de intentar filtrar por la fecha de la tabla unida.
+        const { data: reservas, error } = await supabase
+            .from('reservas_evidencia')
+            .select('id, email, recordatorios, horarios_evidencia (inicio, fin)')
+            .eq('estado', 'reservada');
+
+        if (error) {
+            console.error('Recordatorios de sala: no se pudieron leer las reservas:', error.message);
+            return { ...resultado, error: error.message };
+        }
+
+        const ahora = Date.now();
+        const pendientes = [];
+        for (const r of reservas || []) {
+            const h = r.horarios_evidencia;
+            if (!h || !h.inicio) continue;
+            resultado.revisadas++;
+            const clave = Rec.avisoPendiente(h.inicio, ahora, r.recordatorios || {});
+            if (clave) pendientes.push({ reserva: r, horario: h, clave });
+        }
+        if (!pendientes.length) return resultado;
+
+        const nombres = await nombresPorCorreo();
+
+        for (const p of pendientes) {
+            const correo = p.reserva.email;
+            try {
+                await enviarRecordatorioSala({
+                    email: correo,
+                    nombre: Rec.nombreDePila(nombres[String(correo).toLowerCase()]),
+                    clave: p.clave,
+                    fechaLarga: Rec.fechaLargaMx(p.horario.inicio),
+                    rango: Rec.rangoMx(p.horario.inicio, p.horario.fin),
+                    minutosAntes,
+                    sitio: SITIO
+                });
+
+                // Se marca DESPUÉS de que Resend aceptó el envío: si falla, la
+                // marca no se pone y la siguiente corrida lo vuelve a intentar
+                // mientras siga dentro de su ventana.
+                const marcas = { ...(p.reserva.recordatorios || {}), [p.clave]: new Date().toISOString() };
+                await supabase.from('reservas_evidencia')
+                    .update({ recordatorios: marcas }).eq('id', p.reserva.id);
+
+                resultado.enviados++;
+                console.log(`✓ Recordatorio de sala (${p.clave}) enviado a ${correo}`);
+            } catch (err) {
+                resultado.fallidos++;
+                console.error(`Recordatorio de sala (${p.clave}) falló para ${correo}:`, err.message);
+            }
+        }
+        return resultado;
+    } catch (error) {
+        console.error('Error en procesarRecordatoriosSala:', error);
+        return { ...resultado, error: error.message };
+    }
+}
+
+/**
+ * correo → nombre del candidato, para saludarlo por su nombre.
+ * El nombre vive en candidatos_ec1375 (que no tiene columna de correo) y el
+ * correo en auth.users, así que se cruzan por user_id. Si algo falla, los
+ * recordatorios salen igual con un "Hola," a secas: el saludo no vale
+ * detener el envío.
+ */
+async function nombresPorCorreo() {
+    const mapa = {};
+    try {
+        const { data: filas } = await supabase.from('candidatos_ec1375').select('user_id, nombre');
+        if (!filas || !filas.length) return mapa;
+        const porId = {};
+        for (const f of filas) if (f.user_id && f.nombre) porId[f.user_id] = f.nombre;
+
+        const { data: usuarios } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 });
+        for (const u of (usuarios && usuarios.users) || []) {
+            if (u.email && porId[u.id]) mapa[u.email.toLowerCase()] = porId[u.id];
+        }
+    } catch (err) {
+        console.error('No se pudieron resolver los nombres (se saluda sin nombre):', err.message);
+    }
+    return mapa;
 }

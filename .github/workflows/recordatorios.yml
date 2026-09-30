@@ -1,0 +1,43 @@
+# Dispara los recordatorios cada hora.
+#
+# No se usa el cron nativo de Vercel por dos razones: el plan Hobby solo
+# permite crons una vez al día, y cualquier .js bajo api/ contaría contra el
+# límite de 12 funciones, que ya está topado. Esto no cuesta nada y no toca
+# ninguno de los dos límites.
+#
+# Para que empiece a funcionar hace falta el secreto CRON_SECRET en DOS lados,
+# con el mismo valor: en este repo (Settings → Secrets and variables →
+# Actions) y en Vercel (Project Settings → Environment Variables).
+# Mientras falte, este trabajo NO falla: avisa y se sale. Así no manda un
+# correo de error cada hora mientras se termina de configurar.
+name: Recordatorios de sesiones
+
+on:
+  schedule:
+    - cron: '0 * * * *'   # cada hora en punto (UTC; GitHub puede retrasarlo
+                          # unos minutos, las ventanas de aviso lo absorben)
+  workflow_dispatch:      # para correrlo a mano desde la pestaña Actions
+
+jobs:
+  recordatorios:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Llamar al endpoint de recordatorios
+        env:
+          SECRETO: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$SECRETO" ]; then
+            echo "::warning::Falta el secreto CRON_SECRET en este repositorio. No se llamó al endpoint."
+            exit 0
+          fi
+          codigo=$(curl -sS -o respuesta.json -w '%{http_code}' -X POST \
+            "https://sepconocer.paideiatech.com/api/enviar-recordatorios" \
+            -H "Authorization: Bearer $SECRETO" \
+            -H "Content-Type: application/json")
+          echo "HTTP $codigo"
+          cat respuesta.json || true
+          echo
+          if [ "$codigo" != "200" ]; then
+            echo "::error::El endpoint respondió $codigo"
+            exit 1
+          fi
