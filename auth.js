@@ -1003,7 +1003,7 @@ const Auth = {
     DEMO_LOCAL_KEYS: ['autodiagnosticoData', 'planEvaluacionData', 'documentosSesionData',
                       'encuestaSatisfaccionData', 'evidenciasData', 'examenConocimientosData', 'ec1375-state', 'guionChecklistState',
                       'ec1375-biblioteca-vistas', 'ec1375-biblioteca-ultima', 'ec1375-biblioteca-guia',
-                      'ec1375-alineacion-vistas', 'paideia-demo-apartado'],
+                      'ec1375-alineacion-vistas', 'paideia-demo-apartado', 'paideia-demo-reserva'],
     DEMO_APARTADO: 'paideia-demo-apartado',
 
     /* Foto de credencial ficticia (silueta) generada en canvas → JPEG real,

@@ -230,3 +230,34 @@ test('calendario: navegación solo entre meses que tienen horarios', () => {
     assert.match(S.calendarioHtml(dias, '2026-10', null), /septiembre de 2026/);
     assert.equal(S.calendarioHtml([], null, null), '');
 });
+
+/* Horarios de la cuenta demo (29 sep): antes sembraba una reserva en curso y
+   3 horarios a horas quebradas, así que no se podía enseñar cómo reservar. */
+test('demo: solo ofrece horarios vigentes, a más de 2 h', () => {
+    const lista = S.horariosDemo();
+    assert.ok(lista.length > 0, 'debe ofrecer horarios');
+    const minimo = Date.now() + 2 * 3600000;
+    for (const h of lista) {
+        assert.ok(Date.parse(h.inicio) > minimo, 'ninguno puede estar a menos de 2 h: ' + h.inicio);
+        assert.ok(Date.parse(h.fin) > Date.parse(h.inicio), 'el fin va después del inicio');
+    }
+});
+
+test('demo: horas redondas y en hora de México', () => {
+    for (const h of S.horariosDemo()) {
+        assert.match(S.hora(h.inicio), /^(09|11|16|18):00$/, 'hora redonda esperada, salió ' + S.hora(h.inicio));
+    }
+});
+
+test('demo: los identificadores son estables y no se repiten', () => {
+    const a = S.horariosDemo().map((x) => x.id);
+    const b = S.horariosDemo().map((x) => x.id);
+    assert.deepEqual(a, b, 'dos llamadas seguidas dan los mismos ids');
+    assert.equal(new Set(a).size, a.length, 'sin ids repetidos');
+});
+
+test('demo: el primer día ofrecido nunca es anterior a hoy', () => {
+    const hoy = S.fechaISO(Date.now());
+    const dias = S.agruparPorDia(S.horariosDemo()).map((d) => d.fecha);
+    for (const f of dias) assert.ok(f >= hoy, 'día pasado en la lista: ' + f);
+});

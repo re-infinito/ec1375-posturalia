@@ -310,12 +310,38 @@
 
     /* Cuenta demo (paideia.tech@outlook.com): datos ficticios, nunca el
        enlace real ni llamadas a las RPC de reserva. */
+    var DEMO_RESERVA = 'paideia-demo-reserva';
     var demo = null, demoHorarios = null;
     function esDemo() { return !!(root.Auth && root.Auth._isBypassSession === true); }
+    /* La reserva que el admin haga durante un video se guarda en el navegador
+       (y la borra "Reiniciar demo"). Si ya venció, se ignora: la demo nunca
+       debe abrir con un horario pasado a la vista. */
+    function reservaDemoGuardada() {
+        try {
+            var v = JSON.parse(leerLS(DEMO_RESERVA) || 'null');
+            return (v && v.fin && Date.parse(v.fin) > Date.now()) ? v : null;
+        } catch (e) { return null; }
+    }
+    /* Horarios ficticios a horas redondas, y solo los que todavía se pueden
+       tomar: la MISMA regla que el servidor (más de 2 h por delante). */
+    function horariosDemo() {
+        var HORAS = ['09:00', '11:00', '16:00', '18:00'];
+        var minimo = Date.now() + 2 * 3600000, hoy = fechaISO(Date.now()), lista = [];
+        for (var d = 0; d < 14; d++) {
+            var fecha = sumarDias(hoy, d);
+            for (var j = 0; j < HORAS.length; j++) {
+                var ini = mxAIso(fecha, HORAS[j]);
+                if (Date.parse(ini) <= minimo) continue;
+                lista.push({ id: 'demo-' + fecha + '-' + HORAS[j].replace(':', ''), inicio: ini,
+                             fin: new Date(Date.parse(ini) + 90 * MIN_MS).toISOString() });
+            }
+        }
+        return lista;
+    }
     function datosDemo() {
         var ahora = Date.now();
         if (!demo) demo = {
-            reserva: { id: 'demo', inicio: new Date(ahora - 5 * MIN_MS).toISOString(), fin: new Date(ahora + 85 * MIN_MS).toISOString(), estado: 'reservada' },
+            reserva: reservaDemoGuardada(),
             limite: sumarDias(fechaISO(ahora), 12), limite_extendido: false, minutos_antes: 10, horas_cambio: 24,
             sala: { url: null, id: '000 0000 0000', clave: 'DEMO' }, grabacion: { en_expediente: false, fecha: null }
         };
@@ -336,21 +362,33 @@
     }
     async function disponibles() {
         if (esDemo()) {
-            if (!demoHorarios) { var b = Date.now() + 2 * DIA_MS; demoHorarios = [0, 1, 2].map(function (i) { return { id: 'demo-' + i, inicio: new Date(b + i * 2 * 3600000).toISOString(), fin: new Date(b + i * 2 * 3600000 + 90 * MIN_MS).toISOString() }; }); }
-            return demoHorarios;
+            demoHorarios = horariosDemo();
+            var ya = datosDemo().reserva;
+            return ya ? demoHorarios.filter(function (x) { return x.id !== ya.id; }) : demoHorarios;
         }
         var r = await sb().rpc('horarios_evidencia_disponibles');
         if (r.error) throw new Error(mensajeError(r.error));
         return r.data || [];
     }
     async function reservar(id) {
-        if (esDemo()) { var h = (demoHorarios || []).filter(function (x) { return x.id === id; })[0]; datosDemo().reserva = { id: 'demo', inicio: h.inicio, fin: h.fin, estado: 'reservada' }; return datosDemo().reserva; }
+        if (esDemo()) {
+            var h = (demoHorarios || horariosDemo()).filter(function (x) { return x.id === id; })[0];
+            if (!h) throw new Error('Ese horario ya no está disponible. Elige otro.');
+            var nueva = { id: h.id, inicio: h.inicio, fin: h.fin, estado: 'reservada' };
+            datosDemo().reserva = nueva;
+            escribirLS(DEMO_RESERVA, JSON.stringify(nueva));
+            return nueva;
+        }
         var r = await sb().rpc('reservar_horario_evidencia', { p_horario: id });
         if (r.error) throw new Error(mensajeError(r.error));
         return r.data;
     }
     async function cancelar() {
-        if (esDemo()) { datosDemo().reserva = null; return true; }
+        if (esDemo()) {
+            datosDemo().reserva = null;
+            try { localStorage.removeItem(DEMO_RESERVA); } catch (e) { /* sin almacenamiento */ }
+            return true;
+        }
         var r = await sb().rpc('cancelar_mi_horario_evidencia');
         if (r.error) throw new Error(mensajeError(r.error));
         return r.data;
@@ -488,7 +526,7 @@
         TZ: TZ, LUGAR_SALA: LUGAR_SALA, WHATSAPP: WHATSAPP, _esc: esc,
         fechaISO: fechaISO, fechaLarga: fechaLarga, fechaCorta: fechaCorta, hora: hora, horarioTexto: horarioTexto,
         mxAIso: mxAIso, sumarDias: sumarDias, limiteDesde: limiteDesde, limiteInfo: limiteInfo, esUrlZoom: esUrlZoom, esEnlaceDeInicio: esEnlaceDeInicio, horasDeTexto: horasDeTexto,
-        cuentaRegresiva: cuentaRegresiva, estado: estado, puedeCambiar: puedeCambiar,
+        cuentaRegresiva: cuentaRegresiva, estado: estado, puedeCambiar: puedeCambiar, horariosDemo: horariosDemo,
         generarHorarios: generarHorarios, agruparPorDia: agruparPorDia,
         mesDe: mesDe, nombreMes: nombreMes, gridMes: gridMes, mesesConHorarios: mesesConHorarios, calendarioHtml: calendarioHtml,
         tarjetaHtml: tarjetaHtml, avisoHtml: avisoHtml, grabacionHtml: grabacionHtml, selectorHtml: selectorHtml, reservaHtml: reservaHtml,
